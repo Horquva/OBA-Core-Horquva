@@ -17,6 +17,7 @@ from modules.verification_intelligence import run_verification_intelligence, dis
 from modules.workflow_orchestration_intelligence import run_workflow_orchestration_intelligence, display_orchestration_report
 from modules.decision_intelligence import run_decision_intelligence, display_decision_report
 from modules.organizational_continuity_intelligence import run_continuity_intelligence, display_continuity_report
+from modules.organizational_intelligence_engine import run_intelligence_engine, display_intelligence_report
 
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -103,7 +104,12 @@ def main():
     display_continuity_report(continuity_nodes, continuity_plans, continuity_score, continuity_dept_map, company)
     console.print("\n" + "-" * 60 + "\n")
 
-    console.print("\n=== OBA Core Analysis Complete — 14 Modules ===\n")
+    # Phase 2 — Organizational Intelligence Engine (Five Pillars Integration, Kamran)
+    pillars, pillar_relationships, org_intelligence_score = run_intelligence_engine(DATA_PATH)
+    display_intelligence_report(pillars, pillar_relationships, org_intelligence_score, company)
+    console.print("\n" + "-" * 60 + "\n")
+
+    console.print("\n=== OBA Core Analysis Complete — 14 Modules + Organizational Intelligence Engine ===\n")
 
 
 if __name__ == "__main__":

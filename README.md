@@ -40,9 +40,7 @@ OBA Core is a full-stack intelligence platform with three layers:
 
 ---
 
-## Intelligence Modules (14 Live · Rolling Out in Sequence toward 20)
-
-> **Module rollout note:** Modules are added to OBA Core **in sequence**, engineer by engineer. Each AI engineer ships their own modules and updates this README when they land. The 4 module-engineering tracks (Huzaifa, Kamran, Anusha, + 2 more engineers in progress) will bring the platform to a planned **20 modules total**. The list below reflects every module merged so far.
+## Intelligence Modules (14 Total)
 
 ### Module 01 — Ownership Intelligence
 ![Module 01 Output](Images/agent_summary.png)
@@ -364,6 +362,41 @@ Scores every asset on its ability to survive a major disruption (a key person le
 
 ---
 
+### Organizational Intelligence Engine — Five Pillars Integration (Phase 2 · Platform Foundation)
+
+The platform foundation that connects every individual module into one unified system. Instead of reading 14 separate reports, leadership gets a single integrated view built on three layers — **Intelligence Logic** (shared signals derived from every asset), **Intelligence Relationships** (how one weakness drags others down), and **Intelligence Scoring** (one comparable score per dimension) — rolled up across the **Five Pillars**.
+
+**The Five Pillars:**
+| Pillar | Code | What it measures |
+|--------|------|------------------|
+| Domain Intelligence | DI | Is the organization mapped — ownership, dependencies, documented domain? |
+| Memory Intelligence | MI | What knowledge is retained vs. trapped in one person's head? |
+| Operational Intelligence | OI | Can day-to-day operations absorb a person or tool going down? |
+| Organizational Continuity Intelligence | OCI | What survives a major disruption (criticality-weighted)? |
+| Governance Intelligence | GI | Accountability and compliance — owners, backups, documentation? |
+
+**How it works:**
+- **Intelligence Logic** — flattens agents, workflows, and AI tools into one comparable asset surface and derives shared signals (ownership, backup, documentation, dependency and criticality coverage)
+- **Intelligence Scoring** — scores each pillar 0–100 (`STRONG / MODERATE / WEAK / CRITICAL`) and rolls them into one **Organizational Intelligence Score**
+- **Intelligence Relationships** — flags when a weak pillar drags another (e.g. weak Memory → weaker Continuity), so leadership fixes the root cause instead of the symptom
+
+**Rating bands:** `80+ = STRONG` · `60–79 = MODERATE` · `40–59 = WEAK` · `< 40 = CRITICAL`
+
+**Sunrise Care findings:**
+| Pillar | Score | Rating |
+|--------|-------|--------|
+| Domain Intelligence (DI) | 81/100 | STRONG |
+| Memory Intelligence (MI) | 53/100 | WEAK |
+| Operational Intelligence (OI) | 41/100 | WEAK |
+| Organizational Continuity Intelligence (OCI) | 56/100 | WEAK |
+| Governance Intelligence (GI) | 55/100 | WEAK |
+
+- The domain is well-mapped (ownership on 25/27 assets), but **Memory, Operational, Continuity and Governance are all weak** — knowledge lives in people's heads, not documents
+- 4 dragging relationships detected — **MI→OCI, OI→OCI, GI→DI, GI→OCI** — weak governance and memory are the root cause pulling continuity down
+- **Organizational Intelligence Score: 57/100 — WEAK**
+
+---
+
 ## Demo Results Summary
 
 ![Demo Summary](Images/WhatTAha.png)
@@ -390,6 +423,7 @@ Scores every asset on its ability to survive a major disruption (a key person le
 | Decision Quality Index (Module 14) | **67/100 — MIXED** |
 | Assets That Must Be Protected (Module 18) | 10 |
 | Organizational Continuity Score (Module 18) | **63/100 — AT RISK** |
+| Organizational Intelligence Score (Engine — Five Pillars) | **57/100 — WEAK** |
 
 ---
 
@@ -535,8 +569,9 @@ OBA-Core-Horquva/
 │   ├── organizational_memory_intelligence.py  # Module 10 — Organizational Memory
 │   ├── verification_intelligence.py           # Module 15 — Verification Intelligence
 │   ├── workflow_orchestration_intelligence.py # Module 16 — Workflow Orchestration
-│   ├── decision_intelligence.py               # Module 14 — Decision Intelligence 
-│   └── organizational_continuity_intelligence.py # Module 18 — Organizational Continuity Intelligence 
+│   ├── decision_intelligence.py               # Module 14 — Decision Intelligence (Kamran)
+│   ├── organizational_continuity_intelligence.py # Module 18 — Organizational Continuity Intelligence (Kamran)
+│   └── organizational_intelligence_engine.py  # Phase 2 — Organizational Intelligence Engine (Kamran)
 │
 ├── backend/
 │   ├── index.js                               # Express server — all routes registered here
@@ -675,9 +710,6 @@ OBA-Core-Horquva/
 | Module 16 | Workflow Orchestration Intelligence | Anusha |
 | Module 14 | Decision Intelligence | Kamran |
 | Module 18 | Organizational Continuity Intelligence | Kamran |
-
-
-
+| Phase 2 | Organizational Intelligence Engine (Five Pillars Integration) | Kamran |
 ---
-
 ***Built by Horquva Engineering · MVP Release · 2026***
