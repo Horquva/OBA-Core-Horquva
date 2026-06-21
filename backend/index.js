@@ -31,8 +31,16 @@ app.use('/api/knowledge/intelligence', require('./routes/knowledge/intelligence'
 app.use('/api/knowledge/impact',       require('./routes/knowledge/impact'))
 app.use('/api/knowledge/gaps',         require('./routes/knowledge/gaps'))
 app.use('/api/memory', require('./routes/memory/memory'))
-app.use('/api/verification', require('./routes/verification/index'))
-app.use('/api/orchestration', require('./routes/orchestration/index'))
+app.use('/api/verification', require('./routes/verification/intelligence'))
+app.use('/api/orchestration', require('./routes/orchestration/orchestration'))
+app.use('/api/decisions', require('./routes/decisions/decisions'))
+app.use('/api/continuity', require('./routes/continuity/continuity'))
+app.use('/api/learning', require('./routes/learning/learning'))
+app.use('/api/governance', require('./routes/governance/governance'))
+app.use('/api/predictive-risk', require('./routes/predictive/predictiveRisk'))
+app.use('/api/forecast', require('./routes/forecast/forecast'))
+app.use('/api/collaboration', require('./routes/collaboration/collaboration'))
+app.use('/api/accountability', require('./routes/accountability/accountability'))
 console.log("4. Routes loaded")
 
 const PORT = process.env.PORT || 3000
