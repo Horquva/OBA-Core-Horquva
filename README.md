@@ -463,7 +463,7 @@ Builds RACI-style accountability links for every asset — who is Responsible, A
 
 ---
 
-### Intelligence Platform Foundation
+### Intelligence Platform Foundation 
 
 The shared data + intelligence backbone that powers the Governance and Accountability modules and standardizes how every pillar reads organizational data.
 
@@ -475,7 +475,7 @@ The shared data + intelligence backbone that powers the Governance and Accountab
 
 ---
 
-### Organizational Intelligence Engine — Five Pillars Integration (Phase 2)
+### Organizational Intelligence Engine — Five Pillars Integration 
 
 The platform foundation that connects every individual module into one unified system. Instead of reading 14 separate reports, leadership gets a single integrated view built on three layers — **Intelligence Logic** (shared signals derived from every asset), **Intelligence Relationships** (how one weakness drags others down), and **Intelligence Scoring** (one comparable score per dimension) — rolled up across the **Five Pillars**.
 
@@ -599,16 +599,53 @@ Server starts on **`http://localhost:3000`**
 | `GET /api/simulations/agent-fails` | 05 | Health Score impact when an agent fails |
 | `GET /api/simulations/platform-down` | 05 | Health Score impact when a tool goes offline |
 | `GET /api/simulations/workflow-disruption` | 05 | Health Score impact when a workflow breaks |
-| `GET /api/verification` | 15 | All verification logs with status and compliance |
-| `GET /api/verification/flagged` | 15 | Only flagged/non-compliant actions |
+| `GET /api/predictive-risk/summary` | 11 | Predicted risk counts: critical, high, medium, emerging |
+| `GET /api/predictive-risk/agents` | 11 | Per-agent predicted risk escalation with classification |
+| `GET /api/predictive-risk/critical` | 11 | Only agents predicted to reach CRITICAL risk |
+| `GET /api/predictive-risk/emerging` | 11 | Emerging threats detected before failure |
+| `GET /api/predictive-risk/agent/:name` | 11 | Predicted risk detail for a single agent |
+| `GET /api/forecast/summary` | 12 | 30/60/90-day organizational outlook summary |
+| `GET /api/forecast/health` | 12 | Forecasted organizational health trajectory |
+| `GET /api/forecast/memory` | 12 | Forecasted institutional memory trajectory |
+| `GET /api/forecast/continuity` | 12 | Forecasted continuity / survival trajectory |
+| `GET /api/forecast/outlook` | 12 | Overall organizational outlook score |
+| `GET /api/collaboration/adoption` | 13 | AI adoption across the workforce |
+| `GET /api/collaboration/dependency` | 13 | Human dependency concentration |
+| `GET /api/collaboration/score` | 13 | Human-AI collaboration effectiveness score |
+| `GET /api/collaboration/people` | 13 | Per-person collaboration profile |
+| `GET /api/collaboration/departments` | 13 | Per-department collaboration breakdown |
+| `GET /api/decisions/index` | 14 | Decision Quality Index |
+| `GET /api/decisions/all` | 14 | All reconstructed decisions with quality scores |
+| `GET /api/decisions/harmful` | 14 | Decisions scored as HARMFUL |
+| `GET /api/decisions/trail/:id` | 14 | Full decision trail for one decision |
+| `GET /api/decisions/recommendations` | 14 | Decision-improvement recommendations |
 | `GET /api/verification/summary` | 15 | Total counts: completed, flagged, violations |
-| `POST /api/verification` | 15 | Log a new verification record |
-| `GET /api/orchestration` | 16 | All workflow orchestration states |
-| `GET /api/orchestration/blocked` | 16 | Workflows currently blocked by collisions |
-| `GET /api/orchestration/collisions` | 16 | All detected actor collisions across workflows |
+| `GET /api/verification/actions` | 15 | All tracked actions (human / agent / tool) |
+| `GET /api/verification/flagged` | 15 | Only flagged / non-compliant actions |
+| `GET /api/verification/actor/:name` | 15 | Verification record for a single actor |
 | `GET /api/orchestration/summary` | 16 | Total counts: running, blocked, collisions |
-| `POST /api/orchestration` | 16 | Save a workflow orchestration state |
-| `PATCH /api/orchestration/:workflow_id` | 16 | Update a workflow's step or status |
+| `GET /api/orchestration/workflows` | 16 | All workflow orchestration states |
+| `GET /api/orchestration/collisions` | 16 | Detected actor collisions across workflows |
+| `GET /api/orchestration/blocked` | 16 | Workflows currently blocked by shared resources |
+| `GET /api/learning/summary` | 17 | Learning Maturity Score summary |
+| `GET /api/learning/failures` | 17 | Failure patterns analyzed across the org |
+| `GET /api/learning/decisions` | 17 | Learning signals derived from past decisions |
+| `GET /api/learning/incidents` | 17 | Incident exposure history |
+| `GET /api/learning/departments` | 17 | Per-department learning maturity |
+| `GET /api/continuity/score` | 18 | Organizational continuity score |
+| `GET /api/continuity/assets` | 18 | Asset survival: SURVIVES / DEGRADED / FAILS / LOST |
+| `GET /api/continuity/risk-map` | 18 | Continuity risk map across assets |
+| `GET /api/continuity/must-protect` | 18 | Critical assets that must be protected |
+| `GET /api/continuity/plans` | 18 | Generated continuity plans for critical assets |
+| `GET /api/governance/score` | 19 | Governance score |
+| `GET /api/governance/assets` | 19 | Per-asset governance status |
+| `GET /api/governance/heatmap` | 19 | Governance heatmap by department |
+| `GET /api/governance/gaps` | 19 | Ownership and documentation gaps |
+| `GET /api/governance/offenders` | 19 | Worst governance offenders |
+| `GET /api/accountability/score` | 20 | Accountability score (RACI model) |
+| `GET /api/accountability/entities` | 20 | RACI entities: Responsible / Accountable / Consulted / Informed |
+| `GET /api/accountability/chains` | 20 | Accountability chains across the org |
+| `GET /api/accountability/issues` | 20 | Accountability gaps and conflicts |
 
 #### Environment Setup
 
@@ -714,10 +751,26 @@ OBA-Core-Horquva/
 │       │   └── gaps.js                        # /api/knowledge/gaps
 │       ├── memory/
 │       │   └── memory.js                      # /api/memory
+│       ├── predictive/
+│       │   └── predictiveRisk.js              # /api/predictive-risk (Module 11)
+│       ├── forecast/
+│       │   └── forecast.js                    # /api/forecast (Module 12)
+│       ├── collaboration/
+│       │   └── collaboration.js               # /api/collaboration (Module 13)
+│       ├── decisions/
+│       │   └── decisions.js                   # /api/decisions (Module 14)
 │       ├── verification/
-│       │   └── index.js                       # /api/verification (Module 15)
-│       └── orchestration/
-│           └── index.js                       # /api/orchestration (Module 16)
+│       │   └── intelligence.js                # /api/verification (Module 15)
+│       ├── orchestration/
+│       │   └── orchestration.js               # /api/orchestration (Module 16)
+│       ├── learning/
+│       │   └── learning.js                    # /api/learning (Module 17)
+│       ├── continuity/
+│       │   └── continuity.js                  # /api/continuity (Module 18)
+│       ├── governance/
+│       │   └── governance.js                  # /api/governance (Module 19)
+│       └── accountability/
+│           └── accountability.js              # /api/accountability (Module 20)
 │
 ├── frontend/
 │   ├── app/
