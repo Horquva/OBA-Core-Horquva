@@ -1,0 +1,174 @@
+{
+  "company": "Sunrise Care",
+  "governance_score": 47,
+  "total_entities": 27,
+  "critical_gaps": 10,
+  "results": [
+    {
+      "entity": "Lead Scoring Agent",
+      "type": "agent",
+      "score": 30,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "Lead Qualification Agent",
+      "type": "agent",
+      "score": 30,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "Scheduling Agent",
+      "type": "agent",
+      "score": 35,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "CRM Sync Agent",
+      "type": "agent",
+      "score": 50,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "Billing Agent",
+      "type": "agent",
+      "score": 30,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "Support Ticket Agent",
+      "type": "agent",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "Customer Feedback Agent",
+      "type": "agent",
+      "score": 75,
+      "level": "WARNING"
+    },
+    {
+      "entity": "Onboarding Agent",
+      "type": "agent",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "Payroll Agent",
+      "type": "agent",
+      "score": 30,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "Compliance Monitor Agent",
+      "type": "agent",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "Email Campaign Agent",
+      "type": "agent",
+      "score": 75,
+      "level": "WARNING"
+    },
+    {
+      "entity": "Report Generator Agent",
+      "type": "agent",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "Inventory Agent",
+      "type": "agent",
+      "score": 0,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "Data Backup Agent",
+      "type": "agent",
+      "score": 0,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "Appointment Reminder Agent",
+      "type": "agent",
+      "score": 75,
+      "level": "WARNING"
+    },
+    {
+      "entity": "ChatGPT",
+      "type": "tool",
+      "score": 30,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "Claude",
+      "type": "tool",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "GitHub Copilot",
+      "type": "tool",
+      "score": 75,
+      "level": "WARNING"
+    },
+    {
+      "entity": "Gemini",
+      "type": "tool",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "Microsoft Copilot",
+      "type": "tool",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "Lead Generation Workflow",
+      "type": "workflow",
+      "score": 30,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "Marketing Campaign Workflow",
+      "type": "workflow",
+      "score": 75,
+      "level": "WARNING"
+    },
+    {
+      "entity": "Employee Onboarding Workflow",
+      "type": "workflow",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "Compliance Review Workflow",
+      "type": "workflow",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "Customer Support Workflow",
+      "type": "workflow",
+      "score": 55,
+      "level": "AT RISK"
+    },
+    {
+      "entity": "IT Operations Workflow",
+      "type": "workflow",
+      "score": 30,
+      "level": "CRITICAL"
+    },
+    {
+      "entity": "Analytics Reporting Workflow",
+      "type": "workflow",
+      "score": 55,
+      "level": "AT RISK"
+    }
+  ],
+  "_meta": {
+    "timestamp": "2026-06-21T13:20:51.295194",
+    "pillar": "governance"
+  }
+}
