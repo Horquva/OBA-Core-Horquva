@@ -34,13 +34,13 @@ OBA Core is a full-stack intelligence platform with three layers:
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| Intelligence Engine | Python · uv · rich | 14 analytical modules that process org data |
+| Intelligence Engine | Python · uv · rich | 20 analytical modules that process org data |
 | Backend API | Node.js · Express · Supabase | REST API serving all intelligence data |
 | Executive Dashboard | Next.js 16 · TypeScript · Tailwind · Recharts | Interactive visualization for leadership |
 
 ---
 
-## Intelligence Modules (14 Total)
+## Intelligence Modules (20 Total)
 
 ### Module 01 — Ownership Intelligence
 ![Module 01 Output](Images/agent_summary.png)
@@ -267,6 +267,88 @@ Tracks the institutional memory preservation status of every AI asset and calcul
 
 ---
 
+### Module 11 — Predictive Risk Intelligence
+
+Predicts which agents are *likely* to escalate to high/critical risk in the near future and surfaces emerging threats before they happen — an explainable, weighted ML-style risk model.
+
+**What it does:**
+- Scores every agent on a forward-looking risk model using current criticality, dependency exposure, owner/backup coverage, AI-tool (platform) health, and critical-workflow membership
+- Classifies each agent's predicted threat: `LOW / MEDIUM / HIGH / CRITICAL`
+- Flags emerging threats — agents not critical today but predicted to become critical
+- Gives a plain-English reason list per agent for full explainability
+
+**Sunrise Care findings:**
+- 4 agents predicted at CRITICAL threat, 2 at HIGH, 8 at MEDIUM
+- Heavy dependency exposure + missing backups are the top escalation drivers
+- Orphaned agents (Inventory, Data Backup) carry the highest predicted risk
+
+---
+
+### Module 12 — Organizational Forecasting Intelligence
+
+Forecasts the future state of the organization across Health, Memory, and Continuity, and projects a 30 / 60 / 90 day outlook.
+
+**What it does:**
+- **Health Forecast** — will the agent + tool ecosystem degrade?
+- **Memory Forecast** — risk of losing institutional knowledge when key owners leave (no backup / no docs)
+- **Continuity Forecast** — can workflows keep running under stress (criticality-weighted resilience)?
+- Rolls the three forecasts into a single 90-Day Organizational Outlook
+
+**Sunrise Care findings:**
+- **90-Day Organizational Outlook: 52/100 — AT RISK**
+- Memory is the weakest dimension — knowledge concentrated on a few owners with no backup
+- Several critical workflows are fragile (no backup owner, undocumented)
+
+---
+
+### Module 13 — Human-AI Collaboration Intelligence
+
+Analyzes the human side of the AI ecosystem — adoption, dependency concentration, and how effective human-agent pairing really is.
+
+**What it does:**
+- **AI Adoption Score** — how broadly the workforce engages with AI tools
+- **Human Dependency Score** — whether individuals are over-relied-upon (too many critical agents/workflows on one person)
+- **Collaboration Score** — effectiveness of human-agent pairing (documented + backed-up ownership)
+- Surfaces the people at highest dependency risk and departments with weak AI coverage
+
+**Sunrise Care findings:**
+- **AI Adoption: 100/100** — every named staff member uses at least one AI tool
+- **Human Dependency: 54/100** — dangerous concentration (Robert carries the most critical load)
+- **Collaboration: 40/100** — most agents still lack documentation or a backup owner
+
+---
+
+### Module 14 — Decision Intelligence
+
+Reconstructs the key organizational decisions encoded in the data, builds a decision trail for each, and scores how sound each decision was — answering *why* a decision was made, *what influenced it*, and *was it the right call*.
+
+**What it does:**
+- Treats every ownership assignment, tool adoption, and workflow setup as an explicit **decision** and rebuilds its **decision trail** (the reasoning chain that led to it)
+- Surfaces the **influences** behind each decision: criticality, owner concentration, backup coverage, documentation, fallback availability
+- Scores **Decision Quality** per decision: `GOOD / ACCEPTABLE / POOR / HARMFUL`
+- Computes a single org-wide **Decision Quality Index (0–100)** so leadership can see whether the org's past decisions are sound, mixed, or weak
+- Generates a targeted fix for every poor or harmful decision
+
+**Decision Quality Scoring (start 100, penalties applied):**
+| Factor | Penalty |
+|--------|---------|
+| Asset left with no owner (orphaned) | −65 (ownership) / −50 (workflow) |
+| No backup owner chosen | −25 |
+| Deployed without documentation / runbook | −15 to −20 |
+| Owner already concentrates 5+ agents | −20 |
+| Critical asset/tool/workflow with no backup or fallback | −15 to −20 |
+| Critical tool adopted with no fallback selected | −30 |
+
+**Score → Quality Tier:** `80+ = GOOD` · `55–79 = ACCEPTABLE` · `30–54 = POOR` · `< 30 = HARMFUL`
+
+**Sunrise Care findings:**
+- 27 organizational decisions audited across ownership, tooling, and workflows
+- 3 HARMFUL decisions — all assigning a **critical agent to Robert with zero backup** (Lead Scoring, Lead Qualification, Billing)
+- 8 POOR decisions, including adopting **ChatGPT as a critical tool with no fallback** and leaving Inventory + Data Backup agents unassigned
+- **Decision Quality Index: 67/100 — MIXED**
+
+---
+
 ### Module 15 — Verification Intelligence
 
 Tracks and verifies every action taken across the organization — by humans, AI agents, or tools — and flags actions that violate ownership or policy rules.
@@ -302,34 +384,20 @@ Determines the next step in every workflow, assigns it to the correct actor, and
 
 ---
 
-### Module 14 — Decision Intelligence
+### Module 17 — Organizational Learning Intelligence
 
-Reconstructs the key organizational decisions encoded in the data, builds a decision trail for each, and scores how sound each decision was — answering *why* a decision was made, *what influenced it*, and *was it the right call*.
+Enables the system to learn from the organization's current state — failure patterns, decision follow-through, and incident exposure — and scores overall learning maturity.
 
 **What it does:**
-- Treats every ownership assignment, tool adoption, and workflow setup as an explicit **decision** and rebuilds its **decision trail** (the reasoning chain that led to it)
-- Surfaces the **influences** behind each decision: criticality, owner concentration, backup coverage, documentation, fallback availability
-- Scores **Decision Quality** per decision: `GOOD / ACCEPTABLE / POOR / HARMFUL`
-- Computes a single org-wide **Decision Quality Index (0–100)** so leadership can see whether the org's past decisions are sound, mixed, or weak
-- Generates a targeted fix for every poor or harmful decision
-
-**Decision Quality Scoring (start 100, penalties applied):**
-| Factor | Penalty |
-|--------|---------|
-| Asset left with no owner (orphaned) | −65 (ownership) / −50 (workflow) |
-| No backup owner chosen | −25 |
-| Deployed without documentation / runbook | −15 to −20 |
-| Owner already concentrates 5+ agents | −20 |
-| Critical asset/tool/workflow with no backup or fallback | −15 to −20 |
-| Critical tool adopted with no fallback selected | −30 |
-
-**Score → Quality Tier:** `80+ = GOOD` · `55–79 = ACCEPTABLE` · `30–54 = POOR` · `< 30 = HARMFUL`
+- **Learn from Failures** — identifies failure-prone assets (undocumented + unbacked + critical) and likely repeat offenders
+- **Learn from Decisions** — measures how many known risks are still unmitigated (critical assets without backup / docs)
+- **Learn from Incidents** — ranks departments by incident exposure (weakest documentation + backup coverage)
+- Computes an overall **Learning Maturity Score**
 
 **Sunrise Care findings:**
-- 27 organizational decisions audited across ownership, tooling, and workflows
-- 3 HARMFUL decisions — all assigning a **critical agent to Robert with zero backup** (Lead Scoring, Lead Qualification, Billing)
-- 8 POOR decisions, including adopting **ChatGPT as a critical tool with no fallback** and leaving Inventory + Data Backup agents unassigned
-- **Decision Quality Index: 67/100 — MIXED**
+- **Learning Maturity: 40/100 — EARLY STAGE**
+- Several critical assets show repeatable weakness patterns (undocumented + no backup)
+- Departments with the lowest documentation + backup coverage are the most incident-prone
 
 ---
 
@@ -362,7 +430,52 @@ Scores every asset on its ability to survive a major disruption (a key person le
 
 ---
 
-### Organizational Intelligence Engine — Five Pillars Integration (Phase 2 · Platform Foundation)
+### Module 19 — Governance Intelligence
+
+Scores how well every asset is governed — owner accountability, documentation, and policy coverage — and builds a department-level governance heatmap with gap detection.
+
+**What it does:**
+- Assesses each entity (agent, tool, workflow) for governance: owner assigned, documented, policy coverage, policy freshness
+- Scores each entity 0—100 and classifies it `HEALTHY / WARNING / AT RISK / CRITICAL`
+- Builds a governance heatmap and detects governance gaps ranked by severity
+- Computes an org-wide Governance Score
+
+**Sunrise Care findings:**
+- **Governance Score: 47/100 — AT RISK**
+- No formal governance policies cover most assets — ownership and documentation gaps dominate
+- High-criticality, undocumented, unbacked assets are the worst governance offenders
+
+---
+
+### Module 20 — Accountability Intelligence
+
+Builds RACI-style accountability links for every asset — who is Responsible, Accountable, Consulted, Informed — maps responsibility chains, and scores accountability coverage.
+
+**What it does:**
+- Derives accountability links (Responsible / Accountable / Consulted / Informed / Decision Authority) for each entity
+- Builds responsibility chains and detects weak structures (e.g. same person Responsible *and* Accountable)
+- Scores each entity and computes an org-wide Accountability Score
+
+**Sunrise Care findings:**
+- **Accountability Score: 76/100 — WARNING**
+- 13 entities carry accountability links, but **7 have the same person Responsible and Accountable** — no separation of duties
+- Only 4 unique people appear across all responsibility chains — heavy concentration
+
+---
+
+### Intelligence Platform Foundation
+
+The shared data + intelligence backbone that powers the Governance and Accountability modules and standardizes how every pillar reads organizational data.
+
+**What it provides:**
+- **Organizational Data Models** — typed entities for agents, tools, workflows, policies, accountability links, and governance gaps
+- **Intelligence Pipeline** — normalizes raw org data into a single comparable entity surface and derives policies + accountability links
+- **Governance Data Framework** — reusable governance scoring, heatmap, and gap-detection logic
+- **Intelligence Storage Layer** — persists pillar analyses and a queryable intelligence index
+
+---
+
+### Organizational Intelligence Engine — Five Pillars Integration (Phase 2)
 
 The platform foundation that connects every individual module into one unified system. Instead of reading 14 separate reports, leadership gets a single integrated view built on three layers — **Intelligence Logic** (shared signals derived from every asset), **Intelligence Relationships** (how one weakness drags others down), and **Intelligence Scoring** (one comparable score per dimension) — rolled up across the **Five Pillars**.
 
@@ -396,7 +509,6 @@ The platform foundation that connects every individual module into one unified s
 - **Organizational Intelligence Score: 57/100 — WEAK**
 
 ---
-
 ## Demo Results Summary
 
 ![Demo Summary](Images/WhatTAha.png)
@@ -423,38 +535,26 @@ The platform foundation that connects every individual module into one unified s
 | Decision Quality Index (Module 14) | **67/100 — MIXED** |
 | Assets That Must Be Protected (Module 18) | 10 |
 | Organizational Continuity Score (Module 18) | **63/100 — AT RISK** |
+| Predicted Critical Threats (Module 11) | 4 |
+| 90-Day Organizational Outlook (Module 12) | **52/100 — AT RISK** |
+| AI Adoption / Human Dependency / Collaboration (Module 13) | 100 / 54 / 40 |
+| Learning Maturity (Module 17) | **40/100 — EARLY STAGE** |
+| Governance Score (Module 19) | **47/100 — AT RISK** |
+| Accountability Score (Module 20) | **76/100 — WARNING** |
 | Organizational Intelligence Score (Engine — Five Pillars) | **57/100 — WEAK** |
 
 ---
-
-## Demo Dataset
-
-**File:** `data/sunrise_care.json`
-
-A purpose-built fictional company dataset engineered to stress-test all 14 modules simultaneously.
-
-- 120 employees across 8 departments
-- 15 AI agents: Sales, Finance, HR, Operations, Support, Marketing
-- 14 agent dependency relationships
-- 5 AI tools in active use
-- 7 business workflows mapped end-to-end
-- 3 primary owners: Robert (5 agents), Sarah (3 agents), Lisa (2 agents)
-- 2 fully orphaned agents: Inventory Agent, Data Backup Agent
-- Designed so Robert's departure triggers maximum cascade damage across the org
-
----
-
 ## How to Run
 
 ### 1 — Python Intelligence Engine
 
-Runs all 14 modules in sequence and prints full analysis to the terminal.
+Runs all 20 modules in sequence and prints full analysis to the terminal.
 
 ```bash
 # Install dependencies (requires uv)
 uv sync
 
-# Run all 14 modules
+# Run all 20 modules
 uv run main.py
 ```
 
@@ -557,21 +657,31 @@ OBA-Core-Horquva/
 │
 ├── modules/
 │   ├── __init__.py
-│   ├── ownership_intelligence.py              # Module 01 — Ownership Analysis
-│   ├── dependency_intelligence.py             # Module 02 — Dependency Mapping
-│   ├── risk_intelligence.py                   # Module 03 — Risk Scoring
-│   ├── recommendation_engine.py               # Module 04 — Action Recommendations
-│   ├── whatif_simulation.py                   # Module 05 — What-If Simulation
-│   ├── human_agent_map.py                     # Module 06 — Human-Agent Map
-│   ├── ai_tool_intelligence.py                # Module 07 — AI Tool Intelligence
-│   ├── workflow_intelligence.py               # Module 08 — Workflow Intelligence
-│   ├── knowledge_risk_intelligence.py         # Module 09 — Knowledge Risk
-│   ├── organizational_memory_intelligence.py  # Module 10 — Organizational Memory
-│   ├── verification_intelligence.py           # Module 15 — Verification Intelligence
-│   ├── workflow_orchestration_intelligence.py # Module 16 — Workflow Orchestration
-│   ├── decision_intelligence.py               # Module 14 — Decision Intelligence (Kamran)
-│   ├── organizational_continuity_intelligence.py # Module 18 — Organizational Continuity Intelligence (Kamran)
-│   └── organizational_intelligence_engine.py  # Phase 2 — Organizational Intelligence Engine (Kamran)
+│   ├── ownership_intelligence.py              # Module 01 — Ownership Intelligence 
+│   ├── dependency_intelligence.py             # Module 02 — Dependency Intelligence 
+│   ├── risk_intelligence.py                   # Module 03 — Risk Intelligence 
+│   ├── recommendation_engine.py               # Module 04 — Recommendation Engine 
+│   ├── whatif_simulation.py                   # Module 05 — What-If Simulation 
+│   ├── human_agent_map.py                     # Module 06 — Human-Agent Map 
+│   ├── ai_tool_intelligence.py                # Module 07 — AI Tool Intelligence 
+│   ├── workflow_intelligence.py               # Module 08 — Workflow Intelligence 
+│   ├── knowledge_risk_intelligence.py         # Module 09 — Knowledge Risk Intelligence 
+│   ├── organizational_memory_intelligence.py  # Module 10 — Organizational Memory 
+│   ├── predictive_risk_intelligence.py        # Module 11 — Predictive Risk Intelligence 
+│   ├── organizational_forecasting_intelligence.py # Module 12 — Organizational Forecasting 
+│   ├── human_ai_collaboration_intelligence.py # Module 13 — Human-AI Collaboration 
+│   ├── decision_intelligence.py               # Module 14 — Decision Intelligence 
+│   ├── verification_intelligence.py           # Module 15 — Verification Intelligence 
+│   ├── workflow_orchestration_intelligence.py # Module 16 — Workflow Orchestration 
+│   ├── organizational_learning_intelligence.py # Module 17 — Organizational Learning 
+│   ├── organizational_continuity_intelligence.py # Module 18 — Organizational Continuity 
+│   ├── governance_intelligence.py             # Module 19 — Governance Intelligence 
+│   ├── accountability_intelligence.py         # Module 20 — Accountability Intelligence 
+│   ├── data_models.py                         # Phase 2 — Platform Foundation: data models 
+│   ├── intelligence_pipeline.py               # Phase 2 — Platform Foundation: pipeline 
+│   ├── governance_data_framework.py           # Phase 2 — Platform Foundation: governance framework 
+│   ├── storage_layer.py                       # Phase 2 — Platform Foundation: storage layer 
+│   └── organizational_intelligence_engine.py  # Phase 2 — Organizational Intelligence Engine 
 │
 ├── backend/
 │   ├── index.js                               # Express server — all routes registered here
@@ -664,7 +774,7 @@ OBA-Core-Horquva/
 │       └── index.ts                           # TypeScript type definitions
 │
 ├── Images/                                    # All module output screenshots
-├── main.py                                    # Runs all 14 Python modules in sequence
+├── main.py                                    # Runs all 20 Python modules in sequence
 ├── pyproject.toml                             # Python project dependencies
 └── uv.lock                                    # Locked Python dependency versions
 ```
@@ -706,10 +816,17 @@ OBA-Core-Horquva/
 | Module 08 | Workflow Intelligence | Huzaifa |
 | Module 09 | Knowledge Risk Intelligence | Kamran |
 | Module 10 | Organizational Memory Intelligence | Kamran |
+| Module 11 | Predictive Risk Intelligence | Tahir |
+| Module 12 | Organizational Forecasting Intelligence | Tahir |
+| Module 13 | Human-AI Collaboration Intelligence | Tahir |
+| Module 14 | Decision Intelligence | Kamran |
 | Module 15 | Verification Intelligence | Anusha |
 | Module 16 | Workflow Orchestration Intelligence | Anusha |
-| Module 14 | Decision Intelligence | Kamran |
+| Module 17 | Organizational Learning Intelligence | Tahir |
 | Module 18 | Organizational Continuity Intelligence | Kamran |
+| Module 19 | Governance Intelligence | Huzaifa |
+| Module 20 | Accountability Intelligence | Huzaifa |
+| Phase 2 | Intelligence Platform Foundation | Huzaifa |
 | Phase 2 | Organizational Intelligence Engine (Five Pillars Integration) | Kamran |
 ---
 ***Built by Horquva Engineering · MVP Release · 2026***
