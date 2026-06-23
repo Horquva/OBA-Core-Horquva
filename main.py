@@ -38,31 +38,6 @@ from modules.accountability_intelligence import run_accountability_intelligence,
 # Phase 2 — Five Pillars Integration
 from modules.organizational_intelligence_engine import run_intelligence_engine, display_intelligence_report
 
-# Phase 3 — Architecture Layers (Ontology, Relationship, Context, Voice — Huzaifa; Reasoning, Truth — Kamran)
-from modules.ontology_layer import run_ontology_layer, display_ontology_report
-from modules.relationship_layer import run_relationship_layer, display_relationship_report
-from modules.reasoning_layer import run_reasoning_layer, display_reasoning_report
-from modules.truth_layer import run_truth_layer, display_truth_report
-from modules.context_intelligence_layer import run_context_layer, display_context_report
-from modules.voice_context_layer import run_voice_context_layer, display_voice_context_report
-
-# Phase 4 — Executive Intelligence (Huzaifa: M21-M23; Kamran: M24-M27)
-from modules.executive_avatar_intelligence import run_executive_avatar, display_executive_avatar
-from modules.voice_intelligence_engine import run_voice_engine, display_voice_engine
-from modules.executive_briefing_intelligence import run_executive_briefing, display_executive_briefing
-from modules.decision_support_intelligence import run_decision_support, display_decision_support
-from modules.organizational_health_intelligence import run_organizational_health, display_organizational_health
-from modules.executive_memory_intelligence import run_executive_memory, display_executive_memory
-from modules.executive_context_intelligence import run_executive_context, display_executive_context
-
-# Phase 5 — Network, Dependency & Ecosystem Intelligence (Huzaifa: M28/M29/M31/M34/M35; Kamran: M30)
-from modules.universal_dependency_graph import run_universal_dependency_graph, display_universal_dependency_graph
-from modules.organizational_relationship_intelligence import run_relationship_intelligence, display_relationship_intelligence
-from modules.knowledge_concentration_intelligence import run_knowledge_concentration, display_knowledge_concentration
-from modules.organizational_ecosystem_intelligence import run_ecosystem_intelligence, display_ecosystem_intelligence
-from modules.hidden_dependency_intelligence import run_hidden_dependency, display_hidden_dependency
-from modules.organizational_network_intelligence import run_network_intelligence, display_network_intelligence
-
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
@@ -185,92 +160,7 @@ def main():
     display_intelligence_report(pillars, pillar_relationships, org_intelligence_score, company)
     console.print(SEP)
 
-    # ── Phase 3 — Architecture Layers ──
-    # Ontology Layer (Huzaifa) — defines what exists
-    ontology, ontology_stats = run_ontology_layer(DATA_PATH)
-    display_ontology_report(ontology, ontology_stats, company)
-    console.print(SEP)
-
-    # Relationship Layer (Huzaifa) — defines how everything connects
-    relationships, relationship_stats = run_relationship_layer(DATA_PATH)
-    display_relationship_report(relationships, relationship_stats, company)
-    console.print(SEP)
-
-    # Reasoning Layer (Kamran) — turns raw signals into understanding
-    insights, reasoning_summary = run_reasoning_layer(DATA_PATH)
-    display_reasoning_report(insights, reasoning_summary, company)
-    console.print(SEP)
-
-    # Truth Layer (Kamran) — reconciles all signals into one organizational truth
-    truth_records, truth_summary = run_truth_layer(DATA_PATH)
-    display_truth_report(truth_records, truth_summary, company)
-    console.print(SEP)
-
-    # Context Intelligence Layer (Huzaifa) — real-time context for the Executive Avatar
-    context_packages, context_summary = run_context_layer(DATA_PATH)
-    display_context_report(context_packages, context_summary, company)
-    console.print(SEP)
-
-    # Voice Agent Context Layer (Huzaifa) — semantic foundation for Voice Agents
-    voice_entities, voice_intents, voice_summary = run_voice_context_layer(DATA_PATH)
-    display_voice_context_report(voice_entities, voice_intents, voice_summary, company)
-    console.print(SEP)
-
-    # ══ Phase 4 — Executive Intelligence (Huzaifa: M21-M23; Kamran: M24-M27) ══
-    avatar_qa, avatar_summary = run_executive_avatar(DATA_PATH)
-    display_executive_avatar(avatar_qa, avatar_summary, company)
-    console.print(SEP)
-
-    voice_answered, voice_engine_summary = run_voice_engine(DATA_PATH)
-    display_voice_engine(voice_answered, voice_engine_summary, company)
-    console.print(SEP)
-
-    briefing, briefing_summary = run_executive_briefing(DATA_PATH)
-    display_executive_briefing(briefing, briefing_summary, company)
-    console.print(SEP)
-
-    decision_summary = run_decision_support(DATA_PATH)
-    display_decision_support(decision_summary, company)
-    console.print(SEP)
-
-    health_summary = run_organizational_health(DATA_PATH)
-    display_organizational_health(health_summary, company)
-    console.print(SEP)
-
-    memory_summary = run_executive_memory(DATA_PATH)
-    display_executive_memory(memory_summary, company)
-    console.print(SEP)
-
-    context_intel_summary = run_executive_context(DATA_PATH)
-    display_executive_context(context_intel_summary, company)
-    console.print(SEP)
-
-    # ══ Phase 5 — Network, Dependency & Ecosystem Intelligence (Huzaifa: M28/M29/M31/M34/M35; Kamran: M30) ══
-    udg_summary = run_universal_dependency_graph(DATA_PATH)
-    display_universal_dependency_graph(udg_summary, company)
-    console.print(SEP)
-
-    rel_intel_summary = run_relationship_intelligence(DATA_PATH)
-    display_relationship_intelligence(rel_intel_summary, company)
-    console.print(SEP)
-
-    kc_summary = run_knowledge_concentration(DATA_PATH)
-    display_knowledge_concentration(kc_summary, company)
-    console.print(SEP)
-
-    eco_summary = run_ecosystem_intelligence(DATA_PATH)
-    display_ecosystem_intelligence(eco_summary, company)
-    console.print(SEP)
-
-    hidden_summary = run_hidden_dependency(DATA_PATH)
-    display_hidden_dependency(hidden_summary, company)
-    console.print(SEP)
-
-    network_summary = run_network_intelligence(DATA_PATH)
-    display_network_intelligence(network_summary, company)
-    console.print(SEP)
-
-    console.print("\n=== OBA Core Analysis Complete — 20 Modules + Engine + 6 Architecture Layers + Phase 4/5 Executive & Network Intelligence (13 modules) ===\n")
+    console.print("\n=== OBA Core Analysis Complete — 20 Modules + Organizational Intelligence Engine ===\n")
 
 
 if __name__ == "__main__":
