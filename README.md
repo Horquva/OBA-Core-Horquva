@@ -463,7 +463,7 @@ Builds RACI-style accountability links for every asset — who is Responsible, A
 
 ---
 
-### Intelligence Platform Foundation (Phase 2 — Huzaifa)
+### Intelligence Platform Foundation (Phase 2)
 
 The shared data + intelligence backbone that powers the Governance and Accountability modules and standardizes how every pillar reads organizational data.
 
@@ -509,6 +509,303 @@ The platform foundation that connects every individual module into one unified s
 - **Organizational Intelligence Score: 57/100 — WEAK**
 
 ---
+
+## Architecture Layers (Phase 3 — Ontology · Relationship · Reasoning · Truth · Context · Voice)
+
+These six architecture layers turn 20 independent modules into one coherent Organizational Brain. Until now every module could form its own opinion about the same entity, which created overlap and contradiction (e.g. Dependency and Accountability both reasoning about ownership). With Phase 3, **modules no longer make decisions — they generate signals**, and a single Truth Layer reconciles those signals into one authoritative answer with confidence, evidence, and freshness.
+
+```
+Ontology  →  Relationship  →  Modules emit signals  →  Reasoning  →  Truth  →  Context + Voice
+(what exists) (how connected)    (20 perspectives)        (insight)   (one truth)  (executive + voice access)
+```
+
+### Architecture Layer A1 — Ontology Layer — *Defines what exists*
+
+The formal vocabulary of the Organizational Brain. Every entity is registered here, under a defined type, before any module is allowed to reference it. This guarantees all 20 modules talk about the same entities in the same language.
+
+- **Entity types defined:** Human · Team · AI Agent · System · Workflow · Knowledge
+- **Relationship vocabulary defined:** `owns` · `depends_on` · `governs` · `collaborates_with`
+- Tacit (undocumented) knowledge is promoted into explicit **Knowledge** entities so it becomes visible and trackable.
+
+**Sunrise Care:** 55 entities registered across 6 types — 8 Human, 9 Team, 15 AI Agent, 5 System, 7 Workflow, 11 Knowledge.
+
+### Architecture Layer A2 — Relationship Layer — *Defines how everything connects*
+
+The graph the Brain navigates when reasoning about the organization. It maps every connection between entities using the ontology's relationship vocabulary, then surfaces the most connected nodes (hubs) — the structural pressure points.
+
+| Relationship | Count |
+|--------------|-------|
+| owns | 25 |
+| depends_on | 43 |
+| governs | 14 |
+| collaborates_with | 56 |
+
+**Sunrise Care:** 138 relationships mapped. Biggest hubs — **Robert (29 connections)**, Lisa (28), Sarah (24) — confirming structural over-concentration around a few people.
+
+### Architecture Layer A3 — Reasoning Layer — *Turns signals into understanding*
+
+Raw module signals are just facts ("no backup", "undocumented"). The Reasoning Layer connects related signals into **insight** — the *so what* and the *why* — with an explicit reasoning chain, so leadership sees conclusions, not just data points.
+
+- Detects patterns: knowledge concentration, single-point-of-failure cascades, compound risk (undocumented **and** no backup), and systemic documentation gaps.
+- Every insight carries a step-by-step reasoning chain and the evidence behind it.
+
+**Sunrise Care:** 16 insights generated (9 CRITICAL, 7 HIGH). Top conclusion — *Robert is a structural single point of failure*, reasoned from ownership + documentation + backup signals.
+
+### Architecture Layer A4 — Truth Layer — *One organizational truth*
+
+The authority layer. Every module's view of an entity arrives as a **signal**; the Truth Layer combines them, resolves disagreements, and produces one determined truth per entity — each carrying:
+
+- **Confidence** — how strongly the modules agree (disagreement caps confidence).
+- **Evidence** — the full signal trail behind every verdict (auditability).
+- **Freshness** — Fresh / Aging / Stale, based on documentation and backup coverage.
+
+**Sunrise Care findings:**
+| Metric | Result |
+|--------|--------|
+| Entities reconciled | 27 |
+| Signals combined | 135 |
+| CRITICAL truths determined | 4 |
+| HIGH truths determined | 9 |
+| Contradictions resolved into a single truth | 18 |
+| Trust Score (avg confidence across the Brain) | **75%** |
+
+- Example reconciliation — *Inventory Agent*: Risk/Knowledge/Continuity signals say HIGH, but Ownership/Dependency say LOW → Truth Layer resolves to **HIGH at 60% confidence** and flags the contradiction with its full evidence trail, instead of letting modules silently disagree.
+
+### Architecture Layer A5 — Context Intelligence Layer — *Real-time executive context*
+
+Packages live organizational context per scope (department/team) so every Executive Avatar interaction is situationally aware instead of generic. Each package carries the scope's assets, owners, tools, and active risk items.
+
+**Sunrise Care:** 9 context packages built across 22 assets, surfacing 10 active risk items. Highest-pressure scope right now: **Sales**.
+
+### Architecture Layer A6 — Voice Agent Context Layer — *Semantic foundation for voice*
+
+The layer that lets a Voice Agent understand *which* entity a person means (entity + alias resolution) and answer organizational questions in natural language, grounded in the ontology.
+
+**Sunrise Care:** 35 voice-resolvable entities with 76 name aliases mapped, and 9 ready-to-answer intents — e.g. *"Who owns the Lead Scoring Agent?"* → resolves the entity → *"Robert — and there is no backup owner, so it is a single point of failure."*
+
+---
+## Executive & Network Intelligence Modules (21–35)
+
+These 13 modules extend the 20 core modules above. They run on the extended organizational dataset (now including history, incidents, decisions, external entities, and knowledge areas) and will re-validate against the production dataset when the backend delivers it.
+
+### Module 21 — Executive Avatar Intelligence
+
+A single executive-facing persona that answers leadership questions directly from the Organizational Brain, instead of making executives read 20 separate reports.
+
+**What it does:**
+- Accepts plain leadership questions ("What is my biggest risk?", "Who is overloaded?")
+- Pulls the answer live from ownership, risk, and continuity signals
+- Always names the specific entity and person behind each answer
+- Acts as the conversational front-door to every other module
+
+**Sunrise Care findings:**
+- Biggest risk surfaced: a critical agent with no backup owner
+- Most overloaded person: Robert (heaviest ownership concentration)
+- 4 executive questions answered directly from live data
+
+---
+
+### Module 22 — Voice Intelligence Engine
+
+Turns spoken questions into answers by classifying intent and resolving the entity against the ontology.
+
+**What it does:**
+- Classifies each spoken question into an intent: `ownership / risk / status / general`
+- Resolves which entity the speaker means (e.g. "the Payroll Agent")
+- Returns a natural-language answer grounded in real data
+- Produces a short spoken daily summary for voice playback
+
+**Sunrise Care findings:**
+- 4 voice queries resolved across ownership, risk, and status intents
+- Example: *"Is the Payroll Agent a risk?"* → "Yes — owned by Lisa, no backup, undocumented."
+
+---
+
+### Module 23 — Executive Briefing Intelligence
+
+Auto-generates the daily "top things to know" by pulling the most important signal from across the whole Brain.
+
+**What it does:**
+- Surfaces the top unresolved single points of failure
+- Highlights the most overloaded owner
+- Reports the latest incident and its lesson
+- Tracks the documentation trend over time and flags pending decisions
+
+**Sunrise Care findings:**
+- 5-point executive briefing generated automatically
+- Documentation trend: 28% → 35% over 4 months (still below safe levels)
+- Flags critical no-backup agents as the #1 item every day
+
+---
+
+### Module 24 — Decision Support Intelligence
+
+Turns raw risk findings into a prioritized "what to do next" queue, and reviews how past decisions turned out.
+
+**What it does:**
+- Converts every risk into a concrete decision with impact, effort, and urgency
+- Prioritizes the queue: critical no-backup and undocumented assets first
+- Reviews the decision log for choices that went negative, mixed, or are still pending
+- Gives leadership a ranked action list instead of a wall of risks
+
+**Sunrise Care findings:**
+- 19 prioritized decisions queued
+- Top action: assign a backup owner to the highest-criticality unprotected asset
+- Flags past decisions (e.g. "defer backup-owner assignment") for revisit
+
+---
+
+### Module 25 — Organizational Health Intelligence
+
+A single composite health index across all resilience dimensions, with a trend direction from historical snapshots.
+
+**What it does:**
+- Scores four dimensions: Documentation, Continuity (backups), Ownership spread, Critical safety
+- Combines them into one Organizational Health Index (0–100)
+- Uses the monthly history to determine whether things are improving or declining
+- Classifies overall state: `CRITICAL / WARNING / STABLE`
+
+**Sunrise Care findings:**
+- **Organizational Health Index: 46/100 — WARNING**
+- Trend: **improving** (risk index falling month over month)
+- Weakest dimension: backup coverage
+
+---
+
+### Module 26 — Executive Memory Intelligence
+
+Remembers what leadership should not forget — recurring patterns, lessons from past incidents, and decisions that went wrong.
+
+**What it does:**
+- Detects recurring incident patterns (the same failure type happening again)
+- Surfaces lessons attached to every critical incident
+- Flags decisions that turned out negative
+- Identifies "hero dependency" — one person repeatedly resolving incidents
+
+**Sunrise Care findings:**
+- 4 memory items surfaced from 6 recorded incidents
+- Recurring outages flagged as a pattern, not one-offs
+- Hero-risk detected: a single person resolving multiple incidents
+
+---
+
+### Module 27 — Executive Context Intelligence
+
+Ranks "what matters right now" so leaders focus on the most urgent context first.
+
+**What it does:**
+- Pulls open incidents, critical SPOFs, pending decisions, and weak metrics into one feed
+- Scores each item by urgency: `CRITICAL / HIGH / MEDIUM / LOW`
+- Sorts the feed so the most pressing context is always on top
+- Gives the Executive Avatar its situational awareness
+
+**Sunrise Care findings:**
+- 16 context items ranked by urgency
+- Critical single points of failure rank at the top of the "what matters now" feed
+
+---
+
+### Module 28 — Universal Dependency Graph
+
+Builds one dependency graph across the entire organization — agents, tools, workflows **and** people — not just agent-to-agent links.
+
+**What it does:**
+- Connects every entity type into a single directed graph
+- Computes each node's blast radius (how many things depend on it)
+- Finds the longest dependency chain in the organization
+- Becomes the shared graph that Modules 34 and 35 reason over
+
+**Sunrise Care findings:**
+- 39 nodes connected by 58 dependency edges
+- Longest dependency chain: 6 hops deep
+- Highest blast-radius nodes are the most dangerous to lose
+
+---
+
+### Module 29 — Organizational Relationship Intelligence
+
+Scores the *health* of every ownership/backup relationship, not just whether it exists.
+
+**What it does:**
+- Rates each relationship 0–100 based on backup presence and documentation
+- Classifies each as `healthy / at risk / fragile`
+- Counts fragile, single-link relationships that would break on one departure
+- Tracks reciprocal backup links between people
+
+**Sunrise Care findings:**
+- Average relationship strength: 72/100
+- 9 fragile relationships (single owner, no backup or docs)
+
+---
+
+### Module 30 — Knowledge Concentration Intelligence
+
+Pinpoints where critical knowledge is dangerously concentrated in too few people.
+
+**What it does:**
+- Measures how much critical knowledge each person holds
+- Calculates the organization's **bus factor** (how few people hold 50% of critical knowledge)
+- Reports the share held by the single most critical person
+- Flags critical knowledge areas with only a single holder
+
+**Sunrise Care findings:**
+- **Bus factor: 2** — losing 2 people removes half of critical knowledge
+- Top person holds 40% of all critical knowledge
+- 4 critical knowledge areas have a single holder
+
+---
+
+### Module 31 — Organizational Ecosystem Intelligence
+
+Maps the full ecosystem — internal tools plus external vendors and platforms — and measures external dependency exposure.
+
+**What it does:**
+- Links external entities (OpenAI, Anthropic, GitHub, Supabase, Stripe, Slack) to the internal assets that rely on them
+- Counts how many internal assets each external entity ultimately supports
+- Flags critical external dependencies that have no alternative
+- Surfaces external single points of failure outside the company's control
+
+**Sunrise Care findings:**
+- 6 external entities mapped against 5 internal tools
+- 3 critical external dependencies identified
+
+---
+
+### Module 34 — Hidden Dependency Intelligence
+
+Surfaces indirect couplings that no single module can see on its own.
+
+**What it does:**
+- Detects transitive dependencies (A → B → C means A silently depends on C)
+- Finds shared-resource coupling (assets sharing the same tool fail together)
+- Finds shared-owner coupling (assets joined only through one person)
+- Exposes second-order risk that looks safe in any single view
+
+**Sunrise Care findings:**
+- 18 hidden dependencies discovered across transitive, shared-resource, and shared-owner types
+- Reveals couplings that ownership or dependency views alone would miss
+
+---
+
+### Module 35 — Organizational Network Intelligence
+
+Applies network science to reveal who actually holds the organization together and where it bottlenecks.
+
+**What it does:**
+- Builds the people network from shared tools and backup relationships
+- Computes centrality to find the most connected people
+- Identifies the primary bottleneck through whom information flows
+- Flags weakly-connected or isolated people
+
+**Sunrise Care findings:**
+- Primary bottleneck (highest centrality): **Robert**
+- Confirms structural over-reliance on a small core of people
+
+---
+
+> The remaining advanced modules (Autonomous Advisor, Brain Core Logic, etc.) are intentionally **not** built yet — scope stops here.
+
+---
 ## Demo Results Summary
 
 ![Demo Summary](Images/WhatTAha.png)
@@ -542,6 +839,18 @@ The platform foundation that connects every individual module into one unified s
 | Governance Score (Module 19) | **47/100 — AT RISK** |
 | Accountability Score (Module 20) | **76/100 — WARNING** |
 | Organizational Intelligence Score (Engine — Five Pillars) | **57/100 — WEAK** |
+| Ontology Entities Registered (Layer A1) | 55 across 6 types |
+| Relationships Mapped (Layer A2) | 138 |
+| Reasoning Insights Generated (Layer A3) | 16 (9 CRITICAL) |
+| Contradictions Resolved by Truth Layer (Layer A4) | 18 |
+| Brain Trust Score (Layer A4) | **75%** |
+| Context Packages Built (Layer A5) | 9 scopes |
+| Voice-Resolvable Entities (Layer A6) | 35 (76 aliases) |
+| Decision Queue (Module 24) | 19 prioritized |
+| Organizational Health (Module 25) | **46/100 — WARNING (improving)** |
+| Universal Dependency Graph (Module 28) | 39 nodes · 58 edges |
+| Knowledge Bus Factor (Module 30) | **2** |
+| Hidden Dependencies Found (Module 34) | 18 |
 
 ---
 ## How to Run
@@ -881,5 +1190,24 @@ OBA-Core-Horquva/
 | Module 20 | Accountability Intelligence | Huzaifa |
 | Phase 2 | Intelligence Platform Foundation | Huzaifa |
 | Phase 2 | Organizational Intelligence Engine (Five Pillars Integration) | Kamran |
+| Layer A1 | Ontology Layer (Defines What Exists) | Huzaifa |
+| Layer A2 | Relationship Layer (Defines How Everything Connects) | Huzaifa |
+| Layer A3 | Reasoning Layer (Turns Signals Into Understanding) | Kamran |
+| Layer A4 | Truth Layer (One Organizational Truth) | Kamran |
+| Layer A5 | Context Intelligence Layer (Real-Time Executive Context) | Huzaifa |
+| Layer A6 | Voice Agent Context Layer (Semantic Foundation for Voice) | Huzaifa |
+| Module 21 | Executive Avatar Intelligence | Huzaifa |
+| Module 22 | Voice Intelligence Engine | Huzaifa |
+| Module 23 | Executive Briefing Intelligence | Huzaifa |
+| Module 24 | Decision Support Intelligence | Kamran |
+| Module 25 | Organizational Health Intelligence | Kamran |
+| Module 26 | Executive Memory Intelligence | Kamran |
+| Module 27 | Executive Context Intelligence | Kamran |
+| Module 28 | Universal Dependency Graph | Huzaifa |
+| Module 29 | Organizational Relationship Intelligence | Huzaifa |
+| Module 30 | Knowledge Concentration Intelligence | Kamran |
+| Module 31 | Organizational Ecosystem Intelligence | Huzaifa |
+| Module 34 | Hidden Dependency Intelligence | Huzaifa |
+| Module 35 | Organizational Network Intelligence | Huzaifa |
 ---
 ***Built by Horquva Engineering · MVP Release · 2026***
