@@ -292,3 +292,47 @@ node index.js
 ```
 
 Server starts on **http://localhost:3000**
+
+
+---
+
+## Phase 6 — Constitutional Intelligence & Meta-Brain routes (M36–M55, Kamran)
+
+These routes expose the locked constitutional intelligence modules. They compute from the canonical dataset (`data/sunrise_care.json`), so they can be verified **without** a live Supabase connection.
+
+Mounted in `index.js` as:
+
+```js
+app.use('/api/intelligence', require('./routes/intelligence/constitutional'))
+```
+
+### Endpoints
+
+| Module | Method + Path | Returns |
+|--------|---------------|---------|
+| M36 Signal Intelligence | `GET /api/intelligence/signals` | Early-warning stability score + active signals |
+| M38 Opportunity Intelligence | `GET /api/intelligence/opportunities` | Prioritised opportunity backlog + quick wins |
+| M39 Capability Intelligence | `GET /api/intelligence/capability` | Capability index per department |
+| M40 Strategic Alignment | `GET /api/intelligence/alignment` | Alignment index + misaligned areas |
+| M46 Truth Intelligence | `GET /api/intelligence/truth` | Verified truths + data trust score |
+| M48 Autonomous Advisor | `GET /api/intelligence/advisor` | Recommendations from verified truths only |
+| M50 Brain Core Logic | `GET /api/intelligence/brain-core` | Brain index + operating posture |
+| M54 Simulation Universe | `GET /api/intelligence/simulation-universe` | Ranked what-if scenarios + survivability |
+| M55 Intelligence Orchestrator | `GET /api/intelligence/orchestrator` | Organizational Intelligence Score + verdict |
+| Index | `GET /api/intelligence` | Lists all Phase 6 endpoints |
+
+### How to check these routes work
+
+```bash
+cd backend
+npm install                 # installs express, cors, dotenv, @supabase/supabase-js
+node index.js               # starts server on http://localhost:3000
+
+# In a second terminal, hit the Phase 6 endpoints:
+curl http://localhost:3000/api/intelligence            # index of all endpoints
+curl http://localhost:3000/api/intelligence/orchestrator
+curl http://localhost:3000/api/intelligence/truth
+curl http://localhost:3000/api/intelligence/signals
+```
+
+> The Phase 6 `/api/intelligence/*` routes do **not** require Supabase — they read the local dataset, so they respond even before `.env` is configured. The other (Supabase-backed) routes need a valid `.env` first.
