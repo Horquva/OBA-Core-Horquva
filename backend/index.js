@@ -41,6 +41,8 @@ app.use('/api/predictive-risk', require('./routes/predictive/predictiveRisk'))
 app.use('/api/forecast', require('./routes/forecast/forecast'))
 app.use('/api/collaboration', require('./routes/collaboration/collaboration'))
 app.use('/api/accountability', require('./routes/accountability/accountability'))
+// Phase 6 — Constitutional Intelligence & Meta-Brain (M36–M55, Kamran)
+app.use('/api/intelligence', require('./routes/intelligence/constitutional'))
 console.log("4. Routes loaded")
 
 const PORT = process.env.PORT || 3000
