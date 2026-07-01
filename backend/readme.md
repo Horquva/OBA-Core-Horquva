@@ -95,8 +95,11 @@ backend/
     ├── governance/                       # Module 19 — Governance Intelligence
     │   └── governance.js                 # /api/governance
     │
-    └── accountability/                   # Module 20 — Accountability Intelligence
-        └── accountability.js             # /api/accountability
+    ├── accountability/                   # Module 20 — Accountability Intelligence
+    │   └── accountability.js             # /api/accountability
+    │
+    └── intelligence/                     # Phase 6 — Constitutional Intelligence & Meta-Brain (M36–M55)
+        └── constitutional.js             # /api/intelligence/*
 ```
 
 ## Modules Implemented (20 Total)
