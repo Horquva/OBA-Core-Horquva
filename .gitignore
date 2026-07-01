@@ -18,3 +18,4 @@ backend/.env
 
 # Internal planning docs
 FRONTEND_PLAN.md
+.env

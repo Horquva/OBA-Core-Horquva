@@ -34,13 +34,13 @@ OBA Core is a full-stack intelligence platform with three layers:
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| Intelligence Engine | Python · uv · rich | 20 analytical modules that process org data |
+| Intelligence Engine | Python · uv · rich | 55 analytical modules (Master Registry M01–M55, LOCKED) that process org data |
 | Backend API | Node.js · Express · Supabase | REST API serving all intelligence data |
 | Executive Dashboard | Next.js 16 · TypeScript · Tailwind · Recharts | Interactive visualization for leadership |
 
 ---
 
-## Intelligence Modules (20 Total)
+## Intelligence Modules — Phase 1 (Modules 01–20)
 
 ### Module 01 — Ownership Intelligence
 ![Module 01 Output](Images/agent_summary.png)
@@ -803,12 +803,10 @@ Applies network science to reveal who actually holds the organization together a
 
 ---
 
-> The remaining advanced modules (Autonomous Advisor, Brain Core Logic, etc.) are intentionally **not** built yet — scope stops here.
+> The remaining constitutional modules (Signal, Opportunity, Capability, Strategic Alignment, Truth, Autonomous Advisor, Brain Core Logic, Simulation Universe, and the Meta-Brain Orchestrator) are delivered as **Phase 6 (M36–M55)** — see the *Phase 6 — Constitutional Intelligence & Meta-Brain* section at the end of this README.
 
 ---
 ## Demo Results Summary
-
-![Demo Summary](Images/WhatTAha.png)
 
 | Metric | Result |
 |--------|--------|
@@ -857,13 +855,13 @@ Applies network science to reveal who actually holds the organization together a
 
 ### 1 — Python Intelligence Engine
 
-Runs all 20 modules in sequence and prints full analysis to the terminal.
+Runs all constitutional modules (M01–M55) in sequence and prints full analysis to the terminal. Phase 6 (M36–M55) prints at the end.
 
 ```bash
 # Install dependencies (requires uv)
 uv sync
 
-# Run all 20 modules
+# Run all constitutional modules M01–M55
 uv run main.py
 ```
 
@@ -955,6 +953,16 @@ Server starts on **`http://localhost:3000`**
 | `GET /api/accountability/entities` | 20 | RACI entities: Responsible / Accountable / Consulted / Informed |
 | `GET /api/accountability/chains` | 20 | Accountability chains across the org |
 | `GET /api/accountability/issues` | 20 | Accountability gaps and conflicts |
+| `GET /api/intelligence` | Phase 6 | Index of all Phase 6 endpoints |
+| `GET /api/intelligence/signals` | 36 | Early-warning stability score + active signals |
+| `GET /api/intelligence/opportunities` | 38 | Prioritised opportunity backlog + quick wins |
+| `GET /api/intelligence/capability` | 39 | Capability index per department |
+| `GET /api/intelligence/alignment` | 40 | Alignment index + misaligned areas |
+| `GET /api/intelligence/truth` | 46 | Verified truths + data trust score |
+| `GET /api/intelligence/advisor` | 48 | Recommendations from verified truths only |
+| `GET /api/intelligence/brain-core` | 50 | Brain index + operating posture |
+| `GET /api/intelligence/simulation-universe` | 54 | Ranked what-if scenarios + survivability |
+| `GET /api/intelligence/orchestrator` | 55 | Organizational Intelligence Score + verdict |
 
 #### Environment Setup
 
@@ -1027,7 +1035,18 @@ OBA-Core-Horquva/
 │   ├── intelligence_pipeline.py               # Phase 2 — Platform Foundation: pipeline
 │   ├── governance_data_framework.py           # Phase 2 — Platform Foundation: governance framework
 │   ├── storage_layer.py                       # Phase 2 — Platform Foundation: storage layer
-│   └── organizational_intelligence_engine.py  # Phase 2 — Organizational Intelligence Engine
+│   ├── organizational_intelligence_engine.py  # Phase 2 — Organizational Intelligence Engine
+│   │
+│   │   # Phase 6 — Constitutional Intelligence & Meta-Brain (M36–M55, Kamran)
+│   ├── signal_intelligence.py                 # Module 36 — Signal Intelligence
+│   ├── opportunity_intelligence.py            # Module 38 — Opportunity Intelligence
+│   ├── capability_intelligence.py             # Module 39 — Capability Intelligence
+│   ├── strategic_alignment_intelligence.py    # Module 40 — Strategic Alignment Intelligence
+│   ├── truth_intelligence.py                  # Module 46 — Truth Intelligence (gates M48)
+│   ├── autonomous_advisor.py                  # Module 48 — Autonomous Advisor (only verified truths)
+│   ├── brain_core_logic.py                    # Module 50 — Organizational Brain Core Logic
+│   ├── simulation_universe.py                 # Module 54 — Simulation Universe
+│   └── intelligence_orchestrator.py           # Module 55 — Intelligence Orchestrator (Meta-Brain, runs last)
 │
 ├── backend/
 │   ├── index.js                               # Express server — all routes registered here
@@ -1078,8 +1097,10 @@ OBA-Core-Horquva/
 │       │   └── continuity.js                  # /api/continuity (Module 18)
 │       ├── governance/
 │       │   └── governance.js                  # /api/governance (Module 19)
-│       └── accountability/
-│           └── accountability.js              # /api/accountability (Module 20)
+│       ├── accountability/
+│       │   └── accountability.js              # /api/accountability (Module 20)
+│       └── intelligence/
+│           └── constitutional.js              # /api/intelligence/* — Phase 6 endpoints (M36–M55)
 │
 ├── frontend/
 │   ├── app/
@@ -1106,7 +1127,7 @@ OBA-Core-Horquva/
 │   │   │   ├── OwnershipList.tsx              # Per-owner agent list
 │   │   │   ├── HumanDependencyRisks.tsx       # Human SPOF indicators
 │   │   │   ├── DependencyPipeline.tsx         # Dependency pipeline view
-│   │   │   └── OrgRelationshipMap.tsx         # Org-level relationship map
+│   │   │   └─�� OrgRelationshipMap.tsx         # Org-level relationship map
 │   │   ├── risk/
 │   │   │   ├── RiskHeader.tsx                 # Risk page header with health score
 │   │   │   ├── OrgHealthBanner.tsx            # Org Health Score banner
@@ -1136,7 +1157,8 @@ OBA-Core-Horquva/
 │       └── index.ts                           # TypeScript type definitions
 │
 ├── Images/                                    # All module output screenshots
-├── main.py                                    # Runs all 20 Python modules in sequence
+├── main.py                                    # Runs all constitutional modules (M01–M55) in sequence
+├── HOWTO_RUN_AND_CHECK.md                     # How to run the engine, start the backend, and verify every route
 ├── pyproject.toml                             # Python project dependencies
 └── uv.lock                                    # Locked Python dependency versions
 ```
@@ -1210,4 +1232,57 @@ OBA-Core-Horquva/
 | Module 34 | Hidden Dependency Intelligence | Huzaifa |
 | Module 35 | Organizational Network Intelligence | Huzaifa |
 ---
+
+
+## Phase 6 — Constitutional Intelligence & Meta-Brain (Master Registry M01–M55, LOCKED)
+
+> The **Master Module Registry (M01–M55)** is the **single source of truth** for OBA Core. Module definitions are locked — no renaming, merging, or duplication.
+
+Phase 6 completes Kamran's constitutional modules. These build on the truth-before-recommendation principle: **M46 (Truth) verifies before M48 (Advisor) recommends**, and **M55 (Orchestrator)** fuses everything and is run **last**.
+
+### New modules (Kamran)
+
+| Module | Name | Layer | Owner |
+|--------|------|-------|-------|
+| Module 36 | Signal Intelligence | Intelligence | Kamran |
+| Module 38 | Opportunity Intelligence | Intelligence | Kamran |
+| Module 39 | Capability Intelligence | Intelligence | Kamran |
+| Module 40 | Strategic Alignment Intelligence | Intelligence | Kamran |
+| Module 46 | Truth Intelligence (gates M48) | Truth | Kamran |
+| Module 48 | Autonomous Advisor | Simulation | Kamran |
+| Module 50 | Organizational Brain Core Logic | Truth | Kamran |
+| Module 54 | Simulation Universe | Simulation | Kamran |
+| Module 55 | Organizational Intelligence Orchestrator (Meta-Brain) | Meta-Brain | Kamran |
+
+### Locked assignment summary (M01–M55 = 55 modules)
+
+| Engineer | Modules | Count |
+|----------|---------|-------|
+| Huzaifa | M01, M02, M03, M07, M08, M19, M20, M22, M28, M29, M31, M34, M35 | 13 |
+| Kamran | M04, M05, M06, M09, M10, M14, M18, M24, M25, M26, M27, M30, M36, M38, M39, M40, M46, M48, M50, M54, M55 | 21 |
+| Tahir | M11, M12, M13, M17, M32, M33, M37, M41, M42, M43, M44, M45, M47, M49 | 14 |
+| Anusha | M15, M16, M21, M23, M51, M52, M53 | 7 |
+
+### Run the Phase 6 modules (CLI)
+
+```bash
+# from repo root
+uv run main.py        # runs all modules M01–M55, Phase 6 prints at the end
+```
+
+### Phase 6 backend endpoints (see backend/readme.md for how to verify)
+
+| Module | Endpoint |
+|--------|----------|
+| M36 Signal Intelligence | `GET /api/intelligence/signals` |
+| M38 Opportunity Intelligence | `GET /api/intelligence/opportunities` |
+| M39 Capability Intelligence | `GET /api/intelligence/capability` |
+| M40 Strategic Alignment | `GET /api/intelligence/alignment` |
+| M46 Truth Intelligence | `GET /api/intelligence/truth` |
+| M48 Autonomous Advisor | `GET /api/intelligence/advisor` |
+| M50 Brain Core Logic | `GET /api/intelligence/brain-core` |
+| M54 Simulation Universe | `GET /api/intelligence/simulation-universe` |
+| M55 Intelligence Orchestrator | `GET /api/intelligence/orchestrator` |
+| Index of all Phase 6 endpoints | `GET /api/intelligence` |
+
 ***Built by Horquva Engineering · MVP Release · 2026***

@@ -63,6 +63,17 @@ from modules.organizational_ecosystem_intelligence import run_ecosystem_intellig
 from modules.hidden_dependency_intelligence import run_hidden_dependency, display_hidden_dependency
 from modules.organizational_network_intelligence import run_network_intelligence, display_network_intelligence
 
+# Phase 6 - Constitutional Intelligence & Meta-Brain (Kamran: M36, M38, M39, M40, M46, M48, M50, M54, M55)
+from modules.signal_intelligence import run_signal_intelligence, display_signal_report
+from modules.opportunity_intelligence import run_opportunity_intelligence, display_opportunity_report
+from modules.capability_intelligence import run_capability_intelligence, display_capability_report
+from modules.strategic_alignment_intelligence import run_strategic_alignment_intelligence, display_strategic_alignment_report
+from modules.truth_intelligence import run_truth_intelligence, display_truth_report
+from modules.autonomous_advisor import run_autonomous_advisor, display_autonomous_advisor
+from modules.brain_core_logic import run_brain_core, display_brain_core
+from modules.simulation_universe import run_simulation_universe, display_simulation_universe
+from modules.intelligence_orchestrator import run_intelligence_orchestrator, display_intelligence_orchestrator
+
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
@@ -270,7 +281,45 @@ def main():
     display_network_intelligence(network_summary, company)
     console.print(SEP)
 
-    console.print("\n=== OBA Core Analysis Complete — 20 Modules + Engine + 6 Architecture Layers + Phase 4/5 Executive & Network Intelligence (13 modules) ===\n")
+    # == Phase 6 - Constitutional Intelligence & Meta-Brain (Kamran: M36, M38-M40, M46, M48, M50, M54, M55) ==
+    # Truth-before-recommendation order: signals/capability/alignment -> truth -> advisor -> brain core -> simulation -> orchestrator (last)
+    signal_summary = run_signal_intelligence(DATA_PATH)
+    display_signal_report(signal_summary, company)
+    console.print(SEP)
+
+    capability_summary = run_capability_intelligence(DATA_PATH)
+    display_capability_report(capability_summary, company)
+    console.print(SEP)
+
+    opportunity_summary = run_opportunity_intelligence(DATA_PATH)
+    display_opportunity_report(opportunity_summary, company)
+    console.print(SEP)
+
+    alignment_summary = run_strategic_alignment_intelligence(DATA_PATH)
+    display_strategic_alignment_report(alignment_summary, company)
+    console.print(SEP)
+
+    truth_intel_summary = run_truth_intelligence(DATA_PATH)
+    display_truth_report(truth_intel_summary, company)
+    console.print(SEP)
+
+    advisor_summary = run_autonomous_advisor(DATA_PATH)
+    display_autonomous_advisor(advisor_summary, company)
+    console.print(SEP)
+
+    brain_summary = run_brain_core(DATA_PATH)
+    display_brain_core(brain_summary, company)
+    console.print(SEP)
+
+    universe_summary = run_simulation_universe(DATA_PATH)
+    display_simulation_universe(universe_summary, company)
+    console.print(SEP)
+
+    orchestrator_summary = run_intelligence_orchestrator(DATA_PATH)
+    display_intelligence_orchestrator(orchestrator_summary, company)
+    console.print(SEP)
+
+    console.print("\n=== OBA Core Analysis Complete — Constitutional Module Registry M01-M55 (LOCKED) — 20 Core + Engine + 6 Architecture Layers + Phase 4/5 Executive & Network + Phase 6 Constitutional Intelligence & Meta-Brain (M36-M55) ===\n")
 
 
 if __name__ == "__main__":
