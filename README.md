@@ -1612,3 +1612,12 @@ uv run main.py        # runs all modules M01–M55, Phase 6 prints at the end
 ### Phase 6 backend endpoints
 
 Every Phase 6 endpoint (M36, M38, M39, M40, M46, M48, M50, M54, M55, plus the `GET /api/intelligence` index) is listed with full descriptions in the **All API Endpoints** table above, and verification steps are in **`backend/readme.md`** and **`HOWTO_RUN_AND_CHECK.md`**.
+
+---
+
+### Contribution & Review Process
+All development on the OBA Core platform follows a centralized review workflow. Every team member's work — across the AI, Backend, and Frontend teams — is first submitted to Kamran Ai Engineer(Technical Lead) for review. Each member's files and modules are reviewed, validated, and integrated by Kamran to ensure constitutional consistency, code quality, and architectural alignment across all 55 modules (M01–M55). Only after this review are the changes pushed to the GitHub main branch. This process guarantees that every contribution meets the project's engineering standards and preserves a single, unified source of truth.
+
+---
+### Release
+This repository represents the MVPrelease of Horquva Organizational Brain Analysis (OBA) Core, delivering the complete M01–M55 constitutional module engine, integrated backend APIs, and the executive frontend dashboard.
