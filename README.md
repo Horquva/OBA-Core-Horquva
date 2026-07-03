@@ -584,9 +584,9 @@ The layer that lets a Voice Agent understand *which* entity a person means (enti
 **Sunrise Care:** 35 voice-resolvable entities with 76 name aliases mapped, and 9 ready-to-answer intents — e.g. *"Who owns the Lead Scoring Agent?"* → resolves the entity → *"Robert — and there is no backup owner, so it is a single point of failure."*
 
 ---
-## Executive & Network Intelligence Modules (21–35)
+## Executive, Network & Prediction Intelligence (Modules 21–35)
 
-These 13 modules extend the 20 core modules above. They run on the extended organizational dataset (now including history, incidents, decisions, external entities, and knowledge areas) and will re-validate against the production dataset when the backend delivers it.
+These modules extend the 20 core modules into executive-facing, network-science, and prediction territory. Every module is documented **in strict sequence** — 21 through 35 here, then 36 through 55 in the next section — so nothing is missing. They run on the extended organizational dataset (history, incidents, decisions, external entities, and knowledge areas) and are exposed through the backend API. Each module names its lead engineer; the modules that ship inside the pure-Python package `horquva_modules_py/` (Tahir, M32–M49) are marked accordingly.
 
 ### Module 21 — Executive Avatar Intelligence
 
@@ -640,35 +640,38 @@ Auto-generates the daily "top things to know" by pulling the most important sign
 
 ### Module 24 — Decision Support Intelligence
 
-Turns raw risk findings into a prioritized "what to do next" queue, and reviews how past decisions turned out.
+Turns raw risk findings into a prioritized "what to do next" queue with a transparent scoring model, and reviews how past decisions turned out.
 
 **What it does:**
-- Converts every risk into a concrete decision with impact, effort, and urgency
-- Prioritizes the queue: critical no-backup and undocumented assets first
-- Reviews the decision log for choices that went negative, mixed, or are still pending
+- Converts every risk (single points of failure, active incidents, undocumented critical knowledge) into a concrete decision
+- Scores each decision 0–100 using **impact × urgency ÷ effort**, and boosts anything sitting on a dependency blast-radius
+- Groups the queue by driver so leadership sees *why* each action is on the list
+- Reviews the decision log for choices that went negative, mixed, or are still pending, and flags them for revisit
 - Gives leadership a ranked action list instead of a wall of risks
 
 **Sunrise Care findings:**
-- 19 prioritized decisions queued
-- Top action: assign a backup owner to the highest-criticality unprotected asset
-- Flags past decisions (e.g. "defer backup-owner assignment") for revisit
+- 25 prioritized decisions queued — 10 single-point-of-failure, 9 undocumented-knowledge, 6 active-incident
+- Top action: **assign a backup owner to the Lead Scoring Agent** (highest impact × urgency)
+- 3 past decisions flagged for revisit
 
 ---
 
 ### Module 25 — Organizational Health Intelligence
 
-A single composite health index across all resilience dimensions, with a trend direction from historical snapshots.
+A single **weighted** composite health index across five resilience dimensions, broken down by department, with a trend direction from historical snapshots.
 
 **What it does:**
-- Scores four dimensions: Documentation, Continuity (backups), Ownership spread, Critical safety
-- Combines them into one Organizational Health Index (0–100)
-- Uses the monthly history to determine whether things are improving or declining
+- Scores five dimensions: Documentation (20%), Continuity/backups (25%), Ownership spread (15%), Critical safety (25%), Incident load (15%)
+- Combines them into one weighted Organizational Health Index (0–100)
+- Breaks health down **per department** so leadership sees exactly where the weakness lives
+- Uses the monthly history (risk-index time series) to determine whether things are improving or declining
 - Classifies overall state: `CRITICAL / WARNING / STABLE`
 
 **Sunrise Care findings:**
-- **Organizational Health Index: 46/100 — WARNING**
+- **Organizational Health Index: 28/100 — CRITICAL**
 - Trend: **improving** (risk index falling month over month)
-- Weakest dimension: backup coverage
+- Weakest dimension: **Critical safety (0/100)** — critical assets with no backup coverage
+- Weakest department: **Finance**
 
 ---
 
@@ -678,14 +681,16 @@ Remembers what leadership should not forget — recurring patterns, lessons from
 
 **What it does:**
 - Detects recurring incident patterns (the same failure type happening again)
-- Surfaces lessons attached to every critical incident
-- Flags decisions that turned out negative
+- Flags repeat-offender entities that appear in multiple incidents (chronic weak points)
+- Surfaces the lesson attached to every critical/high incident
+- Flags decisions that turned out negative — especially irreversible ones
 - Identifies "hero dependency" — one person repeatedly resolving incidents
+- Ranks everything by relevance so the most important memory sits on top
 
 **Sunrise Care findings:**
-- 4 memory items surfaced from 6 recorded incidents
+- 7 memory items surfaced from 6 recorded incidents (1 recurring pattern, 5 lessons, 1 bad decision)
 - Recurring outages flagged as a pattern, not one-offs
-- Hero-risk detected: a single person resolving multiple incidents
+- Hero-risk and chronic weak points surfaced for leadership follow-up
 
 ---
 
@@ -694,14 +699,15 @@ Remembers what leadership should not forget — recurring patterns, lessons from
 Ranks "what matters right now" so leaders focus on the most urgent context first.
 
 **What it does:**
-- Pulls open incidents, critical SPOFs, pending decisions, and weak metrics into one feed
+- Pulls open incidents, critical SPOFs, pending decisions, dependency blast radius, and declining metrics into one feed
 - Scores each item by urgency: `CRITICAL / HIGH / MEDIUM / LOW`
+- Raises urgency for single points of failure that feed multiple downstream dependencies
 - Sorts the feed so the most pressing context is always on top
 - Gives the Executive Avatar its situational awareness
 
 **Sunrise Care findings:**
-- 16 context items ranked by urgency
-- Critical single points of failure rank at the top of the "what matters now" feed
+- 19 context items ranked by urgency — 10 single-point-of-failure, 6 incidents, 2 weak metrics, 1 pending decision
+- Highest live urgency: **CRITICAL** — unbacked critical assets rank at the top of the "what matters now" feed
 
 ---
 
@@ -740,18 +746,21 @@ Scores the *health* of every ownership/backup relationship, not just whether it 
 
 ### Module 30 — Knowledge Concentration Intelligence
 
-Pinpoints where critical knowledge is dangerously concentrated in too few people.
+Pinpoints where critical knowledge is dangerously concentrated in too few people, using both a **bus factor** and a **Herfindahl-Hirschman concentration index (HHI)**.
 
 **What it does:**
-- Measures how much critical knowledge each person holds
+- Measures how much critical knowledge each person holds (knowledge areas + owned critical assets)
 - Calculates the organization's **bus factor** (how few people hold 50% of critical knowledge)
+- Computes the **HHI concentration index (0–10000)** and classifies it `HEALTHY / MODERATE / HIGH / SEVERE`
 - Reports the share held by the single most critical person
-- Flags critical knowledge areas with only a single holder
+- Flags critical knowledge areas with only a single holder, plus undocumented critical areas
+- Breaks concentration down per person (critical items held + how many are undocumented)
 
 **Sunrise Care findings:**
+- **Concentration level: SEVERE** (HHI 2850/10000)
 - **Bus factor: 2** — losing 2 people removes half of critical knowledge
 - Top person holds 40% of all critical knowledge
-- 4 critical knowledge areas have a single holder
+- 4 critical knowledge areas have a single holder: Lead Scoring Logic, Payroll Rules, CRM Integration, Backup & Recovery
 
 ---
 
@@ -768,6 +777,32 @@ Maps the full ecosystem — internal tools plus external vendors and platforms �
 **Sunrise Care findings:**
 - 6 external entities mapped against 5 internal tools
 - 3 critical external dependencies identified
+
+---
+
+### Module 32 — Dependency Impact Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Simulates a failure at any node and walks the dependency graph (breadth-first, with impact decay) to reveal the full cascade blast radius, then ranks the organization's true single points of failure.
+
+**What it does:**
+- Injects a failure at any agent, tool, workflow, or person and propagates it through the dependency graph
+- Applies an impact-decay factor at each hop so nearer victims count more than distant ones
+- Aggregates the total blast radius per origin node
+- Ranks every node to expose the organization's real single points of failure
+
+---
+
+### Module 33 — Dependency Evolution Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Diffs dependency snapshots over time to show how coupling is growing or shrinking, and tracks whether the organization is getting more or less fragile.
+
+**What it does:**
+- Compares two dependency snapshots and diffs added / removed edges
+- Tracks how each node's coupling has evolved between snapshots
+- Flags whether overall fragility is trending up or down
+- Gives leadership an early read on structural drift
 
 ---
 
@@ -802,8 +837,233 @@ Applies network science to reveal who actually holds the organization together a
 - Confirms structural over-reliance on a small core of people
 
 ---
+## Constitutional Intelligence, Automation & Meta-Brain (Modules 36–55)
 
-> The remaining constitutional modules (Signal, Opportunity, Capability, Strategic Alignment, Truth, Autonomous Advisor, Brain Core Logic, Simulation Universe, and the Meta-Brain Orchestrator) are delivered as **Phase 6 (M36–M55)** — see the *Phase 6 — Constitutional Intelligence & Meta-Brain* section at the end of this README.
+From here the engine moves from analysis into **constitutional intelligence, deeper prediction, organizational science, and governed automation**. The sequence continues unbroken — 36 through 55, nothing skipped. Modules marked *ships in `horquva_modules_py/`* run as a self-contained, pure-Python package (`python3 horquva_modules_py/demo.py`, no external dependencies); the constitutional modules (Kamran) run via `uv run main.py` and are exposed under `/api/intelligence/*`; the automation modules (Anusha) run through the backend API. **Two constitutional rules are enforced here: Truth (M46) gates the Advisor (M48), and the Meta-Brain Orchestrator (M55) always runs last.**
+
+### Module 36 — Signal Intelligence
+**Engineer:** Kamran · `GET /api/intelligence/signals`
+
+An early-warning system that fuses ownership, dependency, incident, and metric signals into a single organizational stability score and surfaces the active warning signals leadership should act on before they escalate.
+
+**What it does:**
+- Collects weak signals from across every layer (ownership, dependency, incidents, declining metrics)
+- Computes an organizational stability score
+- Ranks active signals by how close they are to becoming a real problem
+- Feeds the constitutional layer with a verified early-warning feed
+
+### Module 37 — Pattern Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Detects recurring patterns across incidents and behavior, and classifies how regular each pattern is using the coefficient of variation (regular vs. sporadic).
+
+**What it does:**
+- Scans the incident and activity history for repeating event types and sequences
+- Measures how regular each pattern is using the coefficient of variation (tight cadence vs. random spikes)
+- Classifies every pattern as `REGULAR / PERIODIC / SPORADIC`
+- Flags the recurring patterns most likely to strike again so leadership can pre-empt them
+
+### Module 38 — Opportunity Intelligence
+**Engineer:** Kamran · `GET /api/intelligence/opportunities`
+
+Turns risk findings inside-out into a prioritized opportunity backlog — the highest-leverage improvements and quick wins that raise organizational health the fastest.
+
+**What it does:**
+- Converts every open risk into a concrete improvement opportunity
+- Scores each opportunity by leverage (health gained vs. effort required)
+- Separates quick wins from strategic bets
+- Gives leadership a ranked "where to invest next" backlog
+
+### Module 39 — Capability Intelligence
+**Engineer:** Kamran · `GET /api/intelligence/capability`
+
+Scores the organization's operating capability per department (ownership depth, documentation, backup coverage, tooling) to show where the org is strong and where it is thin.
+
+**What it does:**
+- Scores each department's operating capability across ownership depth, documentation, backup coverage, and tooling
+- Rolls the four dimensions into a single capability index per department
+- Ranks departments from strongest to thinnest so leadership sees where capacity is real vs. fragile
+- Flags capability gaps that need hiring, cross-training, or documentation
+
+### Module 40 — Strategic Alignment Intelligence
+**Engineer:** Kamran · `GET /api/intelligence/alignment`
+
+Measures how well day-to-day operations line up with stated priorities, computes an alignment index, and flags the areas that are drifting out of alignment.
+
+**What it does:**
+- Compares where effort and ownership actually sit against the organization's stated priorities
+- Computes an alignment index (0–100) showing how tightly execution matches strategy
+- Flags misaligned areas — critical priorities with thin coverage, or effort spent on low-priority work
+- Gives leadership a clear "are we working on the right things?" read
+
+### Module 41 — Organizational DNA Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Builds the organization's "DNA profile" across six dimensions (e.g. autonomy, documentation, resilience) — a fingerprint of how the organization actually operates.
+
+**What it does:**
+- Profiles the organization across six behavioral dimensions (autonomy, documentation, resilience, collaboration, ownership, adaptability)
+- Builds a single "DNA fingerprint" that captures how the org actually operates, not how it claims to
+- Highlights the dominant traits and the weakest strands in the DNA
+- Gives leadership a baseline to track cultural and structural change over time
+
+### Module 42 — Culture Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Scores organizational culture signals (documentation discipline, ownership behavior, collaboration) into a single culture-health read.
+
+**What it does:**
+- Reads culture signals from real behavior — documentation discipline, ownership follow-through, collaboration patterns
+- Scores each signal and combines them into a single culture-health index
+- Surfaces the cultural strengths to protect and the habits that create risk
+- Turns "culture" from a vague feeling into a measured, trackable number
+
+### Module 43 — Organizational Maturity Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Assesses overall organizational maturity across process, governance, and knowledge dimensions and places the org on a maturity curve.
+
+**What it does:**
+- Assesses maturity across process, governance, and knowledge dimensions
+- Places the organization on a defined maturity curve (from ad-hoc to optimized)
+- Identifies the specific gaps holding the org back from the next maturity stage
+- Gives leadership a roadmap for structured improvement
+
+### Module 44 — Organizational Behavior Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Profiles how each actor behaves (ownership load, resolution activity, documentation habits) to surface behavioral risk and strengths.
+
+**What it does:**
+- Profiles how each actor behaves — ownership load, incident-resolution activity, documentation habits
+- Flags behavioral risk (over-reliance on one person, documentation avoidance) and behavioral strengths
+- Ranks actors by their real contribution and exposure
+- Helps leadership reward the right behavior and coach the risky patterns
+
+### Module 45 — Benchmark Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Compares the organization's key metrics against industry baselines to show where it leads and where it lags.
+
+**What it does:**
+- Compares the organization's key metrics against industry baselines
+- Shows exactly where the org leads and where it lags the benchmark
+- Turns internal scores into external context leadership can act on
+- Highlights the biggest gaps to close to reach industry-standard resilience
+
+### Module 46 — Truth Intelligence *(gates Module 48)*
+**Engineer:** Kamran · `GET /api/intelligence/truth`
+
+The constitutional truth layer: verifies every claimed fact against the underlying data, assigns a data-trust score, and only lets **verified truths** pass downstream. Enforces the core principle *"truth before recommendation"* — nothing reaches the Advisor until it is verified here.
+
+**What it does:**
+- Re-checks every downstream claim against the raw organizational data
+- Assigns a confidence / data-trust score to each fact
+- Blocks unverified or contradicted claims from moving forward
+- Acts as the gate that Module 48 must pass through
+
+### Module 47 — Continuous Learning Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Evaluates how accurate past predictions turned out to be and validates whether recorded lessons are actually being applied — the system's self-check loop.
+
+**What it does:**
+- Checks how accurate past predictions turned out to be against what actually happened
+- Validates whether recorded lessons are actually being applied, not just filed away
+- Scores the organization's learning loop — is it getting smarter over time?
+- Flags lessons that were ignored and predictions that missed, so the system self-corrects
+
+### Module 48 — Autonomous Advisor
+**Engineer:** Kamran · `GET /api/intelligence/advisor`
+
+Generates leadership recommendations **only from truths verified by Module 46** — never from raw or unverified signals — so every recommendation is defensible and evidence-backed.
+
+**What it does:**
+- Reads only the verified truths passed through Module 46 (never raw or unverified signals)
+- Generates specific, evidence-backed leadership recommendations
+- Attaches the supporting truth and its confidence to every recommendation so it is defensible
+- Refuses to recommend anything that Truth Intelligence has not verified
+
+### Module 49 — Digital Twin Intelligence
+**Engineer:** Tahir · ships in `horquva_modules_py/`
+
+Builds a live digital-twin snapshot of the organization, computes a twin health index, simulates scenarios against the twin, and checks that the twin stays synchronized with reality.
+
+**What it does:**
+- Builds a live digital-twin snapshot of the whole organization
+- Computes a twin health index that mirrors the real organization's state
+- Runs scenarios against the twin without touching production reality
+- Continuously checks that the twin stays synchronized with the real organization
+
+### Module 50 — Organizational Brain Core Logic
+**Engineer:** Kamran · `GET /api/intelligence/brain-core`
+
+The reasoning core that fuses every verified signal into one brain index and an operating posture — the organization's current "state of mind" (stable, strained, or critical).
+
+**What it does:**
+- Fuses every verified signal from across the Brain into one unified brain index
+- Determines the organization's current operating posture: `STABLE / STRAINED / CRITICAL`
+- Explains the posture with the top contributing signals, not just a bare number
+- Acts as the reasoning core the Orchestrator (M55) reads before its final verdict
+
+### Module 51 — Self-Healing Intelligence
+**Engineer:** Anusha · `GET /api/self-healing`
+
+Continuously scans for blocked workflows, actor collisions, single points of failure, policy breaks, and escalation conditions, then emits healing intents (pause / unblock / reassign) to Module 16 for governed execution. It never acts on its own — it detects and emits an intent, governed by the current execution mode (`advisory` by default).
+
+**What it does:**
+- Continuously scans for blocked workflows, actor collisions, single points of failure, policy breaks, and escalation conditions
+- Emits healing intents (pause / unblock / reassign) to Module 16 for governed execution
+- Never acts on its own — it only detects and proposes, governed by the active execution mode (`advisory` by default)
+- Turns detected fragility into a safe, reviewable recovery action
+
+### Module 52 — Governance Automation Intelligence
+**Engineer:** Anusha · `GET/POST /api/automation/governance`
+
+Runs five governance rules over live activity, detects policy violations, and emits enforcement intents to Module 16 — turning Module 19's governance findings into governed action.
+
+**What it does:**
+- Runs five governance rules over live organizational activity
+- Detects policy violations as they happen (missing owner, no backup, undocumented critical asset, stale policy, unaccountable action)
+- Emits enforcement intents to Module 16 instead of acting directly
+- Turns Module 19's governance findings into governed, auditable action
+
+### Module 53 — Continuity Automation Intelligence
+**Engineer:** Anusha · `GET/POST /api/automation/continuity`
+
+Detects five classes of continuity risk (owner loss, undocumented critical assets, single points of failure, and more) and emits recovery intents to Module 16 so the organization can respond before a disruption becomes an outage.
+
+**What it does:**
+- Detects five classes of continuity risk (owner loss, undocumented critical assets, single points of failure, missing backups, fragile workflows)
+- Emits recovery intents to Module 16 before a risk becomes an outage
+- Operates under the active governance mode so nothing auto-executes without authorization
+- Turns Module 18's continuity findings into pre-emptive recovery action
+
+### Module 54 — Simulation Universe
+**Engineer:** Kamran · `GET /api/intelligence/simulation-universe`
+
+Runs a whole universe of what-if scenarios (people leaving, agents failing, tools going offline, cascading combinations) and ranks them by survivability so leadership sees exactly where the organization would break first.
+
+**What it does:**
+- Runs a whole universe of what-if scenarios — people leaving, agents failing, tools going offline, and cascading combinations
+- Recalculates organizational survivability for every scenario
+- Ranks all scenarios so leadership sees exactly where the organization breaks first
+- Turns single what-if checks into a full stress-test of the entire organization
+
+### Module 55 — Organizational Intelligence Orchestrator (Meta-Brain)
+**Engineer:** Kamran · `GET /api/intelligence/orchestrator`
+
+The Meta-Brain. **Runs last.** It fuses every module's output into one Organizational Intelligence Score and a final verdict, enforcing the constitutional rule that the orchestrator only speaks after all verified intelligence is in.
+
+**What it does:**
+- Runs last — only after every other module's verified output is in
+- Fuses all module outputs into one Organizational Intelligence Score and a final verdict
+- Enforces the constitutional rule that the Meta-Brain speaks only on verified intelligence
+- Delivers leadership the single top-level answer: how intelligent and resilient the organization really is
+
+> **Constitutional layer (Kamran):** Modules 36, 38, 39, 40, 46, 48, 50, 54, 55 form Phase 6 — served under `/api/intelligence/*` and printed at the end of `uv run main.py`. **Truth (46) gates Advisor (48); Orchestrator (55) runs last.**
+>
+> **Automation layer (Anusha):** Modules 51, 52, 53 each *detect → emit intent → Module 16 executes* under the active governance mode. *Automation follows intelligence — never automate an action that was not first verified.* Modules 15, 16, 21, and 23 (also Anusha) are documented in sequence above.
 
 ---
 ## Demo Results Summary
@@ -953,6 +1213,21 @@ Server starts on **`http://localhost:3000`**
 | `GET /api/accountability/entities` | 20 | RACI entities: Responsible / Accountable / Consulted / Informed |
 | `GET /api/accountability/chains` | 20 | Accountability chains across the org |
 | `GET /api/accountability/issues` | 20 | Accountability gaps and conflicts |
+| `GET /api/avatar/escalations` | 21 | Executive-avatar escalation log |
+| `GET /api/avatar/escalations/critical` | 21 | Critical escalations only |
+| `GET /api/avatar/escalations/summary` | 21 | Escalation counts by severity + status |
+| `POST /api/avatar/check` | 21 | Gate-check a workflow; auto-escalate on failure |
+| `POST /api/voice/transcribe` | 22 | Transcribe text/audio into a transcript |
+| `POST /api/voice/intent` | 22 | Parse a transcript into a structured intent |
+| `GET /api/briefing/latest` | 23 | Full executive briefing (health + risks + recs) |
+| `GET /api/briefing/risks` | 23 | Briefing risk summary |
+| `GET /api/briefing/health` | 23 | Briefing org-health snapshot |
+| `GET /api/briefing/recommendations` | 23 | Briefing action recommendations |
+| `GET /api/self-healing/...` | 51 | Detect issues + emit healing intents to M16 |
+| `GET /api/automation/governance/audit` | 52 | Detect governance violations |
+| `POST /api/automation/governance/enforce` | 52 | Emit governance-enforcement intents to M16 |
+| `GET /api/automation/continuity/risks` | 53 | Detect continuity risks |
+| `POST /api/automation/continuity/plan` | 53 | Emit continuity-recovery intents to M16 |
 | `GET /api/intelligence` | Phase 6 | Index of all Phase 6 endpoints |
 | `GET /api/intelligence/signals` | 36 | Early-warning stability score + active signals |
 | `GET /api/intelligence/opportunities` | 38 | Prioritised opportunity backlog + quick wins |
@@ -967,8 +1242,11 @@ Server starts on **`http://localhost:3000`**
 #### Environment Setup
 
 ```bash
-# Copy the template
+# 1. Copy the template
 cp backend/.env.example backend/.env
+
+# 2. Create the database tables (run once) — paste backend/schema.sql
+#    into the Supabase SQL editor and run it
 ```
 
 Fill in your Supabase credentials in `backend/.env`:
@@ -1048,9 +1326,26 @@ OBA-Core-Horquva/
 │   ├── simulation_universe.py                 # Module 54 — Simulation Universe
 │   └── intelligence_orchestrator.py           # Module 55 — Intelligence Orchestrator (Meta-Brain, runs last)
 │
+├── horquva_modules_py/                        # Prediction · Learning · Org-Science package (Tahir, M32–M49)
+│   ├── __init__.py
+���   ├── m32_dependency_impact_intelligence.py       # Module 32 — Dependency Impact Intelligence
+│   ├── m33_dependency_evolution_intelligence.py    # Module 33 — Dependency Evolution Intelligence
+│   ├── m37_pattern_intelligence.py                 # Module 37 — Pattern Intelligence
+│   ├── m41_organizational_dna.py                   # Module 41 — Organizational DNA Intelligence
+│   ├── m42_culture_intelligence.py                 # Module 42 — Culture Intelligence
+│   ├── m43_organizational_maturity_intelligence.py # Module 43 — Organizational Maturity Intelligence
+│   ├── m44_organizational_behavior_intelligence.py # Module 44 — Organizational Behavior Intelligence
+│   ├── m45_benchmark_intelligence.py               # Module 45 — Benchmark Intelligence
+│   ├── m47_continuous_learning_intelligence.py     # Module 47 — Continuous Learning Intelligence
+│   ├── m49_digital_twin_intelligence.py            # Module 49 — Digital Twin Intelligence
+│   ├── demo.py                                 # Runs all 10 modules on the dataset
+│   └── README.md                               # Package usage guide
+│
 ├── backend/
 │   ├── index.js                               # Express server — all routes registered here
-│   ├── supabase.js                            # Supabase client initialization
+│   ├── supabase.js                            # Supabase client (resilient — boots without credentials)
+│   ├── schema.sql                             # Supabase tables — run once before starting the server
+│   ├── API_REFERENCE.md                       # Full endpoint reference for the frontend team
 │   ├── package.json                           # Node.js dependencies
 │   ├── .env.example                           # Environment variable template
 │   └── routes/
@@ -1088,17 +1383,38 @@ OBA-Core-Horquva/
 │       ├── decisions/
 │       │   └── decisions.js                   # /api/decisions (Module 14)
 │       ├── verification/
-│       │   └── intelligence.js                # /api/verification (Module 15)
+│       │   └── index.js                       # /api/verification (Module 15 — Anusha)
 │       ├── orchestration/
-│       │   └── orchestration.js               # /api/orchestration (Module 16)
+│       │   ├── index.js                       # /api/orchestration (Module 16 — Anusha)
+│       │   ├── intentReceiver.js              # Receives intents from M51/M52/M53
+│       │   └─�� executionEngine.js             # Executes governed intents by mode
 │       ├── learning/
 │       │   └── learning.js                    # /api/learning (Module 17)
 │       ├── continuity/
-│       │   └── continuity.js                  # /api/continuity (Module 18)
+│       │   ├── continuity.js                  # /api/continuity (Module 18 — Kamran, read)
+│       │   ├── index.js                       # /api/automation/continuity (Module 53 — Anusha)
+│       │   └── continuityEngine.js            # Continuity risk detection + recovery intents
 │       ├── governance/
-│       │   └── governance.js                  # /api/governance (Module 19)
+│       │   ├── governance.js                  # /api/governance (Module 19 — Kamran, read)
+│       │   ├── index.js                       # /api/automation/governance (Module 52 — Anusha)
+│       │   └── governanceEngine.js            # Policy-violation detection + enforcement intents
 │       ├── accountability/
 │       │   └── accountability.js              # /api/accountability (Module 20)
+│       ├── avatar/
+│       │   ├── index.js                       # /api/avatar (Module 21 — Anusha)
+│       │   ├── gateCheck.js                   # Workflow gate-check logic
+│       │   └── escalate.js                    # Escalation logging
+│       ├── briefing/
+│       │   ├── index.js                       # /api/briefing (Module 23 — Anusha)
+│       │   ├── briefingEngine.js              # Builds the executive briefing
+│       │   └── recommendations.js             # Briefing recommendations
+│       ├── selfHealing/
+│       │   ├── index.js                       # /api/self-healing (Module 51 — Anusha)
+│       │   └── healingEngine.js               # Issue detection + healing intents to M16
+│       ├── voice/
+│       │   ├── index.js                       # /api/voice (Module 22 — Huzaifa)
+│       │   ├── stt.js                         # Speech-to-text transcription
+│       │   └── intentParser.js                # Transcript → structured intent
 │       └── intelligence/
 │           └── constitutional.js              # /api/intelligence/* — Phase 6 endpoints (M36–M55)
 │
@@ -1159,6 +1475,7 @@ OBA-Core-Horquva/
 ├── Images/                                    # All module output screenshots
 ├── main.py                                    # Runs all constitutional modules (M01–M55) in sequence
 ├── HOWTO_RUN_AND_CHECK.md                     # How to run the engine, start the backend, and verify every route
+├── INTEGRATION_STATUS.md                      # Team ownership, integration decisions, and verification results
 ├── pyproject.toml                             # Python project dependencies
 └── uv.lock                                    # Locked Python dependency versions
 ```
@@ -1229,10 +1546,32 @@ OBA-Core-Horquva/
 | Module 29 | Organizational Relationship Intelligence | Huzaifa |
 | Module 30 | Knowledge Concentration Intelligence | Kamran |
 | Module 31 | Organizational Ecosystem Intelligence | Huzaifa |
+| Module 32 | Dependency Impact Intelligence | Tahir |
+| Module 33 | Dependency Evolution Intelligence | Tahir |
 | Module 34 | Hidden Dependency Intelligence | Huzaifa |
 | Module 35 | Organizational Network Intelligence | Huzaifa |
----
+| Module 36 | Signal Intelligence | Kamran |
+| Module 37 | Pattern Intelligence | Tahir |
+| Module 38 | Opportunity Intelligence | Kamran |
+| Module 39 | Capability Intelligence | Kamran |
+| Module 40 | Strategic Alignment Intelligence | Kamran |
+| Module 41 | Organizational DNA Intelligence | Tahir |
+| Module 42 | Culture Intelligence | Tahir |
+| Module 43 | Organizational Maturity Intelligence | Tahir |
+| Module 44 | Organizational Behavior Intelligence | Tahir |
+| Module 45 | Benchmark Intelligence | Tahir |
+| Module 46 | Truth Intelligence (gates M48) | Kamran |
+| Module 47 | Continuous Learning Intelligence | Tahir |
+| Module 48 | Autonomous Advisor | Kamran |
+| Module 49 | Digital Twin Intelligence | Tahir |
+| Module 50 | Organizational Brain Core Logic | Kamran |
+| Module 51 | Self-Healing Intelligence | Anusha |
+| Module 52 | Governance Automation Intelligence | Anusha |
+| Module 53 | Continuity Automation Intelligence | Anusha |
+| Module 54 | Simulation Universe | Kamran |
+| Module 55 | Organizational Intelligence Orchestrator (Meta-Brain) | Kamran |
 
+---
 
 ## Phase 6 — Constitutional Intelligence & Meta-Brain (Master Registry M01–M55, LOCKED)
 
@@ -1258,9 +1597,9 @@ Phase 6 completes Kamran's constitutional modules. These build on the truth-befo
 
 | Engineer | Modules | Count |
 |----------|---------|-------|
-| Huzaifa | M01, M02, M03, M07, M08, M19, M20, M22, M28, M29, M31, M34, M35 | 13 |
+| Muhammad Huzaifa | M01, M02, M03, M07, M08, M19, M20, M22, M28, M29, M31, M34, M35 | 13 |
 | Kamran | M04, M05, M06, M09, M10, M14, M18, M24, M25, M26, M27, M30, M36, M38, M39, M40, M46, M48, M50, M54, M55 | 21 |
-| Tahir | M11, M12, M13, M17, M32, M33, M37, M41, M42, M43, M44, M45, M47, M49 | 14 |
+| Muhammad Tahir | M11, M12, M13, M17, M32, M33, M37, M41, M42, M43, M44, M45, M47, M49 | 14 |
 | Anusha | M15, M16, M21, M23, M51, M52, M53 | 7 |
 
 ### Run the Phase 6 modules (CLI)
@@ -1270,19 +1609,6 @@ Phase 6 completes Kamran's constitutional modules. These build on the truth-befo
 uv run main.py        # runs all modules M01–M55, Phase 6 prints at the end
 ```
 
-### Phase 6 backend endpoints (see backend/readme.md for how to verify)
+### Phase 6 backend endpoints
 
-| Module | Endpoint |
-|--------|----------|
-| M36 Signal Intelligence | `GET /api/intelligence/signals` |
-| M38 Opportunity Intelligence | `GET /api/intelligence/opportunities` |
-| M39 Capability Intelligence | `GET /api/intelligence/capability` |
-| M40 Strategic Alignment | `GET /api/intelligence/alignment` |
-| M46 Truth Intelligence | `GET /api/intelligence/truth` |
-| M48 Autonomous Advisor | `GET /api/intelligence/advisor` |
-| M50 Brain Core Logic | `GET /api/intelligence/brain-core` |
-| M54 Simulation Universe | `GET /api/intelligence/simulation-universe` |
-| M55 Intelligence Orchestrator | `GET /api/intelligence/orchestrator` |
-| Index of all Phase 6 endpoints | `GET /api/intelligence` |
-
-***Built by Horquva Engineering · MVP Release · 2026***
+Every Phase 6 endpoint (M36, M38, M39, M40, M46, M48, M50, M54, M55, plus the `GET /api/intelligence` index) is listed with full descriptions in the **All API Endpoints** table above, and verification steps are in **`backend/readme.md`** and **`HOWTO_RUN_AND_CHECK.md`**.

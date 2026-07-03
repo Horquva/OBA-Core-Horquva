@@ -42,7 +42,7 @@ from modules.organizational_intelligence_engine import run_intelligence_engine, 
 from modules.ontology_layer import run_ontology_layer, display_ontology_report
 from modules.relationship_layer import run_relationship_layer, display_relationship_report
 from modules.reasoning_layer import run_reasoning_layer, display_reasoning_report
-from modules.truth_layer import run_truth_layer, display_truth_report
+from modules.truth_layer import run_truth_layer, display_truth_report as display_truth_layer_report
 from modules.context_intelligence_layer import run_context_layer, display_context_report
 from modules.voice_context_layer import run_voice_context_layer, display_voice_context_report
 
@@ -68,7 +68,7 @@ from modules.signal_intelligence import run_signal_intelligence, display_signal_
 from modules.opportunity_intelligence import run_opportunity_intelligence, display_opportunity_report
 from modules.capability_intelligence import run_capability_intelligence, display_capability_report
 from modules.strategic_alignment_intelligence import run_strategic_alignment_intelligence, display_strategic_alignment_report
-from modules.truth_intelligence import run_truth_intelligence, display_truth_report
+from modules.truth_intelligence import run_truth_intelligence, display_truth_report as display_truth_intel_report
 from modules.autonomous_advisor import run_autonomous_advisor, display_autonomous_advisor
 from modules.brain_core_logic import run_brain_core, display_brain_core
 from modules.simulation_universe import run_simulation_universe, display_simulation_universe
@@ -214,7 +214,7 @@ def main():
 
     # Truth Layer (Kamran) — reconciles all signals into one organizational truth
     truth_records, truth_summary = run_truth_layer(DATA_PATH)
-    display_truth_report(truth_records, truth_summary, company)
+    display_truth_layer_report(truth_records, truth_summary, company)
     console.print(SEP)
 
     # Context Intelligence Layer (Huzaifa) — real-time context for the Executive Avatar
@@ -300,7 +300,7 @@ def main():
     console.print(SEP)
 
     truth_intel_summary = run_truth_intelligence(DATA_PATH)
-    display_truth_report(truth_intel_summary, company)
+    display_truth_intel_report(truth_intel_summary, company)
     console.print(SEP)
 
     advisor_summary = run_autonomous_advisor(DATA_PATH)
