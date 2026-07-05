@@ -26,7 +26,6 @@ router.get('/', async (req, res) => {
     stats.totalAgents = agents?.length ?? 0
 
     // 2. Check for failed/inactive agents
-    const failedAgents = (agents || []).filter(a => false) // Need status
     const { data: agentsWithStatus } = await supabase
       .from('agents')
       .select('id, name, status')
