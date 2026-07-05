@@ -107,8 +107,8 @@ CREATE TABLE dependencies (
   target_type     TEXT,
   dependency_type TEXT,
   strength        INTEGER,
-  agent_source    TEXT,
-  agent_target    TEXT
+  agent_source    INTEGER,
+  agent_target    INTEGER
 );
 
 CREATE TABLE recommendations (
@@ -242,7 +242,7 @@ CREATE TABLE organizational_forecasts (
   memory_score       INTEGER,
   knowledge_loss_risk TEXT,
   continuity_score   INTEGER,
-  resilience_forecast INTEGER,
+  resilience_forecast TEXT,
   outlook_score      INTEGER,
   outlook_status     TEXT
 );
@@ -354,8 +354,8 @@ CREATE TABLE failure_patterns (
 CREATE TABLE department_exposure (
   id                     SERIAL PRIMARY KEY,
   department             TEXT,
-  documentation_coverage INTEGER,
-  backup_coverage        INTEGER,
+  documentation_coverage NUMERIC,
+  backup_coverage        NUMERIC,
   incident_exposure_score INTEGER,
   incident_risk_level    TEXT
 );

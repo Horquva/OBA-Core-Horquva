@@ -1620,4 +1620,4 @@ All development on the OBA Core platform follows a centralized review workflow. 
 
 ---
 ### Release
-**This repository represents the MVP release of Horquva Organizational Brain Analysis (OBA) Core, delivering the complete M01–M55 constitutional module engine, integrated backend APIs, and the executive frontend dashboard.**
+This repository represents the MVP release of Horquva Organizational Brain Analysis (OBA) Core, delivering the complete M01–M55 constitutional module engine, integrated backend APIs, and the executive frontend dashboard.
