@@ -1,341 +1,712 @@
-# OBA Core — Backend API
+# Organizational Brain Analysis (OBA) Backend
 
 ## Project Overview
 
-This backend is the **Organizational Brain infrastructure** — a unified REST API layer that exposes every intelligence module so the frontend and any other client can consume organizational intelligence from one place.
-
-It models how an organization works using:
+This backend powers the **Organizational Brain Analysis (OBA)** platform. It models an organization as an interconnected intelligence system consisting of:
 
 - Humans (employees)
-- AI agents
-- AI tools
+- AI Agents
+- AI Tools
 - Workflows
+- Organizational Knowledge
 - Dependencies
 - Risks
-- Knowledge & Memory systems
-- Governance & Accountability structures
+- Governance
+- Accountability
+- Executive Intelligence
 
-It helps analyze: system failures, ownership gaps, AI tool risks, workflow breakdowns, knowledge loss, organizational memory health, future risk, decision quality, governance gaps, and accountability.
-
-## Tech Stack
-
-- Node.js
-- Express.js (v5)
-- Supabase (PostgreSQL)
-- @supabase/supabase-js
-- dotenv
-- CORS
-
-## Project Structure
-
-```
-backend/
-│
-├── index.js                  # Express server — all routes registered here
-├── supabase.js               # Supabase client initialization
-├── package.json              # Node.js dependencies
-├── package-lock.json
-├── .env.example              # Environment variable template
-│
-└── routes/
-    ├── agents.js                         # /api/agents              (Module 01)
-    ├── ownership.js                      # /api/ownership           (Module 01)
-    ├── dependencies.js                   # /api/dependencies        (Module 02)
-    ├── risks.js                          # /api/risks               (Module 03)
-    ├── dashboard.js                      # /api/dashboard           (Module 03)
-    ├── humanAgentMap.js                  # /api/human-agent-map     (Module 06)
-    ├── tools.js                          # /api/tools               (Module 07)
-    ├── toolIntelligence.js               # /api/tool-intelligence   (Module 07)
-    ├── toolImpact.js                     # /api/tool-impact         (Module 07)
-    │
-    ├── simulations/                      # Module 05 — What-If Simulation
-    │   ├── employeeLeaves.js             # /api/simulations/employee-leaves
-    │   ├── agentFails.js                 # /api/simulations/agent-fails
-    │   ├── platformDown.js               # /api/simulations/platform-down
-    │   └── workflowDisruption.js         # /api/simulations/workflow-disruption
-    │
-    ├── workflows/                        # Module 08 — Workflow Intelligence
-    │   ├── index.js                      # /api/workflows
-    │   ├── intelligence.js
-    │   ├── failures.js
-    │   └── spof.js
-    │
-    ├── knowledge/                        # Module 09 — Knowledge Risk Intelligence
-    │   ├── intelligence.js               # /api/knowledge/intelligence
-    │   ├── impact.js                     # /api/knowledge/impact
-    │   └── gaps.js                       # /api/knowledge/gaps
-    │
-    ├── memory/                           # Module 10 — Organizational Memory
-    │   └── memory.js                     # /api/memory
-    │
-    ├── predictive/                       # Module 11 — Predictive Risk Intelligence
-    │   └── predictiveRisk.js             # /api/predictive-risk
-    │
-    ├── forecast/                         # Module 12 — Organizational Forecasting
-    │   └── forecast.js                   # /api/forecast
-    │
-    ├── collaboration/                    # Module 13 — Human-AI Collaboration
-    │   └── collaboration.js              # /api/collaboration
-    │
-    ├── decisions/                        # Module 14 — Decision Intelligence
-    │   └── decisions.js                  # /api/decisions
-    │
-    ├── verification/                     # Module 15 — Verification Intelligence
-    │   └── intelligence.js               # /api/verification
-    │
-    ├── orchestration/                    # Module 16 — Workflow Orchestration
-    │   └── orchestration.js              # /api/orchestration
-    │
-    ├── learning/                         # Module 17 — Organizational Learning
-    │   └── learning.js                   # /api/learning
-    │
-    ├── continuity/                       # Module 18 — Organizational Continuity
-    │   └── continuity.js                 # /api/continuity
-    │
-    ├── governance/                       # Module 19 — Governance Intelligence
-    │   └── governance.js                 # /api/governance
-    │
-    ├── accountability/                   # Module 20 — Accountability Intelligence
-    │   └── accountability.js             # /api/accountability
-    │
-    └── intelligence/                     # Phase 6 — Constitutional Intelligence & Meta-Brain (M36–M55)
-        └── constitutional.js             # /api/intelligence/*
-```
-
-## Modules Implemented (20 Total)
-
-**Module 01 — Ownership Intelligence**
-Tracks ownership of agents, workflows, and tools; maps employees to responsibilities; detects missing ownership gaps.
-
-**Module 02 — Dependency Intelligence**
-Maps dependencies between systems; shows how agents, tools, and workflows connect; identifies cascading failure paths.
-
-**Module 03 — Risk Intelligence**
-Calculates risk scores; identifies critical and high-risk components; flags system instability areas.
-
-**Module 04 — Recommendation Engine**
-Suggests improvements in system design; identifies missing backups; recommends risk-reduction actions.
-
-**Module 05 — What-If Simulation**
-Simulates the impact of an employee leaving, an agent failing, a platform going down, or a workflow breaking.
-
-**Module 06 — Human-Agent Dependency Map**
-Full organizational relationship mapping across employees, agents, workflows, and tools.
-
-**Module 07 — AI Tool Intelligence**
-AI tool usage tracking, ownership mapping, tool-to-agent/workflow dependencies, monthly cost, backup tools, and tool risk scoring.
-
-**Module 08 — Workflow Intelligence**
-Step-by-step workflow mapping, human + agent + tool chains, Single Point of Failure (SPOF) detection, and workflow risk analysis.
-
-**Module 09 — Knowledge Risk Intelligence**
-Knowledge asset tracking, concentration per employee, undocumented system detection, and knowledge-loss simulation.
-
-**Module 10 — Organizational Memory Intelligence**
-Memory status (PRESERVED / VULNERABLE / AT RISK / LOST), Institutional Memory Health Score, and critical knowledge-carrier detection.
-
-**Module 11 — Predictive Risk Intelligence**
-Predicts future risk escalation of agents; classifies risk LOW / MEDIUM / HIGH / CRITICAL; detects emerging threats before failure.
-
-**Module 12 — Organizational Forecasting Intelligence**
-Forecasts 30/60/90-day organization health; combines health + memory + continuity prediction into an overall outlook score.
-
-**Module 13 — Human-AI Collaboration Intelligence**
-Measures AI adoption across the workforce, detects human dependency concentration, and evaluates collaboration effectiveness.
-
-**Module 14 — Decision Intelligence**
-Reconstructs organizational decisions, scores decision quality (GOOD / POOR / HARMFUL), and computes a Decision Quality Index.
-
-**Module 15 — Verification Intelligence**
-Tracks every action (human/agent/tool), verifies policy compliance, and flags violations and accountability issues.
-
-**Module 16 — Workflow Orchestration Intelligence**
-Manages workflow execution flow, detects collisions between workflows, and flags blocked workflows due to shared resources.
-
-**Module 17 — Organizational Learning Intelligence**
-Analyzes learning maturity, tracks failure patterns and incident exposure, and computes a Learning Maturity Score.
-
-**Module 18 — Organizational Continuity Intelligence**
-Measures survival ability of assets (SURVIVES / DEGRADED / FAILS / LOST) and generates continuity plans for critical assets.
-
-**Module 19 — Governance Intelligence**
-Evaluates governance structure, detects ownership + documentation gaps, builds a governance heatmap, and computes a Governance Score.
-
-**Module 20 — Accountability Intelligence**
-Implements the RACI model (Responsible, Accountable, Consulted, Informed), maps accountability chains, and flags gaps and conflicts.
-
-## API Routes
-
-**Module 01 — Ownership**
-- `GET /api/agents`
-- `GET /api/ownership`
-
-**Module 02 — Dependency**
-- `GET /api/dependencies`
-
-**Module 03 — Risk**
-- `GET /api/risks`
-- `GET /api/dashboard`
-
-**Module 05 — What-If Simulation**
-- `GET /api/simulations/employee-leaves/:name`
-- `GET /api/simulations/agent-fails/:name`
-- `GET /api/simulations/platform-down/:name`
-- `GET /api/simulations/workflow-disruption/:name`
-
-**Module 06 — Human-Agent Map**
-- `GET /api/human-agent-map`
-
-**Module 07 — AI Tools**
-- `GET /api/tools`
-- `GET /api/tool-intelligence`
-- `GET /api/tool-impact`
-
-**Module 08 — Workflows**
-- `GET /api/workflows`
-- `GET /api/workflows/intelligence`
-- `GET /api/workflows/failures`
-- `GET /api/workflows/spof`
-
-**Module 09 — Knowledge**
-- `GET /api/knowledge/intelligence`
-- `GET /api/knowledge/impact/:employee`
-- `GET /api/knowledge/gaps`
-
-**Module 10 — Memory**
-- `GET /api/memory`
-
-**Module 11 — Predictive Risk**
-- `GET /api/predictive-risk/summary`
-- `GET /api/predictive-risk/agents`
-- `GET /api/predictive-risk/critical`
-- `GET /api/predictive-risk/emerging`
-- `GET /api/predictive-risk/agent/:name`
-
-**Module 12 — Forecast**
-- `GET /api/forecast/summary`
-- `GET /api/forecast/health`
-- `GET /api/forecast/memory`
-- `GET /api/forecast/continuity`
-- `GET /api/forecast/outlook`
-
-**Module 13 — Collaboration**
-- `GET /api/collaboration/adoption`
-- `GET /api/collaboration/dependency`
-- `GET /api/collaboration/score`
-- `GET /api/collaboration/people`
-- `GET /api/collaboration/departments`
-
-**Module 14 — Decisions**
-- `GET /api/decisions/index`
-- `GET /api/decisions/all`
-- `GET /api/decisions/harmful`
-- `GET /api/decisions/trail/:id`
-- `GET /api/decisions/recommendations`
-
-**Module 15 — Verification**
-- `GET /api/verification/summary`
-- `GET /api/verification/actions`
-- `GET /api/verification/flagged`
-- `GET /api/verification/actor/:name`
-
-**Module 16 — Orchestration**
-- `GET /api/orchestration/summary`
-- `GET /api/orchestration/workflows`
-- `GET /api/orchestration/collisions`
-- `GET /api/orchestration/blocked`
-
-**Module 17 — Learning**
-- `GET /api/learning/summary`
-- `GET /api/learning/failures`
-- `GET /api/learning/decisions`
-- `GET /api/learning/incidents`
-- `GET /api/learning/departments`
-
-**Module 18 — Continuity**
-- `GET /api/continuity/score`
-- `GET /api/continuity/assets`
-- `GET /api/continuity/risk-map`
-- `GET /api/continuity/must-protect`
-- `GET /api/continuity/plans`
-
-**Module 19 — Governance**
-- `GET /api/governance/score`
-- `GET /api/governance/assets`
-- `GET /api/governance/heatmap`
-- `GET /api/governance/gaps`
-- `GET /api/governance/offenders`
-
-**Module 20 — Accountability**
-- `GET /api/accountability/score`
-- `GET /api/accountability/entities`
-- `GET /api/accountability/chains`
-- `GET /api/accountability/issues`
-
-## Environment Setup
-
-```bash
-# Copy the template, then fill in your Supabase credentials
-cp .env.example .env
-```
-
-```
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_KEY=your_supabase_secret_key
-PORT=3000
-```
-
-> `.env` is git-ignored and must never be committed to version control.
-
-## How to Run
-
-```bash
-npm install
-node index.js
-```
-
-Server starts on **http://localhost:3000**
-
+The platform transforms organizational data into actionable intelligence for leadership through specialized constitutional modules.
 
 ---
 
-## Phase 6 — Constitutional Intelligence & Meta-Brain routes (M36–M55, Kamran)
+# What the Platform Analyzes
 
-These routes expose the locked constitutional intelligence modules. They compute from the canonical dataset (`data/sunrise_care.json`), so they can be verified **without** a live Supabase connection.
+- Ownership gaps
+- Dependency chains
+- Organizational risks
+- AI tool governance
+- Workflow failures
+- Knowledge concentration
+- Organizational memory
+- Governance & accountability
+- Organizational continuity
+- Executive insights
+- Decision support
+- Organizational health
 
-Mounted in `index.js` as:
+---
 
-```js
-app.use('/api/intelligence', require('./routes/intelligence/constitutional'))
+# Tech Stack
+
+- Node.js
+- Express.js
+- Supabase (PostgreSQL)
+- dotenv
+- cors
+
+---
+
+# Project Structure
+
+```text
+backend/
+│
+├── index.js
+├── supabase.js
+├── package.json
+├── .env
+│
+└── routes/
+    ├── agents.js
+    ├── ownership.js
+    ├── dependencies.js
+    ├── risks.js
+    ├── dashboard.js
+    ├── humanAgentMap.js
+    │
+    ├── tools/
+    ├── workflows/
+    ├── knowledge/
+    ├── memory/
+    ├── predictive/
+    ├── forecast/
+    ├── collaboration/
+    ├── decisions/
+    ├── verification/
+    ├── orchestration/
+    ├── learning/
+    ├── continuity/
+    ├── governance/
+    ├── accountability/
+    ├── executive/
+    ├── voice/
+    ├── briefing/
+    ├── decisionSupport/
+    ├── health/
+    ├── executiveMemory/
+    ├── context/
+    └── intelligence/
 ```
 
-### Endpoints
+---
 
-| Module | Method + Path | Returns |
-|--------|---------------|---------|
-| M36 Signal Intelligence | `GET /api/intelligence/signals` | Early-warning stability score + active signals |
-| M38 Opportunity Intelligence | `GET /api/intelligence/opportunities` | Prioritised opportunity backlog + quick wins |
-| M39 Capability Intelligence | `GET /api/intelligence/capability` | Capability index per department |
-| M40 Strategic Alignment | `GET /api/intelligence/alignment` | Alignment index + misaligned areas |
-| M46 Truth Intelligence | `GET /api/intelligence/truth` | Verified truths + data trust score |
-| M48 Autonomous Advisor | `GET /api/intelligence/advisor` | Recommendations from verified truths only |
-| M50 Brain Core Logic | `GET /api/intelligence/brain-core` | Brain index + operating posture |
-| M54 Simulation Universe | `GET /api/intelligence/simulation-universe` | Ranked what-if scenarios + survivability |
-| M55 Intelligence Orchestrator | `GET /api/intelligence/orchestrator` | Organizational Intelligence Score + verdict |
-| Index | `GET /api/intelligence` | Lists all Phase 6 endpoints |
+# Implemented Constitutional Modules
 
-### How to check these routes work
+## Module 01 — Ownership Intelligence
+
+- Tracks ownership of agents, workflows, and tools
+- Detects missing ownership
+- Maps responsibility
+
+---
+
+## Module 02 — Dependency Intelligence
+
+- Maps organizational dependencies
+- Detects cascading failures
+- Dependency analysis
+
+---
+
+## Module 03 — Risk Intelligence
+
+- Calculates risk scores
+- Detects critical assets
+- Organizational risk analysis
+
+---
+
+## Module 04 — Recommendation Engine
+
+- Generates improvement recommendations
+- Suggests backups
+- Risk reduction planning
+
+---
+
+## Module 05 — Agent Intelligence
+
+- AI agent management
+- Ownership mapping
+- Risk scoring
+- Orphan detection
+
+---
+
+## Module 06 — Human + AI + Workflow Intelligence
+
+- Organization relationship graph
+- Human-AI collaboration mapping
+- Workflow connections
+
+---
+
+## Module 07 — AI Tool Intelligence
+
+- AI tool inventory
+- Tool ownership
+- Cost tracking
+- Backup tools
+- Tool dependency mapping
+
+---
+
+## Module 08 — Workflow Intelligence
+
+- Workflow execution mapping
+- SPOF detection
+- Failure analysis
+- Workflow health
+
+---
+
+## Module 09 — Knowledge Intelligence
+
+- Knowledge asset management
+- Knowledge concentration
+- Documentation gaps
+- Knowledge loss simulation
+
+---
+
+## Module 10 — Organizational Memory Intelligence
+
+- Memory preservation
+- Institutional memory health
+- Critical knowledge carriers
+- Memory risk analysis
+
+---
+
+## Module 11 — Predictive Risk Intelligence
+
+- Predicts future organizational risks
+- Risk forecasting
+- Emerging threat detection
+
+---
+
+## Module 12 — Organizational Forecast Intelligence
+
+- 30 / 60 / 90 day forecasting
+- Organizational outlook
+- Health prediction
+
+---
+
+## Module 13 — Human-AI Collaboration Intelligence
+
+- AI adoption analysis
+- Collaboration scoring
+- Dependency concentration
+
+---
+
+## Module 14 — Decision Intelligence
+
+- Decision reconstruction
+- Decision quality analysis
+- Decision Quality Index
+
+---
+
+## Module 15 — Verification Intelligence
+
+- Action verification
+- Policy compliance
+- Violation detection
+
+---
+
+## Module 16 — Workflow Orchestration Intelligence
+
+- Workflow execution
+- Collision detection
+- Resource conflict analysis
+
+---
+
+## Module 17 — Organizational Learning Intelligence
+
+- Learning maturity
+- Failure pattern analysis
+- Learning score
+
+---
+
+## Module 18 — Organizational Continuity Intelligence
+
+- Continuity analysis
+- Survival classification
+- Recovery planning
+
+---
+
+## Module 19 — Governance Intelligence
+
+- Governance analysis
+- Governance heatmap
+- Ownership & documentation gaps
+- Governance Score
+
+---
+
+## Module 20 — Accountability Intelligence
+
+Implements organizational accountability using the RACI model.
+
+Features:
+
+- Responsible
+- Accountable
+- Consulted
+- Informed
+- Decision Authority
+
+Provides:
+
+- Accountability chains
+- Accountability score
+- Separation-of-duties analysis
+- Accountability concentration analysis
+
+---
+
+## Module 21 — Executive Avatar Intelligence
+
+Executive conversational interface for leadership.
+
+Features:
+
+- Executive questions
+- Live organizational answers
+- Executive briefing
+- Organizational insights
+
+---
+
+## Module 22 — Voice Intelligence Engine
+
+Provides voice-ready organizational intelligence.
+
+Features:
+
+- Intent classification
+- Entity resolution
+- Natural language responses
+- Daily spoken summary
+
+---
+
+## Module 23 — Executive Briefing Intelligence
+
+Automatically generates daily executive briefings.
+
+Includes:
+
+- Top risks
+- Critical incidents
+- Documentation trends
+- Pending decisions
+
+---
+
+## Module 24 — Decision Support Intelligence
+
+Converts organizational risks into prioritized actions.
+
+Provides:
+
+- Prioritized decision queue
+- Impact × Urgency ÷ Effort scoring
+- Decision review
+- Recommended actions
+
+---
+
+## Module 25 — Organizational Health Intelligence
+
+Calculates overall organizational health.
+
+Measures:
+
+- Documentation
+- Continuity
+- Ownership
+- Critical safety
+- Incident load
+
+Produces:
+
+- Organizational Health Index
+- Department health
+- Health trends
+
+---
+
+## Module 26 — Executive Memory Intelligence
+
+Preserves leadership memory.
+
+Detects:
+
+- Recurring incidents
+- Lessons learned
+- Hero dependency
+- Repeat failures
+- Negative decisions
+
+---
+
+## Module 27 — Executive Context Intelligence
+
+Ranks organizational priorities.
+
+Combines:
+
+- Open incidents
+- SPOFs
+- Pending decisions
+- Dependency blast radius
+- Weak metrics
+
+Produces a real-time executive priority feed.
+
+---
+
+## Module 46 — Truth Intelligence
+
+Constitutional verification layer.
+
+Features:
+
+- Fact verification
+- Confidence scoring
+- Data trust score
+- Verified vs unverified facts
+- Truth gating
+
+---
+
+## Module 50 — Organizational Brain Core Logic
+
+Reasoning engine of the Organizational Brain.
+
+Features:
+
+- Unified Brain Index
+- Organizational posture
+- Signal fusion
+- Reasoning explanation
+
+Postures:
+
+- STABLE
+- STRAINED
+- CRITICAL
+
+---
+
+## Module 55 — Organizational Intelligence Orchestrator
+
+Final constitutional reasoning layer.
+
+Features:
+
+- Runs after all verified modules
+- Organizational Intelligence Score
+- Final organizational verdict
+- Cross-module intelligence fusion
+- Executive recommendations
+
+---
+
+# API Endpoints
+
+## Core
+
+```
+GET /api/agents
+GET /api/ownership
+GET /api/dependencies
+GET /api/risks
+GET /api/dashboard
+GET /api/human-agent-map
+GET /api/data-quality
+```
+
+---
+
+## Tools
+
+```
+GET /api/tools
+GET /api/tool-intelligence
+GET /api/tool-impact
+```
+
+---
+
+## Workflows
+
+```
+GET /api/workflows/intelligence
+GET /api/workflows/failures
+GET /api/workflows/spof
+```
+
+---
+
+## Knowledge
+
+```
+GET /api/knowledge/intelligence
+GET /api/knowledge/impact/:employee
+GET /api/knowledge/gaps
+```
+
+---
+
+## Memory
+
+```
+GET /api/memory/health
+GET /api/memory/employee/:name
+GET /api/memory/map
+```
+
+---
+
+## Predictive
+
+```
+GET /api/predictive/*
+```
+
+---
+
+## Forecast
+
+```
+GET /api/forecast/*
+```
+
+---
+
+## Collaboration
+
+```
+GET /api/collaboration/*
+```
+
+---
+
+## Decisions
+
+```
+GET /api/decisions/*
+```
+
+---
+
+## Verification
+
+```
+GET /api/verification/*
+```
+
+---
+
+## Orchestration
+
+```
+GET /api/orchestration/*
+```
+
+---
+
+## Learning
+
+```
+GET /api/learning/*
+```
+
+---
+
+## Continuity
+
+```
+GET /api/continuity/*
+```
+
+---
+
+## Governance
+
+```
+GET /api/governance/*
+```
+
+---
+
+## Accountability
+
+```
+GET /api/accountability/score
+GET /api/accountability/entities
+GET /api/accountability/chains
+GET /api/accountability/issues
+```
+
+---
+
+## Executive Avatar
+
+```
+GET /api/executive/questions
+GET /api/executive/history
+GET /api/executive/briefing
+
+GET /api/executive/ask?q=...
+```
+
+---
+
+## Voice Intelligence
+
+```
+GET /api/voice/intents
+GET /api/voice/history
+GET /api/voice/daily-summary
+
+GET /api/voice/ask?q=...
+```
+
+---
+
+## Executive Briefing
+
+```
+GET /api/briefing
+GET /api/briefing/history
+GET /api/briefing/top
+```
+
+---
+
+## Decision Support
+
+```
+GET /api/decision-support
+GET /api/decision-support/priorities
+GET /api/decision-support/history
+```
+
+---
+
+## Organizational Health
+
+```
+GET /api/organizational-health
+GET /api/organizational-health/departments
+GET /api/organizational-health/trend
+```
+
+---
+
+## Executive Memory
+
+```
+GET /api/executive-memory
+GET /api/executive-memory/patterns
+GET /api/executive-memory/lessons
+```
+
+---
+
+## Executive Context
+
+```
+GET /api/executive-context
+GET /api/executive-context/urgent
+GET /api/executive-context/feed
+```
+
+---
+
+## Truth Intelligence
+
+```
+GET /api/intelligence/truth
+GET /api/intelligence/truth/summary
+GET /api/intelligence/truth/verified
+GET /api/intelligence/truth/unverified
+GET /api/intelligence/truth/entity/:name
+```
+
+---
+
+## Brain Core
+
+```
+GET /api/intelligence/brain-core
+GET /api/intelligence/brain-core/summary
+GET /api/intelligence/brain-core/posture
+GET /api/intelligence/brain-core/signals
+GET /api/intelligence/brain-core/explanation
+```
+
+---
+
+## Organizational Intelligence Orchestrator
+
+```
+GET /api/intelligence/orchestrator
+GET /api/intelligence/orchestrator/summary
+GET /api/intelligence/orchestrator/verdict
+GET /api/intelligence/orchestrator/recommendations
+GET /api/intelligence/orchestrator/modules
+GET /api/intelligence/orchestrator/score
+```
+
+---
+
+# How to Run
+
+Install dependencies:
 
 ```bash
-cd backend
-npm install                 # installs express, cors, dotenv, @supabase/supabase-js
-node index.js               # starts server on http://localhost:3000
-
-# In a second terminal, hit the Phase 6 endpoints:
-curl http://localhost:3000/api/intelligence            # index of all endpoints
-curl http://localhost:3000/api/intelligence/orchestrator
-curl http://localhost:3000/api/intelligence/truth
-curl http://localhost:3000/api/intelligence/signals
+npm install
 ```
 
-> The Phase 6 `/api/intelligence/*` routes do **not** require Supabase — they read the local dataset, so they respond even before `.env` is configured. The other (Supabase-backed) routes need a valid `.env` first.
+Start the backend server:
+
+```bash
+node index.js
+```
+
+Default server:
+
+```
+http://localhost:3000
+```
+
+---
+
+# Architecture
+
+The backend follows a modular architecture where every constitutional module is independently implemented and exposed through REST APIs while sharing a common Supabase database.
+
+Each module is responsible for one intelligence capability and contributes to the overall Organizational Brain.
+
+---
+
+# Tech Summary
+
+- Node.js
+- Express.js
+- PostgreSQL (Supabase)
+- REST APIs
+- Modular Architecture
+- Organizational Brain Analysis (OBA)
+- Constitutional Intelligence Modules (M01–M55)
