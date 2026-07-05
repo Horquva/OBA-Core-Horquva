@@ -6,13 +6,31 @@
 --   02_seed_data.sql          (seed base data)
 --   03_fizza_modules_schema.sql (intelligence module tables)
 --   04_fizza_modules_seed.sql   (seed intelligence data)
--- Uses CREATE TABLE IF NOT EXISTS so it is safe to re-run.
+-- Safe to re-run: it drops the base tables first, then recreates them.
+-- Tables seeded with explicit ids use SERIAL so that the seed's
+-- setval('<table>_id_seq', N) calls work.
 -- ============================================================
+
+-- ── Clean slate (safe re-run) ─────────────────────────────────
+DROP TABLE IF EXISTS
+  employees, ai_platforms, agents, owners, workflows,
+  employee_agent, agent_platform, dependencies, recommendations,
+  tool_ownership, tool_users, tool_backups, tool_policies, tool_spend,
+  workflow_dependencies, workflow_tool_dependencies, workflow_runbooks,
+  workflow_failures, workflow_steps, knowledge_assets, snapshots,
+  predictive_risk_scores, organizational_forecasts, forecast_findings,
+  collaboration_scores, collaboration_summary, organizational_decisions,
+  decision_factors, verification_actions, policy_violations,
+  workflow_orchestration, learning_snapshots, failure_patterns,
+  department_exposure, continuity_assessments, continuity_plans,
+  governance_assessments, governance_gaps, accountability_entities,
+  accountability_links, accountability_scores, accountability_summary
+CASCADE;
 
 -- ── People, tools, agents, workflows ─────────────────────────
 
-CREATE TABLE IF NOT EXISTS employees (
-  id          INTEGER PRIMARY KEY,
+CREATE TABLE employees (
+  id          SERIAL PRIMARY KEY,
   name        TEXT,
   role        TEXT,
   department  TEXT,
@@ -24,8 +42,8 @@ CREATE TABLE IF NOT EXISTS employees (
   hire_date   DATE
 );
 
-CREATE TABLE IF NOT EXISTS ai_platforms (
-  id           INTEGER PRIMARY KEY,
+CREATE TABLE ai_platforms (
+  id           SERIAL PRIMARY KEY,
   name         TEXT,
   type         TEXT,
   status       TEXT,
@@ -35,8 +53,8 @@ CREATE TABLE IF NOT EXISTS ai_platforms (
   last_used    DATE
 );
 
-CREATE TABLE IF NOT EXISTS agents (
-  id           INTEGER PRIMARY KEY,
+CREATE TABLE agents (
+  id           SERIAL PRIMARY KEY,
   name         TEXT,
   type         TEXT,
   status       TEXT,
@@ -48,8 +66,8 @@ CREATE TABLE IF NOT EXISTS agents (
   cost         NUMERIC
 );
 
-CREATE TABLE IF NOT EXISTS owners (
-  id           INTEGER PRIMARY KEY,
+CREATE TABLE owners (
+  id           SERIAL PRIMARY KEY,
   name         TEXT,
   role         TEXT,
   backup_owner TEXT,
@@ -57,8 +75,8 @@ CREATE TABLE IF NOT EXISTS owners (
   employee_id  INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS workflows (
-  id         INTEGER PRIMARY KEY,
+CREATE TABLE workflows (
+  id         SERIAL PRIMARY KEY,
   name       TEXT,
   status     TEXT,
   risk       TEXT,
@@ -68,20 +86,20 @@ CREATE TABLE IF NOT EXISTS workflows (
 
 -- ── Relationship / junction tables ───────────────────────────
 
-CREATE TABLE IF NOT EXISTS employee_agent (
+CREATE TABLE employee_agent (
   id          SERIAL PRIMARY KEY,
   employee_id INTEGER,
   agent_id    INTEGER,
   role        TEXT
 );
 
-CREATE TABLE IF NOT EXISTS agent_platform (
+CREATE TABLE agent_platform (
   id          SERIAL PRIMARY KEY,
   agent_id    INTEGER,
   platform_id INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS dependencies (
+CREATE TABLE dependencies (
   id              SERIAL PRIMARY KEY,
   source_id       INTEGER,
   target_id       INTEGER,
@@ -93,7 +111,7 @@ CREATE TABLE IF NOT EXISTS dependencies (
   agent_target    TEXT
 );
 
-CREATE TABLE IF NOT EXISTS recommendations (
+CREATE TABLE recommendations (
   id             SERIAL PRIMARY KEY,
   asset_name     TEXT,
   asset_type     TEXT,
@@ -104,33 +122,33 @@ CREATE TABLE IF NOT EXISTS recommendations (
 
 -- ── Tool metadata ────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS tool_ownership (
+CREATE TABLE tool_ownership (
   id          SERIAL PRIMARY KEY,
   platform_id INTEGER,
   employee_id INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS tool_users (
+CREATE TABLE tool_users (
   id          SERIAL PRIMARY KEY,
   platform_id INTEGER,
   employee_id INTEGER,
   usage_level TEXT
 );
 
-CREATE TABLE IF NOT EXISTS tool_backups (
+CREATE TABLE tool_backups (
   id               SERIAL PRIMARY KEY,
   primary_platform INTEGER,
   backup_platform  INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS tool_policies (
+CREATE TABLE tool_policies (
   id          SERIAL PRIMARY KEY,
   platform_id INTEGER,
   policy_name TEXT,
   status      TEXT
 );
 
-CREATE TABLE IF NOT EXISTS tool_spend (
+CREATE TABLE tool_spend (
   id          SERIAL PRIMARY KEY,
   platform_id INTEGER,
   amount_usd  NUMERIC,
@@ -139,21 +157,21 @@ CREATE TABLE IF NOT EXISTS tool_spend (
 
 -- ── Workflow detail tables ───────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS workflow_dependencies (
+CREATE TABLE workflow_dependencies (
   id          SERIAL PRIMARY KEY,
   workflow_id INTEGER,
   agent_id    INTEGER,
   is_critical BOOLEAN
 );
 
-CREATE TABLE IF NOT EXISTS workflow_tool_dependencies (
+CREATE TABLE workflow_tool_dependencies (
   id          SERIAL PRIMARY KEY,
   workflow_id INTEGER,
   platform_id INTEGER,
   is_critical BOOLEAN
 );
 
-CREATE TABLE IF NOT EXISTS workflow_runbooks (
+CREATE TABLE workflow_runbooks (
   id            SERIAL PRIMARY KEY,
   workflow_id   INTEGER,
   owner_id      INTEGER,
@@ -161,7 +179,7 @@ CREATE TABLE IF NOT EXISTS workflow_runbooks (
   last_updated  DATE
 );
 
-CREATE TABLE IF NOT EXISTS workflow_failures (
+CREATE TABLE workflow_failures (
   id           SERIAL PRIMARY KEY,
   workflow_id  INTEGER,
   failure_type TEXT,
@@ -169,7 +187,7 @@ CREATE TABLE IF NOT EXISTS workflow_failures (
   description  TEXT
 );
 
-CREATE TABLE IF NOT EXISTS workflow_steps (
+CREATE TABLE workflow_steps (
   id               SERIAL PRIMARY KEY,
   workflow_id      INTEGER,
   step_number      INTEGER,
@@ -182,7 +200,7 @@ CREATE TABLE IF NOT EXISTS workflow_steps (
 
 -- ── Knowledge & time-series ──────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS knowledge_assets (
+CREATE TABLE knowledge_assets (
   id            SERIAL PRIMARY KEY,
   asset_type    TEXT,
   asset_id      INTEGER,
@@ -192,7 +210,7 @@ CREATE TABLE IF NOT EXISTS knowledge_assets (
   owner_id      INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS snapshots (
+CREATE TABLE snapshots (
   id               SERIAL PRIMARY KEY,
   snapshot_date    DATE,
   headcount        INTEGER,
@@ -206,7 +224,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
 
 -- ── Predictive & forecast (M11–M12) ──────────────────────────
 
-CREATE TABLE IF NOT EXISTS predictive_risk_scores (
+CREATE TABLE predictive_risk_scores (
   id                   SERIAL PRIMARY KEY,
   agent_id             INTEGER,
   predicted_score      INTEGER,
@@ -216,8 +234,8 @@ CREATE TABLE IF NOT EXISTS predictive_risk_scores (
   reasons              TEXT[]
 );
 
-CREATE TABLE IF NOT EXISTS organizational_forecasts (
-  id                 INTEGER PRIMARY KEY,
+CREATE TABLE organizational_forecasts (
+  id                 SERIAL PRIMARY KEY,
   horizon_days       INTEGER,
   health_score       INTEGER,
   health_trend       TEXT,
@@ -229,7 +247,7 @@ CREATE TABLE IF NOT EXISTS organizational_forecasts (
   outlook_status     TEXT
 );
 
-CREATE TABLE IF NOT EXISTS forecast_findings (
+CREATE TABLE forecast_findings (
   id             SERIAL PRIMARY KEY,
   forecast_id    INTEGER,
   finding_type   TEXT,
@@ -239,7 +257,7 @@ CREATE TABLE IF NOT EXISTS forecast_findings (
 
 -- ── Collaboration (M13) ──────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS collaboration_scores (
+CREATE TABLE collaboration_scores (
   id                    SERIAL PRIMARY KEY,
   employee_id           INTEGER,
   adoption_score        INTEGER,
@@ -251,7 +269,7 @@ CREATE TABLE IF NOT EXISTS collaboration_scores (
   has_backup            BOOLEAN
 );
 
-CREATE TABLE IF NOT EXISTS collaboration_summary (
+CREATE TABLE collaboration_summary (
   id                        SERIAL PRIMARY KEY,
   ai_adoption_score         INTEGER,
   adoption_level            TEXT,
@@ -263,8 +281,8 @@ CREATE TABLE IF NOT EXISTS collaboration_summary (
 
 -- ── Decisions & verification (M14–M16) ───────────────────────
 
-CREATE TABLE IF NOT EXISTS organizational_decisions (
-  id             INTEGER PRIMARY KEY,
+CREATE TABLE organizational_decisions (
+  id             SERIAL PRIMARY KEY,
   decision_type  TEXT,
   asset_name     TEXT,
   asset_type     TEXT,
@@ -274,7 +292,7 @@ CREATE TABLE IF NOT EXISTS organizational_decisions (
   recommended_fix TEXT
 );
 
-CREATE TABLE IF NOT EXISTS decision_factors (
+CREATE TABLE decision_factors (
   id           SERIAL PRIMARY KEY,
   decision_id  INTEGER,
   factor_name  TEXT,
@@ -282,8 +300,8 @@ CREATE TABLE IF NOT EXISTS decision_factors (
   score_impact INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS verification_actions (
-  id                  INTEGER PRIMARY KEY,
+CREATE TABLE verification_actions (
+  id                  SERIAL PRIMARY KEY,
   workflow_id         INTEGER,
   actor_type          TEXT,
   actor_name          TEXT,
@@ -294,7 +312,7 @@ CREATE TABLE IF NOT EXISTS verification_actions (
   created_at          TIMESTAMPTZ
 );
 
-CREATE TABLE IF NOT EXISTS policy_violations (
+CREATE TABLE policy_violations (
   id               SERIAL PRIMARY KEY,
   action_id        INTEGER,
   violation_reason TEXT,
@@ -302,7 +320,7 @@ CREATE TABLE IF NOT EXISTS policy_violations (
   created_at       TIMESTAMPTZ
 );
 
-CREATE TABLE IF NOT EXISTS workflow_orchestration (
+CREATE TABLE workflow_orchestration (
   id           SERIAL PRIMARY KEY,
   workflow_id  INTEGER,
   current_step INTEGER,
@@ -313,7 +331,7 @@ CREATE TABLE IF NOT EXISTS workflow_orchestration (
 
 -- ── Learning (M17) ───────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS learning_snapshots (
+CREATE TABLE learning_snapshots (
   id                     SERIAL PRIMARY KEY,
   learning_maturity_score INTEGER,
   learning_maturity_level TEXT,
@@ -323,7 +341,7 @@ CREATE TABLE IF NOT EXISTS learning_snapshots (
   mitigation_percentage  NUMERIC
 );
 
-CREATE TABLE IF NOT EXISTS failure_patterns (
+CREATE TABLE failure_patterns (
   id                SERIAL PRIMARY KEY,
   asset_name        TEXT,
   asset_type        TEXT,
@@ -333,7 +351,7 @@ CREATE TABLE IF NOT EXISTS failure_patterns (
   reasons           TEXT[]
 );
 
-CREATE TABLE IF NOT EXISTS department_exposure (
+CREATE TABLE department_exposure (
   id                     SERIAL PRIMARY KEY,
   department             TEXT,
   documentation_coverage INTEGER,
@@ -344,8 +362,8 @@ CREATE TABLE IF NOT EXISTS department_exposure (
 
 -- ── Continuity (M18) ─────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS continuity_assessments (
-  id               INTEGER PRIMARY KEY,
+CREATE TABLE continuity_assessments (
+  id               SERIAL PRIMARY KEY,
   asset_name       TEXT,
   asset_type       TEXT,
   department       TEXT,
@@ -355,7 +373,7 @@ CREATE TABLE IF NOT EXISTS continuity_assessments (
   criticality      TEXT
 );
 
-CREATE TABLE IF NOT EXISTS continuity_plans (
+CREATE TABLE continuity_plans (
   id            SERIAL PRIMARY KEY,
   assessment_id INTEGER,
   action_type   TEXT,
@@ -365,8 +383,8 @@ CREATE TABLE IF NOT EXISTS continuity_plans (
 
 -- ── Governance (M19) ─────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS governance_assessments (
-  id               INTEGER PRIMARY KEY,
+CREATE TABLE governance_assessments (
+  id               SERIAL PRIMARY KEY,
   asset_name       TEXT,
   asset_type       TEXT,
   department       TEXT,
@@ -376,7 +394,7 @@ CREATE TABLE IF NOT EXISTS governance_assessments (
   governance_status TEXT
 );
 
-CREATE TABLE IF NOT EXISTS governance_gaps (
+CREATE TABLE governance_gaps (
   id            SERIAL PRIMARY KEY,
   assessment_id INTEGER,
   gap_type      TEXT,
@@ -386,21 +404,21 @@ CREATE TABLE IF NOT EXISTS governance_gaps (
 
 -- ── Accountability / RACI (M20) ──────────────────────────────
 
-CREATE TABLE IF NOT EXISTS accountability_entities (
-  id          INTEGER PRIMARY KEY,
+CREATE TABLE accountability_entities (
+  id          SERIAL PRIMARY KEY,
   entity_name TEXT,
   entity_type TEXT,
   department  TEXT
 );
 
-CREATE TABLE IF NOT EXISTS accountability_links (
+CREATE TABLE accountability_links (
   id          SERIAL PRIMARY KEY,
   entity_id   INTEGER,
   person_name TEXT,
   raci_role   TEXT
 );
 
-CREATE TABLE IF NOT EXISTS accountability_scores (
+CREATE TABLE accountability_scores (
   id                 SERIAL PRIMARY KEY,
   entity_id          INTEGER,
   score              INTEGER,
@@ -410,7 +428,7 @@ CREATE TABLE IF NOT EXISTS accountability_scores (
   missing_accountable BOOLEAN
 );
 
-CREATE TABLE IF NOT EXISTS accountability_summary (
+CREATE TABLE accountability_summary (
   id                   SERIAL PRIMARY KEY,
   accountability_score INTEGER,
   status               TEXT,
