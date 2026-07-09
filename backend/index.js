@@ -1,8 +1,10 @@
 console.log("1. File started")
 
+const path = require('path')
 const express = require('express')
 const cors = require('cors')
-require('dotenv').config()
+// Load backend/.env no matter where the process is started from.
+require('dotenv').config({ path: path.join(__dirname, '.env') })
 
 console.log("2. Packages loaded")
 
@@ -56,6 +58,19 @@ app.use('/api/health', require('./routes/health/health'))
 app.use('/api/executive-memory', require('./routes/executiveMemory/executiveMemory'))
 app.use('/api/context', require('./routes/context/context'))
 app.use('/api/intelligence/orchestrator', require('./routes/intelligence/orchestrator'))
+
+// ─── Organizational Brain: constitutional runtime for M01–M55 (mounted at /api/brain) ───
+try {
+  const { mountBrain } = require('./brain')
+  const { report } = mountBrain(app)
+  console.log(
+    `Organizational Brain: ${report.accepted ? 'READY' : 'DEGRADED'} — ` +
+    `${report.modules.discovered}/${report.modules.expected} modules, ` +
+    `${report.capabilities.registered} capabilities`
+  )
+} catch (e) {
+  console.error('Organizational Brain failed to boot:', e.message)
+}
 
 app.use(errorHandler)
 
