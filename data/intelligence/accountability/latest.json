@@ -1,0 +1,89 @@
+{
+  "company": "Sunrise Care",
+  "accountability_score": 76,
+  "total_entities": 13,
+  "results": [
+    {
+      "entity": "Lead Scoring Agent",
+      "responsible": "Robert",
+      "accountable": "Robert",
+      "score": 65
+    },
+    {
+      "entity": "Lead Qualification Agent",
+      "responsible": "Robert",
+      "accountable": "Robert",
+      "score": 65
+    },
+    {
+      "entity": "Scheduling Agent",
+      "responsible": "Robert",
+      "accountable": "Robert",
+      "score": 65
+    },
+    {
+      "entity": "CRM Sync Agent",
+      "responsible": "Robert",
+      "accountable": "Robert",
+      "score": 65
+    },
+    {
+      "entity": "Billing Agent",
+      "responsible": "Robert",
+      "accountable": "Robert",
+      "score": 65
+    },
+    {
+      "entity": "Payroll Agent",
+      "responsible": "Lisa",
+      "accountable": "Lisa",
+      "score": 65
+    },
+    {
+      "entity": "Report Generator Agent",
+      "responsible": "Mike",
+      "accountable": "Mike",
+      "score": 65
+    },
+    {
+      "entity": "Support Ticket Agent",
+      "responsible": "Sarah",
+      "accountable": "Mike",
+      "score": 90
+    },
+    {
+      "entity": "Customer Feedback Agent",
+      "responsible": "Sarah",
+      "accountable": "Mike",
+      "score": 90
+    },
+    {
+      "entity": "Onboarding Agent",
+      "responsible": "Lisa",
+      "accountable": "Sarah",
+      "score": 90
+    },
+    {
+      "entity": "Compliance Monitor Agent",
+      "responsible": "Lisa",
+      "accountable": "Sarah",
+      "score": 90
+    },
+    {
+      "entity": "Email Campaign Agent",
+      "responsible": "Mike",
+      "accountable": "Lisa",
+      "score": 90
+    },
+    {
+      "entity": "Appointment Reminder Agent",
+      "responsible": "Sarah",
+      "accountable": "Mike",
+      "score": 90
+    }
+  ],
+  "_meta": {
+    "timestamp": "2026-07-05T15:00:50.668189",
+    "pillar": "accountability"
+  }
+}

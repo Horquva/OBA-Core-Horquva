@@ -1,0 +1,182 @@
+const express = require('express')
+const router = express.Router()
+const supabase = require('../../supabase')
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+
+async function fetchOrchestrationWithCurrentStep() {
+  const { data: orchestrations, error } = await supabase
+    .from('workflow_orchestration')
+    .select(`
+      id,
+      workflow_id,
+      current_step,
+      total_steps,
+      status,
+      updated_at,
+      workflows ( name, department )
+    `)
+
+  if (error) throw new Error(error.message)
+
+  // Attach the step record matching current_step for each workflow
+  const enriched = await Promise.all(
+    orchestrations.map(async o => {
+      const { data: step } = await supabase
+        .from('workflow_steps')
+        .select('step_name, actor_type, actor_name, is_required')
+        .eq('workflow_id', o.workflow_id)
+        .eq('step_number', o.current_step)
+        .single()
+
+      return { ...o, currentStepDetails: step ?? null }
+    })
+  )
+
+  return enriched
+}
+
+function detectCollisions(orchestrations) {
+  const actorMap = {}
+
+  orchestrations.forEach(o => {
+    const actor = o.currentStepDetails?.actor_name
+    if (!actor) return
+    if (!actorMap[actor]) actorMap[actor] = []
+    actorMap[actor].push(o)
+  })
+
+  const collisions = Object.entries(actorMap)
+    .filter(([_, workflows]) => workflows.length >= 2)
+    .map(([actorName, workflows]) => ({
+      actorName,
+      actorType: workflows[0].currentStepDetails?.actor_type,
+      conflictingWorkflows: workflows.map(w => ({
+        workflowId: w.workflow_id,
+        workflowName: w.workflows?.name,
+        currentStep: w.current_step,
+        totalSteps: w.total_steps
+      }))
+    }))
+
+  return collisions
+}
+
+function markBlockedWorkflows(orchestrations, collisions) {
+  const blockedWorkflowIds = new Set()
+
+  collisions.forEach(c => {
+    c.conflictingWorkflows.forEach(w => blockedWorkflowIds.add(w.workflowId))
+  })
+
+  return orchestrations.map(o => ({
+    ...o,
+    isBlocked: blockedWorkflowIds.has(o.workflow_id)
+  }))
+}
+
+// ─────────────────────────────────────────────
+// GET /api/orchestration/summary
+// ─────────────────────────────────────────────
+
+router.get('/summary', async (req, res) => {
+  try {
+    const orchestrations = await fetchOrchestrationWithCurrentStep()
+    const collisions = detectCollisions(orchestrations)
+    const withBlocked = markBlockedWorkflows(orchestrations, collisions)
+
+    const blockedCount = withBlocked.filter(w => w.isBlocked).length
+
+    res.json({
+      totalWorkflowsOrchestrated: orchestrations.length,
+      totalCollisions: collisions.length,
+      blockedWorkflows: blockedCount
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ─────────────────────────────────────────────
+// GET /api/orchestration/workflows
+// ─────────────────────────────────────────────
+
+router.get('/workflows', async (req, res) => {
+  try {
+    const orchestrations = await fetchOrchestrationWithCurrentStep()
+    const collisions = detectCollisions(orchestrations)
+    const withBlocked = markBlockedWorkflows(orchestrations, collisions)
+
+    const formatted = withBlocked.map(o => ({
+      workflowName: o.workflows?.name,
+      department: o.workflows?.department,
+      currentStep: o.current_step,
+      totalSteps: o.total_steps,
+      status: o.isBlocked ? 'BLOCKED' : o.status,
+      nextActor: o.currentStepDetails
+        ? {
+            name: o.currentStepDetails.actor_name,
+            type: o.currentStepDetails.actor_type,
+            stepName: o.currentStepDetails.step_name
+          }
+        : null,
+      updatedAt: o.updated_at
+    }))
+
+    res.json(formatted)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ─────────────────────────────────────────────
+// GET /api/orchestration/collisions
+// ─────────────────────────────────────────────
+
+router.get('/collisions', async (req, res) => {
+  try {
+    const orchestrations = await fetchOrchestrationWithCurrentStep()
+    const collisions = detectCollisions(orchestrations)
+
+    res.json({
+      totalCollisions: collisions.length,
+      collisions
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ─────────────────────────────────────────────
+// GET /api/orchestration/blocked
+// ─────────────────────────────────────────────
+
+router.get('/blocked', async (req, res) => {
+  try {
+    const orchestrations = await fetchOrchestrationWithCurrentStep()
+    const collisions = detectCollisions(orchestrations)
+    const withBlocked = markBlockedWorkflows(orchestrations, collisions)
+
+    const blocked = withBlocked
+      .filter(w => w.isBlocked)
+      .map(o => ({
+        workflowName: o.workflows?.name,
+        department: o.workflows?.department,
+        currentStep: o.current_step,
+        totalSteps: o.total_steps,
+        blockedActor: o.currentStepDetails?.actor_name ?? null,
+        reason: 'Actor required by multiple workflows at the same time'
+      }))
+
+    res.json({
+      totalBlocked: blocked.length,
+      blockedWorkflows: blocked
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+module.exports = router

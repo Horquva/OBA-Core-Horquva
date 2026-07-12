@@ -1,0 +1,969 @@
+/**
+ * CONSTITUTIONAL MODULE IMPLEMENTATIONS (M01–M55) — REAL LOGIC, NO STUBS
+ * ---------------------------------------------------------------------
+ * Each implementation receives (runtime, context) and returns an intelligence
+ * fragment { type, payload, confidence, evidence, recommendations,
+ * relationships }. The binder wraps it into a validated Intelligence Package.
+ *
+ * Every function computes genuine results from the Unified Knowledge Graph
+ * (runtime.graph) and, where constitutional, consumes prior modules'
+ * intelligence via context.priorIntel (e.g. M48 is gated by M46; M55 fuses all).
+ *
+ * Ownership:
+ *   Huzaifa  (reality)   — M01 M02 M03 M07 M08 M19 M20 M22 M28 M29 M31 M34 M35
+ *   Kamran   (reasoning) — M04 M05 M06 M09 M10 M14 M18 M24 M25 M26 M27 M30 M36
+ *                          M38 M39 M40 M46 M48 M50 M54 M55
+ *   Tahir    (prediction)— baseline real logic (owner refines)
+ *   Anusha   (executive) — baseline real logic (owner refines)
+ */
+
+const A = require('./analytics')
+const ev = (source, ref, note) => ({ source, ref, note })
+
+const IMPL = {}
+
+// ══════════════ HUZAIFA — REALITY LAYER ══════════════
+
+// M01 — Ownership Intelligence: who owns what; find unowned/critical assets.
+IMPL.M01 = (rt) => {
+  const g = rt.graph
+  const assets = A.assets(g)
+  const map = assets.map((a) => ({
+    entity: a.name, id: a.id, type: a.type,
+    owners: A.owners(g, a.id).map((r) => A.nameOf(g, r.from)),
+  }))
+  const unowned = map.filter((m) => m.owners.length === 0)
+  const evidence = A.edgesOfType(g, 'owns').map((r) => ev('relationship', r.id, `${A.nameOf(g, r.from)} owns ${A.nameOf(g, r.to)}`))
+  const coverage = assets.length ? (assets.length - unowned.length) / assets.length : 1
+  return {
+    type: 'ownership',
+    payload: {
+      totalAssets: assets.length,
+      ownedAssets: assets.length - unowned.length,
+      unownedAssets: unowned.map((u) => u.entity),
+      ownershipCoverage: A.round(coverage),
+      ownershipMap: map,
+    },
+    confidence: A.confidence(evidence.length, coverage),
+    evidence,
+    recommendations: unowned.map((u) => `Assign an accountable owner to "${u.entity}" (${u.type}).`),
+  }
+}
+
+// M02 — Dependency Intelligence: what depends on what; fan-in ranking.
+IMPL.M02 = (rt) => {
+  const g = rt.graph
+  const deps = A.edgesOfType(g, 'depends_on')
+  const ranking = A.fanInRanking(g)
+  const evidence = deps.map((r) => ev('relationship', r.id, `${A.nameOf(g, r.from)} depends_on ${A.nameOf(g, r.to)} (${r.criticality})`))
+  return {
+    type: 'dependency',
+    payload: {
+      dependencyCount: deps.length,
+      mostDependedUpon: ranking.slice(0, 5),
+      criticalDependencies: deps.filter((r) => r.criticality === 'high').map((r) => ({
+        from: A.nameOf(g, r.from), to: A.nameOf(g, r.to), failureImpact: r.failureImpact,
+      })),
+    },
+    confidence: A.confidence(evidence.length, deps.length ? 1 : 0),
+    evidence,
+    recommendations: ranking.slice(0, 3).map((x) => `"${x.name}" is depended on by ${x.dependents} entities — protect it with redundancy.`),
+  }
+}
+
+// M03 — Risk Intelligence: where is the org vulnerable? SPOF + critical deps.
+IMPL.M03 = (rt) => {
+  const g = rt.graph
+  const spofs = A.singlePointsOfFailure(g)
+  const criticalDeps = A.edgesOfType(g, 'depends_on').filter((r) => r.criticality === 'high')
+  const assets = A.assets(g)
+  const riskScore = A.round(Math.min(1, (spofs.length * 0.5 + criticalDeps.length * 0.3) / Math.max(1, assets.length)))
+  const evidence = [
+    ...spofs.map((s) => ev('entity', s.id, `SPOF: ${s.name} (${s.dependents} dependents, ${s.owners} owner)`)),
+    ...criticalDeps.map((r) => ev('relationship', r.id, `critical dependency ${A.nameOf(g, r.from)}→${A.nameOf(g, r.to)}`)),
+  ]
+  return {
+    type: 'risk',
+    payload: {
+      riskScore,
+      riskLevel: riskScore > 0.66 ? 'high' : riskScore > 0.33 ? 'medium' : 'low',
+      singlePointsOfFailure: spofs,
+      criticalDependencyCount: criticalDeps.length,
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: spofs.slice(0, 5).map((s) => `Mitigate single point of failure "${s.name}": add a backup owner and redundancy.`),
+  }
+}
+
+// M07 — AI Tool Intelligence: which AI agents exist and how governed.
+IMPL.M07 = (rt) => {
+  const g = rt.graph
+  const agents = A.byType(g, 'ai_agent')
+  const detail = agents.map((a) => ({
+    name: a.name, id: a.id,
+    owners: A.owners(g, a.id).map((r) => A.nameOf(g, r.from)),
+    dependsOn: A.dependencies(g, a.id).map((r) => A.nameOf(g, r.to)),
+    governedBy: g.relationships.to(a.id).filter((r) => r.type === 'governs').map((r) => A.nameOf(g, r.from)),
+    supports: g.relationships.from(a.id).filter((r) => r.type === 'supports').map((r) => A.nameOf(g, r.to)),
+  }))
+  const ungoverned = detail.filter((d) => d.governedBy.length === 0)
+  const evidence = agents.map((a) => ev('entity', a.id, `AI agent: ${a.name}`))
+  return {
+    type: 'governance',
+    payload: { aiAgentCount: agents.length, agents: detail, ungovernedAgents: ungoverned.map((d) => d.name) },
+    confidence: A.confidence(evidence.length, agents.length ? 1 : 0),
+    evidence,
+    recommendations: ungoverned.map((d) => `Bring AI agent "${d.name}" under an explicit governance policy.`),
+  }
+}
+
+// M08 — Workflow Intelligence: how work flows; workflow deps + owners.
+IMPL.M08 = (rt) => {
+  const g = rt.graph
+  const workflows = A.byType(g, 'workflow')
+  const detail = workflows.map((w) => ({
+    name: w.name, id: w.id,
+    owners: A.owners(g, w.id).map((r) => A.nameOf(g, r.from)),
+    dependsOn: A.dependencies(g, w.id).map((r) => ({ on: A.nameOf(g, r.to), criticality: r.criticality })),
+  }))
+  const evidence = workflows.map((w) => ev('entity', w.id, `workflow: ${w.name}`))
+  const orphan = detail.filter((d) => d.owners.length === 0)
+  return {
+    type: 'workflow',
+    payload: { workflowCount: workflows.length, workflows: detail, unownedWorkflows: orphan.map((d) => d.name) },
+    confidence: A.confidence(evidence.length, workflows.length ? 1 : 0),
+    evidence,
+    recommendations: orphan.map((d) => `Workflow "${d.name}" has no owner — assign process accountability.`),
+  }
+}
+
+// M19 — Governance Intelligence: policies and what they govern; gaps.
+IMPL.M19 = (rt) => {
+  const g = rt.graph
+  const policies = A.byType(g, 'policy')
+  const governs = A.edgesOfType(g, 'governs')
+  const governedIds = new Set(governs.map((r) => r.to))
+  const ungovernedAssets = A.assets(g).filter((a) => a.type !== 'policy' && !governedIds.has(a.id))
+  const evidence = governs.map((r) => ev('relationship', r.id, `${A.nameOf(g, r.from)} governs ${A.nameOf(g, r.to)}`))
+  const coverage = A.assets(g).length ? governedIds.size / A.assets(g).length : 1
+  return {
+    type: 'governance',
+    payload: {
+      policyCount: policies.length,
+      governedEntities: [...governedIds].map((id) => A.nameOf(g, id)),
+      ungovernedAssets: ungovernedAssets.map((a) => a.name),
+      governanceCoverage: A.round(coverage),
+    },
+    confidence: A.confidence(evidence.length, coverage),
+    evidence,
+    recommendations: ungovernedAssets.slice(0, 5).map((a) => `Extend a governance policy to cover "${a.name}".`),
+  }
+}
+
+// M20 — Accountability Intelligence: reporting chains; who is accountable.
+IMPL.M20 = (rt) => {
+  const g = rt.graph
+  const reports = A.edgesOfType(g, 'reports_to')
+  const chains = reports.map((r) => ({ who: A.nameOf(g, r.from), reportsTo: A.nameOf(g, r.to) }))
+  const manages = A.edgesOfType(g, 'manages').map((r) => ({ manager: A.nameOf(g, r.from), manages: A.nameOf(g, r.to) }))
+  const assetsNoAccountable = A.assets(g).filter((a) => A.owners(g, a.id).length === 0)
+  const evidence = [
+    ...reports.map((r) => ev('relationship', r.id, `${A.nameOf(g, r.from)} reports_to ${A.nameOf(g, r.to)}`)),
+    ...A.edgesOfType(g, 'manages').map((r) => ev('relationship', r.id, `manages`)),
+  ]
+  return {
+    type: 'accountability',
+    payload: { reportingChains: chains, managementLinks: manages, assetsWithoutAccountableOwner: assetsNoAccountable.map((a) => a.name) },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: assetsNoAccountable.map((a) => `No accountable owner for "${a.name}" — define accountability.`),
+  }
+}
+
+// M22 — Voice Intelligence: turn graph reality into a spoken executive summary.
+IMPL.M22 = (rt, context) => {
+  const g = rt.graph
+  const stats = g.stats()
+  const spofs = A.singlePointsOfFailure(g)
+  const role = (context && context.role) || 'Executive'
+  const spoken =
+    `${role}, the organization currently has ${stats.entities} tracked entities and ` +
+    `${stats.relationships} relationships. ` +
+    (spofs.length
+      ? `I have detected ${spofs.length} single point${spofs.length > 1 ? 's' : ''} of failure, the most critical being ${spofs[0].name}.`
+      : `No single points of failure are currently detected.`)
+  const evidence = [ev('graph', 'stats', `${stats.entities} entities / ${stats.relationships} relationships`)]
+  return {
+    type: 'generic',
+    payload: { voiceResponse: spoken, addressableExecutives: A.byType(g, 'executive').length },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: [],
+  }
+}
+
+// M28 — Universal Dependency Graph: full network + cycle detection + longest chain.
+IMPL.M28 = (rt) => {
+  const g = rt.graph
+  const deps = A.edgesOfType(g, 'depends_on')
+  const cycles = A.detectCycles(g)
+  const adjacency = {}
+  for (const r of deps) {
+    const from = A.nameOf(g, r.from)
+    ;(adjacency[from] = adjacency[from] || []).push(A.nameOf(g, r.to))
+  }
+  let longest = []
+  for (const e of A.all(g)) {
+    const chain = A.transitiveDependencies(g, e.id)
+    if (chain.length > longest.length) longest = [e.id, ...chain]
+  }
+  const evidence = deps.map((r) => ev('relationship', r.id, 'dependency edge'))
+  return {
+    type: 'dependency',
+    payload: {
+      nodes: A.all(g).length,
+      dependencyEdges: deps.length,
+      cyclesDetected: cycles,
+      hasCycles: cycles.length > 0,
+      longestDependencyChain: longest.map((id) => A.nameOf(g, id)),
+      adjacency,
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: cycles.length ? [`Circular dependency detected: ${cycles[0].join(' → ')} — break the cycle.`] : [],
+  }
+}
+
+// M29 — Relationship Intelligence: relationship health + type distribution.
+IMPL.M29 = (rt) => {
+  const g = rt.graph
+  const all = g.relationships.list()
+  const dist = {}
+  for (const r of all) dist[r.type] = (dist[r.type] || 0) + 1
+  const collaborations = A.edgesOfType(g, 'collaborates_with')
+  const isolated = A.all(g).filter((e) => A.degree(g, e.id) === 0)
+  const evidence = all.slice(0, 20).map((r) => ev('relationship', r.id, r.type))
+  return {
+    type: 'relationship',
+    payload: {
+      totalRelationships: all.length,
+      typeDistribution: dist,
+      collaborationLinks: collaborations.length,
+      isolatedEntities: isolated.map((e) => e.name),
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: isolated.map((e) => `"${e.name}" has no relationships — verify it is correctly connected.`),
+  }
+}
+
+// M31 — Ecosystem Intelligence: internal + external ecosystem.
+IMPL.M31 = (rt) => {
+  const g = rt.graph
+  const internalTypes = ['department', 'team', 'employee', 'executive', 'system', 'ai_agent', 'workflow', 'process']
+  const externalTypes = ['vendor', 'customer']
+  const internal = A.byTypes(g, internalTypes)
+  const external = A.byTypes(g, externalTypes)
+  const evidence = [...internal, ...external].map((e) => ev('entity', e.id, `${e.type}: ${e.name}`))
+  return {
+    type: 'ecosystem',
+    payload: {
+      internalEntities: internal.length,
+      externalEntities: external.length,
+      externalActors: external.map((e) => ({ name: e.name, type: e.type })),
+      composition: internalTypes.concat(externalTypes).reduce((o, t) => { o[t] = A.byType(g, t).length; return o }, {}),
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: external.length === 0 ? ['No external vendors/customers modeled yet — import ecosystem data for full picture.'] : [],
+  }
+}
+
+// M34 — Hidden Dependency Intelligence: transitive (indirect) dependencies.
+IMPL.M34 = (rt) => {
+  const g = rt.graph
+  const hidden = []
+  for (const e of A.all(g)) {
+    const direct = new Set(A.dependencies(g, e.id).map((r) => r.to))
+    for (const depId of A.transitiveDependencies(g, e.id)) {
+      if (!direct.has(depId) && depId !== e.id) {
+        hidden.push({ entity: e.name, hiddenDependency: A.nameOf(g, depId) })
+      }
+    }
+  }
+  const evidence = hidden.map((h) => ev('inference', `${h.entity}->${h.hiddenDependency}`, 'transitive dependency'))
+  return {
+    type: 'dependency',
+    payload: { hiddenDependencyCount: hidden.length, hiddenDependencies: hidden },
+    confidence: A.confidence(evidence.length, hidden.length ? 1 : 0.5),
+    evidence,
+    recommendations: hidden.slice(0, 5).map((h) => `"${h.entity}" indirectly depends on "${h.hiddenDependency}" — make this explicit.`),
+  }
+}
+
+// M35 — Network Intelligence: central actors and information pathways.
+IMPL.M35 = (rt) => {
+  const g = rt.graph
+  const centrality = A.centrality(g)
+  const evidence = centrality.slice(0, 10).map((c) => ev('entity', c.id, `degree ${c.degree}`))
+  return {
+    type: 'network',
+    payload: {
+      centralActors: centrality.slice(0, 5),
+      mostConnected: centrality[0] ? centrality[0].name : null,
+      averageDegree: A.round(centrality.reduce((s, c) => s + c.degree, 0) / Math.max(1, centrality.length)),
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: centrality[0] ? [`"${centrality[0].name}" is the most connected actor — a key hub to protect.`] : [],
+  }
+}
+
+// ══════════════ KAMRAN — REASONING LAYER ══════════════
+
+// M04 — Recommendation Engine: prioritized actions from ownership + risk.
+IMPL.M04 = (rt, context) => {
+  const g = rt.graph
+  const recs = []
+  const unowned = A.assets(g).filter((a) => A.owners(g, a.id).length === 0)
+  const spofs = A.singlePointsOfFailure(g)
+  unowned.forEach((a) => recs.push({ priority: 'high', action: `Assign owner to "${a.name}"`, rationale: 'Unowned critical asset' }))
+  spofs.slice(0, 5).forEach((s) => recs.push({ priority: 'high', action: `Add redundancy for "${s.name}"`, rationale: `${s.dependents} entities depend on it with ${s.owners} owner` }))
+  const cycles = A.detectCycles(g)
+  cycles.forEach((c) => recs.push({ priority: 'medium', action: `Break dependency cycle ${c.join(' → ')}`, rationale: 'Circular dependency' }))
+  const evidence = [ev('module', 'M01', 'ownership'), ev('module', 'M03', 'risk')]
+  return {
+    type: 'recommendation',
+    payload: { recommendationCount: recs.length, recommendations: recs },
+    confidence: A.confidence(recs.length, recs.length ? 1 : 0.5),
+    evidence,
+    recommendations: recs.map((r) => r.action),
+  }
+}
+
+// M05 — What-If Simulation: remove the highest fan-in entity, measure cascade.
+IMPL.M05 = (rt, context) => {
+  const g = rt.graph
+  const target = (context && context.simulateRemoveId) || (A.fanInRanking(g)[0] && A.fanInRanking(g)[0].id)
+  if (!target) return { type: 'simulation', payload: { note: 'No entity available to simulate' }, confidence: 0.4, evidence: [] }
+  const direct = A.dependents(g, target).map((r) => A.nameOf(g, r.from))
+  const cascade = A.transitiveDependents(g, target).map((id) => A.nameOf(g, id))
+  const evidence = [ev('entity', target, `simulate removal of ${A.nameOf(g, target)}`)]
+  return {
+    type: 'simulation',
+    payload: {
+      scenario: `Remove "${A.nameOf(g, target)}"`,
+      directlyImpacted: direct,
+      cascadeImpacted: cascade,
+      totalImpacted: cascade.length,
+      severity: cascade.length > 3 ? 'severe' : cascade.length > 0 ? 'moderate' : 'contained',
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: cascade.length ? [`Removing "${A.nameOf(g, target)}" would impact ${cascade.length} entities — build contingency.`] : [],
+  }
+}
+
+// M06 — Human-Agent Dependency Map: how humans and AI/systems depend on each other.
+IMPL.M06 = (rt) => {
+  const g = rt.graph
+  const humans = new Set(A.humans(g).map((e) => e.id))
+  const agents = new Set(A.byTypes(g, ['ai_agent', 'system']).map((e) => e.id))
+  const links = g.relationships.list().filter((r) =>
+    (humans.has(r.from) && agents.has(r.to)) || (agents.has(r.from) && humans.has(r.to)))
+  const evidence = links.map((r) => ev('relationship', r.id, `${A.nameOf(g, r.from)} ${r.type} ${A.nameOf(g, r.to)}`))
+  return {
+    type: 'dependency',
+    payload: {
+      humanCount: humans.size,
+      agentCount: agents.size,
+      humanAgentLinks: links.map((r) => ({ from: A.nameOf(g, r.from), type: r.type, to: A.nameOf(g, r.to) })),
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: [],
+  }
+}
+
+// M09 — Knowledge Risk Intelligence: bus-factor on knowledge assets.
+IMPL.M09 = (rt) => {
+  const g = rt.graph
+  const knowledge = A.byType(g, 'knowledge')
+  const atRisk = knowledge.map((k) => ({
+    name: k.name, id: k.id,
+    owners: A.owners(g, k.id).map((r) => A.nameOf(g, r.from)),
+    dependents: A.dependents(g, k.id).length,
+  })).filter((k) => k.owners.length <= 1)
+  const evidence = knowledge.map((k) => ev('entity', k.id, `knowledge: ${k.name}`))
+  return {
+    type: 'risk',
+    payload: { knowledgeAssets: knowledge.length, atRisk, busFactorRisks: atRisk.filter((k) => k.owners.length === 1).map((k) => k.name) },
+    confidence: A.confidence(evidence.length, knowledge.length ? 1 : 0.5),
+    evidence,
+    recommendations: atRisk.map((k) => `Knowledge "${k.name}" is held by ${k.owners.length || 'no'} person — document & cross-train.`),
+  }
+}
+
+// M10 — Organizational Memory: what the Brain has recorded (intelligence history).
+IMPL.M10 = (rt) => {
+  const history = rt.intelligenceBus ? rt.intelligenceBus.history(200) : []
+  const byType = {}
+  for (const p of history) byType[p.type] = (byType[p.type] || 0) + 1
+  const evidence = [ev('bus', 'history', `${history.length} intelligence packages recorded`)]
+  return {
+    type: 'generic',
+    payload: {
+      recordedIntelligence: history.length,
+      byType,
+      graphMemory: rt.graph.stats(),
+      lastRecorded: history.slice(-3).map((p) => ({ from: p.sourceModule, type: p.type, at: p.timestamp })),
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: [],
+  }
+}
+
+// M14 — Decision Intelligence: decision readiness from coverage + risk.
+IMPL.M14 = (rt, context) => {
+  const g = rt.graph
+  const own = A.prior(context, 'M01')
+  const risk = A.prior(context, 'M03')
+  const ownershipCoverage = own ? own.payload.ownershipCoverage : (A.assets(g).length ? 1 : 0)
+  const riskScore = risk ? risk.payload.riskScore : A.round(A.singlePointsOfFailure(g).length / Math.max(1, A.assets(g).length))
+  const readiness = A.round(Math.max(0, Math.min(1, ownershipCoverage * 0.6 + (1 - riskScore) * 0.4)))
+  const evidence = [ev('module', 'M01', 'ownership coverage'), ev('module', 'M03', 'risk score')]
+  return {
+    type: 'decision',
+    payload: {
+      decisionReadiness: readiness,
+      quality: readiness > 0.66 ? 'high' : readiness > 0.33 ? 'moderate' : 'low',
+      basis: { ownershipCoverage, riskScore },
+    },
+    confidence: A.confidence(evidence.length, readiness),
+    evidence,
+    recommendations: readiness < 0.66 ? ['Improve ownership coverage and reduce risk before high-stakes decisions.'] : [],
+  }
+}
+
+// M18 — Continuity Intelligence: can the org survive disruption?
+IMPL.M18 = (rt) => {
+  const g = rt.graph
+  const spofs = A.singlePointsOfFailure(g)
+  const assets = A.assets(g)
+  const continuityScore = A.round(1 - Math.min(1, spofs.length / Math.max(1, assets.length)))
+  const evidence = spofs.map((s) => ev('entity', s.id, `continuity risk: ${s.name}`))
+  return {
+    type: 'health',
+    payload: {
+      continuityScore,
+      survivability: continuityScore > 0.66 ? 'resilient' : continuityScore > 0.33 ? 'fragile' : 'critical',
+      threats: spofs.map((s) => s.name),
+    },
+    confidence: A.confidence(evidence.length || 1, continuityScore),
+    evidence,
+    recommendations: spofs.slice(0, 5).map((s) => `Create a continuity/recovery plan for "${s.name}".`),
+  }
+}
+
+// M24 — Decision Support: evidence-backed support (gated by Truth if present).
+IMPL.M24 = (rt, context) => {
+  const g = rt.graph
+  const truth = A.prior(context, 'M46')
+  const risk = A.prior(context, 'M03')
+  const own = A.prior(context, 'M01')
+  const supported = truth ? truth.payload.verified : true
+  const evidence = [own, risk, truth].filter(Boolean).map((p) => ev('module', p.sourceModule, `${p.type} conf ${p.confidence}`))
+  const findings = []
+  if (own) findings.push(`Ownership coverage ${Math.round(own.payload.ownershipCoverage * 100)}%`)
+  if (risk) findings.push(`Risk level ${risk.payload.riskLevel}`)
+  return {
+    type: 'decision',
+    payload: {
+      question: (context && context.question) || 'General decision support',
+      verifiedForDecision: supported,
+      keyFindings: findings,
+      supportingModules: evidence.map((e) => e.ref),
+    },
+    confidence: A.confidence(evidence.length, supported ? 1 : 0.5),
+    evidence,
+    recommendations: supported ? [] : ['Truth verification incomplete — treat this decision support as provisional.'],
+  }
+}
+
+// M25 — Organizational Health: composite health index.
+IMPL.M25 = (rt, context) => {
+  const g = rt.graph
+  const assets = A.assets(g)
+  const unowned = assets.filter((a) => A.owners(g, a.id).length === 0).length
+  const spofs = A.singlePointsOfFailure(g).length
+  const governs = new Set(A.edgesOfType(g, 'governs').map((r) => r.to)).size
+  const ownershipCoverage = assets.length ? (assets.length - unowned) / assets.length : 1
+  const governanceCoverage = assets.length ? governs / assets.length : 1
+  const riskPenalty = Math.min(1, spofs / Math.max(1, assets.length))
+  const health = A.round(Math.max(0, Math.min(1, ownershipCoverage * 0.4 + governanceCoverage * 0.3 + (1 - riskPenalty) * 0.3)))
+  const evidence = [ev('graph', 'ownership', `${Math.round(ownershipCoverage * 100)}%`), ev('graph', 'governance', `${Math.round(governanceCoverage * 100)}%`)]
+  return {
+    type: 'health',
+    payload: {
+      healthScore: health,
+      grade: health > 0.8 ? 'A' : health > 0.6 ? 'B' : health > 0.4 ? 'C' : 'D',
+      dimensions: { ownershipCoverage: A.round(ownershipCoverage), governanceCoverage: A.round(governanceCoverage), spofCount: spofs },
+    },
+    confidence: A.confidence(evidence.length, health),
+    evidence,
+    recommendations: health < 0.6 ? ['Improve ownership + governance coverage and reduce single points of failure.'] : [],
+  }
+}
+
+// M26 — Executive Memory: what an executive should remember (their footprint).
+IMPL.M26 = (rt, context) => {
+  const g = rt.graph
+  const execs = A.byType(g, 'executive')
+  const memory = execs.map((x) => ({
+    executive: x.name,
+    owns: A.owned(g, x.id).map((r) => A.nameOf(g, r.to)),
+    manages: g.relationships.from(x.id).filter((r) => r.type === 'manages').map((r) => A.nameOf(g, r.to)),
+    supportedBy: g.relationships.to(x.id).filter((r) => r.type === 'supports').map((r) => A.nameOf(g, r.from)),
+  }))
+  const evidence = execs.map((x) => ev('entity', x.id, `executive: ${x.name}`))
+  return {
+    type: 'generic',
+    payload: { executives: memory.length, memory },
+    confidence: A.confidence(evidence.length, execs.length ? 1 : 0.5),
+    evidence,
+    recommendations: [],
+  }
+}
+
+// M27 — Executive Context: assemble context for the requesting role.
+IMPL.M27 = (rt, context) => {
+  const g = rt.graph
+  const role = (context && context.role) || null
+  const exec = role ? A.byType(g, 'executive').find((e) => (e.metadata && e.metadata.role === role) || e.name.toLowerCase().includes(String(role).toLowerCase())) : A.byType(g, 'executive')[0]
+  const ctx = exec ? {
+    executive: exec.name,
+    scope: A.owned(g, exec.id).map((r) => A.nameOf(g, r.to)),
+    reports: g.relationships.to(exec.id).filter((r) => r.type === 'reports_to').map((r) => A.nameOf(g, r.from)),
+  } : { note: 'No matching executive found' }
+  const evidence = exec ? [ev('entity', exec.id, `context for ${exec.name}`)] : []
+  return {
+    type: 'generic',
+    payload: { requestedRole: role, context: ctx },
+    confidence: A.confidence(evidence.length, exec ? 1 : 0.4),
+    evidence,
+    recommendations: [],
+  }
+}
+
+// M30 — Knowledge Concentration: where ownership is dangerously concentrated.
+IMPL.M30 = (rt) => {
+  const g = rt.graph
+  const conc = A.ownershipConcentration(g)
+  const total = A.assets(g).length
+  const top = conc[0]
+  const concentrationRatio = top && total ? A.round(top.assetsOwned / total) : 0
+  const evidence = conc.map((c) => ev('entity', c.id, `${c.name} owns ${c.assetsOwned} assets`))
+  return {
+    type: 'risk',
+    payload: {
+      concentration: conc,
+      mostConcentratedOwner: top ? top.name : null,
+      concentrationRatio,
+      dangerous: concentrationRatio > 0.4,
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: concentrationRatio > 0.4 && top ? [`"${top.name}" owns ${Math.round(concentrationRatio * 100)}% of critical assets — distribute ownership.`] : [],
+  }
+}
+
+// M36 — Signal Intelligence: surface the signals that matter (anomalies).
+IMPL.M36 = (rt) => {
+  const g = rt.graph
+  const signals = []
+  A.assets(g).filter((a) => A.owners(g, a.id).length === 0).forEach((a) => signals.push({ level: 'warning', signal: `Unowned asset: ${a.name}` }))
+  A.singlePointsOfFailure(g).forEach((s) => signals.push({ level: 'critical', signal: `Single point of failure: ${s.name}` }))
+  A.all(g).filter((e) => A.degree(g, e.id) === 0).forEach((e) => signals.push({ level: 'info', signal: `Isolated entity: ${e.name}` }))
+  const evidence = signals.map((s, i) => ev('signal', String(i), s.signal))
+  return {
+    type: 'generic',
+    payload: { signalCount: signals.length, signals, critical: signals.filter((s) => s.level === 'critical').length },
+    confidence: A.confidence(evidence.length || 1, 1),
+    evidence,
+    recommendations: signals.filter((s) => s.level === 'critical').map((s) => `Act on critical signal: ${s.signal}`),
+  }
+}
+
+// M38 — Opportunity Intelligence: underused capacity + collaboration openings.
+IMPL.M38 = (rt) => {
+  const g = rt.graph
+  const underused = A.byTypes(g, ['system', 'ai_agent']).filter((s) => A.dependents(g, s.id).length === 0)
+  const opportunities = underused.map((s) => ({ opportunity: `Leverage under-utilized "${s.name}"`, type: s.type }))
+  const evidence = underused.map((s) => ev('entity', s.id, `underused: ${s.name}`))
+  return {
+    type: 'recommendation',
+    payload: { opportunityCount: opportunities.length, opportunities },
+    confidence: A.confidence(evidence.length || 1, 0.8),
+    evidence,
+    recommendations: opportunities.map((o) => o.opportunity),
+  }
+}
+
+// M39 — Capability Intelligence: inventory of organizational capabilities.
+IMPL.M39 = (rt) => {
+  const g = rt.graph
+  const systems = A.byType(g, 'system')
+  const workflows = A.byType(g, 'workflow')
+  const brainCaps = rt.capabilityRegistry ? rt.capabilityRegistry.count() : 0
+  const evidence = [...systems, ...workflows].map((e) => ev('entity', e.id, e.name))
+  return {
+    type: 'generic',
+    payload: {
+      systemCapabilities: systems.map((s) => s.name),
+      workflowCapabilities: workflows.map((w) => w.name),
+      brainConstitutionalCapabilities: brainCaps,
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: [],
+  }
+}
+
+// M40 — Strategic Alignment: is execution aligned (coverage vs gaps)?
+IMPL.M40 = (rt, context) => {
+  const g = rt.graph
+  const assets = A.assets(g)
+  const covered = assets.filter((a) => A.owners(g, a.id).length > 0).length
+  const alignment = A.round(assets.length ? covered / assets.length : 1)
+  const evidence = [ev('graph', 'coverage', `${covered}/${assets.length} assets owned & aligned`)]
+  return {
+    type: 'decision',
+    payload: {
+      alignmentScore: alignment,
+      aligned: alignment > 0.7,
+      gaps: assets.filter((a) => A.owners(g, a.id).length === 0).map((a) => a.name),
+    },
+    confidence: A.confidence(evidence.length, alignment),
+    evidence,
+    recommendations: alignment <= 0.7 ? ['Close ownership gaps to align execution with strategy.'] : [],
+  }
+}
+
+// M46 — Truth Intelligence: verify prior intelligence; GATES M48.
+IMPL.M46 = (rt, context) => {
+  const g = rt.graph
+  const prior = A.allPrior(context).map((p) => p.package)
+  const graphValid = g.validate().valid
+  const withEvidence = prior.filter((p) => p.evidence && p.evidence.length > 0).length
+  const avgConfidence = prior.length ? prior.reduce((s, p) => s + p.confidence, 0) / prior.length : (graphValid ? 0.7 : 0.4)
+  const truthScore = A.round(Math.max(0, Math.min(1,
+    (graphValid ? 0.4 : 0) + 0.3 * (prior.length ? withEvidence / prior.length : 1) + 0.3 * avgConfidence)))
+  const verified = truthScore >= 0.5 && graphValid
+  const evidence = [ev('graph', 'validate', graphValid ? 'graph integrity valid' : 'graph integrity FAILED'), ev('bus', 'prior', `${prior.length} prior packages, ${withEvidence} with evidence`)]
+  return {
+    type: 'truth',
+    payload: {
+      verified,
+      truthScore,
+      graphIntegrity: graphValid,
+      verifiedPackages: withEvidence,
+      totalPackages: prior.length,
+      gate: 'M48',
+    },
+    confidence: truthScore,
+    evidence,
+    recommendations: verified ? [] : ['Truth threshold not met — downstream autonomous advice will be withheld.'],
+  }
+}
+
+// M48 — Autonomous Advisor: GATED BY M46. Only advises on verified truth.
+IMPL.M48 = (rt, context) => {
+  const truth = A.prior(context, 'M46')
+  const verified = truth ? truth.payload.verified : false
+  const truthScore = truth ? truth.payload.truthScore : 0
+  if (!verified) {
+    return {
+      type: 'recommendation',
+      payload: { advised: false, reason: 'Constitutional gate: Truth (M46) not verified', truthScore },
+      confidence: A.round(Math.min(0.4, truthScore)),
+      evidence: [ev('module', 'M46', 'truth gate closed')],
+      recommendations: ['Autonomous advice withheld until Truth Intelligence (M46) verifies organizational reality.'],
+    }
+  }
+  // Verified — synthesize advice from recommendation-bearing prior modules.
+  const advice = []
+  for (const p of A.allPrior(context).map((x) => x.package)) {
+    for (const r of (p.recommendations || [])) advice.push({ from: p.sourceModule, advice: r })
+  }
+  const deduped = advice.filter((a, i) => advice.findIndex((b) => b.advice === a.advice) === i)
+  return {
+    type: 'recommendation',
+    payload: { advised: true, truthScore, adviceCount: deduped.length, advice: deduped },
+    confidence: A.round(Math.min(1, 0.5 + truthScore * 0.5)),
+    evidence: [ev('module', 'M46', `truth verified @ ${truthScore}`)],
+    recommendations: deduped.slice(0, 8).map((a) => a.advice),
+  }
+}
+
+// M50 — Brain Core Logic: the coherent reasoning model of the whole run.
+IMPL.M50 = (rt, context) => {
+  const prior = A.allPrior(context).map((p) => p.package)
+  const byType = {}
+  for (const p of prior) (byType[p.type] = byType[p.type] || []).push(p.sourceModule)
+  const findings = prior.flatMap((p) => (p.recommendations || []).slice(0, 1).map((r) => ({ from: p.sourceModule, finding: r })))
+  const evidence = prior.map((p) => ev('module', p.sourceModule, `${p.type} @ ${p.confidence}`))
+  return {
+    type: 'decision',
+    payload: {
+      reasoningInputs: prior.length,
+      intelligenceByType: byType,
+      coreFindings: findings,
+      graph: rt.graph.stats(),
+    },
+    confidence: A.confidence(evidence.length, 1),
+    evidence,
+    recommendations: [],
+  }
+}
+
+// M54 — Simulation Universe: many what-if futures across top dependencies.
+IMPL.M54 = (rt) => {
+  const g = rt.graph
+  const targets = A.fanInRanking(g).slice(0, 5)
+  const scenarios = targets.map((t) => {
+    const cascade = A.transitiveDependents(g, t.id)
+    return { remove: t.name, impacted: cascade.length, severity: cascade.length > 3 ? 'severe' : cascade.length > 0 ? 'moderate' : 'contained' }
+  })
+  const worst = scenarios.slice().sort((a, b) => b.impacted - a.impacted)[0]
+  const evidence = targets.map((t) => ev('entity', t.id, `scenario: remove ${t.name}`))
+  return {
+    type: 'simulation',
+    payload: { scenarioCount: scenarios.length, scenarios, worstCase: worst || null },
+    confidence: A.confidence(evidence.length || 1, 1),
+    evidence,
+    recommendations: worst && worst.impacted ? [`Worst-case failure "${worst.remove}" impacts ${worst.impacted} entities — prioritize its resilience.`] : [],
+  }
+}
+
+// M55 — Meta-Brain Orchestrator: fuse ALL intelligence into one answer (LAST).
+IMPL.M55 = (rt, context) => {
+  const prior = A.allPrior(context).map((p) => p.package)
+  const truth = prior.find((p) => p.sourceModule === 'M46')
+  const health = prior.find((p) => p.sourceModule === 'M25')
+  const risk = prior.find((p) => p.sourceModule === 'M03')
+  const advisor = prior.find((p) => p.sourceModule === 'M48')
+  const fusedConfidence = prior.length ? A.round(Math.min(...prior.map((p) => p.confidence)) * 0.5 + (prior.reduce((s, p) => s + p.confidence, 0) / prior.length) * 0.5) : 0.5
+  const keyRecommendations = [...new Set(prior.flatMap((p) => p.recommendations || []))].slice(0, 10)
+  const evidence = prior.map((p) => ev('module', p.sourceModule, `${p.type}`))
+  return {
+    type: 'decision',
+    payload: {
+      question: (context && context.question) || null,
+      modulesFused: prior.length,
+      verifiedTruth: truth ? truth.payload.verified : null,
+      organizationalHealth: health ? health.payload.healthScore : null,
+      riskLevel: risk ? risk.payload.riskLevel : null,
+      autonomousAdvice: advisor ? advisor.payload.advice : null,
+      fusedConfidence,
+      executiveSummary:
+        `Fused ${prior.length} constitutional modules. ` +
+        (health ? `Health ${Math.round(health.payload.healthScore * 100)}%. ` : '') +
+        (risk ? `Risk ${risk.payload.riskLevel}. ` : '') +
+        (truth ? `Truth ${truth.payload.verified ? 'verified' : 'unverified'}.` : ''),
+      keyRecommendations,
+    },
+    confidence: fusedConfidence,
+    evidence,
+    recommendations: keyRecommendations,
+  }
+}
+
+// ══════════ TAHIR — PREDICTION LAYER (real baseline; owner refines) ══════════
+
+// M11 — Predictive Risk: which current risks are likely to materialize.
+IMPL.M11 = (rt) => {
+  const g = rt.graph
+  const spofs = A.singlePointsOfFailure(g)
+  const predicted = spofs.map((s) => ({ risk: s.name, likelihood: A.round(Math.min(1, 0.4 + s.dependents * 0.15)), basis: `${s.dependents} dependents, ${s.owners} owner` }))
+  const evidence = spofs.map((s) => ev('entity', s.id, `predictive risk: ${s.name}`))
+  return { type: 'prediction', payload: { predictedRisks: predicted }, confidence: A.confidence(evidence.length || 1, 0.8), evidence, recommendations: predicted.filter((p) => p.likelihood > 0.6).map((p) => `High likelihood risk "${p.risk}" — pre-empt now.`) }
+}
+
+// M12 — Forecasting: project structure forward from current counts.
+IMPL.M12 = (rt) => {
+  const s = rt.graph.stats()
+  const forecast = { horizon: '90d', projectedEntities: Math.round(s.entities * 1.15), projectedRelationships: Math.round(s.relationships * 1.2) }
+  return { type: 'prediction', payload: { current: s, forecast, method: 'baseline-growth' }, confidence: 0.6, evidence: [ev('graph', 'stats', 'current snapshot')], recommendations: [] }
+}
+
+// M13 — Human-AI Collaboration: collaboration ratio.
+IMPL.M13 = (rt) => {
+  const g = rt.graph
+  const humans = new Set(A.humans(g).map((e) => e.id))
+  const agents = new Set(A.byTypes(g, ['ai_agent', 'system']).map((e) => e.id))
+  const links = g.relationships.list().filter((r) => (humans.has(r.from) && agents.has(r.to)) || (agents.has(r.from) && humans.has(r.to)))
+  const ratio = humans.size ? A.round(links.length / humans.size) : 0
+  return { type: 'prediction', payload: { collaborationLinks: links.length, humanCount: humans.size, collaborationRatio: ratio, quality: ratio > 1 ? 'strong' : ratio > 0 ? 'emerging' : 'none' }, confidence: A.confidence(links.length || 1, 0.7), evidence: links.map((r) => ev('relationship', r.id, 'human-agent link')), recommendations: [] }
+}
+
+// M17 — Organizational Learning: learning proxy from recorded intelligence.
+IMPL.M17 = (rt) => {
+  const history = rt.intelligenceBus ? rt.intelligenceBus.history(500) : []
+  const learningIndex = A.round(Math.min(1, history.length / 100))
+  return { type: 'prediction', payload: { recordedIntelligence: history.length, learningIndex }, confidence: A.confidence(history.length || 1, learningIndex), evidence: [ev('bus', 'history', `${history.length} records`)], recommendations: [] }
+}
+
+// M32 — Dependency Impact: impact score per dependency.
+IMPL.M32 = (rt) => {
+  const g = rt.graph
+  const impacts = A.fanInRanking(g).map((x) => ({ entity: x.name, directDependents: x.dependents, cascade: A.transitiveDependents(g, x.id).length }))
+  return { type: 'dependency', payload: { impacts }, confidence: A.confidence(impacts.length || 1, 1), evidence: impacts.map((i, idx) => ev('impact', String(idx), i.entity)), recommendations: impacts.filter((i) => i.cascade > 3).map((i) => `"${i.entity}" failure cascades to ${i.cascade} entities.`) }
+}
+
+// M33 — Dependency Evolution: change over time (snapshot baseline).
+IMPL.M33 = (rt) => {
+  const deps = A.edgesOfType(rt.graph, 'depends_on')
+  return { type: 'dependency', payload: { currentDependencies: deps.length, evolution: 'baseline snapshot (no historical series yet)', trend: 'stable' }, confidence: 0.55, evidence: [ev('graph', 'depends_on', `${deps.length} edges`)], recommendations: [] }
+}
+
+// M37 — Pattern Intelligence: recurring relationship-type patterns.
+IMPL.M37 = (rt) => {
+  const g = rt.graph
+  const dist = {}
+  for (const r of g.relationships.list()) dist[r.type] = (dist[r.type] || 0) + 1
+  const dominant = Object.entries(dist).sort((a, b) => b[1] - a[1])[0]
+  return { type: 'prediction', payload: { patternDistribution: dist, dominantPattern: dominant ? { type: dominant[0], count: dominant[1] } : null }, confidence: A.confidence(Object.keys(dist).length || 1, 1), evidence: Object.entries(dist).map(([t, n]) => ev('pattern', t, String(n))), recommendations: [] }
+}
+
+// M41 — Organizational DNA: identity fingerprint by composition.
+IMPL.M41 = (rt) => {
+  const g = rt.graph
+  const comp = {}
+  for (const e of A.all(g)) comp[e.type] = (comp[e.type] || 0) + 1
+  const dominant = Object.entries(comp).sort((a, b) => b[1] - a[1])[0]
+  return { type: 'generic', payload: { composition: comp, dnaSignature: dominant ? `${dominant[0]}-centric` : 'undetermined' }, confidence: A.confidence(Object.keys(comp).length || 1, 1), evidence: Object.entries(comp).map(([t, n]) => ev('dna', t, String(n))), recommendations: [] }
+}
+
+// M42 — Culture: collaboration density as culture proxy.
+IMPL.M42 = (rt) => {
+  const g = rt.graph
+  const collab = A.edgesOfType(g, 'collaborates_with').length
+  const people = A.humans(g).length
+  const density = people ? A.round(collab / people) : 0
+  return { type: 'generic', payload: { collaborationLinks: collab, people, collaborationDensity: density, cultureSignal: density > 0.5 ? 'collaborative' : 'siloed' }, confidence: A.confidence(collab || 1, 0.7), evidence: [ev('graph', 'collaborates_with', String(collab))], recommendations: density <= 0.5 ? ['Encourage cross-team collaboration to reduce silos.'] : [] }
+}
+
+// M43 — Maturity: maturity from governance + ownership coverage.
+IMPL.M43 = (rt) => {
+  const g = rt.graph
+  const assets = A.assets(g)
+  const owned = assets.filter((a) => A.owners(g, a.id).length > 0).length
+  const governed = new Set(A.edgesOfType(g, 'governs').map((r) => r.to)).size
+  const maturity = A.round(assets.length ? (owned / assets.length * 0.5 + governed / assets.length * 0.5) : 0)
+  return { type: 'health', payload: { maturityScore: maturity, level: maturity > 0.75 ? 'optimized' : maturity > 0.5 ? 'managed' : maturity > 0.25 ? 'developing' : 'initial' }, confidence: A.confidence(assets.length || 1, maturity), evidence: [ev('graph', 'coverage', `${owned}/${assets.length} owned`)], recommendations: [] }
+}
+
+// M44 — Behavior: activity distribution across relationship verbs.
+IMPL.M44 = (rt) => {
+  const g = rt.graph
+  const verbs = {}
+  for (const r of g.relationships.list()) verbs[r.type] = (verbs[r.type] || 0) + 1
+  return { type: 'generic', payload: { behaviorProfile: verbs }, confidence: A.confidence(Object.keys(verbs).length || 1, 1), evidence: Object.entries(verbs).map(([t, n]) => ev('behavior', t, String(n))), recommendations: [] }
+}
+
+// M45 — Benchmark: compare key metrics to baseline thresholds.
+IMPL.M45 = (rt) => {
+  const g = rt.graph
+  const assets = A.assets(g)
+  const ownership = assets.length ? assets.filter((a) => A.owners(g, a.id).length > 0).length / assets.length : 1
+  const benchmarks = [
+    { metric: 'ownershipCoverage', value: A.round(ownership), target: 0.9, pass: ownership >= 0.9 },
+    { metric: 'spofCount', value: A.singlePointsOfFailure(g).length, target: 0, pass: A.singlePointsOfFailure(g).length === 0 },
+  ]
+  return { type: 'generic', payload: { benchmarks, passing: benchmarks.filter((b) => b.pass).length, total: benchmarks.length }, confidence: A.confidence(benchmarks.length, 1), evidence: benchmarks.map((b) => ev('benchmark', b.metric, String(b.value))), recommendations: benchmarks.filter((b) => !b.pass).map((b) => `Improve ${b.metric} toward target ${b.target}.`) }
+}
+
+// M47 — Continuous Learning: improvement signal from memory growth.
+IMPL.M47 = (rt) => {
+  const history = rt.intelligenceBus ? rt.intelligenceBus.history(1000) : []
+  return { type: 'prediction', payload: { learningEvents: history.length, improving: history.length > 0 }, confidence: A.confidence(history.length || 1, 0.6), evidence: [ev('bus', 'history', `${history.length} events`)], recommendations: [] }
+}
+
+// M49 — Digital Twin: live virtual model snapshot of the organization.
+IMPL.M49 = (rt) => {
+  const g = rt.graph
+  const twin = {
+    entities: g.entities.list().map((e) => ({ id: e.id, type: e.type, name: e.name, status: e.status })),
+    relationships: g.relationships.list().map((r) => ({ from: r.from, type: r.type, to: r.to })),
+    stats: g.stats(),
+  }
+  return { type: 'simulation', payload: { digitalTwin: twin }, confidence: A.confidence(twin.entities.length || 1, 1), evidence: [ev('graph', 'snapshot', `${twin.entities.length} entities`)], recommendations: [] }
+}
+
+// ══════════ ANUSHA — EXECUTIVE LAYER (real baseline; owner refines) ══════════
+
+// M15 — Verification Intelligence: is intelligence verified & trustworthy?
+IMPL.M15 = (rt, context) => {
+  const g = rt.graph
+  const validation = g.validate()
+  const entities = g.entities.list()
+  const withEvidence = entities.filter((e) => e.confidence != null).length
+  return { type: 'truth', payload: { graphValid: validation.valid, entitiesVerified: withEvidence, totalEntities: entities.length, errors: validation.entities.errors.concat(validation.relationships.errors) }, confidence: validation.valid ? A.confidence(entities.length || 1, 1) : 0.4, evidence: [ev('graph', 'validate', validation.valid ? 'valid' : 'invalid')], recommendations: validation.valid ? [] : ['Resolve graph integrity errors before trusting downstream intelligence.'] }
+}
+
+// M16 — Workflow Orchestration: order workflows by their dependencies.
+IMPL.M16 = (rt) => {
+  const g = rt.graph
+  const workflows = A.byType(g, 'workflow')
+  const ordered = workflows.map((w) => ({ workflow: w.name, dependsOn: A.dependencies(g, w.id).map((r) => A.nameOf(g, r.to)) }))
+    .sort((a, b) => a.dependsOn.length - b.dependsOn.length)
+  return { type: 'workflow', payload: { orchestrationOrder: ordered }, confidence: A.confidence(workflows.length || 1, 1), evidence: workflows.map((w) => ev('entity', w.id, w.name)), recommendations: [] }
+}
+
+// M21 — Executive Avatar: assemble avatar profile from executive entities.
+IMPL.M21 = (rt, context) => {
+  const g = rt.graph
+  const execs = A.byType(g, 'executive').map((x) => ({ name: x.name, role: (x.metadata && x.metadata.role) || 'Executive', scope: A.owned(g, x.id).length }))
+  return { type: 'generic', payload: { avatars: execs }, confidence: A.confidence(execs.length || 1, execs.length ? 1 : 0.4), evidence: execs.map((e, i) => ev('avatar', String(i), e.name)), recommendations: [] }
+}
+
+// M23 — Executive Briefing: what the executive must know right now.
+IMPL.M23 = (rt, context) => {
+  const g = rt.graph
+  const spofs = A.singlePointsOfFailure(g)
+  const unowned = A.assets(g).filter((a) => A.owners(g, a.id).length === 0)
+  const brief = []
+  if (spofs.length) brief.push(`${spofs.length} single point(s) of failure — top: ${spofs[0].name}`)
+  if (unowned.length) brief.push(`${unowned.length} unowned critical asset(s)`)
+  if (!brief.length) brief.push('No critical issues detected; organization is stable.')
+  return { type: 'decision', payload: { briefing: brief, generatedFor: (context && context.role) || 'Executive' }, confidence: A.confidence(brief.length, 1), evidence: [ev('graph', 'scan', 'briefing scan')], recommendations: brief }
+}
+
+// M51 — Self-Healing: detect issues and propose healing actions.
+IMPL.M51 = (rt) => {
+  const g = rt.graph
+  const issues = []
+  A.assets(g).filter((a) => A.owners(g, a.id).length === 0).forEach((a) => issues.push({ issue: `Unowned: ${a.name}`, heal: `Auto-assign interim owner to ${a.name}` }))
+  A.singlePointsOfFailure(g).forEach((s) => issues.push({ issue: `SPOF: ${s.name}`, heal: `Provision standby for ${s.name}` }))
+  return { type: 'recommendation', payload: { detectedIssues: issues.length, healingActions: issues }, confidence: A.confidence(issues.length || 1, 1), evidence: issues.map((x, i) => ev('issue', String(i), x.issue)), recommendations: issues.map((x) => x.heal) }
+}
+
+// M52 — Governance Automation: auto-enforce governance coverage.
+IMPL.M52 = (rt) => {
+  const g = rt.graph
+  const governed = new Set(A.edgesOfType(g, 'governs').map((r) => r.to))
+  const gaps = A.assets(g).filter((a) => a.type !== 'policy' && !governed.has(a.id))
+  return { type: 'governance', payload: { governanceGaps: gaps.map((a) => a.name), autoEnforceable: gaps.map((a) => `Attach default policy to ${a.name}`) }, confidence: A.confidence(A.edgesOfType(g, 'governs').length || 1, 1), evidence: gaps.map((a) => ev('entity', a.id, `gap: ${a.name}`)), recommendations: gaps.map((a) => `Automate governance policy for "${a.name}".`) }
+}
+
+// M53 — Continuity Automation: automated recovery plan for SPOFs.
+IMPL.M53 = (rt) => {
+  const g = rt.graph
+  const spofs = A.singlePointsOfFailure(g)
+  const plans = spofs.map((s) => ({ asset: s.name, recovery: `Failover + backup owner for ${s.name}`, dependents: s.dependents }))
+  return { type: 'health', payload: { recoveryPlans: plans, count: plans.length }, confidence: A.confidence(plans.length || 1, 1), evidence: spofs.map((s) => ev('entity', s.id, `continuity: ${s.name}`)), recommendations: plans.map((p) => p.recovery) }
+}
+
+module.exports = IMPL
