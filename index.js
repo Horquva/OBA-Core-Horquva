@@ -2,18 +2,20 @@ console.log("1. File started")
 
 const express = require('express')
 const cors = require('cors')
+const helmet = require('helmet')
+const rateLimit = require('express-rate-limit')
 require('dotenv').config()
+
 // ── Environment Validation ────────────────────────────────────────────────
 const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_KEY']
-
 const missingEnv = REQUIRED_ENV.filter(key => !process.env[key])
 if (missingEnv.length > 0) {
   console.error('[STARTUP ERROR] Missing required environment variables:')
   missingEnv.forEach(key => console.error(`  - ${key}`))
   process.exit(1)
 }
-
 console.log('[STARTUP] Environment variables verified')
+
 // ── Process Safety ────────────────────────────────────────────────────────
 process.on('unhandledRejection', (err) => {
   console.error('[UNHANDLED REJECTION]', err.message)
@@ -22,16 +24,48 @@ process.on('uncaughtException', (err) => {
   console.error('[UNCAUGHT EXCEPTION]', err.message)
   process.exit(1)
 })
+
 console.log("2. Packages loaded")
 
 const app = express()
 
-app.use(cors())
-app.use(express.json())
+// ── SECURITY: Helmet ──────────────────────────────────────────────────────
+app.use(helmet())
+
+// ── SECURITY: CORS ────────────────────────────────────────────────────────
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:3000', 'http://localhost:3001']
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.includes(origin)) return callback(null, true)
+    callback(new Error(`CORS blocked: ${origin} is not allowed`))
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}))
+
+// ── SECURITY: Rate Limiting ───────────────────────────────────────────────
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again after 15 minutes.' }
+})
+app.use('/api/', globalLimiter)
+
+// ── SECURITY: Request Size Limit ──────────────────────────────────────────
+app.use(express.json({ limit: '1mb' }))
 
 const { requestLogger, errorHandler } = require('./middleware/validate')
 
 console.log("3. Middlewares added")
+const apiVersion = require('./middleware/apiVersion')
+app.use(apiVersion)
 
 app.use(requestLogger)
 
@@ -75,21 +109,31 @@ app.use('/api/executive-memory', require('./routes/executiveMemory/executiveMemo
 app.use('/api/context', require('./routes/context/context'))
 app.use('/api/intelligence/orchestrator', require('./routes/intelligence/orchestrator'))
 
-// ── Chunk 07: Knowledge Graph, Event Bus, Intelligence Exchange ──
-require('./services/eventBus')   // registers all subscriptions at boot
+// ── Chunk 07 ──────────────────────────────────────────────────────────────
+require('./services/eventBus')
 app.use('/api/graph', require('./routes/graph/graph'))
 app.use('/api/events', require('./routes/events/events'))
 
-// ── Chunk 08: Pattern Intelligence + Digital Twin ──
+// ── Chunk 08 ──────────────────────────────────────────────────────────────
 app.use('/api/pattern-intelligence', require('./routes/patternIntelligence/patternIntelligence'))
 app.use('/api/digital-twin', require('./routes/digitalTwin/digitalTwin'))
 
-// ── Chunk 09: Simulation Twin Integrations + Capability Registry ──
+// ── Chunk 09 ──────────────────────────────────────────────────────────────
 app.use('/api/simulations/history', require('./routes/simulations/history'))
 app.use('/api/capabilities', require('./routes/capabilities/capabilities'))
 app.use('/api/intelligence/registry-bridge', require('./routes/intelligence/registryBridge'))
+app.use('/api/auth',          require('./routes/auth/auth'))
+app.use('/api/organizations', require('./routes/auth/organizations'))
+app.use('/api/workspaces',    require('./routes/auth/workspaces'))
+app.use('/api/roles',         require('./routes/auth/roles'))
+// ── API v1 versioned endpoints ────────────────────────────────────────────
+app.use('/api/v1/auth',          require('./routes/auth/auth'))
+app.use('/api/v1/organizations', require('./routes/auth/organizations'))
+app.use('/api/v1/workspaces',    require('./routes/auth/workspaces'))
+app.use('/api/v1/roles',         require('./routes/auth/roles'))
+app.use('/api/v1/dashboard',     require('./routes/dashboard'))
+app.use('/api/v1/agents',        require('./routes/agents'))
 
-// Auto-register all module capabilities at startup (idempotent upsert)
 const { run: registerCapabilities } = require('./scripts/registerCapabilities')
 registerCapabilities().catch(err => console.error('[CapabilityRegistry] Startup registration error:', err.message))
 
@@ -97,6 +141,7 @@ registerCapabilities().catch(err => console.error('[CapabilityRegistry] Startup 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' })
 })
+
 app.use(errorHandler)
 
 console.log("4. Routes loaded")
