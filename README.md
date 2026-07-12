@@ -15,6 +15,25 @@ OBA Core answers all of this in seconds, with full risk scoring, cascade simulat
 
 ---
 
+## Table of Contents
+
+- [The Problem We Solve](#the-problem-we-solve)
+- [What Was Built](#what-was-built)
+- [System at a Glance — How Everything Fits Together](#system-at-a-glance--how-everything-fits-together)
+- [Intelligence Modules — Phase 1 (Modules 01–20)](#intelligence-modules--phase-1-modules-0120)
+- [Architecture Layers (Phase 3 — Ontology · Relationship · Reasoning · Truth · Context · Voice)](#architecture-layers-phase-3--ontology--relationship--reasoning--truth--context--voice)
+- [Executive, Network & Prediction Intelligence (Modules 21–35)](#executive-network--prediction-intelligence-modules-2135)
+- [Constitutional Intelligence, Automation & Meta-Brain (Modules 36–55)](#constitutional-intelligence-automation--meta-brain-modules-3655)
+- [Constitutional Runtime — Organizational Brain (`backend/brain/`)](#constitutional-runtime--organizational-brain-backendbrain)
+- [Demo Results Summary](#demo-results-summary)
+- [How to Run](#how-to-run)
+- [Project Structure](#project-structure)
+- [Full Tech Stack](#full-tech-stack)
+- [Module Engineering](#module-engineering)
+- [Phase 6 — Constitutional Intelligence & Meta-Brain (Master Registry M01–M55, LOCKED)](#phase-6--constitutional-intelligence--meta-brain-master-registry-m01m55-locked)
+
+---
+
 ## The Problem We Solve
 
 Organizations are deploying AI agents faster than they can govern them. The result is invisible risk:
@@ -40,70 +59,94 @@ OBA Core is a full-stack intelligence platform with three layers:
 
 ---
 
-## Constitutional Runtime — Organizational Brain (`backend/brain/`)
+## System at a Glance — How Everything Fits Together
 
-The 55 modules (M01–M55) are no longer standalone analyzers — they now boot and
-execute together as one **constitutional Organizational Brain**. This runtime is
-live Node.js code inside the API server and is split into the two ownership
-layers defined by the MVP Execution Guides.
+Read this section first. It explains the entire OBA Core system in plain language — what it is, how a question travels through it, who builds each part, and the vocabulary used everywhere else in this document. Everything after this section is detail.
 
-### Knowledge Platform — *Huzaifa* (`backend/brain/knowledge/`)
-The discovery + memory foundation that turns raw organizational data into one
-shared, connected truth.
+### The big idea
 
-| Component | File | Role |
+Every modern organization runs on a hidden web of people, AI agents, tools, workflows, and knowledge. When one node fails — a key person leaves, an agent breaks, a tool goes offline — the damage cascades in ways nobody can see in advance. **OBA Core turns that invisible web into a living map and reasons on top of it**, so leadership can ask plain questions ("What are our biggest risks?", "What breaks if Robert leaves?") and get verified, prioritized answers in seconds.
+
+It does this with **55 constitutional intelligence modules (M01–M55)** that do not run as 55 disconnected scripts. They **boot together as one Organizational Brain**: a shared knowledge graph, a common language, and a runtime that discovers, orders, and fuses every module's output into a single executive answer.
+
+### How a single question flows through the system
+
+1. **A question enters** — from an executive, the dashboard, or an API call (e.g. *"What are our biggest organizational risks?"*).
+2. **The Knowledge Graph is the ground truth** — every person, system, AI agent, tool, and workflow exists exactly once, with all relationships mapped.
+3. **Capability discovery** — the runtime finds *which* modules can answer, instead of hard-wiring calls between them.
+4. **Dependency ordering** — modules are sorted into a constitutional execution order so each one runs after the intelligence it depends on.
+5. **Modules execute** — each returns a standard Intelligence Package: a result, a confidence score, supporting evidence, and recommended actions.
+6. **Truth gate** — the Truth module (M46) verifies findings; the Autonomous Advisor (M48) is *not allowed* to recommend on unverified truth.
+7. **The Meta-Brain fuses everything** — the Orchestrator (M55) always runs **last**, merging every module's intelligence into one prioritized executive answer with a single fused confidence.
+
+```
+            Executive question
+                   │
+                   ▼
+        ┌───────────────────────┐
+        │   Knowledge Graph     │  entities + relationships (one shared truth)
+        └───────────┬───────────┘
+                   ▼
+        Capability discovery  →  which modules can answer?
+                   │
+                   ▼
+        Dependency ordering   →  constitutional run order
+                   │
+                   ▼
+        55 modules execute    →  result + confidence + evidence each
+                   │
+                   ▼
+        Truth (M46) gate      →  advice withheld unless verified
+                   │
+                   ▼
+        Meta-Brain (M55)      →  fuses everything, runs LAST
+                   │
+                   ▼
+         Single executive answer  (fused confidence + recommendations)
+```
+
+### The four intelligence layers — who builds what
+
+The 55 modules are owned by four engineers, each responsible for one layer of the Brain:
+
+| Layer | Lead engineer | Modules | What it delivers |
+|---|---|---|---|
+| **Knowledge Platform** | **Huzaifa** (13) | M01, M02, M03, M07, M08, M19, M20, M22, M28, M29, M31, M34, M35 | Discovery + memory: registries, entities, relationships, the Knowledge Graph and ontology — the shared truth every other module reads from |
+| **Brain Runtime & Core Reasoning** | **Kamran** (21) | M04, M05, M06, M09, M10, M14, M18, M24, M25, M26, M27, M30, M36, M38, M39, M40, M46, M48, M50, M54, M55 | The engine that boots the Brain, routes every call, orders modules, enforces the constitutional rules, and fuses all intelligence via the Meta-Brain |
+| **Prediction, Learning & Org Science** | **Tahir** (14) | M11, M12, M13, M17, M32, M33, M37, M41, M42, M43, M44, M45, M47, M49 | Looks forward and inward: predictive risk, forecasting, patterns, culture, maturity, benchmarks, continuous learning and the organizational digital twin |
+| **Executive Experience & Autonomous Ops** | **Anusha** (7) | M15, M16, M21, M23, M51, M52, M53 | The executive-facing surface + autonomy: verification, workflow orchestration, avatar & briefings, and self-healing / governance / continuity automation |
+
+### Supporting teams
+
+| Area | Team | Responsibility |
 |---|---|---|
-| Module Registry Loader | `knowledge/moduleRegistry.js` | Auto-discovers & validates all 55 modules; rejects duplicates/invalid |
-| Capability Registry | `knowledge/capabilityRegistry.js` | Turns modules into discoverable organizational services |
-| Intelligence Exchange Protocol | `knowledge/intelligenceExchange.js` | Common language: validated Intelligence Packages + confidence propagation |
-| Entity Registry | `knowledge/entityRegistry.js` | Every organizational object exists once (Single Source of Truth) |
-| Relationship Registry | `knowledge/relationshipRegistry.js` | Relationships as first-class assets; no dangling edges |
-| Unified Knowledge Graph | `knowledge/knowledgeGraph.js` | Brain's long-term memory: traversal, dependency paths, search |
-| Ontology Runtime | `data/ontology.js` | One constitutional meaning per concept & relationship |
-| Graph APIs | `knowledge/graphApi.js` | The only gateway to knowledge (registry + graph + exchange) |
+| Backend infrastructure | **Fizza & Shawal** | Node.js + Express API and Supabase persistence; the routes that serve all intelligence to the dashboard |
+| Executive dashboard (frontend) | **Frontend team** | Next.js 16 + TypeScript + Tailwind + Recharts visualization for leadership |
+| Architecture, integration & review | **Kamran** (Technical Lead) | Owns the Brain runtime and integrates every engineer's work into one constitutional source of truth |
 
-### Brain Runtime — *Kamran* (`backend/brain/runtime/`)
-The engineering brain that makes the 55 modules act as one organ.
+### Key concepts (glossary)
 
-| Component | File | Role |
-|---|---|---|
-| Event & Signal Bus | `runtime/eventBus.js` | Event-driven backbone; loose coupling + observability |
-| Brain State Manager | `runtime/brainState.js` | Lifecycle phase, module health, executions, boot report |
-| Constitutional Communication Layer | `runtime/communicationLayer.js` | No module talks directly; every call is routed + contract-checked |
-| Brain Execution Engine | `runtime/executionEngine.js` | Capability discovery + topological dependency ordering + fusion |
-| Organizational Brain Runtime | `runtime/runtime.js` | Boots the whole Brain; produces the Boot Report |
-| Constitutional API Gateway | `runtime/brainApi.js` | Executive APIs: `/status`, `/boot-report`, `/ask`, `/plan`, `/signals` |
+| Term | Meaning |
+|---|---|
+| **Module (M01–M55)** | A single unit of organizational intelligence. The registry is **LOCKED** — no renaming, merging or duplication |
+| **Capability** | The named service a module exposes (e.g. `m03.risk.intelligence`) so it can be *discovered* rather than hard-referenced |
+| **Knowledge Graph** | The Brain's long-term memory: every entity and every relationship, each stored exactly once |
+| **Entity / Relationship** | The nodes and edges of the graph. Relationships are first-class — no dangling edges allowed |
+| **Intelligence Package** | The standard envelope every module returns: `type`, `payload`, `confidence`, `evidence`, `recommendations` |
+| **Constitutional rules** | Non-negotiable runtime laws: *discovery before execution*; *Truth (M46) gates the Advisor (M48)*; *the Meta-Brain (M55) always runs last* |
+| **Boot Report** | The acceptance report printed when the Brain boots — modules discovered, per-owner counts, and every criterion check |
+| **Confidence** | A 0–1 score each module attaches to its output; the Meta-Brain fuses these into one figure |
 
-### Real logic — no stubs
-Every one of the 55 modules has a **real implementation** in
-`backend/brain/modules/implementations.js` that computes genuine intelligence
-from the knowledge graph (ownership coverage, single points of failure,
-dependency cascades, ownership concentration, governance gaps, health index,
-truth verification, autonomous advice, meta-fusion). Constitutional rules are
-enforced at runtime:
+### By the numbers
 
-- **Truth (M46) gates the Autonomous Advisor (M48)** — advice is withheld unless truth is verified.
-- **Meta-Brain Orchestrator (M55) always runs last** and fuses all module intelligence into one executive answer.
-- **Discovery before execution** — no module is ever hard-referenced.
-
-### Run & test the Brain
-```bash
-# 1) Boot the Brain standalone and print the Boot Report (55/55 modules)
-node backend/brain/boot.js
-
-# 2) Run the full API server — the Brain auto-mounts at /api/brain
-node backend/index.js
-```
-Key endpoints once the server is running:
-```
-GET  /api/brain/boot-report                     # acceptance report
-GET  /api/brain/registry/modules?owner=Huzaifa  # discovered modules
-GET  /api/brain/graph/entities                   # organizational reality
-GET  /api/brain/graph/dependency-path/:id        # dependency chain
-POST /api/brain/plan  { "modules": ["M03","M48","M55"] }   # constitutional order
-POST /api/brain/ask   { "need": "risk", "context": { "role": "CEO" } }  # executive answer
-```
-Full details: see [`backend/brain/README.md`](backend/brain/README.md).
+| Metric | Value |
+|---|---|
+| Constitutional modules | **55** (M01–M55, LOCKED) |
+| Engineering owners | **4** — Huzaifa 13 · Kamran 21 · Tahir 14 · Anusha 7 |
+| Runtime files (`backend/brain/`) | 21 JavaScript modules |
+| Seeded demo graph | 16 entities · 24 relationships |
+| Registered capabilities | 55 |
+| Stub responses | **0** — every module computes real graph-derived intelligence |
 
 ---
 
@@ -1133,6 +1176,139 @@ The Meta-Brain. **Runs last.** It fuses every module's output into one Organizat
 > **Automation layer (Anusha):** Modules 51, 52, 53 each *detect → emit intent → Module 16 executes* under the active governance mode. *Automation follows intelligence — never automate an action that was not first verified.* Modules 15, 16, 21, and 23 (also Anusha) are documented in sequence above.
 
 ---
+## Constitutional Runtime — Organizational Brain (`backend/brain/`)
+
+The 55 modules (M01–M55) are no longer standalone analyzers — they now boot and
+execute together as one **constitutional Organizational Brain**. This runtime is
+live Node.js code inside the API server and is split into the four ownership
+layers defined by the MVP Execution Guides.
+
+### Knowledge Platform — *Huzaifa* (`backend/brain/knowledge/`)
+The discovery + memory foundation that turns raw organizational data into one
+shared, connected truth.
+
+| Component | File | Role |
+|---|---|---|
+| Module Registry Loader | `knowledge/moduleRegistry.js` | Auto-discovers & validates all 55 modules; rejects duplicates/invalid |
+| Capability Registry | `knowledge/capabilityRegistry.js` | Turns modules into discoverable organizational services |
+| Intelligence Exchange Protocol | `knowledge/intelligenceExchange.js` | Common language: validated Intelligence Packages + confidence propagation |
+| Entity Registry | `knowledge/entityRegistry.js` | Every organizational object exists once (Single Source of Truth) |
+| Relationship Registry | `knowledge/relationshipRegistry.js` | Relationships as first-class assets; no dangling edges |
+| Unified Knowledge Graph | `knowledge/knowledgeGraph.js` | Brain's long-term memory: traversal, dependency paths, search |
+| Ontology Runtime | `data/ontology.js` | One constitutional meaning per concept & relationship |
+| Graph APIs | `knowledge/graphApi.js` | The only gateway to knowledge (registry + graph + exchange) |
+
+### Brain Runtime — *Kamran* (`backend/brain/runtime/`)
+The engineering brain that makes the 55 modules act as one organ.
+
+| Component | File | Role |
+|---|---|---|
+| Event & Signal Bus | `runtime/eventBus.js` | Event-driven backbone; loose coupling + observability |
+| Brain State Manager | `runtime/brainState.js` | Lifecycle phase, module health, executions, boot report |
+| Constitutional Communication Layer | `runtime/communicationLayer.js` | No module talks directly; every call is routed + contract-checked |
+| Brain Execution Engine | `runtime/executionEngine.js` | Capability discovery + topological dependency ordering + fusion |
+| Organizational Brain Runtime | `runtime/runtime.js` | Boots the whole Brain; produces the Boot Report |
+| Constitutional API Gateway | `runtime/brainApi.js` | Executive APIs: `/status`, `/boot-report`, `/ask`, `/plan`, `/signals` |
+
+### Prediction, Learning & Organizational Science — *Tahir* (`backend/brain/modules/implementations.js`)
+The forward-looking and inward-looking intelligence. Every module below consumes the shared Knowledge Graph and returns a real Intelligence Package (prediction/insight + confidence + evidence + recommended action) — no stubs.
+
+| Module | Name | What it computes at runtime |
+|---|---|---|
+| M11 | Predictive Risk | Projects each entity's future risk from dependency-cascade depth + ownership gaps; flags imminent, high-likelihood threats before they fail |
+| M12 | Forecasting | Activity-weighted 30/60/90-style outlook with best / expected / worst scenarios |
+| M13 | Human-AI Collaboration | AI-adoption vs. human-dependency balance and the collaboration orientation |
+| M17 | Organizational Learning | Learning maturity from intelligence produced across the graph + recent confidence trend |
+| M32 | Dependency Impact | Impact score & severity for every dependency; surfaces the highest-impact links |
+| M33 | Dependency Evolution | Criticality distribution, dependency cycles and directional trend |
+| M37 | Pattern | Structural anomalies — isolated nodes and over-connected hubs |
+| M41 | Organizational DNA | Human vs. automation share and the org's structural orientation |
+| M42 | Culture | Collaboration vs. silo signals, including siloed people and transitional signals |
+| M43 | Organizational Maturity | Maturity dimensions, current level and the gap to the next level |
+| M44 | Organizational Behavior | Dominant operating behavior and orientation |
+| M45 | Benchmark | Four internal benchmarks fused into a single benchmark score |
+| M47 | Continuous Learning | Confidence delta over time and the learning trend |
+| M49 | Digital Twin | A live twin snapshot of the organization across all intelligence layers |
+
+### Executive Experience & Autonomous Operations — *Anusha* (`backend/brain/modules/implementations.js`)
+The executive-facing surface and the autonomy layer. Automation always *follows* intelligence — nothing is auto-executed that was not first verified.
+
+| Module | Name | What it computes at runtime |
+|---|---|---|
+| M15 | Verification | Per-asset verification rate from owners + intact dependencies; lists integrity errors |
+| M16 | Workflow Orchestration | Topological run order with owners, readiness and bottlenecks |
+| M21 | Executive Avatar | Role-aware executive persona and how each briefing opens |
+| M23 | Executive Briefing | Fuses health (M25), risk (M03), advisor (M48) and prediction (M11) into a role-aware briefing with prioritized recommendations |
+| M51 | Self-Healing | Detects issues, marks the auto-healable ones and emits the healing workflow |
+| M52 | Governance Automation | Compliance rate + the governance actions to auto-enforce |
+| M53 | Continuity Automation | Continuity score, resilience and a prioritized recovery plan |
+
+### Real logic — no stubs
+Every one of the 55 modules has a **real implementation** in
+`backend/brain/modules/implementations.js` that computes genuine intelligence
+from the knowledge graph (ownership coverage, single points of failure,
+dependency cascades, ownership concentration, governance gaps, health index,
+truth verification, autonomous advice, meta-fusion). Constitutional rules are
+enforced at runtime:
+
+- **Truth (M46) gates the Autonomous Advisor (M48)** — advice is withheld unless truth is verified.
+- **Meta-Brain Orchestrator (M55) always runs last** and fuses all module intelligence into one executive answer.
+- **Discovery before execution** — no module is ever hard-referenced.
+
+### Run & test the Brain
+```bash
+# 1) Boot the Brain standalone and print the Boot Report (55/55 modules)
+node backend/brain/boot.js
+
+# 2) Run the full API server — the Brain auto-mounts at /api/brain
+node backend/index.js
+```
+Key endpoints once the server is running:
+```
+GET  /api/brain/boot-report                     # acceptance report
+GET  /api/brain/registry/modules?owner=Huzaifa  # discovered modules
+GET  /api/brain/graph/entities                   # organizational reality
+GET  /api/brain/graph/dependency-path/:id        # dependency chain
+POST /api/brain/plan  { "modules": ["M03","M48","M55"] }   # constitutional order
+POST /api/brain/ask   { "need": "risk", "context": { "role": "CEO" } }  # executive answer
+```
+### Verify the whole system (boot & per-engineer health check)
+
+Anyone can confirm — in under a minute, without a database — that all four engineers' modules boot and execute together as one system.
+
+**1) Boot the Brain and print the acceptance report:**
+```bash
+node backend/brain/boot.js
+```
+The run is healthy when you see:
+```
+Accepted     : YES ✅
+Modules      : 55/55 discovered
+By owner     :  Huzaifa 13 · Kamran 21 · Tahir 14 · Anusha 7
+```
+plus every acceptance criterion checked and a demo executive query returning a fused confidence.
+
+**2) Confirm each engineer's modules return real output** (with the API server running):
+```
+GET  /api/brain/registry/modules?owner=Huzaifa   # 13 modules
+GET  /api/brain/registry/modules?owner=Kamran    # 21 modules
+GET  /api/brain/registry/modules?owner=Tahir     # 14 modules
+GET  /api/brain/registry/modules?owner=Anusha    # 7 modules
+POST /api/brain/ask  { "need": "biggest organizational risks", "context": { "role": "CEO" } }
+```
+A healthy `ask` response returns a numeric `fusedConfidence` and a `results` array in which every module carries a filled `payload` (never empty) — proof there are no stubs anywhere in the pipeline.
+
+**How to read the result — the system is healthy when:**
+- The Boot Report says `Accepted: YES` with `55/55` and owner counts `13 / 21 / 14 / 7`.
+- `GET /api/brain/graph/validate` reports the graph is valid.
+- `POST /api/brain/ask` returns a fused confidence and populated per-module payloads.
+
+> **Tip:** `node backend/brain/boot.js` runs standalone — no Supabase and no `.env` required — so it is the fastest single proof that Huzaifa's, Kamran's, Tahir's and Anusha's work all functions together. The API server is only needed for the HTTP endpoints.
+
+Full details: see [`backend/brain/README.md`](backend/brain/README.md).
+
+---
+
 ## Demo Results Summary
 
 | Metric | Result |
@@ -1648,9 +1824,9 @@ OBA-Core-Horquva/
 | Layer A4 | Truth Layer (One Organizational Truth) | Kamran |
 | Layer A5 | Context Intelligence Layer (Real-Time Executive Context) | Huzaifa |
 | Layer A6 | Voice Agent Context Layer (Semantic Foundation for Voice) | Huzaifa |
-| Module 21 | Executive Avatar Intelligence | Huzaifa |
+| Module 21 | Executive Avatar Intelligence | Anusha |
 | Module 22 | Voice Intelligence Engine | Huzaifa |
-| Module 23 | Executive Briefing Intelligence | Huzaifa |
+| Module 23 | Executive Briefing Intelligence | Anusha |
 | Module 24 | Decision Support Intelligence | Kamran |
 | Module 25 | Organizational Health Intelligence | Kamran |
 | Module 26 | Executive Memory Intelligence | Kamran |
@@ -1684,7 +1860,7 @@ OBA-Core-Horquva/
 | Module 54 | Simulation Universe | Kamran |
 | Module 55 | Organizational Intelligence Orchestrator (Meta-Brain) | Kamran |
 
-> **Runtime implementation (`backend/brain/`).** All 55 modules now boot and execute together as one constitutional runtime (see the **Constitutional Runtime** section near the top). Runtime ownership is split into two engineering layers: **Huzaifa** owns the Knowledge Platform (`backend/brain/knowledge/`) and **Kamran** owns the Brain Runtime (`backend/brain/runtime/`). Every module has a **real, graph-derived implementation** in `backend/brain/modules/implementations.js` — there are no stub responses. **Tahir** and **Anusha** modules run on real baseline logic and are finalized as their detailed specifications are integrated.
+> **Runtime implementation (`backend/brain/`).** All 55 modules boot and execute together as one constitutional runtime, documented in the **Constitutional Runtime — Organizational Brain** section. Every module has a **real, graph-derived implementation** in `backend/brain/modules/implementations.js` — there are **no stub responses**. Runtime ownership spans all four engineers: **Huzaifa** — Knowledge Platform (`backend/brain/knowledge/`); **Kamran** — Brain Runtime, core reasoning & Meta-Brain (`backend/brain/runtime/`); **Tahir** — Prediction, Learning & Organizational Science (M11, M12, M13, M17, M32, M33, M37, M41–M45, M47, M49); **Anusha** — Executive Experience & Autonomous Operations (M15, M16, M21, M23, M51, M52, M53).
 
 ---
 
@@ -1735,4 +1911,4 @@ All development on the OBA Core platform follows a centralized review workflow. 
 
 ---
 ### Release
-This repository represents the MVP release of Horquva Organizational Brain Analysis (OBA) Core, delivering the complete M01–M55 constitutional module engine, integrated backend APIs, and the executive frontend dashboard.
+**This repository represents the MVP release of Horquva Organizational Brain Analysis (OBA) Core, delivering the complete M01–M55 constitutional module engine, integrated backend APIs, and the executive frontend dashboard.**
