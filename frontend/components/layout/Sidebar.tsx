@@ -13,6 +13,10 @@ import {
   Brain,
   Archive,
   Scale,
+  Workflow,
+  TrendingUp,
+  FlaskConical,
+  Settings,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -29,6 +33,10 @@ const navigation = [
   { name: 'Knowledge Risk',         href: '/knowledge',       icon: Brain },
   { name: 'Org Memory',             href: '/memory',          icon: Archive },
   { name: 'Decision Intelligence',  href: '/decision',        icon: Scale },
+  { name: 'Workflows',              href: '/workflows',       icon: Workflow },
+  { name: 'Forecast',               href: '/forecast',        icon: TrendingUp },
+  { name: 'Org Science',            href: '/org-science',     icon: FlaskConical },
+  { name: 'Admin',                  href: '/admin',           icon: Settings },
 ];
 
 export function Sidebar() {
