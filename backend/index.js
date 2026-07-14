@@ -13,6 +13,22 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+// Root route — friendly service metadata (prevents "Cannot GET /")
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Horquva OBA Core API',
+    status: 'running',
+    message: 'Organizational Brain backend is live. This is a JSON API, not a web page.',
+    endpoints: {
+      bootReport: '/api/brain/boot-report',
+      brainStatus: '/api/brain/status',
+      modules: '/api/brain/registry/modules',
+      health: '/api/health/summary',
+      authLogin: 'POST /api/auth/login',
+    },
+  })
+})
+
 const { requestLogger, errorHandler } = require('./middleware/validate')
 
 console.log("3. Middlewares added")
@@ -58,6 +74,7 @@ app.use('/api/health', require('./routes/health/health'))
 app.use('/api/executive-memory', require('./routes/executiveMemory/executiveMemory'))
 app.use('/api/context', require('./routes/context/context'))
 app.use('/api/intelligence/orchestrator', require('./routes/intelligence/orchestrator'))
+app.use('/api/auth', require('./routes/auth/auth'))
 
 // ─── Organizational Brain: constitutional runtime for M01–M55 (mounted at /api/brain) ───
 try {
