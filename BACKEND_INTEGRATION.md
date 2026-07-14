@@ -22,7 +22,7 @@ endpoints over HTTPS and renders the data as a website/dashboard.
 
 | Environment | Base URL |
 |-------------|----------|
-| Production  | `https://horquva-oba-core.vercel.app` |
+| Production  | `https://oba-core-horquva-mu.vercel.app` |
 | Local dev   | `http://localhost:3000` |
 
 The frontend should read the base URL from an environment variable (e.g. `VITE_API_BASE_URL`
