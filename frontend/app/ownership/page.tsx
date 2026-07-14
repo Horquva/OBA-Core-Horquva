@@ -12,8 +12,8 @@ export default function OwnershipPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Ownership Intelligence</h1>
-        <p className="text-slate-400 mt-1">Human-agent dependency map identifying single points of failure and coverage gaps.</p>
+        <h1 className="text-2xl font-bold text-[color:var(--text-primary)] tracking-tight">Ownership Intelligence</h1>
+        <p className="text-[color:var(--text-secondary)] mt-1">Human-agent dependency map identifying single points of failure and coverage gaps.</p>
       </div>
 
       {/* KPI strip */}

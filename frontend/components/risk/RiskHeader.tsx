@@ -33,28 +33,28 @@ export function RiskHeader({ report }: RiskHeaderProps) {
       value: totalAgents,
       icon: <Activity className="w-4 h-4" />,
       color: 'text-indigo-400',
-      bg: 'bg-[#1f1f29] border-[#28283a]',
+      bg: 'bg-[var(--bg-hover)] border-[var(--border-default)]',
     },
     {
       label: 'Critical Risk',
       value: criticalAgents.length,
       icon: <ShieldAlert className="w-4 h-4" />,
       color: 'text-red-400',
-      bg: 'bg-[#1f1f29] border-[#28283a]',
+      bg: 'bg-[var(--bg-hover)] border-[var(--border-default)]',
     },
     {
       label: 'High Risk',
       value: highAgents.length,
       icon: <AlertTriangle className="w-4 h-4" />,
       color: 'text-orange-400',
-      bg: 'bg-[#1f1f29] border-[#28283a]',
+      bg: 'bg-[var(--bg-hover)] border-[var(--border-default)]',
     },
     {
       label: 'Orphaned Agents',
       value: orphanedCount,
       icon: <Users className="w-4 h-4" />,
       color: 'text-amber-400',
-      bg: 'bg-[#1f1f29] border-[#28283a]',
+      bg: 'bg-[var(--bg-hover)] border-[var(--border-default)]',
     },
 
   ];
@@ -64,9 +64,9 @@ export function RiskHeader({ report }: RiskHeaderProps) {
       {/* Title */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
-          <h1 className="text-2xl font-bold text-white tracking-tight">Risk Intelligence</h1>
+          <h1 className="text-2xl font-bold text-[color:var(--text-primary)] tracking-tight">Risk Intelligence</h1>
         </div>
-        <p className="text-slate-400 text-sm">
+        <p className="text-[color:var(--text-secondary)] text-sm">
           Fused ownership + dependency risk scores per agent — with CRITICAL detection and Organizational Health scoring.
         </p>
       </div>
@@ -81,7 +81,7 @@ export function RiskHeader({ report }: RiskHeaderProps) {
               background: `radial-gradient(ellipse at center, ${ohsColor.glow}, transparent 70%)`,
             }}
           />
-          <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-4">
+          <p className="text-[10px] uppercase tracking-widest text-[color:var(--text-tertiary)] font-semibold mb-4">
             Org Health Score
           </p>
 
@@ -92,7 +92,7 @@ export function RiskHeader({ report }: RiskHeaderProps) {
               <circle
                 cx={55} cy={55} r={radius}
                 fill="none"
-                stroke="#1f1f29"
+                stroke="var(--border-subtle)"
                 strokeWidth={8}
               />
               {/* Filled arc */}
@@ -112,14 +112,14 @@ export function RiskHeader({ report }: RiskHeaderProps) {
               <span className={clsx('text-3xl font-bold tracking-tight animate-count-up', ohsColor.text)}>
                 {ohs}
               </span>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider">/ 100</span>
+              <span className="text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-wider">/ 100</span>
             </div>
           </div>
 
           <p className={clsx('text-xs font-semibold uppercase tracking-widest', ohsColor.text)}>
             {healthStatus === 'HEALTHY' ? 'Healthy' : healthStatus === 'AT_RISK' ? 'At Risk' : 'Critical State'}
           </p>
-          <p className="text-[10px] text-slate-500 mt-1 text-center">Lower = more dangerous</p>
+          <p className="text-[10px] text-[color:var(--text-tertiary)] mt-1 text-center">Lower = more dangerous</p>
         </div>
 
         {/* Stats — 2×2 grid */}
@@ -136,8 +136,8 @@ export function RiskHeader({ report }: RiskHeaderProps) {
                 {stat.icon}
               </div>
               <div>
-                <p className="text-2xl font-bold text-white tracking-tight">{stat.value}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">{stat.label}</p>
+                <p className="text-2xl font-bold text-[color:var(--text-primary)] tracking-tight">{stat.value}</p>
+                <p className="text-[11px] text-[color:var(--text-tertiary)] mt-0.5">{stat.label}</p>
               </div>
             </div>
           ))}

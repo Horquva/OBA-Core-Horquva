@@ -15,15 +15,15 @@ function KpiCard({
       {glowColor && (
         <div className={clsx("absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500", glowColor)} />
       )}
-      <div className="flex items-center text-slate-400 mb-3 relative">
+      <div className="flex items-center text-[color:var(--text-secondary)] mb-3 relative">
         <div className={clsx("w-7 h-7 rounded-md border flex items-center justify-center mr-3", iconBgClass)}>
           <Icon className={clsx("w-3.5 h-3.5", iconTextClass)} />
         </div>
-        <span className={clsx("text-[13px] font-semibold tracking-wide uppercase", colorClass || "text-slate-400")}>{title}</span>
+        <span className={clsx("text-[13px] font-semibold tracking-wide uppercase", colorClass || "text-[color:var(--text-secondary)]")}>{title}</span>
       </div>
       <div className="flex items-end justify-between mt-2 relative">
-        <div className="text-4xl font-light tracking-tight text-white">{value}</div>
-        {subtitle && <div className={clsx("text-xs font-medium pb-1", colorClass || "text-slate-500")}>{subtitle}</div>}
+        <div className="text-4xl font-light tracking-tight text-[color:var(--text-primary)]">{value}</div>
+        {subtitle && <div className={clsx("text-xs font-medium pb-1", colorClass || "text-[color:var(--text-tertiary)]")}>{subtitle}</div>}
       </div>
     </div>
   );
@@ -52,10 +52,10 @@ export function OwnershipOverview({ agents }: OwnershipOverviewProps) {
         value={totalOwners}
         icon={Users}
         delayClass=""
-        borderClass="border-t-white/10"
+        borderClass="border-t-[var(--border-strong)]"
         bgGlowClass="bg-indigo-500/0"
         glowColor="from-indigo-500/[0.03]"
-        iconBgClass="bg-[#1c1c24] border-[#28283a]"
+        iconBgClass="bg-[var(--bg-hover)] border-[var(--border-default)]"
         iconTextClass="text-indigo-400"
       />
       <KpiCard

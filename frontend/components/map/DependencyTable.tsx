@@ -68,9 +68,9 @@ export function DependencyTable({ agents, dependencies }: DependencyTableProps) 
                 <tr key={agent.id} className="hover:bg-[var(--bg-surface)] transition-colors">
                   {/* Agent Details */}
                   <td className="px-6 py-4 align-top">
-                    <div className="font-medium text-[var(--text-primary)] flex items-center">
+                    <div className="font-medium text-[var(--text-primary)] flex items-center" title={isSpof ? "SPOF Detected" : undefined}>
                       {agent.name}
-                      {isSpof && <ShieldAlert size={14} className="ml-2 text-red-500" title="SPOF Detected" />}
+                      {isSpof && <ShieldAlert size={14} className="ml-2 text-red-500" />}
                     </div>
                     <div className="text-xs text-[var(--text-tertiary)] mt-1">{agent.department} • Owner: {agent.owner || 'None'}</div>
                   </td>

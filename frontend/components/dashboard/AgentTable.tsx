@@ -18,17 +18,17 @@ export function AgentTable({ agents }: AgentTableProps) {
 
   return (
     <div className="card flex flex-col mt-8 overflow-hidden animate-fade-up delay-500">
-      <div className="p-6 border-b border-[#28283a] flex justify-between items-center bg-[#111116]">
+      <div className="p-6 border-b border-[var(--border-default)] flex justify-between items-center bg-[var(--bg-surface)]">
         <div>
-          <h3 className="text-lg font-semibold text-white">Agent Summary Directory</h3>
-          <p className="text-sm text-slate-400 mt-1">Complete registry of all AI agents — criticality is inherent business impact, risk is computed governance score</p>
+          <h3 className="text-lg font-semibold text-[color:var(--text-primary)]">Agent Summary Directory</h3>
+          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Complete registry of all AI agents — criticality is inherent business impact, risk is computed governance score</p>
         </div>
       </div>
       
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-[#16161c] text-xs uppercase tracking-wider text-slate-500 border-b border-[#28283a]">
+            <tr className="bg-[var(--bg-elevated)] text-xs uppercase tracking-wider text-[color:var(--text-tertiary)] border-b border-[var(--border-default)]">
               <th className="px-6 py-4 font-medium">Agent Details</th>
               <th className="px-6 py-4 font-medium">Ownership</th>
               <th className="px-6 py-4 font-medium">Documentation</th>
@@ -36,16 +36,16 @@ export function AgentTable({ agents }: AgentTableProps) {
               <th className="px-6 py-4 font-medium">Risk</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#1f1f29]">
+          <tbody className="divide-y divide-[var(--border-subtle)]">
             {sortedAgents.map((agent) => {
               const risk = deriveRisk(agent);
               return (
-                <tr key={agent.id} className="hover:bg-[#1c1c24] transition-colors group">
+                <tr key={agent.id} className="hover:bg-[var(--bg-hover)] transition-colors group">
                   {/* Agent Details */}
                   <td className="px-6 py-4">
                     <div>
-                      <div className="font-medium text-white group-hover:text-indigo-300 transition-colors">{agent.name}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{agent.department}</div>
+                      <div className="font-medium text-[color:var(--text-primary)] group-hover:text-indigo-300 transition-colors">{agent.name}</div>
+                      <div className="text-xs text-[color:var(--text-tertiary)] mt-0.5">{agent.department}</div>
                     </div>
                   </td>
 
@@ -53,9 +53,9 @@ export function AgentTable({ agents }: AgentTableProps) {
                   <td className="px-6 py-4">
                     <div className="flex flex-col space-y-1 text-sm">
                       <div className="flex items-center">
-                        <span className="text-slate-500 w-16 text-xs">Primary:</span>
+                        <span className="text-[color:var(--text-tertiary)] w-16 text-xs">Primary:</span>
                         {agent.owner ? (
-                          <span className="text-slate-300 font-medium">{agent.owner}</span>
+                          <span className="text-[color:var(--text-primary)] font-medium">{agent.owner}</span>
                         ) : (
                           <span className="text-amber-500 flex items-center text-xs font-medium bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                             <AlertCircle className="w-3 h-3 mr-1" /> Orphaned
@@ -63,9 +63,9 @@ export function AgentTable({ agents }: AgentTableProps) {
                         )}
                       </div>
                       <div className="flex items-center">
-                        <span className="text-slate-500 w-16 text-xs">Backup:</span>
+                        <span className="text-[color:var(--text-tertiary)] w-16 text-xs">Backup:</span>
                         {agent.backup_owner ? (
-                          <span className="text-slate-400">{agent.backup_owner}</span>
+                          <span className="text-[color:var(--text-secondary)]">{agent.backup_owner}</span>
                         ) : (
                           <span className="text-red-400/80 text-xs flex items-center">
                             <XCircle className="w-3 h-3 mr-1" /> None

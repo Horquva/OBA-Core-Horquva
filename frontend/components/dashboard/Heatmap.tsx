@@ -35,12 +35,12 @@ export function Heatmap({ agents }: HeatmapProps) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-[#16161c] border border-[#28283a] p-3 rounded-lg shadow-xl text-sm min-w-[150px]">
-          <p className="font-medium text-white mb-2">{label} Department</p>
+        <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] p-3 rounded-lg shadow-xl text-sm min-w-[150px]">
+          <p className="font-medium text-[color:var(--text-primary)] mb-2">{label} Department</p>
           {payload.map((entry: any, index: number) => (
             <div key={index} className="flex justify-between items-center space-x-4 mb-1">
               <span style={{ color: entry.color }} className="capitalize">{entry.dataKey} Risk</span>
-              <span className="font-semibold text-white">{entry.value}</span>
+              <span className="font-semibold text-[color:var(--text-primary)]">{entry.value}</span>
             </div>
           ))}
         </div>
@@ -52,14 +52,14 @@ export function Heatmap({ agents }: HeatmapProps) {
   return (
     <div className="card p-6 flex flex-col w-full animate-fade-up delay-300">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-white">Risk Distribution by Department</h3>
-        <p className="text-sm text-slate-400 mt-1">Visual breakdown of critical, high, medium, and low risk agents across organizational units.</p>
+        <h3 className="text-lg font-semibold text-[color:var(--text-primary)]">Risk Distribution by Department</h3>
+        <p className="text-sm text-[color:var(--text-secondary)] mt-1">Visual breakdown of critical, high, medium, and low risk agents across organizational units.</p>
       </div>
       
-      <div className="w-full h-[300px]">
+      <div className="w-full h-[300px] min-h-0 min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} maxBarSize={60}>
-            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#1f1f29" />
+            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--border-subtle)" />
             <XAxis 
               dataKey="name" 
               axisLine={false} 
@@ -73,7 +73,7 @@ export function Heatmap({ agents }: HeatmapProps) {
               tick={{ fill: '#8b8b9e', fontSize: 12 }}
               allowDecimals={false}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#1c1c24' }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)' }} />
             <Bar dataKey="critical" name="Critical" stackId="a" fill={RISK_COLORS.critical} radius={[0, 0, 0, 0]} />
             <Bar dataKey="high" name="High" stackId="a" fill={RISK_COLORS.high} radius={[0, 0, 0, 0]} />
             <Bar dataKey="medium" name="Medium" stackId="a" fill={RISK_COLORS.medium} radius={[0, 0, 0, 0]} />
@@ -87,7 +87,7 @@ export function Heatmap({ agents }: HeatmapProps) {
         {Object.entries(RISK_COLORS).map(([key, color]) => (
           <div key={key} className="flex items-center space-x-1.5">
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}></div>
-            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider capitalize">{key}</span>
+            <span className="text-[10px] font-medium text-[color:var(--text-secondary)] uppercase tracking-wider capitalize">{key}</span>
           </div>
         ))}
       </div>

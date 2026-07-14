@@ -58,21 +58,21 @@ export function RiskSplit({ agents, workflows }: RiskSplitProps) {
       <div className="card p-6 flex flex-col">
         <div className="mb-6 flex justify-between items-center">
           <div>
-            <h3 className="text-lg font-semibold text-white">Top At-Risk Agents</h3>
-            <p className="text-sm text-slate-400 mt-1">Agents requiring immediate attention</p>
+            <h3 className="text-lg font-semibold text-[color:var(--text-primary)]">Top At-Risk Agents</h3>
+            <p className="text-sm text-[color:var(--text-secondary)] mt-1">Agents requiring immediate attention</p>
           </div>
         </div>
 
         <div className="flex-grow flex flex-col space-y-3">
           {criticalAgents.map(agent => (
-            <div key={agent.id} className="flex items-center justify-between p-3 rounded-lg bg-[#16161c] border border-[#28283a] hover:border-[#3a3a52] transition-colors group">
+            <div key={agent.id} className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-[var(--border-strong)] transition-colors group">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
                   <AlertCircle className="w-4 h-4 text-red-400" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-white group-hover:text-indigo-300 transition-colors">{agent.name}</h4>
-                  <div className="text-xs text-slate-500 mt-0.5 flex items-center space-x-2">
+                  <h4 className="text-sm font-medium text-[color:var(--text-primary)] group-hover:text-indigo-300 transition-colors">{agent.name}</h4>
+                  <div className="text-xs text-[color:var(--text-tertiary)] mt-0.5 flex items-center space-x-2">
                     <span>{agent.department}</span>
                     <span>•</span>
                     <span className={!agent.owner ? 'text-amber-500/80' : ''}>
@@ -92,24 +92,24 @@ export function RiskSplit({ agents, workflows }: RiskSplitProps) {
       {/* Right Column: Recommendations */}
       <div className="card p-6 flex flex-col">
         <div className="mb-6">
-          <h3 className="text-lg font-semibold text-white">Priority Actions</h3>
-          <p className="text-sm text-slate-400 mt-1">AI-generated recommendations to improve continuity</p>
+          <h3 className="text-lg font-semibold text-[color:var(--text-primary)]">Priority Actions</h3>
+          <p className="text-sm text-[color:var(--text-secondary)] mt-1">AI-generated recommendations to improve continuity</p>
         </div>
 
         <div className="flex-grow flex flex-col space-y-4">
           {recommendations.map(rec => (
-            <div key={rec.id} className="p-4 rounded-lg bg-[#1c1c24] border border-[#28283a] flex flex-col">
+            <div key={rec.id} className="p-4 rounded-lg bg-[var(--bg-hover)] border border-[var(--border-default)] flex flex-col">
               <div className="flex items-start space-x-3">
                 <div className="mt-0.5">
                   {rec.icon}
                 </div>
                 <div className="flex-grow">
-                  <h4 className="text-sm font-medium text-white">{rec.title}</h4>
-                  <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+                  <h4 className="text-sm font-medium text-[color:var(--text-primary)]">{rec.title}</h4>
+                  <p className="text-sm text-[color:var(--text-secondary)] mt-1 leading-relaxed">
                     {rec.description}
                   </p>
                   <div className="mt-4 flex justify-end">
-                    <button className="text-xs font-medium px-4 py-1.5 rounded-full bg-[#28283a] text-white hover:bg-[#3a3a52] transition-colors">
+                    <button className="text-xs font-medium px-4 py-1.5 rounded-full bg-[var(--border-default)] text-[color:var(--text-primary)] hover:bg-[var(--border-strong)] transition-colors">
                       {rec.action}
                     </button>
                   </div>

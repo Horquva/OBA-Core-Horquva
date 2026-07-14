@@ -9,19 +9,31 @@ import {
   Zap,
   ListChecks,
   ShieldAlert,
+  Bot,
+  Brain,
+  Archive,
+  Scale,
+  Sun,
+  Moon,
 } from 'lucide-react';
+import { useTheme } from '@/lib/ThemeContext';
 
 const navigation = [
-  { name: 'Dashboard',          href: '/',                icon: LayoutDashboard },
-  { name: 'Ownership',          href: '/ownership',       icon: Users },
-  { name: 'Risk Intelligence',  href: '/risk',            icon: ShieldAlert },
-  { name: 'Dependency Map',     href: '/map',             icon: GitFork },
-  { name: 'What-If Simulation', href: '/simulation',      icon: Zap },
-  { name: 'Recommendations',    href: '/recommendations', icon: ListChecks },
+  { name: 'Dashboard',              href: '/',                icon: LayoutDashboard },
+  { name: 'Ownership',              href: '/ownership',       icon: Users },
+  { name: 'Risk Intelligence',      href: '/risk',            icon: ShieldAlert },
+  { name: 'Dependency Map',         href: '/map',             icon: GitFork },
+  { name: 'What-If Simulation',     href: '/simulation',      icon: Zap },
+  { name: 'Recommendations',        href: '/recommendations', icon: ListChecks },
+  { name: 'AI Tool Intelligence',   href: '/ai-tools',        icon: Bot },
+  { name: 'Knowledge Risk',         href: '/knowledge',       icon: Brain },
+  { name: 'Org Memory',             href: '/memory',          icon: Archive },
+  { name: 'Decision Intelligence',  href: '/decision',        icon: Scale },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <aside
@@ -34,9 +46,10 @@ export function Sidebar() {
         flexDirection: 'column',
         height: '100%',
         /* lifted panel effect */
-        boxShadow: '4px 0 24px rgba(0,0,0,0.45)',
+        boxShadow: theme === 'light' ? '4px 0 24px rgba(0,0,0,0.02)' : '4px 0 24px rgba(0,0,0,0.45)',
         position: 'relative',
         zIndex: 10,
+        transition: 'background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
       }}
     >
       {/* ── Wordmark ── */}
@@ -46,30 +59,31 @@ export function Sidebar() {
           alignItems: 'center',
           padding: '28px 22px 24px', // More space
           borderBottom: '1px solid var(--border-subtle)',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.1)', // Subtle shadow separating it from buttons
+          boxShadow: theme === 'light' ? '0 4px 16px rgba(0,0,0,0.02)' : '0 4px 16px rgba(0,0,0,0.1)', // Subtle shadow separating it from buttons
           flexShrink: 0,
           gap: '12px',
           position: 'relative',
           zIndex: 20, // Ensure shadow drops over the nav section
+          transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
         }}
       >
         {/* Logo mark */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, filter: 'drop-shadow(0 0 8px rgba(129, 140, 248, 0.4))' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, filter: theme === 'light' ? 'drop-shadow(0 0 6px rgba(37, 99, 235, 0.2))' : 'drop-shadow(0 0 8px rgba(129, 140, 248, 0.4))', transition: 'filter 0.3s ease' }}>
           <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
             {/* Outer Hexagon */}
-            <path d="M18 2L31.856 10V26L18 34L4.144 26V10L18 2Z" fill="url(#hex-grad)" stroke="url(#hex-stroke)" strokeWidth="1.5" strokeLinejoin="round"/>
+            <path d="M18 2L31.856 10V26L18 34L4.144 26V10L18 2Z" fill={theme === 'light' ? 'url(#hex-grad-light)' : 'url(#hex-grad)'} stroke={theme === 'light' ? 'url(#hex-stroke-light)' : 'url(#hex-stroke)'} strokeWidth="1.5" strokeLinejoin="round"/>
             
             {/* Inner H Network */}
-            <path d="M13 13V23" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M23 13V23" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M13 18H23" stroke="url(#line-grad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M13 13V23" stroke={theme === 'light' ? 'var(--accent)' : 'white'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M23 13V23" stroke={theme === 'light' ? 'var(--accent)' : 'white'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M13 18H23" stroke={theme === 'light' ? 'var(--accent)' : 'url(#line-grad)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
             
             {/* Nodes */}
-            <circle cx="13" cy="13" r="2" fill="white"/>
-            <circle cx="23" cy="23" r="2" fill="white"/>
-            <circle cx="13" cy="23" r="1.5" fill="#818cf8"/>
-            <circle cx="23" cy="13" r="1.5" fill="#818cf8"/>
-            <circle cx="18" cy="18" r="2" fill="#c084fc"/>
+            <circle cx="13" cy="13" r="2" fill={theme === 'light' ? '#2563EB' : 'white'}/>
+            <circle cx="23" cy="23" r="2" fill={theme === 'light' ? '#2563EB' : 'white'}/>
+            <circle cx="13" cy="23" r="1.5" fill={theme === 'light' ? '#3B82F6' : '#818cf8'}/>
+            <circle cx="23" cy="13" r="1.5" fill={theme === 'light' ? '#3B82F6' : '#818cf8'}/>
+            <circle cx="18" cy="18" r="2" fill={theme === 'light' ? '#1D4ED8' : '#c084fc'}/>
 
             <defs>
               <linearGradient id="hex-grad" x1="18" y1="2" x2="18" y2="34" gradientUnits="userSpaceOnUse">
@@ -83,6 +97,15 @@ export function Sidebar() {
               <linearGradient id="line-grad" x1="13" y1="18" x2="23" y2="18" gradientUnits="userSpaceOnUse">
                 <stop stopColor="white"/>
                 <stop offset="1" stopColor="#c084fc"/>
+              </linearGradient>
+              {/* Light Theme Gradients */}
+              <linearGradient id="hex-grad-light" x1="18" y1="2" x2="18" y2="34" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#2563EB" stopOpacity="0.1"/>
+                <stop offset="1" stopColor="#3B82F6" stopOpacity="0.0"/>
+              </linearGradient>
+              <linearGradient id="hex-stroke-light" x1="4" y1="2" x2="32" y2="34" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#2563EB" stopOpacity="0.4"/>
+                <stop offset="1" stopColor="#60A5FA" stopOpacity="0.1"/>
               </linearGradient>
             </defs>
           </svg>
@@ -98,6 +121,7 @@ export function Sidebar() {
               color: 'var(--text-primary)',
               letterSpacing: '0.12em',
               lineHeight: 1,
+              transition: 'color 0.3s ease',
             }}
           >
             HORQUVA
@@ -108,13 +132,14 @@ export function Sidebar() {
               paddingBottom: '4px',
               fontSize: '9.5px',
               fontWeight: 500,
-              color: '#55566e',
+              color: 'var(--text-tertiary)',
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
               lineHeight: 1,
-              borderBottom: '1px solid rgba(99, 102, 241, 0.15)',
-              boxShadow: '0 2px 4px -2px rgba(99, 102, 241, 0.2)',
+              borderBottom: theme === 'light' ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(99, 102, 241, 0.15)',
+              boxShadow: theme === 'light' ? '0 2px 4px -2px rgba(37, 99, 235, 0.1)' : '0 2px 4px -2px rgba(99, 102, 241, 0.2)',
               display: 'inline-block',
+              transition: 'color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
             }}
           >
             OBA Platform
@@ -134,6 +159,7 @@ export function Sidebar() {
             padding: '0 10px 8px',
             margin: 0,
             opacity: 0.6,
+            transition: 'color 0.3s ease',
           }}
         >
           Intelligence
@@ -155,28 +181,28 @@ export function Sidebar() {
                 fontSize: '14px',
                 fontWeight: isActive ? 600 : 500,
                 color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                backgroundColor: isActive ? '#1e1e38' : 'rgba(255,255,255,0.01)',
+                backgroundColor: isActive ? (theme === 'light' ? 'var(--accent)' : '#1e1e38') : 'transparent',
                 textDecoration: 'none',
                 transition: 'all 0.2s ease',
                 borderLeft: 'none',
                 boxShadow: isActive
-                  ? '0 2px 8px rgba(30,30,56,0.6), inset 0 1px 0 rgba(255,255,255,0.06)'
-                  : '0 1px 3px rgba(0,0,0,0.2)',
+                  ? (theme === 'light' ? '0 4px 12px rgba(37,99,235,0.25)' : '0 2px 8px rgba(30,30,56,0.6), inset 0 1px 0 rgba(255,255,255,0.06)')
+                  : 'none',
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
                   const el = e.currentTarget as HTMLAnchorElement;
                   el.style.backgroundColor = 'var(--bg-hover)';
                   el.style.color = 'var(--text-primary)';
-                  el.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 8px rgba(0,0,0,0.3)';
+                  el.style.boxShadow = theme === 'light' ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 8px rgba(0,0,0,0.3)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isActive) {
                   const el = e.currentTarget as HTMLAnchorElement;
-                  el.style.backgroundColor = 'rgba(255,255,255,0.01)';
+                  el.style.backgroundColor = 'transparent';
                   el.style.color = 'var(--text-secondary)';
-                  el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
+                  el.style.boxShadow = 'none';
                 }
               }}
             >
@@ -185,6 +211,7 @@ export function Sidebar() {
                 style={{
                   color: isActive ? '#ffffff' : 'var(--text-tertiary)',
                   flexShrink: 0,
+                  transition: 'color 0.2s ease',
                 }}
               />
               {item.name}
@@ -199,21 +226,26 @@ export function Sidebar() {
           padding: '14px 16px',
           borderTop: '1px solid var(--border-subtle)',
           flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          transition: 'border-color 0.3s ease',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <div
             style={{
               width: '30px',
               height: '30px',
               borderRadius: '7px',
-              background: 'linear-gradient(135deg, #1c1c28, #252535)',
+              background: theme === 'light' ? 'var(--bg-elevated)' : 'linear-gradient(135deg, #1c1c28, #252535)',
               border: '1px solid var(--border-default)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+              boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.05)' : '0 2px 6px rgba(0,0,0,0.3)',
+              transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
             }}
           >
             <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>
@@ -230,15 +262,46 @@ export function Sidebar() {
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                transition: 'color 0.3s ease',
               }}
             >
               Sunrise Care
             </p>
-            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', margin: 0 }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', margin: 0, transition: 'color 0.3s ease' }}>
               Demo Workspace
             </p>
           </div>
         </div>
+
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            backgroundColor: 'transparent',
+            border: '1px solid transparent',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+            e.currentTarget.style.color = 'var(--text-primary)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'var(--text-secondary)';
+          }}
+          aria-label="Toggle Theme"
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
       </div>
     </aside>
   );

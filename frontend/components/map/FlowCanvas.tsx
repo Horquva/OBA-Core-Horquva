@@ -240,7 +240,7 @@ export function FlowCanvas({ agents, dependencies }: FlowCanvasProps) {
         >
           <Background 
             variant={BackgroundVariant.Lines} 
-            color="var(--border-default)" 
+            color="var(--border-subtle)" 
             gap={30} 
             lineWidth={1} 
           />

@@ -10,8 +10,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Executive Dashboard</h1>
-        <p className="text-slate-400 mt-1">Real-time organizational snapshot of AI workforce risk, ownership, and continuity.</p>
+        <h1 className="text-2xl font-bold text-[color:var(--text-primary)] tracking-tight">Executive Dashboard</h1>
+        <p className="text-[color:var(--text-secondary)] mt-1">Real-time organizational snapshot of AI workforce risk, ownership, and continuity.</p>
       </div>
 
       {/* 01 Organizational Snapshot */}

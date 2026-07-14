@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ThemeProvider } from "@/lib/ThemeContext";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -23,17 +24,19 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} h-full`}>
       <body className="h-full">
-        <div className="flex h-full">
-          {/* Persistent Sidebar — never re-mounts on navigation */}
-          <Sidebar />
+        <ThemeProvider>
+          <div className="flex h-full">
+            {/* Persistent Sidebar — never re-mounts on navigation */}
+            <Sidebar />
 
-          {/* Main content column */}
-          <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-            <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-              {children}
-            </main>
+            {/* Main content column */}
+            <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+              <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -44,6 +44,30 @@
   --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* ─── Light Theme Overrides ──────────────────────────────── */
+:root[data-theme="light"] {
+  /* Surfaces */
+  --bg-base:      #E5E7EB;
+  --bg-surface:   #F3F4F6;
+  --bg-elevated:  #F3F4F6;
+  --bg-hover:     #D1D5DB;
+
+  /* Borders */
+  --border-subtle:  #D1D5DB;
+  --border-default: #9CA3AF;
+  --border-strong:  #6B7280;
+
+  /* Text */
+  --text-primary:   #2D2D2D;
+  --text-secondary: #4B5563;
+  --text-tertiary:  #6B7280;
+
+  /* Accent */
+  --accent:         #2563EB;
+  --accent-dim:     rgba(37, 99, 235, 0.10);
+  --accent-border:  rgba(37, 99, 235, 0.25);
+}
+
 /* ─── Global Base ────────────────────────────────────────── */
 *,
 *::before,
@@ -61,6 +85,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ─── Typography Scale ───────────────────────────────────── */
@@ -126,6 +151,12 @@ p, span, li {
     0 1px 0 0 rgba(255, 255, 255, 0.03) inset;
 }
 
+:root[data-theme="light"] .card {
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
 /* ─── Focus Ring ─────────────────────────────────────────── */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -177,7 +208,8 @@ p, span, li {
 .card {
   transition: transform 0.25s cubic-bezier(0.19, 1, 0.22, 1),
               box-shadow 0.25s cubic-bezier(0.19, 1, 0.22, 1),
-              border-color 0.2s ease;
+              border-color 0.2s ease,
+              background-color 0.3s ease;
 }
 .card:hover {
   transform: translateY(-2px);
@@ -186,6 +218,12 @@ p, span, li {
     0 20px 40px -12px rgba(0, 0, 0, 0.7),
     0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
   border-color: var(--border-default);
+}
+
+:root[data-theme="light"] .card:hover {
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.08),
+    0 4px 6px -2px rgba(0, 0, 0, 0.04);
 }
 
 /* ─── Table Row Hover ────────────────────────────────────── */

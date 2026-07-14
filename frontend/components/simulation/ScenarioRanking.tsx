@@ -104,24 +104,24 @@ export function ScenarioRanking({ scenarios, activeScenarioId, onSelectScenario 
                         borderRadius: '8px',
                         border: isActive
                           ? '1px solid rgba(220,38,38,0.4)'
-                          : '1px solid rgba(255,255,255,0.03)',
+                          : '1px solid var(--border-default)',
                         background: isActive
                           ? 'linear-gradient(135deg, rgba(220,38,38,0.1), rgba(220,38,38,0.02))'
-                          : 'rgba(255,255,255,0.02)',
+                          : 'var(--bg-surface)',
                         boxShadow: isActive ? '0 4px 16px rgba(220,38,38,0.15)' : 'none',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                       }}
                       onMouseEnter={e => {
                         if (!isActive) {
-                          (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.1)';
-                          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)';
+                          (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-strong)';
+                          (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)';
                         }
                       }}
                       onMouseLeave={e => {
                         if (!isActive) {
-                          (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.03)';
-                          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.02)';
+                          (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-default)';
+                          (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-surface)';
                         }
                       }}
                     >
