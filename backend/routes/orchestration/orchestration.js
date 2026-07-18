@@ -179,4 +179,24 @@ router.get('/blocked', async (req, res) => {
   }
 })
 
+// ─────────────────────────────────────────────
+// GET /api/orchestration/mode — current execution mode (advisory by default)
+// ─────────────────────────────────────────────
+
+router.get('/mode', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('execution_mode')
+      .select('mode')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error || !data) return res.json({ executionMode: 'advisory' })
+    res.json({ executionMode: data.mode })
+  } catch (err) {
+    res.json({ executionMode: 'advisory' })
+  }
+})
+
 module.exports = router

@@ -307,4 +307,31 @@ router.get('/top-risks', async (req, res) => {
   }
 })
 
+// ─────────────────────────────────────────────
+// GET /api/briefing/recommendations — top open recommendations
+// ─────────────────────────────────────────────
+
+router.get('/recommendations', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('recommendations')
+      .select('asset_name, asset_type, priority, recommendation, status')
+      .neq('status', 'done')
+      .limit(10)
+
+    if (error) return res.json([])
+
+    const items = (data || []).map((r) => ({
+      type: (r.priority || r.asset_type || 'info').toString().toLowerCase(),
+      message: r.asset_name
+        ? `${r.asset_name}: ${r.recommendation}`
+        : r.recommendation,
+    }))
+
+    res.json(items)
+  } catch (err) {
+    res.json([])
+  }
+})
+
 module.exports = router

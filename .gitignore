@@ -14,6 +14,7 @@ backend/node_modules/
 backend_extracted/
 
 # Environment variables (never commit real credentials)
+.env
 backend/.env
 
 # Internal planning docs

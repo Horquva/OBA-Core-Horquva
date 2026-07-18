@@ -1,0 +1,537 @@
+﻿diff --git a/frontend/app/oba/page.tsx b/frontend/app/oba/page.tsx
+index fa88a8e..e5ca50a 100644
+--- a/frontend/app/oba/page.tsx
++++ b/frontend/app/oba/page.tsx
+@@ -4,7 +4,7 @@ export default function OBAPage() {
+   return (
+     <main className="space-y-6 max-w-4xl mx-auto">
+       <div className="mb-6">
+-        <h1 className="text-3xl font-bold text-white tracking-wide">
++        <h1 className="text-3xl font-bold text-[color:var(--text-primary)] tracking-wide">
+           Intelligence Console
+         </h1>
+         <p className="mt-2 text-gray-400">
+diff --git a/frontend/components/avatar/AvatarChatPanel.tsx b/frontend/components/avatar/AvatarChatPanel.tsx
+index cc5d08a..ee76d0c 100644
+--- a/frontend/components/avatar/AvatarChatPanel.tsx
++++ b/frontend/components/avatar/AvatarChatPanel.tsx
+@@ -109,7 +109,7 @@ loadVoiceIntents();
+ 
+       {/* Header */}
+       <div className="border-b border-white/10 px-6 py-6">
+-        <h2 className="text-2xl font-semibold text-white">
++        <h2 className="text-2xl font-semibold text-[color:var(--text-primary)]">
+           OBA Executive Assistant
+         </h2>
+ 
+diff --git a/frontend/components/avatar/ChatInput.tsx b/frontend/components/avatar/ChatInput.tsx
+index 162b85f..e4d03d9 100644
+--- a/frontend/components/avatar/ChatInput.tsx
++++ b/frontend/components/avatar/ChatInput.tsx
+@@ -48,8 +48,8 @@ export default function ChatInput({ onSend }: ChatInputProps) {
+           px-4
+           py-3
+           text-sm
+-          text-white
+-          placeholder:text-gray-500
++          text-[color:var(--text-primary)]
++          placeholder:text-[color:var(--text-tertiary)]
+           outline-none
+           transition-all
+           focus:border-cyan-500/40
+@@ -73,7 +73,7 @@ export default function ChatInput({ onSend }: ChatInputProps) {
+     justify-center
+     rounded-xl
+     bg-cyan-500
+-    text-white
++    text-[color:var(--text-primary)]
+     transition-all
+     duration-200
+     hover:bg-cyan-400
+diff --git a/frontend/components/avatar/ChatMessage.tsx b/frontend/components/avatar/ChatMessage.tsx
+index 9cd7a32..c1189b4 100644
+--- a/frontend/components/avatar/ChatMessage.tsx
++++ b/frontend/components/avatar/ChatMessage.tsx
+@@ -21,7 +21,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
+           "max-w-[75%] rounded-2xl px-5 py-4",
+           "border transition-all duration-200",
+           isAssistant
+-            ? "bg-white/5 border-white/10 text-white"
++            ? "bg-white/5 border-white/10 text-[color:var(--text-primary)]"
+             : "bg-cyan-500/10 border-cyan-500/20 text-cyan-50"
+         )}
+       >
+@@ -49,7 +49,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
+ 
+         {/* Time (future use) */}
+         {message.timestamp && (
+-          <p className="mt-3 text-right text-xs text-gray-500">
++          <p className="mt-3 text-right text-xs text-[color:var(--text-tertiary)]">
+             {message.timestamp}
+           </p>
+         )}
+diff --git a/frontend/components/avatar/DailySpokenSummary.tsx b/frontend/components/avatar/DailySpokenSummary.tsx
+index d1fbaf9..48142d9 100644
+--- a/frontend/components/avatar/DailySpokenSummary.tsx
++++ b/frontend/components/avatar/DailySpokenSummary.tsx
+@@ -58,7 +58,7 @@ export default function DailySpokenSummary({
+ 
+             <div className="flex items-center gap-2">
+ 
+-              <h3 className="text-sm font-semibold text-white">
++              <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">
+                 Daily Briefing
+               </h3>
+ 
+@@ -82,7 +82,7 @@ export default function DailySpokenSummary({
+ 
+           <button
+             onClick={isPlaying ? stopSummary : playSummary}
+-            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
++            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-[color:var(--text-primary)]"
+           >
+             {isPlaying ? (
+               <Pause className="h-4 w-4" />
+diff --git a/frontend/components/avatar/EntityAliasResolver.tsx b/frontend/components/avatar/EntityAliasResolver.tsx
+index fd4fa22..fbed491 100644
+--- a/frontend/components/avatar/EntityAliasResolver.tsx
++++ b/frontend/components/avatar/EntityAliasResolver.tsx
+@@ -31,8 +31,8 @@ export default function EntityAliasResolver({ entities }: EntityAliasResolverPro
+           >
+             <div className="flex items-center gap-3">
+               <span className="font-medium text-gray-300 italic">"{entity.mentionedAs}"</span>
+-              <ChevronRight className="h-4 w-4 text-gray-500" />
+-              <span className="font-medium text-white">{entity.resolvedTo}</span>
++              <ChevronRight className="h-4 w-4 text-[color:var(--text-tertiary)]" />
++              <span className="font-medium text-[color:var(--text-primary)]">{entity.resolvedTo}</span>
+             </div>
+             
+             <div className="flex items-center gap-3">
+diff --git a/frontend/components/avatar/VoiceIntentResolver.tsx b/frontend/components/avatar/VoiceIntentResolver.tsx
+index dc690bc..c70a896 100644
+--- a/frontend/components/avatar/VoiceIntentResolver.tsx
++++ b/frontend/components/avatar/VoiceIntentResolver.tsx
+@@ -23,7 +23,7 @@ export default function VoiceIntentResolver({
+ 
+         {/* Transcript */}
+         <div>
+-          <p className="text-xs uppercase tracking-wider text-gray-500">
++          <p className="text-xs uppercase tracking-wider text-[color:var(--text-tertiary)]">
+             Transcript
+           </p>
+ 
+@@ -36,41 +36,41 @@ export default function VoiceIntentResolver({
+         <div className="grid gap-4 md:grid-cols-2">
+ 
+           <div>
+-            <p className="text-xs uppercase tracking-wider text-gray-500">
++            <p className="text-xs uppercase tracking-wider text-[color:var(--text-tertiary)]">
+               Intent
+             </p>
+ 
+-            <p className="mt-1 text-sm text-white">
++            <p className="mt-1 text-sm text-[color:var(--text-primary)]">
+               {intent}
+             </p>
+           </div>
+ 
+           <div>
+-            <p className="text-xs uppercase tracking-wider text-gray-500">
++            <p className="text-xs uppercase tracking-wider text-[color:var(--text-tertiary)]">
+               Action
+             </p>
+ 
+-            <p className="mt-1 text-sm text-white">
++            <p className="mt-1 text-sm text-[color:var(--text-primary)]">
+               {action}
+             </p>
+           </div>
+ 
+           <div>
+-            <p className="text-xs uppercase tracking-wider text-gray-500">
++            <p className="text-xs uppercase tracking-wider text-[color:var(--text-tertiary)]">
+               Workflow
+             </p>
+ 
+-            <p className="mt-1 text-sm text-white">
++            <p className="mt-1 text-sm text-[color:var(--text-primary)]">
+               {workflowId}
+             </p>
+           </div>
+ 
+           <div>
+-            <p className="text-xs uppercase tracking-wider text-gray-500">
++            <p className="text-xs uppercase tracking-wider text-[color:var(--text-tertiary)]">
+               Confidence
+             </p>
+ 
+-            <p className="mt-1 text-sm text-white">
++            <p className="mt-1 text-sm text-[color:var(--text-primary)]">
+               {confidence}
+             </p>
+           </div>
+diff --git a/frontend/components/dashboard/RelationshipHealthStrip.tsx b/frontend/components/dashboard/RelationshipHealthStrip.tsx
+index 509ee6a..c7b2568 100644
+--- a/frontend/components/dashboard/RelationshipHealthStrip.tsx
++++ b/frontend/components/dashboard/RelationshipHealthStrip.tsx
+@@ -53,7 +53,7 @@ export function RelationshipHealthStrip() {
+           Total mapped: <span className="font-medium text-[color:var(--text-secondary)]">{data.totalRelationships} relationships</span>
+         </div>
+         
+-        <Link href="/relationship-explorer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3b82f6] text-white text-xs font-medium hover:bg-[#2563eb] transition-colors">
++        <Link href="/relationship-explorer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3b82f6] text-[color:var(--text-primary)] text-xs font-medium hover:bg-[#2563eb] transition-colors">
+           Explore Relationships
+           <ArrowRight className="w-3 h-3" />
+         </Link>
+diff --git a/frontend/components/dashboard/VerdictBanner.tsx b/frontend/components/dashboard/VerdictBanner.tsx
+index 575e5bf..d19e27b 100644
+--- a/frontend/components/dashboard/VerdictBanner.tsx
++++ b/frontend/components/dashboard/VerdictBanner.tsx
+@@ -111,7 +111,7 @@ export function VerdictBanner() {
+         <div className="flex flex-wrap items-end gap-6 mb-6">
+           <div>
+             <div className="flex items-baseline gap-2">
+-              <span className="text-7xl font-bold tabular-nums leading-none text-white">
++              <span className="text-7xl font-bold tabular-nums leading-none text-[color:var(--text-primary)]">
+                 {data.organizationalIntelligenceScore}
+               </span>
+               <span className="text-2xl text-[color:var(--text-tertiary)]">/100</span>
+diff --git a/frontend/components/global/GlobalAvatarPanel.tsx b/frontend/components/global/GlobalAvatarPanel.tsx
+index e43a906..68d3349 100644
+--- a/frontend/components/global/GlobalAvatarPanel.tsx
++++ b/frontend/components/global/GlobalAvatarPanel.tsx
+@@ -27,7 +27,7 @@ export default function GlobalAvatarPanel() {
+       >
+         <button 
+           onClick={toggleAvatarPanel}
+-          className="absolute top-4 right-6 z-10 rounded-full p-2 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
++          className="absolute top-4 right-6 z-10 rounded-full p-2 text-gray-400 hover:bg-white/10 hover:text-[color:var(--text-primary)] transition-colors"
+         >
+           <X size={20} />
+         </button>
+diff --git a/frontend/components/global/GlobalNotificationPanel.tsx b/frontend/components/global/GlobalNotificationPanel.tsx
+index f9dd2e7..609f856 100644
+--- a/frontend/components/global/GlobalNotificationPanel.tsx
++++ b/frontend/components/global/GlobalNotificationPanel.tsx
+@@ -66,12 +66,12 @@ export default function GlobalNotificationPanel() {
+         )}
+       >
+         <div className="flex h-16 items-center border-b border-white/10 px-6 justify-between">
+-          <h2 className="text-xl font-semibold text-white tracking-wide">
++          <h2 className="text-xl font-semibold text-[color:var(--text-primary)] tracking-wide">
+             Notification Center
+           </h2>
+           <button 
+             onClick={toggleNotificationPanel}
+-            className="rounded-full p-2 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
++            className="rounded-full p-2 text-gray-400 hover:bg-white/10 hover:text-[color:var(--text-primary)] transition-colors"
+           >
+             <X size={20} />
+           </button>
+diff --git a/frontend/components/global/GlobalSearchOverlay.tsx b/frontend/components/global/GlobalSearchOverlay.tsx
+index ddc8b11..03e6a8f 100644
+--- a/frontend/components/global/GlobalSearchOverlay.tsx
++++ b/frontend/components/global/GlobalSearchOverlay.tsx
+@@ -56,7 +56,7 @@ export default function GlobalSearchOverlay() {
+           <Search className="h-5 w-5 text-gray-400" />
+           <input
+             type="text"
+-            className="flex-1 bg-transparent border-0 px-4 py-2 text-white placeholder-gray-500 !outline-none focus:!outline-none focus:!ring-0 focus:!border-transparent focus-visible:!outline-none focus-visible:!ring-0 !shadow-none text-lg"
++            className="flex-1 bg-transparent border-0 px-4 py-2 text-[color:var(--text-primary)] placeholder-gray-500 !outline-none focus:!outline-none focus:!ring-0 focus:!border-transparent focus-visible:!outline-none focus-visible:!ring-0 !shadow-none text-lg"
+             style={{ outline: 'none', boxShadow: 'none', border: 'none' }}
+             placeholder="Search agents, workflows, people... (A1 Ontology)"
+             value={query}
+@@ -65,7 +65,7 @@ export default function GlobalSearchOverlay() {
+           />
+           <button 
+             onClick={toggleSearch}
+-            className="rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
++            className="rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-[color:var(--text-primary)]"
+           >
+             <X size={18} />
+           </button>
+@@ -89,11 +89,11 @@ export default function GlobalSearchOverlay() {
+                       >
+                         <div className="flex items-center gap-3">
+                           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 group-hover:bg-white/10 transition-colors">
+-                            <Icon size={18} className="text-gray-400 group-hover:text-white" />
++                            <Icon size={18} className="text-gray-400 group-hover:text-[color:var(--text-primary)]" />
+                           </span>
+                           <div>
+-                            <p className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">{result.title}</p>
+-                            <p className="text-xs text-gray-500 flex gap-2">
++                            <p className="text-sm font-medium text-gray-200 group-hover:text-[color:var(--text-primary)] transition-colors">{result.title}</p>
++                            <p className="text-xs text-[color:var(--text-tertiary)] flex gap-2">
+                               <span>{result.type}</span>
+                               <span>ΓÇó</span>
+                               <span>{result.category}</span>
+@@ -108,7 +108,7 @@ export default function GlobalSearchOverlay() {
+             ) : (
+               <div className="py-14 text-center text-sm text-gray-400 bg-[#131326]">
+                 <p>No results found for "{query}"</p>
+-                <p className="mt-2 text-xs text-gray-500">Try searching for "Payroll" or "Agent"</p>
++                <p className="mt-2 text-xs text-[color:var(--text-tertiary)]">Try searching for "Payroll" or "Agent"</p>
+               </div>
+             )}
+           </div>
+@@ -117,7 +117,7 @@ export default function GlobalSearchOverlay() {
+         {/* Footer Hints */}
+         {query.length === 0 && (
+           <div className="px-4 py-6 text-center border-t border-white/5 bg-[#131326]">
+-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Entity Resolver Active</p>
++            <p className="text-xs font-semibold uppercase tracking-widest text-[color:var(--text-tertiary)]">Entity Resolver Active</p>
+             <p className="text-sm text-gray-400 mt-2">Type "Payroll" to see role-aware entity mapping.</p>
+           </div>
+         )}
+diff --git a/frontend/components/notifications/NotificationCard.tsx b/frontend/components/notifications/NotificationCard.tsx
+index 075cf1f..cb3aacd 100644
+--- a/frontend/components/notifications/NotificationCard.tsx
++++ b/frontend/components/notifications/NotificationCard.tsx
+@@ -62,7 +62,7 @@ export default function NotificationCard({
+ 
+         </div>
+ 
+-        <span className="text-xs whitespace-nowrap text-gray-500">
++        <span className="text-xs whitespace-nowrap text-[color:var(--text-tertiary)]">
+           {notification.time}
+         </span>
+ 
+diff --git a/frontend/components/notifications/NotificationEmpty.tsx b/frontend/components/notifications/NotificationEmpty.tsx
+index d55f4f4..389e31d 100644
+--- a/frontend/components/notifications/NotificationEmpty.tsx
++++ b/frontend/components/notifications/NotificationEmpty.tsx
+@@ -5,7 +5,7 @@ export default function NotificationEmpty() {
+     <div className="card flex flex-col items-center justify-center py-20">
+ 
+       <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/5">
+-        <BellOff className="h-8 w-8 text-gray-500" />
++        <BellOff className="h-8 w-8 text-[color:var(--text-tertiary)]" />
+       </div>
+ 
+       <h3 className="mt-6 text-xl font-semibold">
+diff --git a/frontend/components/notifications/NotificationHeader.tsx b/frontend/components/notifications/NotificationHeader.tsx
+index d5088f9..c0c4c85 100644
+--- a/frontend/components/notifications/NotificationHeader.tsx
++++ b/frontend/components/notifications/NotificationHeader.tsx
+@@ -42,7 +42,7 @@ export default function NotificationHeader({
+ 
+         </div>
+ 
+-        <span className="text-sm text-gray-500">
++        <span className="text-sm text-[color:var(--text-tertiary)]">
+ 
+           {total} Active Alerts
+ 
+diff --git a/frontend/components/onboarding/DataSourceCard.tsx b/frontend/components/onboarding/DataSourceCard.tsx
+index 8c37e2b..513ece7 100644
+--- a/frontend/components/onboarding/DataSourceCard.tsx
++++ b/frontend/components/onboarding/DataSourceCard.tsx
+@@ -23,7 +23,7 @@ export default function DataSourceCard({
+   const getIcon = () => {
+     switch (source.icon) {
+       case "github":
+-        return <FolderGit2 className="h-7 w-7 text-white" />;
++        return <FolderGit2 className="h-7 w-7 text-[color:var(--text-primary)]" />;
+ 
+       case "slack":
+         return <MessageSquare className="h-7 w-7 text-cyan-400" />;
+diff --git a/frontend/components/onboarding/OrgSetupStep.tsx b/frontend/components/onboarding/OrgSetupStep.tsx
+index 29d52b9..d7a0af5 100644
+--- a/frontend/components/onboarding/OrgSetupStep.tsx
++++ b/frontend/components/onboarding/OrgSetupStep.tsx
+@@ -63,7 +63,7 @@ export default function OrgSetupStep() {
+     outline: "none",
+     boxShadow: "none",
+   }}
+-  className="w-full bg-transparent text-white placeholder:text-gray-500"
++  className="w-full bg-transparent text-[color:var(--text-primary)] placeholder:text-[color:var(--text-tertiary)]"
+ />
+           </div>
+ 
+@@ -109,7 +109,7 @@ export default function OrgSetupStep() {
+   className="
+     w-full
+     bg-transparent
+-    text-white
++    text-[color:var(--text-primary)]
+   "
+ >
+ 
+@@ -182,8 +182,8 @@ export default function OrgSetupStep() {
+   className="
+     w-full
+     bg-transparent
+-    text-white
+-    placeholder:text-gray-500
++    text-[color:var(--text-primary)]
++    placeholder:text-[color:var(--text-tertiary)]
+     outline-none
+     focus:outline-none
+   "
+@@ -236,8 +236,8 @@ export default function OrgSetupStep() {
+   className="
+     w-full
+     bg-transparent
+-    text-white
+-    placeholder:text-gray-500
++    text-[color:var(--text-primary)]
++    placeholder:text-[color:var(--text-tertiary)]
+     outline-none
+     focus:outline-none
+   "
+diff --git a/frontend/components/onboarding/ScopeContextLoader.tsx b/frontend/components/onboarding/ScopeContextLoader.tsx
+index ce1f1f6..4febe42 100644
+--- a/frontend/components/onboarding/ScopeContextLoader.tsx
++++ b/frontend/components/onboarding/ScopeContextLoader.tsx
+@@ -109,10 +109,10 @@ export default function ScopeContextLoader() {
+               <span
+                 className={`${
+                   completed
+-                    ? "text-white"
++                    ? "text-[color:var(--text-primary)]"
+                     : active
+                     ? "text-cyan-300"
+-                    : "text-gray-500"
++                    : "text-[color:var(--text-tertiary)]"
+                 }`}
+               >
+                 {step}
+diff --git a/frontend/components/onboarding/WizardProgress.tsx b/frontend/components/onboarding/WizardProgress.tsx
+index 7c76d2e..36f11cd 100644
+--- a/frontend/components/onboarding/WizardProgress.tsx
++++ b/frontend/components/onboarding/WizardProgress.tsx
+@@ -56,7 +56,7 @@ export default function WizardProgress({
+                 ${
+                   active
+                     ? "border-cyan-400 bg-[#12222d] text-cyan-300"
+-                    : "border-white/10 bg-[#16161c] text-gray-500"
++                    : "border-white/10 bg-[var(--bg-elevated)] text-[color:var(--text-tertiary)]"
+                 }`}
+               >
+                 {index + 1}
+@@ -67,7 +67,7 @@ export default function WizardProgress({
+                 ${
+                   active
+                     ? "text-gray-300"
+-                    : "text-gray-500"
++                    : "text-[color:var(--text-tertiary)]"
+                 }`}
+               >
+                 {step}
+diff --git a/frontend/components/ownership/DependencyPipeline.tsx b/frontend/components/ownership/DependencyPipeline.tsx
+index 276ba5f..91fe600 100644
+--- a/frontend/components/ownership/DependencyPipeline.tsx
++++ b/frontend/components/ownership/DependencyPipeline.tsx
+@@ -134,7 +134,7 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
+             </div>
+             {i < columns.length - 1 && (
+               <div className="flex-shrink-0 px-2 flex flex-col items-center">
+-                <ArrowRight className="w-4 h-4 text-slate-600" />
++                <ArrowRight className="w-4 h-4 text-[color:var(--text-tertiary)]" />
+               </div>
+             )}
+           </div>
+@@ -202,7 +202,7 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
+                 <span className="text-[10px] text-[color:var(--text-tertiary)]">tools</span>
+               </div>
+ 
+-              <div className="w-px h-6 bg-[#28283a]" />
++              <div className="w-px h-6 bg-[var(--border-default)]" />
+ 
+               {/* Workflows */}
+               <div className="flex items-center gap-1.5 w-20 justify-center">
+@@ -215,7 +215,7 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
+               {person.isSpof ? (
+                 <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+               ) : (
+-                <Shield className="w-4 h-4 text-slate-600 flex-shrink-0" />
++                <Shield className="w-4 h-4 text-[color:var(--text-tertiary)] flex-shrink-0" />
+               )}
+             </div>
+           );
+diff --git a/frontend/components/ownership/HumanDependencyRisks.tsx b/frontend/components/ownership/HumanDependencyRisks.tsx
+index 4a9239c..fd85b5d 100644
+--- a/frontend/components/ownership/HumanDependencyRisks.tsx
++++ b/frontend/components/ownership/HumanDependencyRisks.tsx
+@@ -212,12 +212,12 @@ function StatCell({ label, value, total, icon: Icon, urgent }: {
+       urgent ? 'bg-[var(--bg-elevated)] border-[var(--border-strong)]' : 'bg-[var(--bg-surface)] border-[var(--border-subtle)]'
+     )}>
+       <div className="flex items-center gap-1.5 mb-1.5">
+-        <Icon className={clsx('w-3 h-3', urgent ? 'text-red-400/70' : 'text-slate-600')} />
++        <Icon className={clsx('w-3 h-3', urgent ? 'text-red-400/70' : 'text-[color:var(--text-tertiary)]')} />
+         <span className="text-[9px] uppercase tracking-widest text-[color:var(--text-tertiary)] font-semibold">{label}</span>
+       </div>
+       <div className="flex items-baseline gap-1">
+         <span className={clsx('text-xl font-light', urgent ? 'text-[color:var(--text-primary)]' : 'text-[color:var(--text-tertiary)]')}>{value}</span>
+-        <span className="text-xs text-slate-600">/ {total}</span>
++        <span className="text-xs text-[color:var(--text-tertiary)]">/ {total}</span>
+       </div>
+     </div>
+   );
+diff --git a/frontend/components/ownership/OrgRelationshipMap.tsx b/frontend/components/ownership/OrgRelationshipMap.tsx
+index f562d5d..6f7b2ce 100644
+--- a/frontend/components/ownership/OrgRelationshipMap.tsx
++++ b/frontend/components/ownership/OrgRelationshipMap.tsx
+@@ -166,7 +166,7 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
+                     {backupLoad > 0 && (
+                       <div className="flex flex-col items-end">
+                         <span className="text-sm font-light text-[color:var(--text-secondary)]">{backupLoad}</span>
+-                        <span className="text-[9px] text-slate-600 uppercase tracking-wider">backup</span>
++                        <span className="text-[9px] text-[color:var(--text-tertiary)] uppercase tracking-wider">backup</span>
+                       </div>
+                     )}
+                     {isExpanded
+@@ -296,7 +296,7 @@ function ExpandSection({ icon: Icon, label, items, color }: {
+         <Icon className="w-3 h-3" /> {label}
+       </div>
+       {items.length === 0 ? (
+-        <span className="text-[10px] text-slate-600">None</span>
++        <span className="text-[10px] text-[color:var(--text-tertiary)]">None</span>
+       ) : (
+         <div className="space-y-1">
+           {items.map(item => (
+diff --git a/frontend/components/risk/OrgHealthBanner.tsx b/frontend/components/risk/OrgHealthBanner.tsx
+index cbe35f1..09163b5 100644
+--- a/frontend/components/risk/OrgHealthBanner.tsx
++++ b/frontend/components/risk/OrgHealthBanner.tsx
+@@ -72,9 +72,9 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
+               />
+             </div>
+             <div className="flex justify-between mt-1.5">
+-              <span className="text-[10px] text-slate-600">0 ΓÇö Critical</span>
+-              <span className="text-[10px] text-slate-600">50 ΓÇö At Risk</span>
+-              <span className="text-[10px] text-slate-600">100 ΓÇö Healthy</span>
++              <span className="text-[10px] text-[color:var(--text-tertiary)]">0 ΓÇö Critical</span>
++              <span className="text-[10px] text-[color:var(--text-tertiary)]">50 ΓÇö At Risk</span>
++              <span className="text-[10px] text-[color:var(--text-tertiary)]">100 ΓÇö Healthy</span>
+             </div>
+           </div>
+         </div>
+diff --git a/frontend/components/risk/RiskScoreTable.tsx b/frontend/components/risk/RiskScoreTable.tsx
+index b784ae5..d3f6c38 100644
+--- a/frontend/components/risk/RiskScoreTable.tsx
++++ b/frontend/components/risk/RiskScoreTable.tsx
+@@ -160,7 +160,7 @@ export function RiskScoreTable({ agents, title, subtitle, tier }: RiskScoreTable
+                       {profile.downstreamCount} agents
+                     </span>
+                   ) : (
+-                    <span className="text-xs text-slate-600">ΓÇö</span>
++                    <span className="text-xs text-[color:var(--text-tertiary)]">ΓÇö</span>
+                   )}
+                 </td>
+ 
+diff --git a/frontend/components/simulation/ScenarioSandbox.tsx b/frontend/components/simulation/ScenarioSandbox.tsx
+index 6c083a0..b9d2db5 100644
+--- a/frontend/components/simulation/ScenarioSandbox.tsx
++++ b/frontend/components/simulation/ScenarioSandbox.tsx
+@@ -169,8 +169,8 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [] }:
+             : status === "done"
+             ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/30"
+             : status === "executing"
+-            ? "bg-cyan-600/50 text-white cursor-not-allowed"
+-            : "bg-cyan-600 hover:bg-cyan-500 text-white"
++            ? "bg-cyan-600/50 text-[color:var(--text-primary)] cursor-not-allowed"
++            : "bg-cyan-600 hover:bg-cyan-500 text-[color:var(--text-primary)]"
+         }`}
+       >
+         {status === "idle" && agents.length === 0 && "No data loaded"}

@@ -74,6 +74,8 @@ app.use('/api/health', require('./routes/health/health'))
 app.use('/api/executive-memory', require('./routes/executiveMemory/executiveMemory'))
 app.use('/api/context', require('./routes/context/context'))
 app.use('/api/intelligence/orchestrator', require('./routes/intelligence/orchestrator'))
+app.use('/api/intelligence', require('./routes/intelligence/prediction'))
+app.use('/api/signals', require('./routes/signals/signals'))
 app.use('/api/auth', require('./routes/auth/auth'))
 
 // ─── Organizational Brain: constitutional runtime for M01–M55 (mounted at /api/brain) ───

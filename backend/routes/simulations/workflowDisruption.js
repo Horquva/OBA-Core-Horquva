@@ -2,6 +2,23 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
 
+// Base list — which workflows can be simulated
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('workflows')
+      .select('id, name, status, risk, department')
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({
+      scenario: 'workflow-disruption',
+      hint: 'Call /api/simulations/workflow-disruption/{name} to run a scenario',
+      available: data || [],
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 router.get('/:workflow', async (req, res) => {
   const { workflow } = req.params
 

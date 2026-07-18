@@ -2,6 +2,23 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
 
+// Base list — which platforms can be simulated
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('ai_platforms')
+      .select('id, name, type, status')
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({
+      scenario: 'platform-down',
+      hint: 'Call /api/simulations/platform-down/{name} to run a scenario',
+      available: data || [],
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 router.get('/:platform', async (req, res) => {
   const { platform } = req.params
 

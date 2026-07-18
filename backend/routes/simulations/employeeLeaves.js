@@ -2,6 +2,23 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
 
+// Base list — which employees can be simulated
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('id, name, role, department, risk')
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({
+      scenario: 'employee-leaves',
+      hint: 'Call /api/simulations/employee-leaves/{name} to run a scenario',
+      available: data || [],
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 router.get('/:employee', async (req, res) => {
   const { employee } = req.params
 
