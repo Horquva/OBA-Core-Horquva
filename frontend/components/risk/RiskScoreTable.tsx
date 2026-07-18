@@ -15,26 +15,26 @@ interface RiskScoreTableProps {
 const TIER_META: Record<RiskTier, { headerBg: string; border: string; countBg: string; countText: string }> = {
   CRITICAL: {
     headerBg: 'bg-transparent',
-    border: 'border-[#1f1f29]',
-    countBg: 'bg-[#1f1f29] border-[#28283a]',
+    border: 'border-[var(--border-subtle)]',
+    countBg: 'bg-[var(--bg-hover)] border-[var(--border-default)]',
     countText: 'text-red-400',
   },
   HIGH: {
     headerBg: 'bg-transparent',
-    border: 'border-[#1f1f29]',
-    countBg: 'bg-[#1f1f29] border-[#28283a]',
+    border: 'border-[var(--border-subtle)]',
+    countBg: 'bg-[var(--bg-hover)] border-[var(--border-default)]',
     countText: 'text-orange-400',
   },
   MEDIUM: {
     headerBg: 'bg-transparent',
-    border: 'border-[#1f1f29]',
-    countBg: 'bg-[#1f1f29] border-[#28283a]',
+    border: 'border-[var(--border-subtle)]',
+    countBg: 'bg-[var(--bg-hover)] border-[var(--border-default)]',
     countText: 'text-yellow-400',
   },
   LOW: {
     headerBg: 'bg-transparent',
-    border: 'border-[#1f1f29]',
-    countBg: 'bg-[#1f1f29] border-[#28283a]',
+    border: 'border-[var(--border-subtle)]',
+    countBg: 'bg-[var(--bg-hover)] border-[var(--border-default)]',
     countText: 'text-emerald-400',
   },
 };
@@ -55,13 +55,13 @@ export function RiskScoreTable({ agents, title, subtitle, tier }: RiskScoreTable
   return (
     <div className={clsx('card overflow-hidden border', meta.border, 'animate-fade-up delay-400')}>
       {/* Header */}
-      <div className={clsx('px-6 py-4 border-b border-[#1f1f29] flex items-center justify-between', meta.headerBg)}>
+      <div className={clsx('px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between', meta.headerBg)}>
         <div>
           <div className="flex items-center gap-2.5">
             <BarChart3 className={clsx('w-4 h-4', meta.countText)} />
-            <h3 className="text-sm font-semibold text-white">{title}</h3>
+            <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">{title}</h3>
           </div>
-          {subtitle && <p className="text-[11px] text-slate-500 mt-0.5 pl-6">{subtitle}</p>}
+          {subtitle && <p className="text-[11px] text-[color:var(--text-tertiary)] mt-0.5 pl-6">{subtitle}</p>}
         </div>
         <span className={clsx(
           'inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border',
@@ -75,7 +75,7 @@ export function RiskScoreTable({ agents, title, subtitle, tier }: RiskScoreTable
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-[#111116] text-[10px] uppercase tracking-widest text-slate-500 border-b border-[#1f1f29]">
+            <tr className="bg-[var(--bg-surface)] text-[10px] uppercase tracking-widest text-[color:var(--text-tertiary)] border-b border-[var(--border-subtle)]">
               <th className="px-5 py-3.5 font-medium">Agent</th>
               <th className="px-5 py-3.5 font-medium">Department</th>
               <th className="px-5 py-3.5 font-medium">Owner</th>
@@ -86,17 +86,17 @@ export function RiskScoreTable({ agents, title, subtitle, tier }: RiskScoreTable
               <th className="px-5 py-3.5 font-medium text-center">Risk</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#111116]">
+          <tbody className="divide-y divide-[var(--border-subtle)]">
             {agents.map((profile, idx) => (
               <tr
                 key={profile.agent.id}
-                className="hover:bg-[#1a1a22] transition-colors group/row"
+                className="hover:bg-[var(--bg-hover)] transition-colors group/row"
                 style={{ animationDelay: `${400 + idx * 40}ms` }}
               >
                 {/* Agent Name */}
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-white text-sm group-hover/row:text-indigo-300 transition-colors">
+                    <span className="font-medium text-[color:var(--text-primary)] text-sm group-hover/row:text-indigo-300 transition-colors">
                       {profile.agent.name}
                     </span>
                     {profile.isSPOF && (
@@ -114,7 +114,7 @@ export function RiskScoreTable({ agents, title, subtitle, tier }: RiskScoreTable
 
                 {/* Department */}
                 <td className="px-5 py-4">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#1f1f29] border border-[#28283a] text-xs text-slate-300">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--bg-hover)] border border-[var(--border-default)] text-xs text-[color:var(--text-primary)]">
                     {profile.agent.department}
                   </span>
                 </td>
@@ -122,7 +122,7 @@ export function RiskScoreTable({ agents, title, subtitle, tier }: RiskScoreTable
                 {/* Owner */}
                 <td className="px-5 py-4">
                   {profile.agent.owner ? (
-                    <span className="text-sm text-slate-300">{profile.agent.owner}</span>
+                    <span className="text-sm text-[color:var(--text-primary)]">{profile.agent.owner}</span>
                   ) : (
                     <span className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold">
                       <XCircle className="w-3.5 h-3.5" /> None
@@ -133,7 +133,7 @@ export function RiskScoreTable({ agents, title, subtitle, tier }: RiskScoreTable
                 {/* Backup */}
                 <td className="px-5 py-4">
                   {profile.agent.backup_owner ? (
-                    <span className="flex items-center gap-1.5 text-slate-300 text-sm">
+                    <span className="flex items-center gap-1.5 text-[color:var(--text-primary)] text-sm">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                       {profile.agent.backup_owner}
                     </span>

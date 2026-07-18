@@ -33,7 +33,7 @@ const DEPT_COLORS: Record<string, { pill: string; dot: string }> = {
 };
 
 function getDeptStyle(dept: string) {
-  return DEPT_COLORS[dept] ?? { pill: 'bg-slate-700/30 text-slate-400 border-slate-600/30', dot: 'bg-slate-400' };
+  return DEPT_COLORS[dept] ?? { pill: 'bg-slate-700/30 text-[color:var(--text-secondary)] border-slate-600/30', dot: 'bg-slate-400' };
 }
 
 export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
@@ -102,9 +102,9 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
             <Network className="w-4 h-4 text-cyan-400" />
           </div>
-          <h3 className="text-xl font-semibold text-white tracking-tight">Organizational Relationship Map</h3>
+          <h3 className="text-xl font-semibold text-[color:var(--text-primary)] tracking-tight">Organizational Relationship Map</h3>
         </div>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-[color:var(--text-secondary)] mt-1">
           Cross-department ownership topology — who controls what agents, tools, and workflows across the organization.
         </p>
       </div>
@@ -112,7 +112,7 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 relative z-10">
         {/* Left: People-centric view */}
         <div className="flex flex-col space-y-3">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-1">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-tertiary)] flex items-center gap-2 mb-1">
             <Users className="w-3 h-3" /> People Overview
           </div>
           {profiles.map(profile => {
@@ -124,8 +124,8 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
               <div
                 key={profile.name}
                 className={clsx(
-                  'border rounded-xl overflow-hidden transition-all duration-300',
-                  isExpanded ? 'border-indigo-500/30 bg-indigo-500/[0.03]' : 'border-[#28283a] bg-[#111116]/50 hover:border-[#3a3a52] hover:bg-[#1c1c24]/50'
+                  "relative group cursor-pointer border rounded-xl p-4 transition-all duration-300",
+                  isExpanded ? 'border-indigo-500/30 bg-indigo-500/[0.03]' : 'border-[var(--border-default)] bg-[var(--bg-surface)]/50 hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]/50'
                 )}
               >
                 <button
@@ -137,14 +137,14 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
                     'w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border flex-shrink-0',
                     isExpanded
                       ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
-                      : 'bg-[#1c1c24] border-[#28283a] text-white'
+                      : 'bg-[var(--bg-hover)] border-[var(--border-default)] text-[color:var(--text-primary)]'
                   )}>
                     {profile.name.charAt(0)}
                   </div>
 
                   {/* Name & departments */}
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white">{profile.name}</div>
+                    <div className="text-sm font-semibold text-[color:var(--text-primary)]">{profile.name}</div>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {profile.departments.slice(0, 3).map(d => (
                         <span key={d} className={clsx('text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider', getDeptStyle(d).pill)}>
@@ -152,7 +152,7 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
                         </span>
                       ))}
                       {profile.departments.length > 3 && (
-                        <span className="text-[9px] text-slate-500">+{profile.departments.length - 3}</span>
+                        <span className="text-[9px] text-[color:var(--text-tertiary)]">+{profile.departments.length - 3}</span>
                       )}
                     </div>
                   </div>
@@ -160,18 +160,18 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
                   {/* Stats */}
                   <div className="flex items-center gap-4 flex-shrink-0 text-right">
                     <div className="flex flex-col items-end">
-                      <span className="text-lg font-light text-white">{totalResp}</span>
-                      <span className="text-[9px] text-slate-500 uppercase tracking-wider">owned</span>
+                      <span className="text-lg font-light text-[color:var(--text-primary)]">{totalResp}</span>
+                      <span className="text-[9px] text-[color:var(--text-tertiary)] uppercase tracking-wider">owned</span>
                     </div>
                     {backupLoad > 0 && (
                       <div className="flex flex-col items-end">
-                        <span className="text-sm font-light text-slate-400">{backupLoad}</span>
+                        <span className="text-sm font-light text-[color:var(--text-secondary)]">{backupLoad}</span>
                         <span className="text-[9px] text-slate-600 uppercase tracking-wider">backup</span>
                       </div>
                     )}
                     {isExpanded
                       ? <ChevronUp className="w-4 h-4 text-indigo-400" />
-                      : <ChevronDown className="w-4 h-4 text-slate-500" />
+                      : <ChevronDown className="w-4 h-4 text-[color:var(--text-tertiary)]" />
                     }
                   </div>
                 </button>
@@ -185,19 +185,16 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
                       <ExpandSection icon={Cpu} label="Tools Owned" items={profile.toolsOwned} color="text-cyan-400" />
                     </div>
                     {profile.backupAgentIds.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-[#1f1f29]">
-                        <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-2">Backup Coverage Provided For</div>
+                      <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                        <div className="text-[9px] uppercase tracking-widest text-[color:var(--text-tertiary)] font-semibold mb-2">Backup Coverage Provided For</div>
                         <div className="flex flex-wrap gap-1.5">
                           {profile.backupAgentIds.map(id => {
                             const agent = agents.find(a => a.id === id);
                             if (!agent) return null;
-                            const risk = deriveRisk(agent);
                             return (
                               <span key={id} className={clsx(
-                                'text-[10px] px-2 py-0.5 rounded border font-medium',
-                                risk === 'critical' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                risk === 'high' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                                'bg-[#1f1f29] text-slate-400 border-[#28283a]'
+                                "px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase border",
+                                'bg-[var(--bg-hover)] text-[color:var(--text-secondary)] border-[var(--border-default)]'
                               )}>
                                 {agent.name.replace(' Agent', '')}
                               </span>
@@ -207,11 +204,11 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
                       </div>
                     )}
                     {profile.toolsUsed.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-[#1f1f29]">
-                        <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-2">Tools Used (Non-Owner)</div>
+                      <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                        <div className="text-[9px] uppercase tracking-widest text-[color:var(--text-tertiary)] font-semibold mb-2">Tools Used (Non-Owner)</div>
                         <div className="flex flex-wrap gap-1.5">
-                          {profile.toolsUsed.map(t => (
-                            <span key={t} className="text-[10px] px-2 py-0.5 rounded border bg-[#1f1f29] text-slate-400 border-[#28283a] font-medium">{t}</span>
+                          {profile.toolsUsed.slice(0, 3).map(t => (
+                            <span key={t} className="text-[10px] px-2 py-0.5 rounded border bg-[var(--bg-hover)] text-[color:var(--text-secondary)] border-[var(--border-default)] font-medium">{t}</span>
                           ))}
                         </div>
                       </div>
@@ -225,7 +222,7 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
 
         {/* Right: Department-level rollup */}
         <div className="flex flex-col space-y-3">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-1">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-tertiary)] flex items-center gap-2 mb-1">
             <Bot className="w-3 h-3" /> Department Coverage
           </div>
           {Object.entries(deptMap)
@@ -242,7 +239,7 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
                     'flex items-start gap-4 px-4 py-4 rounded-xl border transition-colors',
                     isSingleOwner && info.agents >= 2
                       ? 'border-red-500/15 bg-red-500/[0.03] hover:bg-red-500/[0.05]'
-                      : 'border-[#28283a] bg-[#111116]/50 hover:bg-[#1c1c24]/40'
+                      : 'border-[var(--border-default)] bg-[var(--bg-surface)]/50 hover:bg-[var(--bg-hover)]/40'
                   )}
                 >
                   {/* Dept color dot */}
@@ -250,7 +247,7 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-semibold text-white">{dept}</span>
+                      <span className="text-sm font-semibold text-[color:var(--text-primary)]">{dept}</span>
                       {isSingleOwner && info.agents >= 2 && (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 uppercase tracking-wider">
                           Single Owner
@@ -259,12 +256,12 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
                     </div>
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {owners.map(o => (
-                        <span key={o} className="text-[10px] px-2 py-0.5 rounded bg-[#1c1c24] border border-[#28283a] text-slate-300 font-medium">
+                        <span key={o} className="text-[10px] px-2 py-0.5 rounded bg-[var(--bg-hover)] border border-[var(--border-default)] text-[color:var(--text-primary)] font-medium">
                           {o}
                         </span>
                       ))}
                     </div>
-                    <div className="flex items-center gap-4 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                    <div className="flex items-center gap-4 text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-wider font-semibold">
                       <span className="flex items-center gap-1">
                         <Bot className="w-3 h-3" /> {info.agents} agents
                         {info.criticalAgents > 0 && (
@@ -303,7 +300,7 @@ function ExpandSection({ icon: Icon, label, items, color }: {
       ) : (
         <div className="space-y-1">
           {items.map(item => (
-            <div key={item} className="text-[10px] text-slate-300 truncate" title={item}>
+            <div key={item} className="text-[10px] text-[color:var(--text-primary)] truncate" title={item}>
               {item.replace(' Agent', '')}
             </div>
           ))}

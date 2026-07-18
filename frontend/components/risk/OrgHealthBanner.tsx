@@ -26,7 +26,7 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
   const { organizationalHealthScore: ohs, healthStatus, criticalAgents, highAgents } = report;
 
   const gradient = '';
-  const borderColor = 'border-[#1f1f29]';
+  const borderColor = 'border-[var(--border-subtle)]';
 
   const ohsTextColor =
     ohs >= 75 ? 'text-emerald-400' :
@@ -39,18 +39,18 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
 
       <div className="relative z-10">
         {/* Top bar */}
-        <div className="px-6 py-5 border-b border-[#1f1f29]">
+        <div className="px-6 py-5 border-b border-[var(--border-subtle)]">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-white">Organizational Health Summary</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Organizational Health Summary</h2>
+              <p className="text-xs text-[color:var(--text-secondary)] mt-0.5">
                 Sunrise Care — {report.totalAgents} agents analysed across all departments
               </p>
             </div>
             <div className="text-right">
               <div className="flex items-baseline gap-1 justify-end">
                 <span className={clsx('text-4xl font-bold tracking-tight', ohsTextColor)}>{ohs}</span>
-                <span className="text-slate-500 text-sm">/ 100</span>
+                <span className="text-[color:var(--text-tertiary)] text-sm">/ 100</span>
               </div>
               <p className={clsx('text-xs font-semibold uppercase tracking-widest mt-0.5', ohsTextColor)}>
                 {healthStatus === 'HEALTHY'  ? 'Healthy'   :
@@ -62,8 +62,8 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
 
           {/* OHS progress bar */}
           <div className="mt-4">
-            <div className="w-full h-2 bg-[#1f1f29] rounded-full overflow-hidden">
-              <div
+            <div className="w-full h-2 bg-[var(--border-subtle)] rounded-full overflow-hidden">
+              <div 
                 className={clsx(
                   'h-full rounded-full transition-all duration-1000',
                   ohs >= 75 ? 'bg-emerald-400' : ohs >= 50 ? 'bg-yellow-400' : 'bg-red-400'
@@ -80,19 +80,19 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
         </div>
 
         {/* Insight columns */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-[#1f1f29] border-b border-[#1f1f29]">
-          {INSIGHT_COLS.map(col => (
-            <div key={col.label} className="bg-[#16161c] px-5 py-4">
-              <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">{col.label}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-[var(--border-subtle)] border-b border-[var(--border-subtle)]">
+          {INSIGHT_COLS.map((col, idx) => (
+            <div key={idx} className="bg-[var(--bg-elevated)] px-5 py-4">
+              <p className="text-[10px] uppercase tracking-widest text-[color:var(--text-tertiary)] mb-1">{col.label}</p>
               <p className={clsx('text-2xl font-bold tracking-tight', col.color)}>{col.value}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{col.sub}</p>
+              <p className="text-[11px] text-[color:var(--text-tertiary)] mt-0.5">{col.sub}</p>
             </div>
           ))}
         </div>
 
         {/* Key findings */}
         <div className="px-6 py-5">
-          <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-3">
+          <p className="text-[10px] uppercase tracking-widest text-[color:var(--text-tertiary)] font-semibold mb-3">
             Key Findings — Sunrise Care Demo
           </p>
           <div className="space-y-2">
@@ -102,7 +102,7 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
                   'w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5',
                   i < 2 ? 'bg-red-400' : i < 4 ? 'bg-orange-400' : 'bg-yellow-400'
                 )} />
-                <p className="text-sm text-slate-400">{finding}</p>
+                <p className="text-sm text-[color:var(--text-secondary)]">{finding}</p>
               </div>
             ))}
           </div>

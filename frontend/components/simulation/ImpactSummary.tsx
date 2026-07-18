@@ -50,9 +50,9 @@ export function ImpactSummary({ scenario }: Props) {
         padding: '1.5rem', 
         position: 'relative', 
         overflow: 'hidden',
-        background: 'rgba(22, 22, 28, 0.6)',
+        background: 'var(--bg-elevated)',
         backdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255,255,255,0.05)',
+        border: '1px solid var(--border-default)',
         boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
       }}>
         {/* Top accent bar */}
@@ -92,8 +92,8 @@ export function ImpactSummary({ scenario }: Props) {
           gap: '1.5rem',
           padding: '1.25rem 1.5rem',
           borderRadius: '12px',
-          background: 'rgba(0, 0, 0, 0.2)',
-          border: '1px solid rgba(255,255,255,0.03)',
+          background: 'var(--bg-hover)',
+          border: '1px solid var(--border-default)',
           boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.1)'
         }}>
           {/* Before */}
@@ -146,9 +146,9 @@ export function ImpactSummary({ scenario }: Props) {
       {/* ── Impacted Agents ────────────────────────────────────── */}
       <div className="card" style={{ 
         padding: '1.5rem',
-        background: 'rgba(22, 22, 28, 0.4)',
+        background: 'var(--bg-elevated)',
         backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255,255,255,0.03)'
+        border: '1px solid var(--border-default)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <ShieldAlert size={15} style={{ color: 'var(--risk-high-text)' }} />
@@ -182,8 +182,8 @@ export function ImpactSummary({ scenario }: Props) {
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '0.875rem 1.25rem',
                   borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(255, 255, 255, 0.04)',
+                  background: 'var(--bg-hover)',
+                  border: '1px solid var(--border-default)',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                   gap: '0.75rem',
                   transition: 'transform 0.2s ease, box-shadow 0.2s ease'

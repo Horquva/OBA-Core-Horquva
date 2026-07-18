@@ -81,8 +81,8 @@ export function FlowCanvas({ agents, dependencies }: FlowCanvasProps) {
       }
     }));
 
-    const initialEdges: Edge[] = dependencies.map(dep => ({
-      id: `${dep.from}-${dep.to}`,
+    const initialEdges: Edge[] = dependencies.map((dep, idx) => ({
+      id: `${dep.from}-${dep.to}-${idx}`,
       source: dep.from,
       target: dep.to,
       type: 'smoothstep',
@@ -240,7 +240,7 @@ export function FlowCanvas({ agents, dependencies }: FlowCanvasProps) {
         >
           <Background 
             variant={BackgroundVariant.Lines} 
-            color="var(--border-default)" 
+            color="var(--border-subtle)" 
             gap={30} 
             lineWidth={1} 
           />

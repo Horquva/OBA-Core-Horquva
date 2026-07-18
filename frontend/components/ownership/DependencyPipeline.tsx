@@ -114,8 +114,8 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
       <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.02] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
       <div className="mb-8 relative z-10">
-        <h3 className="text-xl font-semibold text-white tracking-tight">Human-Agent Dependency Pipeline</h3>
-        <p className="text-sm text-slate-400 mt-1.5">
+        <h3 className="text-xl font-semibold text-[color:var(--text-primary)] tracking-tight">Human-Agent Dependency Pipeline</h3>
+        <p className="text-sm text-[color:var(--text-secondary)] mt-1.5">
           Full-stack dependency chain from people to operational workflows via agents and AI platforms.
         </p>
       </div>
@@ -129,7 +129,7 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
               <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center mb-3 border', col.bg, col.border)}>
                 <col.icon className={clsx('w-5 h-5', col.color)} />
               </div>
-              <div className="text-3xl font-light text-white tracking-tight">{col.count}</div>
+              <div className="text-3xl font-light text-[color:var(--text-primary)] tracking-tight">{col.count}</div>
               <div className={clsx('text-[10px] font-bold uppercase tracking-widest mt-1', col.color)}>{col.label}</div>
             </div>
             {i < columns.length - 1 && (
@@ -143,7 +143,7 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
 
       {/* Per-person pipeline rows */}
       <div className="relative z-10 space-y-2">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3 px-1">Individual Dependency Load</div>
+        <div className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-tertiary)] mb-3 px-1">Individual Dependency Load</div>
         {peopleMap.map((person) => {
           const maxAgents = Math.max(...peopleMap.map(p => p.agentCount), 1);
           const pct = (person.agentCount / maxAgents) * 100;
@@ -155,7 +155,7 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
                 'flex items-center gap-4 px-4 py-3 rounded-xl border transition-colors',
                 person.isSpof
                   ? 'border-red-500/20 bg-red-500/[0.04] hover:bg-red-500/[0.07]'
-                  : 'border-[#28283a] bg-[#111116]/60 hover:bg-[#1c1c24]'
+                  : 'border-[var(--border-default)] bg-[var(--bg-surface)]/60 hover:bg-[var(--bg-hover)]'
               )}
             >
               {/* Avatar */}
@@ -163,14 +163,14 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
                 'w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold border flex-shrink-0',
                 person.isSpof
                   ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                  : 'bg-[#1c1c24] border-[#28283a] text-white'
+                  : 'bg-[var(--bg-hover)] border-[var(--border-default)] text-[color:var(--text-primary)]'
               )}>
                 {person.name.charAt(0)}
               </div>
 
               {/* Name + SPOF badge */}
               <div className="w-24 flex-shrink-0">
-                <div className="text-sm font-medium text-white">{person.name}</div>
+                <div className="text-sm font-medium text-[color:var(--text-primary)]">{person.name}</div>
                 {person.isSpof && (
                   <div className="flex items-center mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1 animate-pulse" />
@@ -181,8 +181,8 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
 
               {/* Agents bar */}
               <div className="flex-1 flex items-center gap-3">
-                <div className="flex-1 h-1.5 bg-[#1f1f29] rounded-full overflow-hidden">
-                  <div
+                <div className="flex-1 h-1.5 bg-[var(--border-subtle)] rounded-full overflow-hidden">
+                  <div 
                     className={clsx('h-full rounded-full transition-all duration-700', person.isSpof ? 'bg-red-500' : 'bg-indigo-500')}
                     style={{ width: `${pct}%` }}
                   />
@@ -192,14 +192,14 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
                 </span>
               </div>
 
-              {/* Dividers */}
-              <div className="w-px h-6 bg-[#28283a]" />
+              {/* Connector line 1 */}
+              <div className="w-px h-6 bg-[var(--border-default)]" />
 
-              {/* Tools */}
+              {/* Node 2: Agents */}
               <div className="flex items-center gap-1.5 w-16 justify-center">
                 <Cpu className="w-3.5 h-3.5 text-cyan-500/70 flex-shrink-0" />
                 <span className="text-sm font-bold text-cyan-400">{person.toolCount}</span>
-                <span className="text-[10px] text-slate-500">tools</span>
+                <span className="text-[10px] text-[color:var(--text-tertiary)]">tools</span>
               </div>
 
               <div className="w-px h-6 bg-[#28283a]" />
@@ -208,7 +208,7 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
               <div className="flex items-center gap-1.5 w-20 justify-center">
                 <GitBranch className="w-3.5 h-3.5 text-emerald-500/70 flex-shrink-0" />
                 <span className="text-sm font-bold text-emerald-400">{person.workflowCount}</span>
-                <span className="text-[10px] text-slate-500">flows</span>
+                <span className="text-[10px] text-[color:var(--text-tertiary)]">flows</span>
               </div>
 
               {/* Risk indicator */}

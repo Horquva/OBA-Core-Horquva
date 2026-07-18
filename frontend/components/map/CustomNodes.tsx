@@ -24,7 +24,7 @@ export function AgentNode({ data }: { data: AgentNodeData }) {
       className={clsx(
         "card p-5 min-w-[300px] relative border-2 transition-all duration-300",
         isFailed ? "border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]" :
-        isImpacted ? "border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)] bg-orange-950/20" :
+        isImpacted ? "border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)] bg-orange-500/10" :
         isSPOF ? "border-[var(--risk-critical-border)]" : "border-transparent"
       )}
     >

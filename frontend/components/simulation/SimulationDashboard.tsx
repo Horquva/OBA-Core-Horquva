@@ -110,16 +110,16 @@ export function SimulationDashboard({ agents, dependencies, tools }: Props) {
             flexShrink: 0,
             padding: '0.875rem 1.125rem',
             borderRadius: '10px',
-            background: 'rgba(22, 22, 28, 0.4)',
+            background: 'var(--bg-elevated)',
             backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.05)',
+            border: '1px solid var(--border-default)',
             borderLeft: '3px solid rgba(220,38,38,0.6)',
             display: 'flex', alignItems: 'center', gap: '1rem',
           }}>
             <div style={{
               width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0,
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.05)',
+              background: 'var(--bg-hover)',
+              border: '1px solid var(--border-default)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <Flame size={14} style={{ color: 'var(--risk-critical-text)' }} />
@@ -146,20 +146,20 @@ export function SimulationDashboard({ agents, dependencies, tools }: Props) {
               style={{
                 flexShrink: 0,
                 padding: '6px 14px', borderRadius: '6px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'var(--bg-hover)',
+                border: '1px solid var(--border-default)',
                 color: 'var(--text-primary)',
                 fontSize: '0.72rem', fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'background 0.15s, border-color 0.15s',
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)';
-                (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.15)';
+                (e.currentTarget as HTMLButtonElement).style.background = 'var(--border-subtle)';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-strong)';
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.03)';
-                (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-default)';
               }}
             >
               Simulate
@@ -195,9 +195,9 @@ export function SimulationDashboard({ agents, dependencies, tools }: Props) {
               height: '100%', display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', textAlign: 'center',
               padding: '3rem',
-              border: '1px dashed rgba(255,255,255,0.1)',
+              border: '1px dashed var(--border-default)',
               borderRadius: '16px',
-              background: 'rgba(22, 22, 28, 0.4)',
+              background: 'var(--bg-surface)',
               backdropFilter: 'blur(12px)',
             }}>
               <div style={{
