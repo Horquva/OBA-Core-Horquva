@@ -1,0 +1,194 @@
+@import "tailwindcss";
+
+/* ─── Design Tokens ──────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --bg-base:      #0c0c0f;   /* near-black canvas        */
+  --bg-surface:   #111116;   /* sidebar / panels         */
+  --bg-elevated:  #16161c;   /* cards, inputs            */
+  --bg-hover:     #1c1c24;   /* hover states             */
+
+  /* Borders */
+  --border-subtle:  #1f1f29;  /* default border           */
+  --border-default: #28283a;  /* slightly visible         */
+  --border-strong:  #3a3a52;  /* emphasis border          */
+
+  /* Text */
+  --text-primary:   #e8e8f0;  /* off-white primary        */
+  --text-secondary: #8b8b9e;  /* muted secondary          */
+  --text-tertiary:  #55556a;  /* very dim / disabled      */
+
+  /* Accent — muted indigo (not loud, never neon) */
+  --accent:         #6366f1;
+  --accent-dim:     rgba(99 102 241 / 0.10);
+  --accent-border:  rgba(99 102 241 / 0.25);
+
+  /* Risk palette (kept desaturated — elegant, not garish) */
+  --risk-critical-bg:  rgba(220  38  38 / 0.10);
+  --risk-critical-text: #f87171;
+  --risk-critical-border: rgba(220  38  38 / 0.22);
+
+  --risk-high-bg:   rgba(234  88  12 / 0.10);
+  --risk-high-text: #fb923c;
+  --risk-high-border: rgba(234  88  12 / 0.22);
+
+  --risk-medium-bg:   rgba(202 138   4 / 0.10);
+  --risk-medium-text: #facc15;
+  --risk-medium-border: rgba(202 138   4 / 0.22);
+
+  --risk-low-bg:   rgba(22 163  74 / 0.10);
+  --risk-low-text: #4ade80;
+  --risk-low-border: rgba(22 163  74 / 0.22);
+
+  /* Font */
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ─── Global Base ────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Typography Scale ───────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+
+p, span, li {
+  color: var(--text-secondary);
+}
+
+/* ─── View Transitions ───────────────────────────────────── */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 0.25s;
+  animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: var(--border-default);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--border-strong);
+}
+
+/* ─── Risk Badge Utilities ───────────────────────────────── */
+.risk-critical {
+  background-color: var(--risk-critical-bg);
+  color: var(--risk-critical-text);
+  border: 1px solid var(--risk-critical-border);
+}
+.risk-high {
+  background-color: var(--risk-high-bg);
+  color: var(--risk-high-text);
+  border: 1px solid var(--risk-high-border);
+}
+.risk-medium {
+  background-color: var(--risk-medium-bg);
+  color: var(--risk-medium-text);
+  border: 1px solid var(--risk-medium-border);
+}
+.risk-low {
+  background-color: var(--risk-low-bg);
+  color: var(--risk-low-text);
+  border: 1px solid var(--risk-low-border);
+}
+
+/* ─── Card / Panel ───────────────────────────────────────── */
+.card {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.4),
+    0 10px 30px -8px rgba(0, 0, 0, 0.6),
+    0 1px 0 0 rgba(255, 255, 255, 0.03) inset;
+}
+
+/* ─── Focus Ring ─────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─── Keyframe Animations ────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+@keyframes count-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+/* ─── Animation Utilities ────────────────────────────────── */
+.animate-fade-up   { animation: fade-up 0.7s cubic-bezier(0.19, 1, 0.22, 1) both; }
+.animate-fade-in   { animation: fade-in 0.4s ease both; }
+.animate-slide-right { animation: slide-in-right 0.4s cubic-bezier(0.19, 1, 0.22, 1) both; }
+.animate-pulse-soft  { animation: pulse-soft 2.5s ease-in-out infinite; }
+.animate-count-up  { animation: count-up 0.5s cubic-bezier(0.19, 1, 0.22, 1) both; }
+
+/* Stagger delay helpers */
+.delay-75  { animation-delay: 75ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-225 { animation-delay: 225ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* ─── Card Hover Lift ────────────────────────────────────── */
+.card {
+  transition: transform 0.25s cubic-bezier(0.19, 1, 0.22, 1),
+              box-shadow 0.25s cubic-bezier(0.19, 1, 0.22, 1),
+              border-color 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 16px -4px rgba(0, 0, 0, 0.5),
+    0 20px 40px -12px rgba(0, 0, 0, 0.7),
+    0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
+  border-color: var(--border-default);
+}
+
+/* ─── Table Row Hover ────────────────────────────────────── */
+tr {
+  transition: background-color 0.15s ease;
+}

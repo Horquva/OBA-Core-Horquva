@@ -14,13 +14,19 @@ import { EarlyWarningStrip } from '../components/dashboard/EarlyWarningStrip';
 export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-      <div className="mb-2">
-        <h1 className="text-2xl font-bold text-[color:var(--text-primary)] tracking-tight">
-          Executive Command Center
-        </h1>
-        <p className="text-[color:var(--text-secondary)] mt-1 text-sm">
-          Real-time organizational intelligence — state of the organization, top to bottom.
-        </p>
+      <div className="mb-2 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-gradient tracking-tight">
+            Executive Command Center
+          </h1>
+          <p className="text-[color:var(--text-secondary)] mt-1 text-sm">
+            Real-time organizational intelligence — state of the organization, top to bottom.
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium shrink-0"
+          style={{ background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.25)', color: '#4ade80' }}>
+          <span className="live-dot" /> Live
+        </span>
       </div>
 
       {/* Row 1: The Verdict & KPIs */}

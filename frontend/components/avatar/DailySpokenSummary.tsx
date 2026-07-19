@@ -68,7 +68,7 @@ export default function DailySpokenSummary({
 
             </div>
 
-            <p className="mt-2 whitespace-pre-line text-sm leading-7 text-gray-300">
+            <p className="mt-2 max-h-28 overflow-y-auto pr-1 whitespace-pre-line text-sm leading-7 text-gray-300">
               {summary}
             </p>
 

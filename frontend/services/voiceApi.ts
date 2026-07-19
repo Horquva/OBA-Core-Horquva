@@ -1,4 +1,6 @@
-const API_BASE = "http://localhost:3000/api/voice";
+const API_ROOT =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "http://localhost:3000";
+const API_BASE = `${API_ROOT}/api/voice`;
 
 export interface VoiceResponse {
   query: string;

@@ -2,6 +2,16 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
 
+// Base index route so health checks and discovery return 200 (the analysis route requires a :name param)
+router.get('/', (req, res) => {
+  res.json({
+    ok: true,
+    endpoint: '/api/tool-impact',
+    usage: '/api/tool-impact/:name/impact',
+    description: 'Blast-radius impact analysis for a given AI tool: impacted workflows, agents, employees, backup availability and risk level.'
+  })
+})
+
 router.get('/:name/impact', async (req, res) => {
   const { name } = req.params
 

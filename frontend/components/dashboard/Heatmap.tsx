@@ -94,7 +94,7 @@ export function Heatmap() {
 
       {!loading && barData.length > 0 && (
         <div className="w-full h-[300px] min-h-0 min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={300} minHeight={0}>
             <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} maxBarSize={60}>
               <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--border-subtle)" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8b8b9e', fontSize: 12 }} dy={10} />

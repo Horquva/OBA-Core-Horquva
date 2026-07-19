@@ -76,7 +76,7 @@ export function ConcentrationBar({ agents }: ConcentrationBarProps) {
       </div>
       
       <div className="w-full h-[320px] relative z-10 min-h-0 min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320} minHeight={0}>
           <BarChart data={barData} margin={{ top: 10, right: 30, left: -10, bottom: 0 }} maxBarSize={40} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border-subtle)" />
             <XAxis 

@@ -166,7 +166,7 @@ function PersonCard({ profile, index }: { profile: PersonProfile; index: number 
                     : a.criticality === 'medium' ? 'var(--risk-medium-text)'
                     : 'var(--risk-low-text)';
                   return (
-                    <div key={a.id || a.name || ai} style={{
+                    <div key={`${a.id || a.name || 'a'}-${ai}`} style={{
                       padding: '8px 10px', borderRadius: '8px',
                       background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
                     }}>
@@ -202,7 +202,7 @@ function PersonCard({ profile, index }: { profile: PersonProfile; index: number 
                     : w.criticality === 'medium' ? 'var(--risk-medium-text)'
                     : 'var(--risk-low-text)';
                   return (
-                    <div key={w.id || w.name || wi} style={{
+                    <div key={`${w.id || w.name || 'w'}-${wi}`} style={{
                       padding: '8px 10px', borderRadius: '8px',
                       background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
                     }}>
@@ -237,7 +237,7 @@ function PersonCard({ profile, index }: { profile: PersonProfile; index: number 
                     : 'var(--risk-medium-text)';
                   const TypeIcon = a.type === 'agent' ? Bot : a.type === 'workflow' ? Workflow : Wrench;
                   return (
-                    <div key={a.id || a.name || ui} style={{
+                    <div key={`${a.id || a.name || 'u'}-${ui}`} style={{
                       padding: '8px 10px', borderRadius: '8px',
                       background: 'rgba(220,38,38,0.05)',
                       border: '1px solid var(--risk-critical-border)',
@@ -296,7 +296,7 @@ export function ConcentrationRiskPanel({ profiles }: Props) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {[...critical, ...high, ...rest].map((p, i) => (
-          <PersonCard key={p.name || i} profile={p} index={i} />
+          <PersonCard key={`${p.name || 'p'}-${i}`} profile={p} index={i} />
         ))}
       </div>
     </div>

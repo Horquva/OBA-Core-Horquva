@@ -3,6 +3,27 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const { checkGate } = require('./gateCheck')
 const { escalate } = require('./escalate')
+const fs = require('fs')
+const path = require('path')
+
+// GET /api/avatar — demo-safe module status ping (M21 Executive Avatar).
+// No DB dependency so the Admin Console health check returns 200 (MOUNTED).
+router.get('/', (req, res) => {
+  let criticalRisksTracked = 0
+  try {
+    const d = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'data', 'sunrise_care.json'), 'utf-8'))
+    criticalRisksTracked = (d.knowledge_areas || []).filter(k => (k.criticality || '').toLowerCase() === 'critical').length
+  } catch (_) {}
+  res.json({
+    module: 'M21',
+    name: 'Executive Avatar Intelligence',
+    status: 'active',
+    mounted: true,
+    description: 'Conversational executive interface to the Organizational Brain.',
+    capabilities: ['gate-check', 'escalation', 'conversational-briefing'],
+    criticalRisksTracked,
+  })
+})
 
 // GET /api/avatar/escalations — all escalation logs
 router.get('/escalations', async (req, res) => {

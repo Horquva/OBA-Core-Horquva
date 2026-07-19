@@ -32,9 +32,9 @@ export default function GlobalAvatarPanel() {
           <X size={20} />
         </button>
         
-        <div className="h-full pt-12 overflow-y-auto w-full">
+        <div className="h-full pt-12 w-full flex flex-col">
           {/* Reuse the chat panel, style it appropriately */}
-          <div className="h-full flex flex-col scale-95 transform origin-top w-full mx-auto max-w-md">
+          <div className="flex-1 min-h-0 flex flex-col w-full">
             <AvatarChatPanel />
           </div>
         </div>

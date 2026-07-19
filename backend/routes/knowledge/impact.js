@@ -2,6 +2,16 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
 
+// Base index route so health checks and discovery return 200 (the analysis route requires an :employee param)
+router.get('/', (req, res) => {
+  res.json({
+    ok: true,
+    endpoint: '/api/knowledge/impact',
+    usage: '/api/knowledge/impact/:employee',
+    description: 'Knowledge-loss impact analysis if a given employee leaves: impacted agents, workflows, platforms, undocumented assets and risk level.'
+  })
+})
+
 router.get('/:employee', async (req, res) => {
   const { employee } = req.params
 

@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { ThemeProvider } from "@/lib/ThemeContext";
+import { AuthProvider } from "@/lib/AuthContext";
 import { GlobalPanelsProvider } from "@/components/global/GlobalPanelsContext";
-import GlobalAvatarPanel from "@/components/global/GlobalAvatarPanel";
-import GlobalNotificationPanel from "@/components/global/GlobalNotificationPanel";
-import GlobalSearchOverlay from "@/components/global/GlobalSearchOverlay";
+import { AppShell } from "@/components/layout/AppShell";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -28,26 +26,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} h-full`}>
       <body className="h-full">
-        <GlobalPanelsProvider>
-          <ThemeProvider>
-            <div className="flex h-full">
-              {/* Persistent Sidebar — never re-mounts on navigation */}
-              <Sidebar />
-
-              {/* Main content column */}
-              <div className="flex flex-1 flex-col min-w-0 overflow-hidden relative">
-                <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-                  {children}
-                </main>
-              </div>
-
-              {/* Global Panels */}
-              <GlobalAvatarPanel />
-              <GlobalNotificationPanel />
-              <GlobalSearchOverlay />
-            </div>
-          </ThemeProvider>
-        </GlobalPanelsProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <GlobalPanelsProvider>
+              <AppShell>{children}</AppShell>
+            </GlobalPanelsProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

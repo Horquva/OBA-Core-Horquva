@@ -51,10 +51,10 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Human-Agent Map',   path: '/api/human-agent-map',        pingPath: '/api/human-agent-map',        category: 'Reality Layer',  mounted: true },
   { name: 'Tools',             path: '/api/tools',                  pingPath: '/api/tools',                  category: 'Reality Layer',  mounted: true },
   { name: 'Tool Intelligence', path: '/api/tool-intelligence',      pingPath: '/api/tool-intelligence',      category: 'Reality Layer',  mounted: true },
-  { name: 'Tool Impact (Param)', path: '/api/tool-impact',          pingPath: '/api/tool-impact',            category: 'Reality Layer',  mounted: false },
+  { name: 'Tool Impact',       path: '/api/tool-impact',            pingPath: '/api/tool-impact',            category: 'Reality Layer',  mounted: true },
   { name: 'Workflows',         path: '/api/workflows',              pingPath: '/api/workflows/intelligence', category: 'Reality Layer',  module: 'M08', mounted: true },
   { name: 'Knowledge Intel',   path: '/api/knowledge/intelligence', pingPath: '/api/knowledge/intelligence', category: 'Reality Layer',  mounted: true },
-  { name: 'Knowledge Impact (Param)', path: '/api/knowledge/impact',pingPath: '/api/knowledge/impact',       category: 'Reality Layer',  mounted: false },
+  { name: 'Knowledge Impact', path: '/api/knowledge/impact',       pingPath: '/api/knowledge/impact',       category: 'Reality Layer',  mounted: true },
   { name: 'Knowledge Gaps',    path: '/api/knowledge/gaps',         pingPath: '/api/knowledge/gaps',         category: 'Reality Layer',  mounted: true },
   { name: 'Memory',            path: '/api/memory',                 pingPath: '/api/memory/health',          category: 'Reality Layer',  mounted: true },
 
@@ -89,9 +89,9 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Truth Intelligence',   path: '/api/intelligence/truth',              pingPath: '/api/intelligence/truth',              category: 'Constitutional', module: 'M46', mounted: true },
   { name: 'Brain Core',           path: '/api/intelligence/brain-core',         pingPath: '/api/intelligence/brain-core',         category: 'Constitutional', module: 'M50', mounted: true },
   { name: 'Intel Orchestrator',   path: '/api/intelligence/orchestrator',       pingPath: '/api/intelligence/orchestrator',       category: 'Constitutional', module: 'M55', mounted: true },
-  { name: 'Signal Intelligence',  path: '/api/intelligence/signals',           pingPath: '/api/intelligence/signals',            category: 'Constitutional', module: 'M36', mounted: false },
+  { name: 'Signal Intelligence',  path: '/api/intelligence/signals',           pingPath: '/api/intelligence/signals',            category: 'Constitutional', module: 'M36', mounted: true },
   { name: 'Pattern Regularity',   path: '/api/intelligence/pattern',           pingPath: '/api/intelligence/pattern',            category: 'Constitutional', module: 'M37', mounted: true },
-  { name: 'Opportunity Intel',    path: '/api/intelligence/opportunities',     pingPath: '/api/intelligence/opportunities',      category: 'Constitutional', module: 'M38', mounted: false },
+  { name: 'Opportunity Intel',    path: '/api/intelligence/opportunities',     pingPath: '/api/intelligence/opportunities',      category: 'Constitutional', module: 'M38', mounted: true },
   { name: 'Capability Intel',     path: '/api/intelligence/capability-by-dept',pingPath: '/api/intelligence/capability-by-dept', category: 'Constitutional', module: 'M39', mounted: true },
   { name: 'Strategic Alignment',  path: '/api/intelligence/strategic-alignment',pingPath: '/api/intelligence/strategic-alignment', category: 'Constitutional', module: 'M40', mounted: true },
   { name: 'DNA Fingerprint',      path: '/api/intelligence/dna',               pingPath: '/api/intelligence/dna',                category: 'Constitutional', module: 'M41', mounted: true },
@@ -99,14 +99,14 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Maturity Curve',       path: '/api/intelligence/maturity',          pingPath: '/api/intelligence/maturity',           category: 'Constitutional', module: 'M43', mounted: true },
   { name: 'Behavioral Profile',   path: '/api/intelligence/behavior',          pingPath: '/api/intelligence/behavior',           category: 'Constitutional', module: 'M44', mounted: true },
   { name: 'Industry Benchmark',   path: '/api/intelligence/benchmark',         pingPath: '/api/intelligence/benchmark',          category: 'Constitutional', module: 'M45', mounted: true },
-  { name: 'Autonomous Advisor',   path: '/api/intelligence/advisor',           pingPath: '/api/intelligence/advisor',            category: 'Constitutional', module: 'M48', mounted: false },
-  { name: 'Simulation Universe',  path: '/api/intelligence/simulation-universe', pingPath: '/api/intelligence/simulation-universe', category: 'Constitutional', module: 'M54', mounted: false },
+  { name: 'Autonomous Advisor',   path: '/api/intelligence/advisor',           pingPath: '/api/intelligence/advisor',            category: 'Constitutional', module: 'M48', mounted: true },
+  { name: 'Simulation Universe',  path: '/api/intelligence/simulation-universe', pingPath: '/api/intelligence/simulation-universe', category: 'Constitutional', module: 'M54', mounted: true },
 
   // ── Automation Layer ─────────────────────────
-  { name: 'Self-Healing',           path: '/api/self-healing',            pingPath: '/api/self-healing/detect',            category: 'Automation', module: 'M51', mounted: false, disabled: true },
-  { name: 'Executive Avatar',       path: '/api/avatar',                  pingPath: '/api/avatar',                  category: 'Automation', module: 'M21', mounted: false },
-  { name: 'Governance Automation',  path: '/api/automation/governance',   pingPath: '/api/automation/governance',   category: 'Automation', module: 'M52', mounted: false },
-  { name: 'Continuity Automation',  path: '/api/automation/continuity',   pingPath: '/api/automation/continuity',   category: 'Automation', module: 'M53', mounted: false },
+  { name: 'Self-Healing',           path: '/api/self-healing',            pingPath: '/api/self-healing/detect',            category: 'Automation', module: 'M51', mounted: true, disabled: false },
+  { name: 'Executive Avatar',       path: '/api/avatar',                  pingPath: '/api/avatar',                  category: 'Automation', module: 'M21', mounted: true },
+  { name: 'Governance Automation',  path: '/api/automation/governance',   pingPath: '/api/automation/governance',   category: 'Automation', module: 'M52', mounted: true },
+  { name: 'Continuity Automation',  path: '/api/automation/continuity',   pingPath: '/api/automation/continuity',   category: 'Automation', module: 'M53', mounted: true },
 ];
 
 // ─── Category Config ─────────────────────────────────────────────────────────
@@ -242,7 +242,7 @@ export function EndpointHealthGrid({ results, isLoading, onRefresh }: EndpointHe
 
           return (
             <div key={cat} className="card overflow-hidden border border-[var(--border-subtle)]">
-              {/* Category header — follows RiskScoreTable header pattern */}
+              {/* Category header �� follows RiskScoreTable header pattern */}
               <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <CatIcon className={clsx('w-4 h-4', catColor)} />

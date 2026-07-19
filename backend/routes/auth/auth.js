@@ -101,4 +101,26 @@ router.get('/me', requireAuth, (req, res) => {
 	res.json({ user: req.user })
 })
 
+// -- RESET PASSWORD (MVP) --------------------------------------
+router.post('/reset-password', async (req, res) => {
+	const { email, password: newPass } = req.body || {}
+	if (!email || !newPass) return res.status(400).json({ error: 'email and password are required' })
+	if (!supabase) return res.status(503).json({ error: 'User store not configured. Set up the Supabase app_users table.' })
+
+	try {
+		const user = await findUserByEmail(email)
+		if (!user) return res.status(404).json({ error: 'No account found for that email' })
+
+		const { error } = await supabase
+			.from('app_users')
+			.update({ password_hash: password.hash(newPass) })
+			.eq('email', email)
+		if (error) throw new Error(error.message)
+
+		return res.json({ ok: true, message: 'Password updated. You can now sign in with your new password.' })
+	} catch (err) {
+		return res.status(500).json({ error: err.message })
+	}
+})
+
 module.exports = router

@@ -105,10 +105,10 @@ loadVoiceIntents();
   }
 };
   return (
-    <section className="card flex min-h-180 flex-col overflow-hidden">
+    <section className="card flex h-full min-h-0 flex-col overflow-hidden">
 
       {/* Header */}
-      <div className="border-b border-white/10 px-6 py-6">
+      <div className="border-b border-white/10 px-6 py-4 shrink-0">
         <h2 className="text-2xl font-semibold text-white">
           OBA Executive Assistant
         </h2>
@@ -124,7 +124,7 @@ loadVoiceIntents();
   summary={dailySummary}
 />
       {/* Conversation */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div className="flex-1 min-h-[200px] overflow-y-auto px-6 py-5">
         <div className="mx-auto flex max-w-3xl flex-col gap-4">
           
           {messages.map((msg) => (
@@ -137,7 +137,7 @@ loadVoiceIntents();
       </div>
 
       {/* Suggested Prompts */}
-      <div className="border-t border-white/10 px-6 py-4">
+      <div className="border-t border-white/10 px-6 py-3 max-h-[112px] overflow-y-auto shrink-0">
         <SuggestedPrompts
   prompts={suggestedPrompts}
   onSelect={handleSend}
@@ -145,7 +145,7 @@ loadVoiceIntents();
       </div>
 
       {/* Input */}
-      <div className="border-t border-white/10 px-6 py-5">
+      <div className="border-t border-white/10 px-6 py-4 shrink-0">
         <ChatInput onSend={handleSend} />
         
       </div>
