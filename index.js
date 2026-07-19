@@ -68,6 +68,17 @@ const apiVersion = require('./middleware/apiVersion')
 app.use(apiVersion)
 
 app.use(requestLogger)
+// ── Health Check ──────────────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' })
+})
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'Horquva OBA Backend Running',
+    version: '1.0.0',
+    endpoints: '/health, /api/dashboard, /api/auth'
+  })
+})
 
 app.use('/api/agents', require('./routes/agents'))
 app.use('/api/ownership', require('./routes/ownership'))
@@ -137,10 +148,7 @@ app.use('/api/v1/agents',        require('./routes/agents'))
 const { run: registerCapabilities } = require('./scripts/registerCapabilities')
 registerCapabilities().catch(err => console.error('[CapabilityRegistry] Startup registration error:', err.message))
 
-// ── Health Check ──────────────────────────────────────────────────────────
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' })
-})
+
 
 app.use(errorHandler)
 
