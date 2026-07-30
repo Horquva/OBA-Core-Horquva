@@ -296,7 +296,7 @@ Connections between two entities.
 * **Why we need it in simulation:** When an autonomous agent encounters a blocked Workflow or a Risk event triggers, the Simulation Execution Engine uses this reporting structure to escalate the Decision up the chain of command to the correct managerial agent.
 * **Rules & Constraints:** An Employee can hold multiple Roles, but a specific Role can only report to one parent Role to prevent infinite escalation loops.
 
-![Reporting Structures ERD](../assets/reporting_structures_erd.png)
+![Reporting Structures ERD](../assets/enterprise_ontology_platform_spec/reporting_structures_erd.png)
 
 ---
 
@@ -307,7 +307,7 @@ Connections between two entities.
   * A Department must be owned by exactly one Division.
   * A Capability cannot exist without an owning Department.
 
-![Department Ownership ERD](../assets/dept_ownership_erd.png)
+![Department Ownership ERD](../assets/enterprise_ontology_platform_spec/dept_ownership_erd.png)
 
 ---
 
@@ -318,7 +318,7 @@ Connections between two entities.
   * An employee must be assigned to at least one Team to actively participate in simulated workflows.
   * A team cannot exceed its max number of employees.
 
-![Team Membership ERD](../assets/team_membership_erd.png)
+![Team Membership ERD](../assets/enterprise_ontology_platform_spec/team_membership_erd.png)
 
 ---
 
@@ -329,7 +329,7 @@ Connections between two entities.
   * A Capability must be owned by exactly one Department; it cannot be orphaned.
   * A Capability must execute at least one process to provide simulated value.
 
-![Capability Ownership ERD](../assets/capability_ownership_erd.png)
+![Capability Ownership ERD](../assets/enterprise_ontology_platform_spec/capability_ownership_erd.png)
 
 ---
 
@@ -338,7 +338,7 @@ Connections between two entities.
 * **Why we need it in simulation:** Before the Simulation Execution Engine allows an agent to make a Decision or advance a Process, it evaluates this relationship graph. If a connected Policy evaluates to `"fail"`, the execution engine blocks the action to ensure the synthetic enterprise behaves realistically.
 * **Rules & Constraints:** A Policy must govern at least one operational or human entity; otherwise, it will act as dead logic in a simulation.
 
-![Policy Governance ERD](../assets/policy_governance_erd.png)
+![Policy Governance ERD](../assets/enterprise_ontology_platform_spec/policy_governance_erd.png)
 
 ---
 
@@ -349,7 +349,7 @@ Connections between two entities.
   * Knowledge access must strictly adhere to the permissions defined by an Employee's Role.
   * A complex Decision branch within a simulation often requires a specific Knowledge object as a mandatory input.
 
-![Knowledge Relationships ERD](../assets/knowledge_relationships_erd.png)
+![Knowledge Relationships ERD](../assets/enterprise_ontology_platform_spec/knowledge_relationships_erd.png)
 
 ---
 
@@ -360,7 +360,7 @@ Connections between two entities.
   * An Employee can only participate in a workflow if their assigned Role explicitly authorizes it.
   * A Workflow cannot progress if there is no Employee linked to it.
 
-![Workflow Participation ERD](../assets/workflow_participation_erd.png)
+![Workflow Participation ERD](../assets/enterprise_ontology_platform_spec/workflow_participation_erd.png)
 
 ---
 
@@ -371,7 +371,7 @@ Connections between two entities.
   * An asset must be strictly owned by an organizational unit.
   * If an asset changes its state to `"Offline"`, any Capability utilizing it must recalculate its readiness score.
 
-![Asset Ownership ERD](../assets/asset_ownership_erd.png)
+![Asset Ownership ERD](../assets/enterprise_ontology_platform_spec/asset_ownership_erd.png)
 
 ---
 
@@ -382,7 +382,7 @@ Connections between two entities.
   * A Decision can only be executed by an Employee currently holding a Role with the required authorization level.
   * Every simulated Decision branch must log the employee who executed it for validation auditing.
 
-![Decision Authority ERD](../assets/decision_authority_erd.png)
+![Decision Authority ERD](../assets/enterprise_ontology_platform_spec/decision_authority_erd.png)
 
 ---
 
@@ -393,7 +393,7 @@ Connections between two entities.
   * Dependencies must be strictly directed (e.g., `"Capability A requires Capability B"`).
   * The relationship graph cannot contain infinite dependency loops as it would cause the simulation engine to freeze (e.g., `"A depends on B, B depends on C, C depends on A"`).
 
-![Organizational Dependencies ERD](../assets/organizational_dependencies_erd.png)
+![Organizational Dependencies ERD](../assets/enterprise_ontology_platform_spec/organizational_dependencies_erd.png)
 
 ---
 
@@ -515,9 +515,9 @@ The structural rule-set that dictates how authority, budget, and accountability 
 ---
 
 ## Capability and Ownership Map
-![Capability and Ownership Map](../assets/capability_ownership_map.png)
+![Capability and Ownership Map](../assets/enterprise_ontology_platform_spec/capability_ownership_map.png)
 
 ## Governance and Compliance Diagram
-![Governance and Compliance Diagram](../assets/governance_compliance_diagram.png)
+![Governance and Compliance Diagram](../assets/enterprise_ontology_platform_spec/governance_compliance_diagram.png)
 
 ---
