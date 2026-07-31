@@ -835,8 +835,7 @@ _A decision either proceeds within existing authority, or is delegated/escalated
 
 A customer refund request begins with a support agent. If the refund amount exceeds the agent's authority threshold, the decision is escalated to the team manager. Resource constraints or missing financial approval may delay execution, creating a bottleneck. Once approved, execution proceeds and the outcome contributes to future organizational learning.
 
-![Worked](../assets/enterprise_ontology_platform_spec/worked.png)
----
+
 _Worked example - a refund request follows the same authority-check and escalation pattern as Figure 1, with resource/approval availability determining whether a bottleneck forms before execution._
 
 ##### How behavior and workflow combine into execution
