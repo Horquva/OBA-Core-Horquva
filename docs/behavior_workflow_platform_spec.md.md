@@ -599,7 +599,7 @@ To make the abstractions in Sections 4.1-4.8 concrete, the table below traces a 
 
 This single trace shows how the same six constitutional layers apply whether the workflow is a hiring process, a purchase approval, or an incident escalation - only the instances change, never the structure.
 
-![Review and Handoff Workflow](../assets/enterprise_ontology_platform_spec/review_and-handoff_workflow.png)
+![Eview Handoff Flow](../assets/enterprice_ontology_platform_spec/eview_handoff_flow.png)
 ---
 _Employee onboarding traced through the six constitutional workflow layers._
 
