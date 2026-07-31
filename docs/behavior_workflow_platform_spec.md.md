@@ -118,8 +118,6 @@ _Overview of how the twelve core behavioral concepts (Sections 4.1-4.12) build o
 
 **Why it matters:** Real organizations do not operate in silos. Collaboration enables complex tasks to be broken down, distributed, and completed efficiently, and creates collective intelligence that exceeds individual capabilities.
 
-![Approval Escalation Flow](../assets/enterprise_ontology_platform_spec/approval_escalation_flow.png)
----
 **How it emerges:** Task interdependencies; shared objectives; resource sharing; coordination mechanisms (sync-ups, shared dashboards, joint planning); and trust between participants.
 
 | **Metric**                    | **Description**                                     |
@@ -130,6 +128,9 @@ _Overview of how the twelve core behavioral concepts (Sections 4.1-4.12) build o
 | Output quality                | Quality of collaborative deliverables               |
 | Participant satisfaction      | Self-reported satisfaction with collaboration       |
 
+
+![Approval Escalation Flow](../assets/enterprise_ontology_platform_spec/approval_escalation_flow.png)
+---
 _A simple collaboration structure: a project manager coordinating engineer, analyst, and designer roles, whose combined work builds shared knowledge and drives project completion_
 
 - 1. Leadership
