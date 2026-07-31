@@ -298,8 +298,6 @@ _The decision-making feedback cycle: problem identification through information 
 
 **Why it matters:** Trust reduces the cost of coordination, accelerates decision-making, and enables delegation. Without it, monitoring increases and collaboration breaks down.
 
-![Behaviour Workflow Convergence](../assets/enterprise_ontology_platform_spec/behaviour_workflow_convergence.png)
----
 **How it emerges:** Consistent delivery on promises; transparent communication; fair treatment; long-term relationships; demonstrated competence; and integrity.
 
 | **Metric**             | **Description**                          |
@@ -310,6 +308,8 @@ _The decision-making feedback cycle: problem identification through information 
 | Retention              | People stay where they trust leadership  |
 | Honesty perception     | Self-reported trust levels (surveys)     |
 
+![Behaviour Workflow Convergence](../assets/enterprise_ontology_platform_spec/behaviour_workflow_convergence.png)
+---
 _The trust feedback loop: reliable actions build trust, which drives more collaboration and better results, producing greater confidence that reinforces trust further._
 
 #### Behavior interactions
