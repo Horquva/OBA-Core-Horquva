@@ -15,6 +15,7 @@ This document establishes the constitutional foundation for all behavior-related
 All definitions are aligned with Arcturus' mission of science before assumption, validation before intelligence, and reproducible experimentation.
 
 ![Behavioral Chain](../assets/enterprise_ontology_platform_spec/behavioral_chain.png)
+---
 _The full behavioral chain, from individual agents through to high organizational performance - the overview this model builds toward._
 
 #### Introduction
