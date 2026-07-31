@@ -14,7 +14,7 @@ This document establishes the constitutional foundation for all behavior-related
 
 All definitions are aligned with Arcturus' mission of science before assumption, validation before intelligence, and reproducible experimentation.
 
-![Behavioral Chain](../assets/enterprise_ontology_platform_spec/behavioral_chain.png)
+![Behavioral Chain](../assets/behavioural_workflow_platform/behavioral_chain.png)
 ---
 _The full behavioral chain, from individual agents through to high organizational performance - the overview this model builds toward._
 
@@ -28,7 +28,7 @@ The purpose of this Organizational Behavior Model is to provide a scientifically
 
 This model covers: individual agent properties (roles, traits, skills, goals); behavioral concepts that define how agents interact; emergence patterns (how individual behaviors lead to organizational outcomes); measurement frameworks for scientific validation; and alignment with Arcturus constitutional engineering principles.
 
-![Task Lifecycle](../assets/enterprise_ontology_platform_spec/task_lifecycle.png)
+![Task Lifecycle](../assets/behavioural_workflow_platform/task_lifecycle.png)
 ---
 
 _. A representative workflow execution cycle within the platform - from business goal through task assignment, execution, and quality check, to business objective completion._
@@ -90,7 +90,7 @@ Every organizational participant (agent) in Arcturus possesses the following cor
 
 Twelve core behavioral concepts define how agents interact within Arcturus. Together they form the foundation of organizational behavior, from individual-level communication up to organization-wide culture and trust.
 
-![Conflict Resolution Flow](../assets/enterprise_ontology_platform_spec/conflict_resolution_flow.png)
+![Conflict Resolution Flow](../assets/behavioural_workflow_platform/conflict_resolution_flow.png)
 ---
 _Overview of how the twelve core behavioral concepts (Sections 4.1-4.12) build on one another, from communication, collaboration, and leadership up through organizational culture, knowledge sharing, adaptation, and trust._
 
@@ -129,7 +129,7 @@ _Overview of how the twelve core behavioral concepts (Sections 4.1-4.12) build o
 | Participant satisfaction      | Self-reported satisfaction with collaboration       |
 
 
-![Approval Escalation Flow](../assets/enterprise_ontology_platform_spec/approval_escalation_flow.png)
+![Approval Escalation Flow](../assets/behavioural_workflow_platform/approval_escalation_flow.png)
 ---
 _A simple collaboration structure: a project manager coordinating engineer, analyst, and designer roles, whose combined work builds shared knowledge and drives project completion_
 
@@ -215,7 +215,7 @@ _A simple collaboration structure: a project manager coordinating engineer, anal
 | Knowledge retention     | How much learning is preserved after turnover |
 | Failure rate reduction  | Fewer errors or failures over time            |
 
-![Decision Making Feedback Cycle](../assets/enterprise_ontology_platform_spec/decision_making_feedback_cycle.png)
+![Decision Making Feedback Cycle](../assets/behavioural_workflow_platform/decision_making_feedback_cycle.png)
 ---
 _The organizational learning loop: experience feeds performance review and lessons learned, which build the knowledge repository and improve processes, raising organizational performance and generating new experience._
 
@@ -235,7 +235,7 @@ _The organizational learning loop: experience feeds performance review and lesso
 | Recurrence rate               | How often the same conflict returns             |
 | Escalation rate               | Frequency of conflicts moving up the chain      |
 
-![Refund Example](../assets/enterprise_ontology_platform_spec/refund_example.png)
+![Refund Example](../assets/behavioural_workflow_platform/refund_example.png)
 ---
 _. The conflict resolution flow: from conflict occurring and being identified, through discussion and negotiation, to an agreement decision that resolves the conflict or escalates it, ultimately improving the relationship._
 
@@ -255,7 +255,7 @@ _. The conflict resolution flow: from conflict occurring and being identified, t
 | Reversal rate       | How often decisions are overturned               |
 | Implementation rate | How often decisions are successfully implemented |
 
-![Trust Feedback Loop](../assets/enterprise_ontology_platform_spec/trust_feedback_loop.png)
+![Trust Feedback Loop](../assets/behavioural_workflow_platform/trust_feedback_loop.png)
 ---
 
 _The decision-making feedback cycle: problem identification through information collection, alternative analysis, risk evaluation, decision selection, implementation, and performance measurement, with feedback looping back into alternative analysis._
@@ -308,7 +308,7 @@ _The decision-making feedback cycle: problem identification through information 
 | Retention              | People stay where they trust leadership  |
 | Honesty perception     | Self-reported trust levels (surveys)     |
 
-![Behaviour Workflow Convergence](../assets/enterprise_ontology_platform_spec/behavior_workflow_convergence.png)
+![Behaviour Workflow Convergence](../assets/behavioural_workflow_platform/behavior_workflow_convergence.png)
 ---
 _The trust feedback loop: reliable actions build trust, which drives more collaboration and better results, producing greater confidence that reinforces trust further._
 
@@ -354,7 +354,7 @@ This model explains how individual agent properties lead to organizational behav
 
 Organizational behavior emerges bottom-up: individual agent properties (role, traits, skills, goals) drive interaction patterns (communication, collaboration, conflict resolution, decision making), which in turn produce system-level organizational behavior (culture, learning, adaptation, trust).
 
-![Emergence Pyramid](../assets/enterprise_ontology_platform_spec/emergence_pyramid.png)
+![Emergence Pyramid](../assets/behavioural_workflow_platform/emergence_pyramid.png)
 ---
 
 _The emergence pyramid in practice: individual agents (role, skills, goals, personality) produce individual interactions, which combine into communication, collaboration, and decision making, forming organizational behavior patterns that shape culture, trust, and learning - ultimately driving organizational performance._
@@ -599,7 +599,7 @@ To make the abstractions in Sections 4.1-4.8 concrete, the table below traces a 
 
 This single trace shows how the same six constitutional layers apply whether the workflow is a hiring process, a purchase approval, or an incident escalation - only the instances change, never the structure.
 
-![Eview Handoff Flow](../assets/enterprise_ontology_platform_spec/eview_handoff_flow.png)
+![Eview Handoff Flow](../assets/behavioural_workflow_platform/eview_handoff_flow.png)
 ---
 _Employee onboarding traced through the six constitutional workflow layers._
 
@@ -623,7 +623,7 @@ Rather than modeling every business process from scratch, Arcturus reuses a smal
 
 Every task in Arcturus moves through the same constitutional lifecycle, regardless of which business process it belongs to.
 
-![Employee Onboarding Workflow](../assets/enterprise_ontology_platform_spec/employee_onboarding_workflow.png)
+![Employee Onboarding Workflow](../assets/behavioural_workflow_platform/employee_onboarding_workflow.png)
 ---
 onstitutional task lifecycle. If completion criteria fail or an SLA is breached, the task escalates and re-enters the queue rather than silently stalling.
 
@@ -631,7 +631,7 @@ onstitutional task lifecycle. If completion criteria fail or an SLA is breached,
 
 Approval-gated activities follow a consistent branching pattern: work proceeds on approval, or routes to escalation on rejection or timeout, without ever being modeled as a dead end.
 
-![Workflow Execution Cycle](../assets/enterprise_ontology_platform_spec/workflow_execution_cycle.png)
+![Workflow Execution Cycle](../assets/behavioural_workflow_platform/workflow_execution_cycle.png)
 ===
 _Approval decisions either proceed on time or escalate to the next authority - both paths rejoin the same downstream workflow._
 
@@ -829,7 +829,7 @@ Every decision in Arcturus follows the same constitutional path: check authority
 
 _A decision either proceeds within existing authority, or is delegated/escalated to the next appropriate authority - it is never left unresolved._
 
-![Organizational Learning Loop](../assets/enterprise_ontology_platform_spec/organizational_learning_loop.png)
+![Organizational Learning Loop](../assets/behavioural_workflow_platform/organizational_learning_loop.png)
 ---
 ###### Worked example: customer refund request
 
@@ -842,7 +842,7 @@ _Worked example - a refund request follows the same authority-check and escalati
 
 Decision dynamics are where Day 1's behavioral signals and Day 2's workflow mechanics meet. Neither alone determines whether an organization executes smoothly - it is their combination, under real resource and authority constraints, that produces either smooth execution or bottleneck formation.
 
-![Behaviour and Workflow](../assets/enterprise_ontology_platform_spec/behaviourandworkflow.png)
+![Behaviour and Workflow](../assets/behavioural_workflow_platform/behaviourandworkflow.png)
 ---
 _Behavior and workflow converge into decision dynamics, which resolves into either smooth execution or a bottleneck; the resulting outcome adapts future behavior and workflow state (Day 1's Adaptation and Organizational Learning)._
 
@@ -883,7 +883,7 @@ The review verifies that the specification is complete, internally consistent, a
 
 The review followed the same never-leave-it-unresolved principle established in the Day 3 decision model: findings are either closed within the review cycle or explicitly routed back for revision before sign-off.
 
-![Handoff Work](../assets/enterprise_ontology_platform_spec/handoff_work.png)
+![Handoff Work](../assets/behavioural_workflow_platform/handoff_work.png)
 ---
 
 **Day 4 review and handoff workflow - checklist review either loops back into documentation refinement or proceeds through cross-platform validation, Team Lead approval, and Definition of Done confirmation before handoff.**
