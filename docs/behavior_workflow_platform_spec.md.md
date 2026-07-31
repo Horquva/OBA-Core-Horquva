@@ -308,7 +308,7 @@ _The decision-making feedback cycle: problem identification through information 
 | Retention              | People stay where they trust leadership  |
 | Honesty perception     | Self-reported trust levels (surveys)     |
 
-![Behaviour Workflow Convergence](../assets/enterprise_ontology_platform_spec/behaviour_workflow_convergence.png)
+![Behaviour Workflow Convergence](../assets/enterprise_ontology_platform_spec/behavior_workflow_convergence.png)
 ---
 _The trust feedback loop: reliable actions build trust, which drives more collaboration and better results, producing greater confidence that reinforces trust further._
 
