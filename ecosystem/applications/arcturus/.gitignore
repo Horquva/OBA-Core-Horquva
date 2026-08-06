@@ -1,0 +1,35 @@
+﻿# ==============================================================================
+# 🌌 Arcturus Platform .gitignore (Local Team Override)
+# Prevents Python caching, system clutter, and environment variables
+# ==============================================================================
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE settings
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Operational logs & local trace runs
+*.log
+/observability/*.log
+/deployments/local_configs.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
