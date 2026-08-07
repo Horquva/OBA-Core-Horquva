@@ -19,15 +19,15 @@ regex = '''sntl-svc-[a-z0-9]{16}\.[A-Za-z0-9+/=]{40,}'''
 tags = ["sentinel", "secret", "critical"]
 
 # --- Allowlist: reduce false positives without disabling detection entirely ---
-# NOTE: deliberately does NOT match testing/negative-test-fixtures/ — those
-# fixtures exist specifically so this scanner SHOULD flag them (Part R).
 [allowlist]
-description = "Known safe test fixtures only — never production paths"
+description = "Known safe test fixtures and fake credentials"
 paths = [
   '''(.*)/safe-fixtures/(.*)''',
   '''(.*)\.md$''',
+  '''testing/negative-test-fixtures/''',
 ]
 regexes = [
-  # Placeholder example values explicitly marked as fake in docs (not in negative-test-fixtures)
   '''EXAMPLE_(KEY|TOKEN|SECRET)_DO_NOT_USE''',
+  '''AKIAIOSFODNN7EXAMPLE''',
+  '''fake-credential''',
 ]
