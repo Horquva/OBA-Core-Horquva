@@ -1,0 +1,80 @@
+# Part C — Secure CI/CD Pipeline Implementation
+# Stage: Commit -> Build -> Test -> (calls Security Gate reusable workflow)
+name: CI - Build, Test & Security Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+# Least Privilege: default token permissions are read-only; jobs elevate only where required
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build, Lint & Unit Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout (full history for scan accuracy)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies (locked, no auto-update)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Unit tests
+        run: npm test --if-present
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: dist/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # Security Gates run as a centrally-owned reusable workflow (One Source of Truth).
+  # This job only calls it — it never re-implements gate logic locally.
+  security-gates:
+    name: Security Gates
+    needs: build-and-test
+    uses: ./.github/workflows/security-gate.yml
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+    secrets: inherit
+
+  pipeline-status:
+    name: Pipeline Status (required check)
+    needs: [build-and-test, security-gates]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Fail pipeline if any stage failed
+        run: |
+          if [ "${{ needs.build-and-test.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+            echo "::error::Pipeline failed — build/test or security gates did not pass."
+            exit 1
+          fi
+          echo "All stages passed."

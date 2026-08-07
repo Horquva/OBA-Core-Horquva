@@ -1,0 +1,75 @@
+# Part O — Security Operations Dashboard & Engineering Visibility
+# Aggregates pipeline/security metrics into metrics.json, which
+# dashboard/index.html reads and renders. Runs after every security gate.
+
+name: Generate Security Metrics
+
+on:
+  workflow_run:
+    workflows: ["Reusable Security Gate", "Scheduled Security Rescan"]
+    types: [completed]
+  schedule:
+    - cron: "0 6 * * *"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-metrics:
+    name: Aggregate Metrics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build metrics.json
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Pull recent workflow run history for headline metrics
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 50
+            });
+
+            const total = runs.data.workflow_runs.length;
+            const successCount = runs.data.workflow_runs.filter(r => r.conclusion === 'success').length;
+            const failureCount = runs.data.workflow_runs.filter(r => r.conclusion === 'failure').length;
+
+            const openFindings = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security-finding',
+              state: 'open'
+            });
+            const closedFindings = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security-finding',
+              state: 'closed'
+            });
+
+            const metrics = {
+              generated_at: new Date().toISOString(),
+              pipeline_success_rate: total ? Math.round((successCount / total) * 100) : null,
+              pipeline_runs_sampled: total,
+              pipeline_failures_sampled: failureCount,
+              open_findings: openFindings.data.length,
+              closed_findings: closedFindings.data.length,
+              critical_open: openFindings.data.filter(i => i.labels.some(l => l.name === 'severity:critical')).length,
+              high_open: openFindings.data.filter(i => i.labels.some(l => l.name === 'severity:high')).length,
+            };
+
+            fs.writeFileSync('dashboard/metrics.json', JSON.stringify(metrics, null, 2));
+            core.notice('metrics.json generated: ' + JSON.stringify(metrics));
+
+      - name: Commit updated metrics
+        run: |
+          git config user.name "sentinel-devsecops-bot"
+          git config user.email "devsecops-bot@horquva.internal"
+          git add dashboard/metrics.json
+          git diff --staged --quiet || git commit -m "chore(metrics): update security dashboard metrics [skip ci]"
+          git push

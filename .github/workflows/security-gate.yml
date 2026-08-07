@@ -1,0 +1,159 @@
+# Part D & E — Security Gate Engineering, Policy Enforcement & Security Scanning
+# This is Sentinel's ONE централized security gate. Every repository calls this —
+# no repository re-implements its own scanning logic (One Source of Truth).
+#
+# Blocking behaviour:
+#   Critical / High  -> pipeline fails (job exits non-zero)
+#   Medium           -> pipeline fails unless a logged, unexpired waiver exists
+#   Low / Info       -> recorded only, does not block
+
+name: Reusable Security Gate
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: security-gates/sast/config/semgrep.yml
+        env:
+          SEMGREP_RULES: security-gates/sast/semgrep-rules/
+          # Fails the step (blocking) on findings at/above policy threshold defined in semgrep.yml
+
+      - name: Upload SAST results (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-report
+          path: semgrep.sarif
+          retention-days: 90
+
+  secret-detection:
+    name: Secret Detection (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history — catches secrets in prior commits, not just HEAD
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: security-gates/secret-detection/gitleaks-rules/.gitleaks.toml
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
+          GITLEAKS_ENABLE_SUMMARY: true
+        # Any detected secret is treated as compromised — this step blocks unconditionally,
+        # per Part G (Secret Management): detection = automatic rotation required, no waiver path.
+
+  dependency-scan:
+    name: Dependency Scan (OWASP Dependency-Check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: "sentinel-devsecops"
+          path: "."
+          format: "SARIF"
+          args: >
+            --failOnCVSS 7
+            --suppression security-gates/dependency-scan/owasp-dependency-check/suppression.xml
+
+      - name: Upload dependency scan results (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: reports/
+          retention-days: 90
+
+  iac-scan:
+    name: Infrastructure-as-Code Scan (Checkov)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infra/
+          config_file: infra/terraform/policies/checkov-config.yaml
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          soft_fail: false   # blocking — hard fail on policy violation
+
+      - name: Upload IaC scan results (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iac-scan-report
+          path: checkov-results.sarif
+          retention-days: 90
+
+  container-scan:
+    name: Container Image Scan (Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image for scanning
+        run: docker build -t sentinel-scan-target:${{ github.sha }} . --file Dockerfile || echo "No Dockerfile in this repo — skipping build"
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "sentinel-scan-target:${{ github.sha }}"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"          # blocking
+          trivyignores: "container-security/image-scanning/trivy-config/.trivyignore"
+
+      - name: Upload container scan results (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-scan-report
+          path: trivy-results.sarif
+          retention-days: 90
+
+  gate-summary:
+    name: Security Gate Decision (Policy Evaluation)
+    needs: [sast, secret-detection, dependency-scan, iac-scan, container-scan]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate combined gate result
+        run: |
+          echo "SAST:              ${{ needs.sast.result }}"
+          echo "Secret Detection:   ${{ needs.secret-detection.result }}"
+          echo "Dependency Scan:    ${{ needs.dependency-scan.result }}"
+          echo "IaC Scan:           ${{ needs.iac-scan.result }}"
+          echo "Container Scan:     ${{ needs.container-scan.result }}"
+
+          for r in "${{ needs.sast.result }}" "${{ needs.secret-detection.result }}" "${{ needs.dependency-scan.result }}" "${{ needs.iac-scan.result }}" "${{ needs.container-scan.result }}"; do
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
+              echo "::error::Security gate FAILED — one or more blocking checks did not pass."
+              exit 1
+            fi
+          done
+          echo "::notice::All security gates passed."

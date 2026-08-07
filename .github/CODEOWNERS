@@ -1,0 +1,17 @@
+# Sentinel — Security Review Ownership (Part A: Repository Security Foundation)
+# Every path below requires review from the owning team before merge.
+# This file itself can only be changed with DevSecOps Platform Owner approval.
+
+# Default owner for anything not matched below
+*                                   @horquva/engineering-leads
+
+# Security-critical paths require the DevSecOps & Security Operations Platform team
+/.github/                          @horquva/devsecops-platform
+/security-gates/                   @horquva/devsecops-platform
+/infra/                            @horquva/devsecops-platform @horquva/infrastructure-security-platform
+/container-security/               @horquva/devsecops-platform
+/artifact-signing/                 @horquva/devsecops-platform
+/supply-chain/                     @horquva/devsecops-platform
+
+# Application code requires the owning application security reviewer
+/src/                              @horquva/application-security-platform

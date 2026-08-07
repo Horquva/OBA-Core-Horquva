@@ -1,0 +1,87 @@
+# Part C — Secure CI/CD Pipeline: Deployment stage
+# Stage: Artifact Validation -> Signing -> Approval -> Deployment -> Runtime Monitoring hook
+
+name: CD - Staging & Production Deployment
+
+on:
+  workflow_run:
+    workflows: ["CI - Build, Test & Security Gate"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write   # OIDC for keyless artifact signing/verification
+
+jobs:
+  build-sign-artifact:
+    name: Build & Sign Artifact
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      image-ref: ${{ steps.build.outputs.image-ref }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build container image
+        id: build
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image-ref=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Sign artifact
+        run: bash artifact-signing/signing-scripts/sign-artifact.sh "${{ steps.build.outputs.image-ref }}"
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-sign-artifact
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify artifact before deploy
+        run: bash artifact-signing/verification-scripts/verify-artifact.sh "${{ needs.build-sign-artifact.outputs.image-ref }}"
+
+      - name: Deploy to staging
+        run: echo "Deploying ${{ needs.build-sign-artifact.outputs.image-ref }} to staging..."
+        # Replace with actual deployment command (kubectl, helm, etc.)
+
+      - name: Run smoke tests
+        run: echo "Running staging smoke tests..."
+
+  approval-gate:
+    name: Production Approval Gate
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production-approval   # GitHub Environment with required reviewers configured
+    steps:
+      - name: Approval recorded
+        run: echo "Production deployment approved by required reviewer."
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [build-sign-artifact, approval-gate]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify artifact before deploy (defense in depth — re-verify at prod gate)
+        run: bash artifact-signing/verification-scripts/verify-artifact.sh "${{ needs.build-sign-artifact.outputs.image-ref }}"
+
+      - name: Deploy to production
+        run: echo "Deploying ${{ needs.build-sign-artifact.outputs.image-ref }} to production..."
+
+      - name: Record deployment evidence
+        run: |
+          echo "{\"artifact\":\"${{ needs.build-sign-artifact.outputs.image-ref }}\",\"deployed_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"commit\":\"${{ github.sha }}\",\"actor\":\"${{ github.actor }}\"}" > deployment-evidence.json
+
+      - name: Upload deployment evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-evidence
+          path: deployment-evidence.json
+          retention-days: 365

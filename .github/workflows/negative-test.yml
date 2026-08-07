@@ -1,0 +1,71 @@
+# Part R — Security Validation, Negative Testing & Resilience Engineering
+# Runs ONLY against the safe, clearly-marked fixtures in
+# testing/negative-test-fixtures/ — never against real source. Proves the
+# security gates actually detect and block, rather than just existing.
+#
+# Run manually / in a dedicated test branch, never on main.
+
+name: Negative Security Testing (Resilience Check)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify-secret-detection-blocks:
+    name: Verify secret detection blocks a known-fake secret
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Gitleaks against the fixture directory only
+        id: gitleaks
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: security-gates/secret-detection/gitleaks-rules/.gitleaks.toml
+          GITLEAKS_SCAN_PATH: testing/negative-test-fixtures/
+
+      - name: Assert detection occurred
+        run: |
+          if [ "${{ steps.gitleaks.outcome }}" != "failure" ]; then
+            echo "::error::RESILIENCE FAILURE — secret detection did NOT flag the known fixture. Gate is not working."
+            exit 1
+          fi
+          echo "PASS — secret detection correctly flagged the fixture."
+
+  verify-dependency-scan-blocks:
+    name: Verify dependency scan blocks a known-vulnerable package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run dependency check against fixture package.json
+        id: depcheck
+        continue-on-error: true
+        run: |
+          cd testing/negative-test-fixtures
+          # This package.json intentionally pins a package version with a
+          # known, long-published CVE, purely for gate validation.
+          npm audit --audit-level=critical --json > audit-result.json || exit 1
+
+      - name: Assert detection occurred
+        run: |
+          if [ "${{ steps.depcheck.outcome }}" != "failure" ]; then
+            echo "::error::RESILIENCE FAILURE — dependency scan did NOT flag the known-vulnerable fixture."
+            exit 1
+          fi
+          echo "PASS — dependency scan correctly flagged the fixture."
+
+  resilience-report:
+    name: Resilience Report
+    needs: [verify-secret-detection-blocks, verify-dependency-scan-blocks]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Secret detection gate:    ${{ needs.verify-secret-detection-blocks.result }}"
+          echo "Dependency scan gate:     ${{ needs.verify-dependency-scan-blocks.result }}"
+          echo "This report is the 'Control Effectiveness Report' evidence for Part R."
