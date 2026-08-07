@@ -115,10 +115,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for Dockerfile
+        id: dockerfile-check
+        run: |
+          if [ -f "Dockerfile" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Dockerfile at repo root — this repository isn't containerized yet, skipping container scan."
+          fi
+
       - name: Build image for scanning
-        run: docker build -t sentinel-scan-target:${{ github.sha }} . --file Dockerfile || echo "No Dockerfile in this repo — skipping build"
+        if: steps.dockerfile-check.outputs.exists == 'true'
+        run: docker build -t sentinel-scan-target:${{ github.sha }} . --file Dockerfile
 
       - name: Run Trivy
+        if: steps.dockerfile-check.outputs.exists == 'true'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: "sentinel-scan-target:${{ github.sha }}"
@@ -129,12 +141,13 @@ jobs:
           trivyignores: "container-security/image-scanning/trivy-config/.trivyignore"
 
       - name: Upload container scan results (evidence)
-        if: always()
+        if: always() && steps.dockerfile-check.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: container-scan-report
           path: trivy-results.sarif
           retention-days: 90
+          if-no-files-found: ignore
 
   gate-summary:
     name: Security Gate Decision (Policy Evaluation)
