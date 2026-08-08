@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Local environment overrides (never commit secrets)
+.env
+test-data/users.local.json
+test-data/*.local.json
+
+# Playwright build/output artifacts
+reports/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
