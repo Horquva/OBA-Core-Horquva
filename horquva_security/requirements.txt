@@ -1,0 +1,8 @@
+# Additive to the root pyproject.toml (pandas/plotly/rich/streamlit stay
+# for dashboards/evidence viewing). These are what the FastAPI services
+# under horquva_security_py/ need to run.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+pytest>=8.0
+httpx>=0.27
