@@ -58,9 +58,19 @@ jobs:
                   const severity = level === 'error' ? 'high' : (level === 'warning' ? 'medium' : 'low');
                   if (severity !== 'high') continue;
 
-                  const title = `[Security Finding][${severity.toUpperCase()}] ${result.ruleId || 'unknown-rule'}`;
+                  // Build a stable fingerprint from rule + exact location, NOT ruleId alone.
+                  // ruleId alone would treat every finding of the same rule (e.g. the same
+                  // SAST rule firing in 10 different files/lines) as "the same" finding,
+                  // silently suppressing all but the first. Location makes each occurrence unique.
+                  const loc = result.locations?.[0]?.physicalLocation;
+                  const filePath = loc?.artifactLocation?.uri || file;
+                  const startLine = loc?.region?.startLine ?? 0;
+                  const fingerprint = `${result.ruleId || 'unknown-rule'}@${filePath}:${startLine}`;
+
+                  const title = `[Security Finding][${severity.toUpperCase()}] ${result.ruleId || 'unknown-rule'} — ${filePath}:${startLine}`;
                   const body = [
-                    `**Source file:** \`${file}\``,
+                    `**Fingerprint:** \`${fingerprint}\``,
+                    `**Source file:** \`${filePath}\` (line ${startLine})`,
                     `**Rule:** ${result.ruleId || 'n/a'}`,
                     `**Message:** ${result.message?.text || 'n/a'}`,
                     `**Severity:** ${severity}`,
@@ -70,9 +80,9 @@ jobs:
                     `_Automatically created by Part J Finding Ingestion. Assign an owner and update status per the finding lifecycle: detected -> classified -> assigned -> in_remediation -> remediated -> validated -> closed._`
                   ].join('\n');
 
-                  // Avoid duplicate issues for the same rule (basic de-dup by title)
+                  // De-dup by fingerprint (rule + file + line), not by rule alone.
                   const existing = await github.rest.search.issuesAndPullRequests({
-                    q: `repo:${context.repo.owner}/${context.repo.repo} is:issue in:title "${result.ruleId}"`
+                    q: `repo:${context.repo.owner}/${context.repo.repo} is:issue in:body "${fingerprint}"`
                   });
                   if (existing.data.total_count > 0) continue;
 

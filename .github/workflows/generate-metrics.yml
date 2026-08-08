@@ -12,7 +12,7 @@ on:
     - cron: "0 6 * * *"
 
 permissions:
-  contents: read
+  contents: write   # required — this workflow commits and pushes dashboard/metrics.json
   actions: read
 
 jobs:
