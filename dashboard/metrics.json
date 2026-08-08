@@ -1,0 +1,11 @@
+{
+  "generated_at": null,
+  "pipeline_success_rate": null,
+  "pipeline_runs_sampled": 0,
+  "pipeline_failures_sampled": 0,
+  "open_findings": 0,
+  "closed_findings": 0,
+  "critical_open": 0,
+  "high_open": 0,
+  "_note": "Placeholder. Overwritten automatically by .github/workflows/generate-metrics.yml on first real run."
+}
