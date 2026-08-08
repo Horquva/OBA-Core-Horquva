@@ -18,7 +18,7 @@ jobs:
     name: Verify secret detection blocks a known-fake secret
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Run Gitleaks against the fixture directory only
         id: gitleaks
@@ -40,7 +40,7 @@ jobs:
     name: Verify dependency scan blocks a known-vulnerable package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Run dependency check against fixture package.json
         id: depcheck
