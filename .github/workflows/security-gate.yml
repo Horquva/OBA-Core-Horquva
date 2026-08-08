@@ -35,7 +35,7 @@ jobs:
 
       - name: Upload SAST results (evidence)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sast-report
           path: semgrep.sarif
@@ -77,7 +77,7 @@ jobs:
 
       - name: Upload secret scan results (evidence)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: secret-scan-report
           path: gitleaks-report.sarif
@@ -112,7 +112,7 @@ jobs:
 
       - name: Upload dependency scan results (evidence)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dependency-check-report
           path: reports/
@@ -141,7 +141,7 @@ jobs:
 
       - name: Upload IaC scan results (evidence)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: iac-scan-report
           path: checkov-results.sarif
@@ -181,7 +181,7 @@ jobs:
 
       - name: Upload container scan results (evidence)
         if: always() && steps.dockerfile-check.outputs.exists == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: container-scan-report
           path: trivy-results.sarif

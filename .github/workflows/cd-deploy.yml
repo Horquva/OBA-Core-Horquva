@@ -125,7 +125,7 @@ jobs:
           echo "{\"artifact\":\"${{ needs.build-image.outputs.image-ref }}\",\"deployed_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"commit\":\"${{ github.sha }}\",\"actor\":\"${{ github.actor }}\",\"status\":\"design-only-placeholder\"}" > deployment-evidence.json
 
       - name: Upload deployment evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: deployment-evidence
           path: deployment-evidence.json
