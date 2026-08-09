@@ -14,8 +14,18 @@ backend/node_modules/
 backend_extracted/
 
 # Environment variables (never commit real credentials)
+# Matches .env at any depth, plus every variant (.env.staging, .env.local,
+# .env.production). Only *.env.example files are committed.
 .env
-backend/.env
+.env.*
+!.env.example
+!*.env.example
+
+# Anything that looks like a key or certificate
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Internal planning docs
 FRONTEND_PLAN.md

@@ -1,0 +1,28 @@
+# OCOS development database.
+#
+#   docker compose -f infrastructure/databases/docker-compose.yml up -d
+#
+# Port 5433 on the host, so this does not collide with a PostgreSQL
+# already installed locally on 5432.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: ocos-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ocos
+      POSTGRES_PASSWORD: ocos
+      POSTGRES_DB: ocos_dev
+    ports:
+      - '5433:5432'
+    volumes:
+      - ocos_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ocos -d ocos_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ocos_dev_data:

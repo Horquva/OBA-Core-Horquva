@@ -1,0 +1,22 @@
+# Normalize line endings so the repo behaves the same on Windows, macOS and Linux.
+* text=auto
+
+# Files that are executed by a shell or a Linux container must stay LF.
+# With CRLF, bash fails with "bad interpreter: No such file or directory".
+*.sh            text eol=lf
+*.sql           text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+Dockerfile      text eol=lf
+.env.example    text eol=lf
+*.env.example   text eol=lf
+
+# Binaries: never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.ico binary
+*.woff binary
+*.woff2 binary

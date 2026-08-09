@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'feature/**', 'bugfix/**', 'hotfix/**', 'release/**']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  structure:
+    name: Repository structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No new top-level directories outside the frozen tree
+        run: |
+          # Directories permitted at the repository root.
+          # Frozen tree (Horquva_OCOS_Repository_Tree.pdf) + existing OBA Core MVP.
+          # Adding to this list requires the structure decision in
+          # docs/executive_workspace/T1_T7/T1_INTEGRATION_MAP.md §10.
+          cat > /tmp/allowed <<'EOF'
+          .git
+          .github
+          .claude
+          actions
+          applications
+          assets
+          backend
+          config
+          connectivity
+          constitution
+          data
+          deployment
+          docs
+          ecosystem
+          evidence
+          examples
+          executive
+          experience
+          frontend
+          horquva_modules_py
+          Images
+          infrastructure
+          kernel
+          knowledge
+          memory
+          modules
+          perception
+          reasoning
+          runtime
+          scripts
+          src
+          templates
+          testing
+          tests
+          tools
+          understanding
+          world_model
+          EOF
+          sort -o /tmp/allowed /tmp/allowed
+          find . -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort > /tmp/actual
+          if ! comm -13 /tmp/allowed /tmp/actual | grep -q .; then
+            echo "Top-level structure OK"
+          else
+            echo "Unrecognised top-level directories:"
+            comm -13 /tmp/allowed /tmp/actual
+            echo ""
+            echo "Build inside an existing frozen-tree path. See docs/executive_workspace/T1_T7/T1_INTEGRATION_MAP.md §3."
+            exit 1
+          fi
+
+  contracts:
+    name: Contracts present
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every T1 contract file exists
+        run: |
+          cd applications/executive_workspace/integration/contracts
+          missing=0
+          for f in ENVELOPE.md \
+                   01_event_contract.md \
+                   02_classification_contract.md \
+                   03_agent_contract.md \
+                   04_api_contract.md \
+                   05_evidence_record.md \
+                   06_belief_record.md; do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Every contract carries an owner and a freeze line
+        run: |
+          cd applications/executive_workspace/integration/contracts
+          fail=0
+          for f in [0-9]*.md ENVELOPE.md; do
+            grep -q '\*\*Owner\*\*\|^\*\*Owner:\*\*' "$f" || { echo "$f: no owner"; fail=1; }
+            grep -q '^- \[.\] \*\*' "$f"                 || { echo "$f: no freeze line"; fail=1; }
+          done
+          exit $fail
+
+      - name: Report freeze status
+        run: |
+          cd applications/executive_workspace/integration/contracts
+          echo "### T1 contract freeze status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Contract | Frozen |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          for f in ENVELOPE.md [0-9]*.md; do
+            if grep -q '^- \[x\] \*\*' "$f"; then
+              echo "| $f | yes |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $f | no |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+  migrations:
+    name: Migrations apply cleanly
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ocos
+          POSTGRES_PASSWORD: ocos
+          POSTGRES_DB: ocos_dev
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply migrations
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: ocos
+          PGPASSWORD: ocos
+          PGDATABASE: ocos_dev
+        run: bash infrastructure/databases/migrate.sh
+
+      - name: Migrations are idempotent
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: ocos
+          PGPASSWORD: ocos
+          PGDATABASE: ocos_dev
+        run: bash infrastructure/databases/migrate.sh
