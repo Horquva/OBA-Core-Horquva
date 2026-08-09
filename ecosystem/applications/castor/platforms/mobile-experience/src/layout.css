@@ -1,0 +1,163 @@
+/*
+ * Responsive layout infrastructure — CSS layer.
+ *
+ * Breakpoints here MUST stay in sync with src/breakpoints.ts.
+ * (0 / 400 / 768 / 1024 — small mobile / large mobile / tablet / desktop)
+ *
+ * Spacing/max-width values here MUST stay in sync with src/tokens.ts.
+ * See the design-system gap note in tokens.ts — these are placeholder
+ * values scoped to this package, not a competing token system.
+ */
+
+:root {
+  --oba-space-none: 0px;
+  --oba-space-xs: 4px;
+  --oba-space-sm: 8px;
+  --oba-space-md: 16px;
+  --oba-space-lg: 24px;
+  --oba-space-xl: 32px;
+  --oba-space-2xl: 48px;
+
+  --oba-container-max-width: 100%;
+  --oba-container-padding-inline: var(--oba-space-md);
+
+  /* Safe-area insets, with non-notched fallback of 0. */
+  --oba-safe-top: env(safe-area-inset-top, 0px);
+  --oba-safe-right: env(safe-area-inset-right, 0px);
+  --oba-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --oba-safe-left: env(safe-area-inset-left, 0px);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --oba-container-max-width: 720px;
+    --oba-container-padding-inline: var(--oba-space-lg);
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --oba-container-max-width: 1200px;
+    --oba-container-padding-inline: var(--oba-space-xl);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Overflow guard — applied at composition boundaries (Container,    */
+/* Box) to prevent the accidental horizontal scroll cases called out */
+/* in the spec (fixed widths, oversized grids, long content, images, */
+/* flex children, dialogs, tables).                                  */
+/* ---------------------------------------------------------------- */
+.oba-overflow-guard {
+  max-width: 100%;
+  overflow-x: clip;
+}
+.oba-overflow-guard img,
+.oba-overflow-guard video,
+.oba-overflow-guard svg,
+.oba-overflow-guard table {
+  max-width: 100%;
+  height: auto;
+}
+.oba-overflow-guard table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------------------------------------------------------------- */
+/* Container — fluid width, max-width per breakpoint, safe-area-aware*/
+/* horizontal padding.                                                */
+/* ---------------------------------------------------------------- */
+.oba-container {
+  width: 100%;
+  max-width: var(--oba-container-max-width);
+  margin-inline: auto;
+  padding-inline: calc(var(--oba-container-padding-inline) + var(--oba-safe-left))
+    calc(var(--oba-container-padding-inline) + var(--oba-safe-right));
+  box-sizing: border-box;
+}
+
+.oba-container--no-safe-area {
+  padding-inline: var(--oba-container-padding-inline);
+}
+
+/* ---------------------------------------------------------------- */
+/* Stack — vertical rhythm.                                          */
+/* ---------------------------------------------------------------- */
+.oba-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- */
+/* Row — horizontal layout that wraps instead of overflowing.        */
+/* ---------------------------------------------------------------- */
+.oba-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- */
+/* Cluster — wrapping group of items with consistent gap, e.g. tags, */
+/* chips, action buttons.                                            */
+/* ---------------------------------------------------------------- */
+.oba-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- */
+/* Adaptive grid — deterministic column counts per device class,     */
+/* rather than an arbitrary auto-fit/minmax guess. Column counts are */
+/* the CSS expression of the same breakpoints defined in             */
+/* src/breakpoints.ts and are overridable via --oba-grid-columns-*.  */
+/* ---------------------------------------------------------------- */
+.oba-grid {
+  display: grid;
+  gap: var(--oba-space-md);
+  grid-template-columns: repeat(var(--oba-grid-columns-small-mobile, 1), minmax(0, 1fr));
+  min-width: 0;
+}
+
+@media (min-width: 400px) {
+  .oba-grid {
+    grid-template-columns: repeat(var(--oba-grid-columns-large-mobile, 2), minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .oba-grid {
+    grid-template-columns: repeat(var(--oba-grid-columns-tablet, 3), minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .oba-grid {
+    grid-template-columns: repeat(var(--oba-grid-columns-desktop, 4), minmax(0, 1fr));
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Orientation-aware safe-area padding for mobile surfaces that pin  */
+/* content near device edges (e.g. bottom nav, floating actions).    */
+/* ---------------------------------------------------------------- */
+.oba-safe-area-bottom {
+  padding-bottom: var(--oba-safe-bottom);
+}
+.oba-safe-area-top {
+  padding-top: var(--oba-safe-top);
+}
+
+@media (orientation: landscape) {
+  /* In landscape, home-indicator / notch insets commonly move to the
+     sides rather than top/bottom on handset devices. */
+  .oba-safe-area-inline {
+    padding-inline: var(--oba-safe-left) var(--oba-safe-right);
+  }
+}
