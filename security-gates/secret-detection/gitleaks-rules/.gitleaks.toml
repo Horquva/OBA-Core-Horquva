@@ -30,6 +30,7 @@ tags = ["sentinel", "secret", "critical"]
 description = "Known safe test fixtures only — never production paths"
 paths = [
   '''(.*)/safe-fixtures/(.*)''',
+  '''(.*)/negative-test-fixtures/(.*)''',
   '''(.*)\.md$''',
 ]
 regexes = [
