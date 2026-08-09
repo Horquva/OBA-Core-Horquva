@@ -199,6 +199,7 @@ jobs:
         id: signed
         run: |
           IMAGE="ghcr.io/${{ github.repository }}/negative-test-signed:${{ github.run_id }}"
+          IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
           echo "FROM alpine:latest" | docker build -t "$IMAGE" -
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
@@ -214,6 +215,7 @@ jobs:
         id: unsigned
         run: |
           IMAGE="ghcr.io/${{ github.repository }}/negative-test-unsigned:${{ github.run_id }}"
+          IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
           echo "FROM alpine:latest" | docker build -t "$IMAGE" -
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
