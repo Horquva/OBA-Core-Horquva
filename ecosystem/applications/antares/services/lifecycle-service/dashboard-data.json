@@ -1,0 +1,1030 @@
+{
+  "platforms": [
+    {
+      "id": "tech-intel",
+      "name": "Technology Intelligence",
+      "owner": "Aurangzeb Malik",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.042Z"
+    },
+    {
+      "id": "org-futures",
+      "name": "Organizational Futures Engineering",
+      "owner": "Muhammad Muzammel Aslam",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    },
+    {
+      "id": "future-signal",
+      "name": "Future-Signal Intelligence",
+      "owner": "Syed Hadeed Safdar",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    },
+    {
+      "id": "future-org",
+      "name": "Future Organization Engineering (AI Agents)",
+      "owner": "Zeeshan Farooq",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    },
+    {
+      "id": "aiml-intel",
+      "name": "AI/ML Intelligence (within Future Organization)",
+      "owner": "Muhammad Hasnain Ajmal",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    },
+    {
+      "id": "trust-gov",
+      "name": "Trust & Governance Intelligence",
+      "owner": "Kanwal Raveen",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    },
+    {
+      "id": "cap-validation",
+      "name": "Capability Validation",
+      "owner": "Zara Fatima",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    },
+    {
+      "id": "enterprise-validation",
+      "name": "Enterprise Validation",
+      "owner": "Ammara Nasir",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    },
+    {
+      "id": "knowledge-ops",
+      "name": "Knowledge Operationalization",
+      "owner": "Laiba Mahboob",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    },
+    {
+      "id": "cap-ops",
+      "name": "Capability Operationalization",
+      "owner": "Abbas Raza",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    },
+    {
+      "id": "eng-ops",
+      "name": "Engineering Operations",
+      "owner": "Kamil Ejaz",
+      "description": "",
+      "registeredAt": "2026-08-09T04:16:54.073Z"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "J-TECH-01",
+      "platformId": "tech-intel",
+      "task": "Detect emerging pattern: on-chain governance tooling maturity",
+      "dependsOn": [],
+      "status": "INTEGRATED",
+      "artifact": {
+        "summary": "On-chain governance tooling crossed early-majority adoption in DAO treasuries",
+        "output": {
+          "maturity": "developing",
+          "confidence": 0.74,
+          "sources": 14
+        },
+        "tests": [
+          {
+            "name": "schema-valid",
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "ref": "source:governance-radar-report-2026",
+          "attachedAt": "2026-08-09T04:16:54.107Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "1/1 declared self-tests passed"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T04:16:54.110Z"
+      },
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.106Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.107Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.108Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T04:16:54.110Z",
+          "note": "All quality gates passed"
+        },
+        {
+          "status": "INTEGRATED",
+          "at": "2026-08-09T04:16:54.125Z",
+          "note": "Consumed by downstream platform"
+        }
+      ]
+    },
+    {
+      "id": "J-SIGNAL-01",
+      "platformId": "future-signal",
+      "task": "Correlate governance-tooling signal with org impact",
+      "dependsOn": [
+        "J-TECH-01"
+      ],
+      "status": "INTEGRATED",
+      "artifact": {
+        "summary": "Signal correlated with rising adaptive-governance pattern across 9 orgs",
+        "output": {
+          "pattern_candidate": "adaptive-governance",
+          "evidence_strength": "medium-high"
+        },
+        "tests": [
+          {
+            "name": "contradiction-check",
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "ref": "ref:J-TECH-01",
+          "attachedAt": "2026-08-09T04:16:54.112Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "1/1 declared self-tests passed"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T04:16:54.112Z"
+      },
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.111Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.112Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.112Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T04:16:54.113Z",
+          "note": "All quality gates passed"
+        },
+        {
+          "status": "INTEGRATED",
+          "at": "2026-08-09T04:16:54.125Z",
+          "note": "Consumed by downstream platform"
+        }
+      ]
+    },
+    {
+      "id": "J-ORGFUT-01",
+      "platformId": "org-futures",
+      "task": "Model future organization: adaptive-governance pattern",
+      "dependsOn": [
+        "J-SIGNAL-01"
+      ],
+      "status": "INTEGRATED",
+      "artifact": {
+        "summary": "Future org model drafted: Adaptive-Governance Enterprise",
+        "output": {
+          "model_id": "FOM-adaptive-gov-01",
+          "dimensions_affected": [
+            "governance",
+            "decision-making",
+            "trust"
+          ]
+        },
+        "tests": [
+          {
+            "name": "evidence-linked",
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "ref": "ref:J-SIGNAL-01",
+          "attachedAt": "2026-08-09T04:16:54.114Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "1/1 declared self-tests passed"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T04:16:54.114Z"
+      },
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.113Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.114Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.114Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T04:16:54.114Z",
+          "note": "All quality gates passed"
+        },
+        {
+          "status": "INTEGRATED",
+          "at": "2026-08-09T04:16:54.125Z",
+          "note": "Consumed by downstream platform"
+        }
+      ]
+    },
+    {
+      "id": "J-TRUST-01",
+      "platformId": "trust-gov",
+      "task": "Governance evaluation of Adaptive-Governance Enterprise model",
+      "dependsOn": [
+        "J-ORGFUT-01"
+      ],
+      "status": "INTEGRATED",
+      "artifact": {
+        "summary": "Constitutional alignment check: no conflicts found",
+        "output": {
+          "decision": "ALLOW",
+          "risk": "low"
+        },
+        "tests": [
+          {
+            "name": "policy-check",
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "ref": "ref:J-ORGFUT-01",
+          "attachedAt": "2026-08-09T04:16:54.115Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "1/1 declared self-tests passed"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T04:16:54.115Z"
+      },
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.115Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.115Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.115Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T04:16:54.115Z",
+          "note": "All quality gates passed"
+        },
+        {
+          "status": "INTEGRATED",
+          "at": "2026-08-09T04:16:54.125Z",
+          "note": "Consumed by downstream platform"
+        }
+      ]
+    },
+    {
+      "id": "J-VALID-01",
+      "platformId": "cap-validation",
+      "task": "Validate candidate capability: Adaptive-Governance Enterprise",
+      "dependsOn": [
+        "J-ORGFUT-01",
+        "J-TRUST-01"
+      ],
+      "status": "INTEGRATED",
+      "artifact": {
+        "summary": "Capability validated: Organizational Value=High, Evidence Quality=Strong, Constitutional Alignment=Pass",
+        "output": {
+          "recommendation": "VALIDATE",
+          "dimensions": {
+            "org_value": "high",
+            "evidence_quality": "strong"
+          }
+        },
+        "tests": [
+          {
+            "name": "completeness-check",
+            "passed": true
+          },
+          {
+            "name": "constitutional-check",
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "ref": "ref:J-ORGFUT-01",
+          "attachedAt": "2026-08-09T04:16:54.120Z"
+        },
+        {
+          "ref": "ref:J-TRUST-01",
+          "attachedAt": "2026-08-09T04:16:54.120Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "2 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "2/2 declared self-tests passed"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T04:16:54.120Z"
+      },
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.115Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.116Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.116Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "FAILED",
+          "at": "2026-08-09T04:16:54.116Z",
+          "note": "Gate failure: evidence-attached"
+        },
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.120Z",
+          "note": "Requeued for retry"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.120Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.120Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T04:16:54.120Z",
+          "note": "All quality gates passed"
+        },
+        {
+          "status": "INTEGRATED",
+          "at": "2026-08-09T04:16:54.125Z",
+          "note": "Consumed by downstream platform"
+        }
+      ]
+    },
+    {
+      "id": "J-FUTUREORG-01",
+      "platformId": "future-org",
+      "task": "Instantiate executable org runtime for Adaptive-Governance Enterprise",
+      "dependsOn": [
+        "J-VALID-01"
+      ],
+      "status": "PASSED",
+      "artifact": {
+        "summary": "Adaptive-Governance org runtime instantiated in sandbox",
+        "output": {
+          "runtime_id": "RT-adaptive-gov-01",
+          "agents_active": 3
+        },
+        "tests": [
+          {
+            "name": "governance-runtime-check",
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "ref": "ref:J-CAPOPS-01",
+          "attachedAt": "2026-08-09T04:16:54.126Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "1/1 declared self-tests passed"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T04:16:54.126Z"
+      },
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.118Z",
+          "note": "Job created"
+        },
+        {
+          "status": "BLOCKED",
+          "at": "2026-08-09T04:16:54.118Z",
+          "note": "Blocked on: J-VALID-01"
+        },
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.126Z",
+          "note": "Dependencies satisfied, unblocked"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.126Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.126Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T04:16:54.126Z",
+          "note": "All quality gates passed"
+        }
+      ]
+    },
+    {
+      "id": "J-ENTVAL-01",
+      "platformId": "enterprise-validation",
+      "task": "AI/ML evidence scoring for validated capability",
+      "dependsOn": [
+        "J-VALID-01"
+      ],
+      "status": "INTEGRATED",
+      "artifact": {
+        "summary": "Confidence-scored via evidence model",
+        "output": {
+          "confidence": 0.86,
+          "contradictions_found": 0
+        },
+        "tests": [
+          {
+            "name": "confidence-calibration",
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "ref": "ref:J-VALID-01",
+          "attachedAt": "2026-08-09T04:16:54.123Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "1/1 declared self-tests passed"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T04:16:54.123Z"
+      },
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.122Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.122Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.123Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T04:16:54.123Z",
+          "note": "All quality gates passed"
+        },
+        {
+          "status": "INTEGRATED",
+          "at": "2026-08-09T04:16:54.126Z",
+          "note": "Consumed by downstream platform"
+        }
+      ]
+    },
+    {
+      "id": "J-KNOW-01",
+      "platformId": "knowledge-ops",
+      "task": "Persist capability as structured knowledge object",
+      "dependsOn": [
+        "J-ENTVAL-01"
+      ],
+      "status": "INTEGRATED",
+      "artifact": {
+        "summary": "Knowledge object persisted with full provenance chain",
+        "output": {
+          "knowledge_id": "KO-adaptive-gov-01",
+          "provenance_depth": 5
+        },
+        "tests": [
+          {
+            "name": "no-orphan-reference",
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "ref": "ref:J-ENTVAL-01",
+          "attachedAt": "2026-08-09T04:16:54.123Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "1/1 declared self-tests passed"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T04:16:54.123Z"
+      },
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.123Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.123Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.123Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T04:16:54.123Z",
+          "note": "All quality gates passed"
+        },
+        {
+          "status": "INTEGRATED",
+          "at": "2026-08-09T04:16:54.126Z",
+          "note": "Consumed by downstream platform"
+        }
+      ]
+    },
+    {
+      "id": "J-CAPOPS-01",
+      "platformId": "cap-ops",
+      "task": "Package capability as operational artifact",
+      "dependsOn": [
+        "J-KNOW-01"
+      ],
+      "status": "RELEASE_READY",
+      "artifact": {
+        "summary": "Operational capability package generated, dependencies resolved",
+        "output": {
+          "package_id": "PKG-adaptive-gov-01",
+          "readiness": "Ready"
+        },
+        "tests": [
+          {
+            "name": "dependency-resolution",
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "ref": "ref:J-KNOW-01",
+          "attachedAt": "2026-08-09T04:16:54.124Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "1/1 declared self-tests passed"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T04:16:54.125Z"
+      },
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T04:16:54.124Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T04:16:54.124Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T04:16:54.124Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T04:16:54.125Z",
+          "note": "All quality gates passed"
+        },
+        {
+          "status": "INTEGRATED",
+          "at": "2026-08-09T04:16:54.126Z",
+          "note": "Consumed by downstream platform"
+        },
+        {
+          "status": "RELEASE_READY",
+          "at": "2026-08-09T04:16:54.126Z",
+          "note": "Marked release-ready"
+        }
+      ]
+    }
+  ],
+  "systemHealth": {
+    "totalPlatforms": 11,
+    "totalJobs": 9,
+    "byStatus": {
+      "QUEUED": 0,
+      "BLOCKED": 0,
+      "RUNNING": 0,
+      "VALIDATING": 0,
+      "FAILED": 0,
+      "PASSED": 1,
+      "INTEGRATED": 7,
+      "RELEASE_READY": 1
+    },
+    "blocked": 0,
+    "failed": 0,
+    "releaseReady": 1,
+    "integrated": 7,
+    "gatePassRatePct": 100,
+    "healthLabel": "HEALTHY"
+  },
+  "recentEvents": [
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-FUTUREORG-01",
+      "platformId": "future-org",
+      "message": "VALIDATING -> PASSED (All quality gates passed)",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-FUTUREORG-01",
+      "platformId": "future-org",
+      "message": "RUNNING -> VALIDATING (Quality gates running)",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "EVIDENCE_ATTACHED",
+      "jobId": "J-FUTUREORG-01",
+      "platformId": "future-org",
+      "message": "Evidence attached: ref:J-CAPOPS-01",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-FUTUREORG-01",
+      "platformId": "future-org",
+      "message": "QUEUED -> RUNNING (Execution started)",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-CAPOPS-01",
+      "platformId": "cap-ops",
+      "message": "INTEGRATED -> RELEASE_READY (Marked release-ready)",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "INTEGRATION",
+      "jobId": "J-CAPOPS-01",
+      "platformId": "cap-ops",
+      "message": "Integrated downstream",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-CAPOPS-01",
+      "platformId": "cap-ops",
+      "message": "PASSED -> INTEGRATED (Consumed by downstream platform)",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "INTEGRATION",
+      "jobId": "J-KNOW-01",
+      "platformId": "knowledge-ops",
+      "message": "Integrated downstream",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-KNOW-01",
+      "platformId": "knowledge-ops",
+      "message": "PASSED -> INTEGRATED (Consumed by downstream platform)",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "INTEGRATION",
+      "jobId": "J-ENTVAL-01",
+      "platformId": "enterprise-validation",
+      "message": "Integrated downstream",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-ENTVAL-01",
+      "platformId": "enterprise-validation",
+      "message": "PASSED -> INTEGRATED (Consumed by downstream platform)",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-FUTUREORG-01",
+      "platformId": "future-org",
+      "message": "BLOCKED -> QUEUED (Dependencies satisfied, unblocked)",
+      "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "INTEGRATION",
+      "jobId": "J-VALID-01",
+      "platformId": "cap-validation",
+      "message": "Integrated downstream",
+      "at": "2026-08-09T04:16:54.125Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-VALID-01",
+      "platformId": "cap-validation",
+      "message": "PASSED -> INTEGRATED (Consumed by downstream platform)",
+      "at": "2026-08-09T04:16:54.125Z"
+    },
+    {
+      "type": "INTEGRATION",
+      "jobId": "J-TRUST-01",
+      "platformId": "trust-gov",
+      "message": "Integrated downstream",
+      "at": "2026-08-09T04:16:54.125Z"
+    }
+  ],
+  "generatedAt": "2026-08-09T04:16:54.135Z"
+}
