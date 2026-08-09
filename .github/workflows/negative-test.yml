@@ -45,10 +45,16 @@ jobs:
         run: |
           gitleaks detect \
             --source testing/negative-test-fixtures/ \
+            --no-git \
             --config security-gates/secret-detection/gitleaks-rules/.gitleaks.toml \
             --report-format json \
             --report-path gitleaks-negative-test-result.json \
             --redact
+        # --no-git is required here: gitleaks' default mode scans git commit
+        # history, which only works if --source points at a real git repo
+        # root. testing/negative-test-fixtures/ is a subdirectory, not a git
+        # root, so default mode silently found "0 leaks" instead of erroring.
+        # --no-git makes it scan the actual files on disk directly.
 
       - name: Assert detection occurred (this IS the evidence)
         run: |
@@ -203,6 +209,28 @@ jobs:
           echo "FROM alpine:latest" | docker build -t "$IMAGE" -
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      # sign-artifact.sh requires provenance.json to exist (it attests it as
+      # part of signing). In the real pipeline this comes from
+      # sbom-and-provenance.yml; here we generate the same minimal shape
+      # directly so this test exercises the real signing script unmodified.
+      - name: Generate provenance.json for the test image
+        run: |
+          cat <<EOF > provenance.json
+          {
+            "builder": "github-actions",
+            "buildType": "sentinel-negative-test",
+            "invocation": {
+              "configSource": {
+                "repository": "${{ github.repository }}",
+                "ref": "${{ github.ref }}",
+                "commit": "${{ github.sha }}"
+              },
+              "workflow": "${{ github.workflow }}",
+              "runId": "${{ github.run_id }}"
+            }
+          }
+          EOF
 
       - name: Sign the test image (real Cosign signing, not simulated)
         run: bash artifact-signing/signing-scripts/sign-artifact.sh "${{ steps.signed.outputs.image }}"
