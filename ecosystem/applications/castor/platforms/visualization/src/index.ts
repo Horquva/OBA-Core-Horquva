@@ -8,6 +8,9 @@ export { BarChart } from "./charts/BarChart";
 export { AreaChart } from "./charts/AreaChart";
 export { ScatterPlot } from "./charts/ScatterPlot";
 export { DistributionChart } from "./charts/DistributionChart";
+export { OrganizationalGraph } from "./graphs/OrganizationalGraph";
+export { KnowledgeGraph } from "./graphs/KnowledgeGraph";
+export { MemoryTimeline } from "./timeline/MemoryTimeline";
 
 export type {
   ChartDataPoint,
