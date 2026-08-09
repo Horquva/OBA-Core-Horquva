@@ -48,9 +48,32 @@ const roles = {
     )
     return rows.map((r) => `${r.resource}:${r.action}`)
   },
+  async addPermission(exec, roleId, permissionId) {
+    await runner(exec).query(
+      `insert into identity.role_permission (role_id, permission_id) values ($1, $2)
+       on conflict (role_id, permission_id) do nothing`,
+      [roleId, permissionId]
+    )
+  },
+  async removePermission(exec, roleId, permissionId) {
+    const { rowCount } = await runner(exec).query(
+      `delete from identity.role_permission where role_id = $1 and permission_id = $2`,
+      [roleId, permissionId]
+    )
+    return rowCount > 0
+  },
 }
 
 const permissions = {
+  async create(exec, { resource, action, description = null }) {
+    const { rows } = await runner(exec).query(
+      `insert into identity.permission (resource, action, description) values ($1, $2, $3)
+       on conflict (resource, action) do update set description = excluded.description
+       returning *`,
+      [resource, action, description]
+    )
+    return rows[0]
+  },
   async list(exec) {
     const { rows } = await runner(exec).query(
       `select * from identity.permission order by resource, action`

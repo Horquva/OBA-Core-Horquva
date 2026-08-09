@@ -45,6 +45,14 @@ const users = {
     )
     return rows[0] || null
   },
+  async findByPrincipalId(exec, principalId, orgId) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `select * from identity.user_account where principal_id = $1 and organization_id = $2`,
+      [principalId, orgId]
+    )
+    return rows[0] || null
+  },
   async findByEmail(exec, orgId, email) {
     requireOrg(orgId)
     const { rows } = await runner(exec).query(
@@ -91,6 +99,14 @@ const agents = {
     )
     return rows[0] || null
   },
+  async findByPrincipalId(exec, principalId, orgId) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `select * from identity.ai_agent where principal_id = $1 and organization_id = $2`,
+      [principalId, orgId]
+    )
+    return rows[0] || null
+  },
   async findByClientId(exec, clientId) {
     const { rows } = await runner(exec).query(
       `select * from identity.ai_agent where client_id = $1`,
@@ -133,6 +149,14 @@ const machines = {
     const { rows } = await runner(exec).query(
       `select * from identity.machine_identity where id = $1 and organization_id = $2`,
       [id, orgId]
+    )
+    return rows[0] || null
+  },
+  async findByPrincipalId(exec, principalId, orgId) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `select * from identity.machine_identity where principal_id = $1 and organization_id = $2`,
+      [principalId, orgId]
     )
     return rows[0] || null
   },
