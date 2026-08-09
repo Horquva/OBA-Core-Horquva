@@ -77,9 +77,29 @@ class EngineeringJob {
     this.artifact = null; // the actual output payload once produced
     this.evidence = []; // evidence references attached to this job
     this.qualityGateResult = null;
+    this.executions = []; // list of Execution ids — one per attempt (Din 3-4)
     this.history = [
       { status: JobStatus.QUEUED, at: new Date().toISOString(), note: 'Job created' },
     ];
+  }
+}
+
+/**
+ * An Execution represents ONE ATTEMPT at running a job. A job can have
+ * several executions over time (e.g. attempt 1 fails, attempt 2 passes)
+ * — this is the "Execution" piece of the Din 3-4 Job Model
+ * (Platform·Task·Dependency·Execution·Status). Without this, a retry
+ * would silently overwrite history with no record of how long the
+ * previous attempt took or who triggered it.
+ */
+class Execution {
+  constructor({ id, jobId, triggeredBy }) {
+    this.id = id;
+    this.jobId = jobId;
+    this.triggeredBy = triggeredBy || 'system';
+    this.startedAt = new Date().toISOString();
+    this.endedAt = null;
+    this.result = null; // null while running, else 'PASSED' | 'FAILED'
   }
 }
 
@@ -100,5 +120,6 @@ module.exports = {
   ALLOWED_TRANSITIONS,
   Platform,
   EngineeringJob,
+  Execution,
   EngineeringEvent,
 };
