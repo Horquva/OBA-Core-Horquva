@@ -60,7 +60,7 @@ jobs:
       # provenance.json produced by generate-evidence — it was previously
       # never downloaded into this job, so signing was attesting nothing real.
       - name: Download provenance produced by generate-evidence
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: provenance
           path: .
