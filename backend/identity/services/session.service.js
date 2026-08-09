@@ -47,6 +47,28 @@ async function start(exec, { principalId, organizationId, kind, ip = null, userA
   })
 }
 
+/** Create a pending-MFA challenge session (no tokens issued until the 2nd factor). */
+async function startPending(exec, { principalId, organizationId }) {
+  const expiresAt = new Date(Date.now() + config.mfa.challengeTtlSec * 1000)
+  const session = await repos.sessions.create(exec, {
+    principalId, organizationId, status: 'pending_mfa', mfaRequired: true, mfaSatisfied: false, expiresAt,
+  })
+  await repos.audit.record(exec, { organizationId, actorPrincipalId: principalId, event: 'session.pending_mfa', resource: 'session', action: 'create', decision: 'ok', detail: { sessionId: session.id } })
+  return session
+}
+
+/** Upgrade a pending-MFA session to active once the second factor is satisfied, issuing tokens. */
+async function activateAfterMfa(exec, { session, kind }) {
+  const refreshToken = generateRefresh()
+  const expiresAt = new Date(Date.now() + config.jwt.refreshTtlSec * 1000)
+  const activated = await repos.sessions.activate(exec, session.id, session.organization_id, {
+    refreshTokenHash: hashRefresh(refreshToken), expiresAt,
+  })
+  if (!activated) throw new AuthenticationError('challenge no longer valid')
+  const accessToken = token.issueAccess({ principalId: session.principal_id, organizationId: session.organization_id, kind, sessionId: session.id })
+  return { session: activated, ...tokenResponse(accessToken, refreshToken) }
+}
+
 /** Rotate a refresh token, issuing a fresh access + refresh pair. */
 async function refresh(exec, { refreshToken, ip = null, userAgent = null }) {
   return inTx(exec, async (client) => {
@@ -94,4 +116,4 @@ async function revokeAllForPrincipal(exec, principalId, organizationId) {
   return repos.sessions.revokeAllForPrincipal(exec, principalId, organizationId)
 }
 
-module.exports = { start, refresh, validateAccessToken, logout, revokeAllForPrincipal }
+module.exports = { start, startPending, activateAfterMfa, refresh, validateAccessToken, logout, revokeAllForPrincipal }

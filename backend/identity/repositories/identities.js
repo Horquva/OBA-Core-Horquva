@@ -103,6 +103,36 @@ const users = {
       [id, orgId]
     )
   },
+  // Store the (encrypted) TOTP seed during enrollment; MFA stays disabled until confirmed.
+  async setMfaSecret(exec, id, orgId, secretEnc) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `update identity.user_account
+         set mfa_secret_enc = $3, mfa_enabled = false, mfa_enrolled_at = null
+       where id = $1 and organization_id = $2 returning *`,
+      [id, orgId, secretEnc]
+    )
+    return rows[0] || null
+  },
+  async enableMfa(exec, id, orgId) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `update identity.user_account set mfa_enabled = true, mfa_enrolled_at = now()
+       where id = $1 and organization_id = $2 returning *`,
+      [id, orgId]
+    )
+    return rows[0] || null
+  },
+  async clearMfa(exec, id, orgId) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `update identity.user_account
+         set mfa_enabled = false, mfa_secret_enc = null, mfa_enrolled_at = null
+       where id = $1 and organization_id = $2 returning *`,
+      [id, orgId]
+    )
+    return rows[0] || null
+  },
   async list(exec, orgId) {
     requireOrg(orgId)
     const { rows } = await runner(exec).query(

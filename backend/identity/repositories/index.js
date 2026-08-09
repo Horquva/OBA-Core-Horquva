@@ -21,5 +21,6 @@ module.exports = {
   policies: trust.policies,
   providers: trust.providers,
   federatedIdentities: trust.federatedIdentities,
+  recovery: require('./recovery'),
   audit: require('./audit'),
 }

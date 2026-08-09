@@ -52,6 +52,18 @@ async function setRefreshHash(exec, id, orgId, refreshTokenHash) {
   return rows[0] || null
 }
 
+/** Activate a pending-MFA session once the second factor is satisfied. */
+async function activate(exec, id, orgId, { refreshTokenHash, expiresAt }) {
+  requireOrg(orgId)
+  const { rows } = await runner(exec).query(
+    `update identity.session
+       set status = 'active', mfa_satisfied = true, refresh_token_hash = $3, expires_at = $4
+     where id = $1 and organization_id = $2 and status = 'pending_mfa' returning *`,
+    [id, orgId, refreshTokenHash, expiresAt]
+  )
+  return rows[0] || null
+}
+
 /** Active, unexpired sessions for a principal, oldest first (for concurrent-session caps). */
 async function listActiveForPrincipal(exec, principalId, orgId) {
   requireOrg(orgId)
@@ -99,6 +111,7 @@ module.exports = {
   findActiveByRefreshHash,
   findByRefreshHash,
   setRefreshHash,
+  activate,
   listForPrincipal,
   listActiveForPrincipal,
   revoke,

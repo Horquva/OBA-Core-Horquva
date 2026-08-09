@@ -3,6 +3,7 @@
  * Env-driven; safe local defaults for development. Loaded from backend/.env.
  */
 const path = require('path')
+const crypto = require('crypto')
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') })
 
 const num = (name, def) => parseInt(process.env[name] || String(def), 10)
@@ -51,6 +52,17 @@ const config = {
   session: {
     // 0 = unlimited concurrent sessions per identity; >0 revokes oldest beyond the cap.
     maxConcurrent: num('IDENTITY_MAX_CONCURRENT_SESSIONS', 0),
+  },
+
+  mfa: {
+    issuer: process.env.IDENTITY_MFA_ISSUER || 'Sentinel Identity',
+    challengeTtlSec: num('IDENTITY_MFA_CHALLENGE_TTL', 300), // pending-MFA window
+    recoveryCodeCount: num('IDENTITY_MFA_RECOVERY_CODES', 8),
+    // 32-byte AES-256-GCM key for encrypting TOTP seeds at rest. Provide a real
+    // 64-hex-char key via IDENTITY_MFA_ENC_KEY; dev falls back to a derived key.
+    encKey: process.env.IDENTITY_MFA_ENC_KEY
+      ? Buffer.from(process.env.IDENTITY_MFA_ENC_KEY, 'hex')
+      : crypto.scryptSync(process.env.IDENTITY_JWT_SECRET || 'dev-insecure', 'identity-mfa-kek', 32),
   },
 }
 
