@@ -30,7 +30,7 @@ jobs:
           output-file: sbom.cyclonedx.json
 
       - name: Upload SBOM (evidence)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom.cyclonedx.json
@@ -63,7 +63,7 @@ jobs:
           EOF
 
       - name: Upload provenance (evidence)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: provenance
           path: provenance.json
