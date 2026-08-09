@@ -31,6 +31,7 @@ async function grantPermission(exec, { organizationId, roleId, resource, action 
     const perm = await repos.permissions.findByKey(client, resource, action)
     if (!perm) throw new NotFoundError(`permission ${resource}:${action} not found`)
     await repos.roles.addPermission(client, role.id, perm.id)
+    await repos.audit.record(client, { organizationId, event: 'permission.granted', resource: 'role', action: 'grant_permission', decision: 'ok', detail: { roleId: role.id, permission: `${resource}:${action}` } })
     return { roleId: role.id, permission: `${resource}:${action}` }
   })
 }
@@ -42,6 +43,7 @@ async function revokePermission(exec, { organizationId, roleId, resource, action
     const perm = await repos.permissions.findByKey(client, resource, action)
     if (!perm) throw new NotFoundError(`permission ${resource}:${action} not found`)
     const removed = await repos.roles.removePermission(client, role.id, perm.id)
+    await repos.audit.record(client, { organizationId, event: 'permission.revoked', resource: 'role', action: 'revoke_permission', decision: 'ok', detail: { roleId: role.id, permission: `${resource}:${action}`, removed } })
     return { roleId: role.id, permission: `${resource}:${action}`, removed }
   })
 }

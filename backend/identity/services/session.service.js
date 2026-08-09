@@ -66,6 +66,7 @@ async function activateAfterMfa(exec, { session, kind }) {
   })
   if (!activated) throw new AuthenticationError('challenge no longer valid')
   const accessToken = token.issueAccess({ principalId: session.principal_id, organizationId: session.organization_id, kind, sessionId: session.id })
+  await repos.audit.record(exec, { organizationId: session.organization_id, actorPrincipalId: session.principal_id, event: 'session.created', resource: 'session', action: 'create', decision: 'ok', detail: { sessionId: session.id, mfa: true } })
   return { session: activated, ...tokenResponse(accessToken, refreshToken) }
 }
 
