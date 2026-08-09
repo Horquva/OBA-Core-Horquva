@@ -1,5 +1,5 @@
 {
-  "savedAt": "2026-08-09T04:16:54.145Z",
+  "savedAt": "2026-08-09T05:21:31.322Z",
   "platforms": [
     {
       "id": "tech-intel",
@@ -898,6 +898,91 @@
           "note": "Marked release-ready"
         }
       ]
+    },
+    {
+      "id": "J-001",
+      "platformId": "cap-validation",
+      "task": "Validate governance capability",
+      "dependsOn": [],
+      "status": "PASSED",
+      "artifact": {
+        "summary": "Capability looks strong",
+        "output": {
+          "note": "Capability looks strong"
+        }
+      },
+      "evidence": [
+        {
+          "ref": "source:org-signal-report",
+          "attachedAt": "2026-08-09T05:20:57.964Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "no self-tests declared (allowed, but not verified)"
+          }
+        ],
+        "evaluatedAt": "2026-08-09T05:20:58.147Z"
+      },
+      "executions": [
+        "EXEC-1"
+      ],
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-09T05:20:57.417Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-09T05:20:57.780Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-09T05:20:58.143Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-09T05:20:58.147Z",
+          "note": "All quality gates passed"
+        }
+      ]
+    }
+  ],
+  "executions": [
+    {
+      "id": "EXEC-1",
+      "jobId": "J-001",
+      "triggeredBy": "zara",
+      "startedAt": "2026-08-09T05:20:57.783Z",
+      "endedAt": "2026-08-09T05:20:58.147Z",
+      "result": "PASSED"
     }
   ],
   "events": [
@@ -1467,6 +1552,48 @@
       "platformId": "future-org",
       "message": "VALIDATING -> PASSED (All quality gates passed)",
       "at": "2026-08-09T04:16:54.126Z"
+    },
+    {
+      "type": "JOB_CREATED",
+      "jobId": "J-001",
+      "platformId": "cap-validation",
+      "message": "Job created: Validate governance capability",
+      "at": "2026-08-09T05:20:57.422Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-001",
+      "platformId": "cap-validation",
+      "message": "QUEUED -> RUNNING (Execution started)",
+      "at": "2026-08-09T05:20:57.783Z"
+    },
+    {
+      "type": "EXECUTION_STARTED",
+      "jobId": "J-001",
+      "platformId": "cap-validation",
+      "message": "EXEC-1 started by zara",
+      "at": "2026-08-09T05:20:57.783Z"
+    },
+    {
+      "type": "EVIDENCE_ATTACHED",
+      "jobId": "J-001",
+      "platformId": "cap-validation",
+      "message": "Evidence attached: source:org-signal-report",
+      "at": "2026-08-09T05:20:57.966Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-001",
+      "platformId": "cap-validation",
+      "message": "RUNNING -> VALIDATING (Quality gates running)",
+      "at": "2026-08-09T05:20:58.146Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-001",
+      "platformId": "cap-validation",
+      "message": "VALIDATING -> PASSED (All quality gates passed)",
+      "at": "2026-08-09T05:20:58.147Z"
     }
   ]
 }

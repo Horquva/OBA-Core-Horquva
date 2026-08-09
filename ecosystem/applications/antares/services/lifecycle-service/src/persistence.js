@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { EngineeringOperationsEngine } = require('./engine');
-const { Platform, EngineeringJob, EngineeringEvent } = require('./models');
+const { Platform, EngineeringJob, Execution, EngineeringEvent } = require('./models');
 
 /**
  * persistence.js
@@ -29,6 +29,7 @@ function saveState(engine, storePath = DEFAULT_STORE_PATH) {
     savedAt: new Date().toISOString(),
     platforms: [...engine.platforms.values()],
     jobs: [...engine.jobs.values()],
+    executions: [...engine.executions.values()],
     events: engine.events,
   };
   fs.writeFileSync(storePath, JSON.stringify(payload, null, 2));
@@ -54,6 +55,11 @@ function loadState(storePath = DEFAULT_STORE_PATH) {
     const job = Object.assign(Object.create(EngineeringJob.prototype), j);
     engine.jobs.set(job.id, job);
   }
+  for (const ex of raw.executions || []) {
+    const execution = Object.assign(Object.create(Execution.prototype), ex);
+    engine.executions.set(execution.id, execution);
+  }
+  engine._executionCounter = (raw.executions || []).length;
   for (const e of raw.events) {
     engine.events.push(Object.assign(Object.create(EngineeringEvent.prototype), e));
   }
