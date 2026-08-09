@@ -50,4 +50,16 @@ async function completeMfa(exec, { organizationId, challengeId, code, context = 
   })
 }
 
-module.exports = { login, completeMfa }
+/**
+ * OAuth2 client-credentials grant for machine & AI-agent identities (doc §14).
+ * Authenticates the client and issues a session + tokens (no MFA for non-humans).
+ */
+async function clientCredentialsGrant(exec, { clientId, clientSecret, context = {} }) {
+  return inTx(exec, async (client) => {
+    const res = await auth.authenticateClientCredentials(client, { clientId, clientSecret, context })
+    const started = await session.start(client, { principalId: res.principalId, organizationId: res.organizationId, kind: res.kind, ip: context.ip, userAgent: context.userAgent })
+    return { status: 'authenticated', kind: res.kind, organizationId: res.organizationId, sessionId: started.session.id, accessToken: started.accessToken, refreshToken: started.refreshToken, tokenType: started.tokenType, expiresIn: started.expiresIn }
+  })
+}
+
+module.exports = { login, completeMfa, clientCredentialsGrant }
