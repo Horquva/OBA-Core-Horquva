@@ -20,7 +20,7 @@ jobs:
     name: Normalize & Create Issues for Critical/High Findings
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download SARIF artifacts from the triggering run
         uses: actions/download-artifact@v4

@@ -29,7 +29,7 @@ jobs:
     outputs:
       image-ref: ${{ steps.build.outputs.image-ref }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build container image
         id: build
@@ -54,7 +54,7 @@ jobs:
     needs: [build-image, generate-evidence]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # This is the fix for the review comment: sign-artifact.sh needs a real
       # provenance.json produced by generate-evidence — it was previously
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Verify artifact before deploy
         run: bash artifact-signing/verification-scripts/verify-artifact.sh "${{ needs.build-image.outputs.image-ref }}"
@@ -110,7 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Verify artifact before deploy (defense in depth — re-verify at prod gate)
         run: bash artifact-signing/verification-scripts/verify-artifact.sh "${{ needs.build-image.outputs.image-ref }}"

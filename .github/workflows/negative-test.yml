@@ -30,7 +30,7 @@ jobs:
     name: "Evidence: Secret detection blocks a known-fake secret"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Gitleaks CLI
         run: |
@@ -74,7 +74,7 @@ jobs:
     name: "Evidence: Dependency scan blocks a known-vulnerable package"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Run npm audit against fixture package.json
         id: depcheck
