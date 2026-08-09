@@ -8,8 +8,7 @@
 const crypto = require('crypto')
 const config = require('../config')
 const repos = require('../repositories')
-const secretbox = require('./secretbox')
-const password = require('./password')
+const secrets = require('./secrets')
 const { NotFoundError, ValidationError } = require('../errors')
 
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
@@ -86,7 +85,7 @@ async function beginEnrollment(exec, { organizationId, userId }) {
   const user = await repos.users.findById(exec, userId, organizationId)
   if (!user) throw new NotFoundError('user not found')
   const secret = generateSecret()
-  await repos.users.setMfaSecret(exec, userId, organizationId, secretbox.encrypt(secret, config.mfa.encKey))
+  await repos.users.setMfaSecret(exec, userId, organizationId, secrets.encrypt(secret))
   await repos.audit.record(exec, { organizationId, actorPrincipalId: user.principal_id, event: 'mfa.enroll_begin', resource: 'mfa', action: 'enroll', decision: 'ok' })
   // Secret + URI are shown ONCE to the user; never stored or logged in plaintext.
   return { secret, otpauthUri: provisioningUri(user.email, secret) }
@@ -96,7 +95,7 @@ async function confirmEnrollment(exec, { organizationId, userId, code }) {
   const user = await repos.users.findById(exec, userId, organizationId)
   if (!user) throw new NotFoundError('user not found')
   if (!user.mfa_secret_enc) throw new ValidationError('start MFA enrollment first')
-  const secret = secretbox.decrypt(user.mfa_secret_enc, config.mfa.encKey)
+  const secret = secrets.decrypt(user.mfa_secret_enc)
   if (!verifyTotp(secret, code)) {
     await repos.audit.record(exec, { organizationId, actorPrincipalId: user.principal_id, event: 'mfa.enroll_confirm', resource: 'mfa', action: 'enroll', decision: 'deny', reason: 'bad_code' })
     throw new ValidationError('invalid verification code')
@@ -105,8 +104,8 @@ async function confirmEnrollment(exec, { organizationId, userId, code }) {
 
   // Fresh single-use recovery codes (returned once, stored hashed).
   await repos.recovery.deleteForUser(exec, userId)
-  const codes = Array.from({ length: config.mfa.recoveryCodeCount }, () => crypto.randomBytes(5).toString('hex'))
-  await repos.recovery.createMany(exec, userId, codes.map((c) => password.hashSecret(c)))
+  const codes = Array.from({ length: config.mfa.recoveryCodeCount }, () => secrets.generateRecoveryCode())
+  await repos.recovery.createMany(exec, userId, codes.map((c) => secrets.hash(c)))
   await repos.audit.record(exec, { organizationId, actorPrincipalId: user.principal_id, event: 'mfa.enabled', resource: 'mfa', action: 'enroll', decision: 'ok' })
   return { recoveryCodes: codes }
 }
@@ -125,12 +124,12 @@ async function verifyForUser(exec, { user, code }) {
   // 6-digit → TOTP; otherwise treat as a recovery code.
   if (/^\d{6}$/.test(String(code))) {
     if (!user.mfa_secret_enc) return false
-    const secret = secretbox.decrypt(user.mfa_secret_enc, config.mfa.encKey)
+    const secret = secrets.decrypt(user.mfa_secret_enc)
     return verifyTotp(secret, code)
   }
   const unused = await repos.recovery.listUnused(exec, user.id)
   for (const row of unused) {
-    if (password.verifySecret(code, row.code_hash)) {
+    if (secrets.verify(code, row.code_hash)) {
       await repos.recovery.markUsed(exec, row.id)
       return true
     }

@@ -66,6 +66,14 @@ const providers = {
     )
     return rows
   },
+  async setClientSecretEnc(exec, id, orgId, clientSecretEnc) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `update identity.identity_provider set client_secret_enc = $3 where id = $1 and organization_id = $2 returning id`,
+      [id, orgId, clientSecretEnc]
+    )
+    return rows[0] || null
+  },
 }
 
 const federatedIdentities = {

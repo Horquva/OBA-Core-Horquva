@@ -17,6 +17,15 @@ function parsePrevKeys(s) {
   })
 }
 
+// Single data-encryption key for the Secrets-Service boundary (reversible secrets:
+// TOTP seeds, provider secrets). Provide a real 64-hex-char key via
+// IDENTITY_SECRETS_ENC_KEY; dev derives one deterministically.
+const SECRETS_ENC_KEY = process.env.IDENTITY_SECRETS_ENC_KEY
+  ? Buffer.from(process.env.IDENTITY_SECRETS_ENC_KEY, 'hex')
+  : process.env.IDENTITY_MFA_ENC_KEY
+    ? Buffer.from(process.env.IDENTITY_MFA_ENC_KEY, 'hex')
+    : crypto.scryptSync(process.env.IDENTITY_JWT_SECRET || 'dev-insecure', 'identity-secrets-kek', 32)
+
 const config = {
   env: process.env.NODE_ENV || 'development',
 
@@ -60,9 +69,13 @@ const config = {
     recoveryCodeCount: num('IDENTITY_MFA_RECOVERY_CODES', 8),
     // 32-byte AES-256-GCM key for encrypting TOTP seeds at rest. Provide a real
     // 64-hex-char key via IDENTITY_MFA_ENC_KEY; dev falls back to a derived key.
-    encKey: process.env.IDENTITY_MFA_ENC_KEY
-      ? Buffer.from(process.env.IDENTITY_MFA_ENC_KEY, 'hex')
-      : crypto.scryptSync(process.env.IDENTITY_JWT_SECRET || 'dev-insecure', 'identity-mfa-kek', 32),
+    encKey: SECRETS_ENC_KEY,
+  },
+
+  secrets: {
+    // The one place key material is resolved. Swap this for Vault/cloud KMS by
+    // changing only the Secrets-Service boundary (services/secrets.js).
+    encKey: SECRETS_ENC_KEY,
   },
 }
 

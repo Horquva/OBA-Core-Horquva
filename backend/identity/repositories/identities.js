@@ -186,6 +186,14 @@ const agents = {
     )
     return rows[0] || null
   },
+  async setClientSecretHash(exec, id, orgId, clientSecretHash) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `update identity.ai_agent set client_secret_hash = $3 where id = $1 and organization_id = $2 returning id`,
+      [id, orgId, clientSecretHash]
+    )
+    return rows[0] || null
+  },
   async list(exec, orgId) {
     requireOrg(orgId)
     const { rows } = await runner(exec).query(
@@ -236,6 +244,14 @@ const machines = {
     const { rows } = await runner(exec).query(
       `update identity.machine_identity set status = $3 where id = $1 and organization_id = $2 returning *`,
       [id, orgId, status]
+    )
+    return rows[0] || null
+  },
+  async setClientSecretHash(exec, id, orgId, clientSecretHash) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `update identity.machine_identity set client_secret_hash = $3 where id = $1 and organization_id = $2 returning id`,
+      [id, orgId, clientSecretHash]
     )
     return rows[0] || null
   },

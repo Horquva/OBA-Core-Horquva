@@ -15,7 +15,7 @@
 const { withTransaction } = require('../db/pool')
 const config = require('../config')
 const repos = require('../repositories')
-const secretbox = require('./secretbox')
+const secrets = require('./secrets')
 const session = require('./session.service')
 const auth = require('./auth.service')
 const { NotFoundError, ValidationError, ForbiddenError, AuthenticationError } = require('../errors')
@@ -25,7 +25,7 @@ const inTx = (exec, fn) => (exec ? fn(exec) : withTransaction(fn))
 async function registerProvider(exec, { organizationId, name, protocol = 'oidc', issuer, audience = null, clientId = null, clientSecret = null, claimMap = {}, allowJitProvisioning = false, createdBy = null }) {
   if (!organizationId || !name || !issuer) throw new ValidationError('organizationId, name, and issuer are required')
   const providerConfig = { audience, claimMap, allowJitProvisioning }
-  const clientSecretEnc = clientSecret ? secretbox.encrypt(clientSecret, config.mfa.encKey) : null
+  const clientSecretEnc = clientSecret ? secrets.encrypt(clientSecret) : null
   const provider = await repos.providers.create(exec, { organizationId, name, protocol, issuer, clientId, clientSecretEnc, config: providerConfig, status: 'active', createdBy })
   await repos.audit.record(exec, { organizationId, event: 'federation.provider_registered', resource: 'provider', action: 'create', decision: 'ok', detail: { providerId: provider.id, issuer, protocol } })
   return provider
