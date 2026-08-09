@@ -31,6 +31,11 @@ const config = {
     accessTtlSec: num('IDENTITY_ACCESS_TTL', 900), // 15 minutes
     refreshTtlSec: num('IDENTITY_REFRESH_TTL', 604800), // 7 days
   },
+
+  auth: {
+    maxFailedAttempts: num('IDENTITY_MAX_FAILED_ATTEMPTS', 5),
+    lockoutMinutes: num('IDENTITY_LOCKOUT_MINUTES', 15),
+  },
 }
 
 module.exports = config

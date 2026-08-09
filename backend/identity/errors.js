@@ -24,6 +24,10 @@ class ConflictError extends DomainError {
 class ForbiddenError extends DomainError {
   constructor(message = 'Forbidden') { super(message, 'forbidden', 403) }
 }
+class AuthenticationError extends DomainError {
+  // Deliberately generic to avoid account enumeration; the specific reason is audited.
+  constructor(message = 'Invalid credentials') { super(message, 'invalid_credentials', 401) }
+}
 class InvalidTransitionError extends DomainError {
   constructor(from, to) {
     super(`Invalid lifecycle transition: ${from} → ${to}`, 'invalid_transition', 409)
@@ -36,5 +40,6 @@ module.exports = {
   NotFoundError,
   ConflictError,
   ForbiddenError,
+  AuthenticationError,
   InvalidTransitionError,
 }

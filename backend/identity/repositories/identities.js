@@ -69,6 +69,40 @@ const users = {
     )
     return rows[0] || null
   },
+  async setPasswordHash(exec, id, orgId, passwordHash) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `update identity.user_account set password_hash = $3 where id = $1 and organization_id = $2 returning id`,
+      [id, orgId, passwordHash]
+    )
+    return rows[0] || null
+  },
+  /** Increment failed-login counter; lock the account when the threshold is reached. */
+  async recordFailedLogin(exec, id, orgId, maxAttempts, lockoutMinutes) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `update identity.user_account
+         set failed_login_count = failed_login_count + 1,
+             locked_until = case when failed_login_count + 1 >= $3
+                                 then now() + ($4 || ' minutes')::interval
+                                 else locked_until end
+       where id = $1 and organization_id = $2
+       returning failed_login_count, locked_until`,
+      [id, orgId, maxAttempts, String(lockoutMinutes)]
+    )
+    const row = rows[0]
+    return !!(row && row.locked_until && new Date(row.locked_until) > new Date())
+  },
+  /** Clear the failed-login counter and stamp last_login_at on a successful login. */
+  async resetFailedLogin(exec, id, orgId) {
+    requireOrg(orgId)
+    await runner(exec).query(
+      `update identity.user_account
+         set failed_login_count = 0, locked_until = null, last_login_at = now()
+       where id = $1 and organization_id = $2`,
+      [id, orgId]
+    )
+  },
   async list(exec, orgId) {
     requireOrg(orgId)
     const { rows } = await runner(exec).query(
