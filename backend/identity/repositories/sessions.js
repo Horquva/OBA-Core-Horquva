@@ -33,6 +33,37 @@ async function findActiveByRefreshHash(exec, refreshTokenHash) {
   return rows[0] || null
 }
 
+/** Any-status lookup by refresh hash — used to detect reuse of a revoked/expired token. */
+async function findByRefreshHash(exec, refreshTokenHash) {
+  const { rows } = await runner(exec).query(
+    `select * from identity.session where refresh_token_hash = $1`,
+    [refreshTokenHash]
+  )
+  return rows[0] || null
+}
+
+/** Rotate the refresh-token hash bound to a session. */
+async function setRefreshHash(exec, id, orgId, refreshTokenHash) {
+  requireOrg(orgId)
+  const { rows } = await runner(exec).query(
+    `update identity.session set refresh_token_hash = $3 where id = $1 and organization_id = $2 returning *`,
+    [id, orgId, refreshTokenHash]
+  )
+  return rows[0] || null
+}
+
+/** Active, unexpired sessions for a principal, oldest first (for concurrent-session caps). */
+async function listActiveForPrincipal(exec, principalId, orgId) {
+  requireOrg(orgId)
+  const { rows } = await runner(exec).query(
+    `select * from identity.session
+     where principal_id = $1 and organization_id = $2 and status = 'active' and expires_at > now()
+     order by issued_at asc`,
+    [principalId, orgId]
+  )
+  return rows
+}
+
 async function listForPrincipal(exec, principalId, orgId) {
   requireOrg(orgId)
   const { rows } = await runner(exec).query(
@@ -62,4 +93,14 @@ async function revokeAllForPrincipal(exec, principalId, orgId) {
   return rowCount
 }
 
-module.exports = { create, findById, findActiveByRefreshHash, listForPrincipal, revoke, revokeAllForPrincipal }
+module.exports = {
+  create,
+  findById,
+  findActiveByRefreshHash,
+  findByRefreshHash,
+  setRefreshHash,
+  listForPrincipal,
+  listActiveForPrincipal,
+  revoke,
+  revokeAllForPrincipal,
+}

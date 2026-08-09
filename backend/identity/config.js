@@ -7,6 +7,15 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') })
 
 const num = (name, def) => parseInt(process.env[name] || String(def), 10)
 
+// Parse "kid:secret,kid2:secret2" into retired verification keys (for rotation).
+function parsePrevKeys(s) {
+  if (!s) return []
+  return s.split(',').map((x) => x.trim()).filter(Boolean).map((pair) => {
+    const i = pair.indexOf(':')
+    return { kid: pair.slice(0, i), secret: pair.slice(i + 1) }
+  })
+}
+
 const config = {
   env: process.env.NODE_ENV || 'development',
 
@@ -26,6 +35,8 @@ const config = {
     // and an RS256 + JWKS path for cross-platform verification. See DECISIONS.md.
     algorithm: process.env.IDENTITY_JWT_ALG || 'HS256',
     secret: process.env.IDENTITY_JWT_SECRET || 'dev-insecure-identity-secret-change-me',
+    kid: process.env.IDENTITY_JWT_KID || 'k1',
+    previousKeys: parsePrevKeys(process.env.IDENTITY_JWT_PREV_KEYS), // retired keys still accepted for verify
     issuer: process.env.IDENTITY_JWT_ISSUER || 'sentinel-identity',
     audience: process.env.IDENTITY_JWT_AUDIENCE || 'horquva-platforms',
     accessTtlSec: num('IDENTITY_ACCESS_TTL', 900), // 15 minutes
@@ -35,6 +46,11 @@ const config = {
   auth: {
     maxFailedAttempts: num('IDENTITY_MAX_FAILED_ATTEMPTS', 5),
     lockoutMinutes: num('IDENTITY_LOCKOUT_MINUTES', 15),
+  },
+
+  session: {
+    // 0 = unlimited concurrent sessions per identity; >0 revokes oldest beyond the cap.
+    maxConcurrent: num('IDENTITY_MAX_CONCURRENT_SESSIONS', 0),
   },
 }
 
