@@ -12,25 +12,32 @@
 const express = require('express')
 const router = express.Router()
 
+const { errorHandler } = require('./deps')
+
 router.get('/', (req, res) => {
   res.json({
     platform: 'Sentinel Identity & Trust',
     version: 'v1',
     owner: 'Areeb Ahmad',
-    status: 'foundation',
+    status: 'operational',
     endpoints: {
       health: '/api/v1/health',
       readiness: '/api/v1/health/ready',
+      auth: '/api/v1/auth',
+      authz: '/api/v1/authz',
+      identity: '/api/v1/identity',
+      trust: '/api/v1/trust',
     },
-    note: 'Authentication, authorization, identity, and trust surfaces are added phase by phase.',
   })
 })
 
 router.use('/health', require('./health'))
-// Added in later phases:
-//   router.use('/auth', require('./auth'))
-//   router.use('/authz', require('./authz'))
-//   router.use('/identity', require('./identity'))
-//   router.use('/trust', require('./trust'))
+router.use('/auth', require('./auth'))
+router.use('/authz', require('./authz'))
+router.use('/identity', require('./identity'))
+router.use('/trust', require('./trust'))
+
+// Typed domain errors → HTTP status (must be last).
+router.use(errorHandler)
 
 module.exports = router

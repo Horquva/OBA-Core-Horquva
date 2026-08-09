@@ -52,6 +52,10 @@ async function seed() {
     }
   })
 
+  // Optional bootstrap: an organization + active platform_admin so the API is
+  // immediately loginable in development. Idempotent. Configure via env.
+  await bootstrapAdmin()
+
   // Report
   const counts = await db.query(`
     select
@@ -63,6 +67,27 @@ async function seed() {
   console.log(
     `Seed complete — permissions=${c.permissions}, system_roles=${c.system_roles}, role_permissions=${c.role_permissions}`
   )
+}
+
+async function bootstrapAdmin() {
+  const identityService = require('../services/identity.service')
+  const secrets = require('../services/secrets')
+  const email = process.env.SEED_ADMIN_EMAIL || 'admin@horquva.io'
+  const pass = process.env.SEED_ADMIN_PASSWORD || 'ChangeMe_Admin123'
+  const slug = process.env.SEED_ORG_SLUG || 'horquva'
+
+  let org = await db.query(`select id from identity.organization where slug = $1`, [slug])
+  org = org.rows[0]
+  if (!org) org = await identityService.createOrganization(db.pool, { name: 'Horquva', slug })
+
+  const existing = await db.query(`select id from identity.user_account where organization_id = $1 and lower(email) = lower($2)`, [org.id, email])
+  if (existing.rows.length) {
+    console.log(`Bootstrap admin already present: ${email}`)
+    return
+  }
+  const user = await identityService.createUser(db.pool, { organizationId: org.id, email, fullName: 'Platform Admin', passwordHash: secrets.hash(pass), isSuperuser: true, status: 'active' })
+  await identityService.assignRole(db.pool, { organizationId: org.id, principalId: user.principal_id, roleName: 'platform_admin' })
+  console.log(`Bootstrap admin created: ${email} (org '${slug}')`)
 }
 
 seed()

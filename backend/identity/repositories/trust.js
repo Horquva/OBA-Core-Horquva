@@ -23,6 +23,17 @@ const policies = {
     )
     return rows[0] || null
   },
+  /** All policies visible to an org (its own + globals). */
+  async listForOrg(exec, orgId) {
+    requireOrg(orgId)
+    const { rows } = await runner(exec).query(
+      `select * from identity.trust_policy
+       where organization_id = $1 or organization_id is null
+       order by priority desc, name`,
+      [orgId]
+    )
+    return rows
+  },
   /** Active policies applicable to (org + globals) for a resource/action, priority desc. */
   async listApplicable(exec, orgId, resource, action) {
     requireOrg(orgId)
