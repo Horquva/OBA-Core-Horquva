@@ -33,12 +33,33 @@ The defaults match the compose file. Never commit `.env`.
 
 ## Apply migrations
 
+Safe to run repeatedly. Applied migrations are recorded in `schema_migrations` and skipped on later runs.
+
+**If you have `psql` installed** — Linux, macOS, or Windows with the PostgreSQL client tools:
+
 ```bash
 set -a && source infrastructure/databases/.env && set +a
 bash infrastructure/databases/migrate.sh
 ```
 
-Safe to run repeatedly. Applied migrations are recorded in `schema_migrations` and skipped on later runs.
+**If you do not have `psql`** — the normal case on Windows. Run the same script inside the Postgres image, which already contains `psql`. Nothing to install:
+
+```bash
+docker run --rm --network databases_default -v "$PWD/infrastructure/databases:/work" -e PGHOST=ocos-dev-db -e PGPORT=5432 -e PGUSER=ocos -e PGPASSWORD=ocos -e PGDATABASE=ocos_dev postgres:16 bash /work/migrate.sh
+```
+
+Note the connection differs from `.env`: inside the compose network the host is the container name `ocos-dev-db` on port **5432**, not `localhost:5433`. The 5433 mapping is for connections from your machine.
+
+Both paths run the identical script against the identical database. Expect this on the first run and the second:
+
+```
+applying  0001_signal_trace
+migrations: 1 applied, 0 already present
+
+migrations: 0 applied, 1 already present
+```
+
+If the second run reports anything applied, the ledger is not working — stop and fix it before writing another migration.
 
 ## Stop
 

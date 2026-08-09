@@ -154,4 +154,16 @@ jobs:
           PGUSER: ocos
           PGPASSWORD: ocos
           PGDATABASE: ocos_dev
-        run: bash infrastructure/databases/migrate.sh
+        run: |
+          # A second run must apply nothing. Exiting 0 is not sufficient:
+          # a runner that silently re-applied every migration would also
+          # exit 0, so assert on the count it reports.
+          out="$(bash infrastructure/databases/migrate.sh)"
+          echo "$out"
+          if ! echo "$out" | grep -q '^migrations: 0 applied,'; then
+            echo ""
+            echo "Second run was not a no-op. The schema_migrations ledger is not"
+            echo "recording or not being consulted. See infrastructure/databases/README.md."
+            exit 1
+          fi
+          echo "Idempotency confirmed: second run applied nothing."
