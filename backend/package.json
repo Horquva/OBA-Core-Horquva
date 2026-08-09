@@ -11,6 +11,7 @@
     "identity:migrate:status": "node identity/db/migrate.js status",
     "identity:migrate:validate": "node identity/db/migrate.js validate",
     "identity:migrate:create": "node identity/db/migrate.js create",
+    "identity:seed": "node identity/db/seed.js",
     "identity:test": "node identity/tests/run.js"
   },
   "keywords": [],
