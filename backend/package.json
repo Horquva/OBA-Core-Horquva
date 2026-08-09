@@ -5,7 +5,13 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node tests/run-all.js"
+    "test": "node tests/run-all.js",
+    "identity:migrate": "node identity/db/migrate.js up",
+    "identity:migrate:down": "node identity/db/migrate.js down",
+    "identity:migrate:status": "node identity/db/migrate.js status",
+    "identity:migrate:validate": "node identity/db/migrate.js validate",
+    "identity:migrate:create": "node identity/db/migrate.js create",
+    "identity:test": "node identity/tests/run.js"
   },
   "keywords": [],
   "author": "",

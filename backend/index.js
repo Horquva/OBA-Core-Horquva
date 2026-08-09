@@ -95,6 +95,14 @@ try {
   console.error('Organizational Brain failed to boot:', e.message)
 }
 
+// ─── Sentinel Identity & Trust: versioned /api/v1 surface (Owner: Areeb Ahmad) ───
+try {
+  app.use('/api/v1', require('./identity/api/v1'))
+  console.log('Sentinel Identity & Trust: /api/v1 mounted')
+} catch (e) {
+  console.error('Sentinel Identity & Trust failed to mount:', e.message)
+}
+
 app.use(errorHandler)
 
 console.log("4. Routes loaded")
