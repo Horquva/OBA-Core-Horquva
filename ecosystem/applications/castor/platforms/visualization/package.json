@@ -1,0 +1,37 @@
+{
+  "name": "@horquva/castor-visualization",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reusable React and TypeScript visualization primitives for the WOBA web experience.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "horquva",
+    "castor",
+    "visualization",
+    "react",
+    "typescript"
+  ],
+  "author": "Hazam Mehmood",
+  "license": "UNLICENSED",
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "jsdom": "^30.0.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
