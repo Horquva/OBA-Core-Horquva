@@ -50,11 +50,12 @@ jobs:
             --report-format json \
             --report-path gitleaks-negative-test-result.json \
             --redact
-        # --no-git is required here: gitleaks' default mode scans git commit
-        # history, which only works if --source points at a real git repo
-        # root. testing/negative-test-fixtures/ is a subdirectory, not a git
-        # root, so default mode silently found "0 leaks" instead of erroring.
-        # --no-git makes it scan the actual files on disk directly.
+        # --no-git: scans files on disk directly rather than git commit
+        # history, since this subdirectory is not itself a git repo root.
+
+      - name: Show what gitleaks found (debug visibility)
+        if: always()
+        run: cat gitleaks-negative-test-result.json 2>/dev/null || echo "(no report file produced)"
 
       - name: Assert detection occurred (this IS the evidence)
         run: |
@@ -205,30 +206,37 @@ jobs:
         id: signed
         run: |
           IMAGE="ghcr.io/${{ github.repository }}/negative-test-signed:${{ github.run_id }}"
-          IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
           echo "FROM alpine:latest" | docker build -t "$IMAGE" -
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
-      # sign-artifact.sh requires provenance.json to exist (it attests it as
-      # part of signing). In the real pipeline this comes from
-      # sbom-and-provenance.yml; here we generate the same minimal shape
-      # directly so this test exercises the real signing script unmodified.
+      # Correct SLSA Provenance v0.2 predicate shape — "builder" must be an
+      # OBJECT with an "id" field, not a plain string. cosign validates this
+      # schema strictly and rejects malformed predicates.
       - name: Generate provenance.json for the test image
         run: |
           cat <<EOF > provenance.json
           {
-            "builder": "github-actions",
-            "buildType": "sentinel-negative-test",
+            "builder": {
+              "id": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            },
+            "buildType": "https://github.com/actions/runner",
             "invocation": {
               "configSource": {
-                "repository": "${{ github.repository }}",
-                "ref": "${{ github.ref }}",
-                "commit": "${{ github.sha }}"
-              },
-              "workflow": "${{ github.workflow }}",
-              "runId": "${{ github.run_id }}"
-            }
+                "uri": "git+https://github.com/${{ github.repository }}@${{ github.ref }}",
+                "digest": { "sha1": "${{ github.sha }}" },
+                "entryPoint": "${{ github.workflow }}"
+              }
+            },
+            "metadata": {
+              "buildInvocationId": "${{ github.run_id }}"
+            },
+            "materials": [
+              {
+                "uri": "git+https://github.com/${{ github.repository }}",
+                "digest": { "sha1": "${{ github.sha }}" }
+              }
+            ]
           }
           EOF
 
@@ -243,7 +251,6 @@ jobs:
         id: unsigned
         run: |
           IMAGE="ghcr.io/${{ github.repository }}/negative-test-unsigned:${{ github.run_id }}"
-          IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
           echo "FROM alpine:latest" | docker build -t "$IMAGE" -
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"

@@ -41,23 +41,36 @@ jobs:
     needs: sbom
     runs-on: ubuntu-latest
     steps:
+      # Correct SLSA Provenance v0.2 predicate shape, matching what
+      # cosign's `--type slsaprovenance` expects. NOTE: "builder" must be
+      # an OBJECT with an "id" field — a previous version of this file
+      # used a plain string here, which cosign rejects with:
+      # "cannot unmarshal string into Go struct field ProvenancePredicate.builder"
       - name: Record build provenance metadata
         run: |
           cat <<EOF > provenance.json
           {
-            "builder": "github-actions",
-            "buildType": "sentinel-devsecops-ci",
+            "builder": {
+              "id": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            },
+            "buildType": "https://github.com/actions/runner",
             "invocation": {
               "configSource": {
-                "repository": "${{ github.repository }}",
-                "ref": "${{ github.ref }}",
-                "commit": "${{ github.sha }}"
-              },
-              "workflow": "${{ github.workflow }}",
-              "runId": "${{ github.run_id }}"
+                "uri": "git+https://github.com/${{ github.repository }}@${{ github.ref }}",
+                "digest": {
+                  "sha1": "${{ github.sha }}"
+                },
+                "entryPoint": "${{ github.workflow }}"
+              }
+            },
+            "metadata": {
+              "buildInvocationId": "${{ github.run_id }}"
             },
             "materials": [
-              { "uri": "git+https://github.com/${{ github.repository }}", "digest": { "sha1": "${{ github.sha }}" } }
+              {
+                "uri": "git+https://github.com/${{ github.repository }}",
+                "digest": { "sha1": "${{ github.sha }}" }
+              }
             ]
           }
           EOF
