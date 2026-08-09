@@ -45,10 +45,17 @@ jobs:
         run: |
           gitleaks detect \
             --source testing/negative-test-fixtures/ \
+            --no-git \
             --config security-gates/secret-detection/gitleaks-rules/.gitleaks.toml \
             --report-format json \
             --report-path gitleaks-negative-test-result.json \
             --redact
+        # --no-git: scans files on disk directly rather than git commit
+        # history, since this subdirectory is not itself a git repo root.
+
+      - name: Show what gitleaks found (debug visibility)
+        if: always()
+        run: cat gitleaks-negative-test-result.json 2>/dev/null || echo "(no report file produced)"
 
       - name: Assert detection occurred (this IS the evidence)
         run: |
@@ -192,16 +199,50 @@ jobs:
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
+      - name: Compute lowercase repository name (Docker/GHCR require lowercase)
+        id: repo
+        run: echo "lower=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
       - name: Build and push a real (tiny) test image — SIGNED case
         id: signed
         run: |
-          IMAGE="ghcr.io/${{ github.repository }}/negative-test-signed:${{ github.run_id }}"
+          IMAGE="ghcr.io/${{ steps.repo.outputs.lower }}/negative-test-signed:${{ github.run_id }}"
           echo "FROM alpine:latest" | docker build -t "$IMAGE" -
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      # Correct SLSA Provenance v0.2 predicate shape — "builder" must be an
+      # OBJECT with an "id" field, not a plain string. cosign validates this
+      # schema strictly and rejects malformed predicates.
+      - name: Generate provenance.json for the test image
+        run: |
+          cat <<EOF > provenance.json
+          {
+            "builder": {
+              "id": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            },
+            "buildType": "https://github.com/actions/runner",
+            "invocation": {
+              "configSource": {
+                "uri": "git+https://github.com/${{ github.repository }}@${{ github.ref }}",
+                "digest": { "sha1": "${{ github.sha }}" },
+                "entryPoint": "${{ github.workflow }}"
+              }
+            },
+            "metadata": {
+              "buildInvocationId": "${{ github.run_id }}"
+            },
+            "materials": [
+              {
+                "uri": "git+https://github.com/${{ github.repository }}",
+                "digest": { "sha1": "${{ github.sha }}" }
+              }
+            ]
+          }
+          EOF
 
       - name: Sign the test image (real Cosign signing, not simulated)
         run: bash artifact-signing/signing-scripts/sign-artifact.sh "${{ steps.signed.outputs.image }}"
@@ -213,7 +254,7 @@ jobs:
       - name: Build and push a second test image — UNSIGNED case (never signed)
         id: unsigned
         run: |
-          IMAGE="ghcr.io/${{ github.repository }}/negative-test-unsigned:${{ github.run_id }}"
+          IMAGE="ghcr.io/${{ steps.repo.outputs.lower }}/negative-test-unsigned:${{ github.run_id }}"
           echo "FROM alpine:latest" | docker build -t "$IMAGE" -
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
