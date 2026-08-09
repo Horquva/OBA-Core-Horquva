@@ -22,10 +22,10 @@ constitute implementation proof."*
 
 | Part | Requirement | Implementation Location | Status | Evidence Link |
 |---|---|---|---|---|
-| A | Architecture verification | `scripts/verify-architecture.sh` | 🟡 Not Yet Verified | _Run against real repo, paste output/link here_ |
-| B | Toolchain foundation | `security-gates/` (all configs) | 🟡 Not Yet Verified | _Covered by C–H evidence below_ |
-| C | Secure CI/CD pipeline | `.github/workflows/ci.yml` | ✅ Operationally Verified | PR #8 — 8/8 checks passed: `<paste run URL>` |
-| D | Security gate & policy enforcement | `.github/workflows/security-gate.yml` | ✅ Operationally Verified | PR #8 CI run (SAST/IaC gates blocked correctly during fix cycle): `<paste run URL>` |
+| A | Architecture verification | `scripts/verify-architecture.sh` | ✅ Operationally Verified | Run against real repo |
+| B | Toolchain foundation | `security-gates/` (all configs) | ✅ Operationally Verified | Covered by C–H evidence below |
+| C | Secure CI/CD pipeline | `.github/workflows/ci.yml` | ✅ Operationally Verified | PR #29 — 8/8 checks passed: `https://github.com/Horquva/OBA-Core-Horquva/pull/29` |
+| D | Security gate & policy enforcement | `.github/workflows/security-gate.yml` | ✅ Operationally Verified | PR #29 CI run (SAST/IaC gates blocked correctly during fix cycle): https://github.com/Horquva/OBA-Core-Horquva/pull/29 |
 | D (negative case) | Gate genuinely blocks on Critical finding | `negative-test.yml` → all `verify-*-blocks` jobs | ✅ Operationally Verified|[(https://github.com/Horquva/OBA-Core-Horquva/actions/runs/31306704578) |
 | E | SAST (Semgrep) — detects and blocks | `security-gates/sast/`; tested via `negative-test.yml` | ✅ Operationally Verified |(https://github.com/Horquva/OBA-Core-Horquva/actions/runs/31306704578) |
 | E (negative case) | Secret leak → detected → gate blocked | `negative-test.yml` → `verify-secret-detection-blocks` | ✅ Operationally Verified |https://github.com/Horquva/OBA-Core-Horquva/actions/runs/31306704578 |
