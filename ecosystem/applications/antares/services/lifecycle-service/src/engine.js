@@ -6,6 +6,7 @@ const {
   ALLOWED_TRANSITIONS,
   Platform,
   EngineeringJob,
+  Execution,
   EngineeringEvent,
 } = require('./models');
 const { runQualityGates } = require('./qualityGates');
@@ -27,7 +28,9 @@ class EngineeringOperationsEngine {
   constructor() {
     this.platforms = new Map(); // id -> Platform
     this.jobs = new Map(); // id -> EngineeringJob
+    this.executions = new Map(); // id -> Execution (Din 3-4)
     this.events = []; // append-only observability feed
+    this._executionCounter = 0;
   }
 
   // ---------- Din 2/3: platform + job registration ----------
@@ -105,8 +108,8 @@ class EngineeringOperationsEngine {
     this._emit('STATUS_CHANGE', job.id, job.platformId, `${from} -> ${newStatus}${note ? ' (' + note + ')' : ''}`);
   }
 
-  /** Start executing a queued job. */
-  start(jobId) {
+  /** Start executing a queued job. triggeredBy = who/what kicked this off (for accountability). */
+  start(jobId, triggeredBy = 'system') {
     const job = this._getJob(jobId);
     this._recomputeBlocked(jobId);
     if (job.status === JobStatus.BLOCKED) {
@@ -116,7 +119,28 @@ class EngineeringOperationsEngine {
       throw new Error(`Cannot start ${jobId} from status ${job.status}`);
     }
     this._setStatus(job, JobStatus.RUNNING, 'Execution started');
+
+    this._executionCounter += 1;
+    const execution = new Execution({ id: `EXEC-${this._executionCounter}`, jobId, triggeredBy });
+    this.executions.set(execution.id, execution);
+    job.executions.push(execution.id);
+    this._emit('EXECUTION_STARTED', jobId, job.platformId, `${execution.id} started by ${triggeredBy}`);
+
     return job;
+  }
+
+  /** Returns the execution that is currently open (no endedAt) for a job, if any. */
+  _openExecution(jobId) {
+    const job = this._getJob(jobId);
+    const lastId = job.executions[job.executions.length - 1];
+    const exec = lastId ? this.executions.get(lastId) : null;
+    return exec && exec.endedAt === null ? exec : null;
+  }
+
+  /** Every job's full execution history — one entry per attempt, newest last. */
+  getExecutionHistory(jobId) {
+    const job = this._getJob(jobId);
+    return job.executions.map((id) => this.executions.get(id));
   }
 
   /**
@@ -141,6 +165,12 @@ class EngineeringOperationsEngine {
       const failedNames = result.checks.filter((c) => !c.passed).map((c) => c.name);
       this._setStatus(job, JobStatus.FAILED, `Gate failure: ${failedNames.join(', ')}`);
       this._emit('GATE_FAILED', job.id, job.platformId, `Failed checks: ${failedNames.join(', ')}`);
+    }
+
+    const exec = this._openExecution(jobId);
+    if (exec) {
+      exec.endedAt = new Date().toISOString();
+      exec.result = result.passed ? 'PASSED' : 'FAILED';
     }
     return job;
   }
@@ -293,6 +323,7 @@ class EngineeringOperationsEngine {
     return {
       platforms: [...this.platforms.values()],
       jobs: [...this.jobs.values()],
+      executions: [...this.executions.values()],
       systemHealth: this.getSystemHealth(),
       recentEvents: this.recentEvents(15),
       generatedAt: new Date().toISOString(),
