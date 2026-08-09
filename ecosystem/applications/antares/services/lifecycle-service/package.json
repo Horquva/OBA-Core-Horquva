@@ -1,0 +1,12 @@
+{
+  "name": "antares-engineering-operations",
+  "version": "1.0.0",
+  "description": "Antares Engineering Operations Platform — Kamil Ejaz (Engineering Lead). Tracks platforms, jobs, dependencies, quality gates, observability, and a rule-based engineering-ops assistant.",
+  "main": "src/engine.js",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "demo": "node src/demo.js"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
