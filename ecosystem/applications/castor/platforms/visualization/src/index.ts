@@ -1,8 +1,13 @@
+export { LineChart } from "./charts/LineChart";
 export { MetricStatus } from "./metrics/MetricStatus";
 export { MetricComparison } from "./metrics/MetricComparison";
 export { Metric } from "./metrics/Metric";
 export { MetricWithTrend } from "./metrics/MetricWithTrend";
 export { VisualizationState } from "./states/VisualizationState";
+export { BarChart } from "./charts/BarChart";
+export { AreaChart } from "./charts/AreaChart";
+export { ScatterPlot } from "./charts/ScatterPlot";
+export { DistributionChart } from "./charts/DistributionChart";
 
 export type {
   ChartDataPoint,
