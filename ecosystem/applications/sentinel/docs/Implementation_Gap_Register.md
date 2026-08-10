@@ -1,0 +1,9 @@
+|Requirement Name	|Description	                                    |Status|  |Evidence|
+|Request Security	|The "Gatekeeper" that intercepts every request.	|IMPLEMENTED|"Verified Request Interception using cURL. Command curl -H 'Authorization: ...' returns 200 OK, while requests without header return 401 Unauthorized. Telemetry recorded in terminal logs."|
+|Identity Enforcement	|Checking the user's ID/Token.	            |IMPLEMENTED|"Implemented Identity Verification logic. System distinguishes between missing tokens (401) and invalid tokens (403). Verified using Triple-Test cURL methodology."|
+|Authorization Enforcement	|Checking if the user is allowed to do that specific action.	|Missing|
+|Schema Validation	|Making sure the data isn't "garbage" or "weird."|IMPLEMENTED|"Implemented W2 Validation Engine. Validates JSON structure, required fields, data types, and string length constraints. Rejects malformed requests with 400 Bad Request."
+|
+|Threat Detection	|Looking for common hacks (like SQL Injection).	|IMPLEMENTED|"Implemented OWASP Rules Engine. Uses regex patterns to detect SQL Injection and XSS attacks. Verified by attempting malicious payloads via cURL; system correctly identified and blocked the attacks."|
+|Output Protection	|Hiding sensitive info (like passwords) before sending it back.|IMPLEMENTED|"Implemented Output Security Engine. Masks sensitive fields (api_key, internal_id) using a blacklist approach. Enforces secure error handling to prevent stack-trace leakage."|
+|Audit & Telemetry	|Saving a log/record of what happened.|Implemented|"Implemented persistent logging with Correlation IDs. System captures Identity failures, Threat detections, and Success events. Verified that logs are stored in sentinel_audit.log and are traceable via unique Request IDs."|
