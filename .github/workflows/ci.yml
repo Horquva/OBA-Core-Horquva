@@ -1,0 +1,37 @@
+name: Engineering Operations CI
+
+# Din 5: ye workflow khud-ba-khud chalta hai jab bhi koi is service ke
+# andar (lifecycle-service/) kaam push kare, ya "antares" branch ki
+# taraf Pull Request banaye. Agar lint/build/tests mein se koi bhi fail
+# ho, GitHub PR ke upar laal (red) "X" dikha dega — taake koi bhi
+# broken output "antares" branch mein silently na phisal sake.
+
+on:
+  push:
+    branches: [antares]
+    paths:
+      - "ecosystem/applications/antares/services/lifecycle-service/**"
+  pull_request:
+    branches: [antares]
+    paths:
+      - "ecosystem/applications/antares/services/lifecycle-service/**"
+
+jobs:
+  ci:
+    name: Lint + Build + Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ecosystem/applications/antares/services/lifecycle-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run full CI pipeline (lint -> build -> tests)
+        run: npm run ci
