@@ -21,7 +21,7 @@ def load_codeowners_map(codeowners_path: str = ".github/CODEOWNERS") -> dict:
     """
     ownership_map = {}
     try:
-        with open(codeowners_path, "r") as f:
+        with open(codeowners_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
             
         for line in lines:

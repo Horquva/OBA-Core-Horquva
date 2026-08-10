@@ -8,7 +8,7 @@ import random
 
 # Lightweight test assertions for running in environments without pytest
 def test_build_simulation_context_valid():
-    from ecosystem.applications.arcturus.tests.simulation_context_factory import build_simulation_context
+    from ecosystem.applications.arcturus.tests.helpers.simulation_context_factory import build_simulation_context
     context = build_simulation_context(global_seed=42)
     assert context["global_seed"] == 42
     assert "run_id" in context
