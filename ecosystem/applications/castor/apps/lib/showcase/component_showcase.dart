@@ -5,6 +5,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
 import '../views/widgets/pill_button.dart';
+import '../views/widgets/severity_badge.dart';
 
 /// A simple gallery screen that displays every reusable component in one place.
 ///
@@ -75,6 +76,24 @@ class ComponentShowcase extends StatelessWidget {
                 backgroundColor: AppColors.primary,
                 textColor: AppColors.onPrimary,
                 onPressed: () {},
+              ),
+            ],
+          ),
+
+          // ─── Severity Badge ────────────────────────────────────────────
+          _section(
+            title: 'Severity Badge',
+            children: const [
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  SeverityBadge(severity: Severity.critical),
+                  SeverityBadge(severity: Severity.important),
+                  SeverityBadge(severity: Severity.informational),
+                  // Custom label while keeping a severity colour.
+                  SeverityBadge(severity: Severity.critical, label: 'URGENT'),
+                ],
               ),
             ],
           ),
