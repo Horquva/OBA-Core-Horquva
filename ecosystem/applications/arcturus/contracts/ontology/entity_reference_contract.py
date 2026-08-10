@@ -1,6 +1,9 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from .ontology_snapshot_contract import SimulationContext
+from ecosystem.applications.arcturus.contracts.shared.base_models import (
+    SimulationContext, 
+    ContractEnvelope
+)
 
 class EntityReference(BaseModel):
     """
@@ -23,10 +26,10 @@ class EntityReference(BaseModel):
         description="Optional context, such as 'Entity state is degraded' or resolution warnings"
     )
 
-class EntityReferenceContract(SimulationContext):
+class EntityReferenceContract(ContractEnvelope):
     """
     Validates the existence and state of organizational entities targeted by a scenario.
-    Handoff to: Scenario Engineering Platform (Maryam)
+    Wrapped in the shared ContractEnvelope per architectural directives.
     """
     scenario_target_id: str = Field(
         ..., 

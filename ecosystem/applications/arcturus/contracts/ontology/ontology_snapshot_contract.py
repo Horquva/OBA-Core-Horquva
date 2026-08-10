@@ -1,28 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
-
-# ---------------------------------------------------------
-# 1. BASE CONTEXT (Mandatory for all Arcturus payloads)
-# ---------------------------------------------------------
-class SimulationContext(BaseModel):
-    """
-    Base execution context guaranteeing deterministic runs across platforms.
-    """
-    run_id: str = Field(
-        ..., 
-        description="Unique identifier for the current simulation run"
-    )
-    experiment_id: str = Field(
-        ..., 
-        description="Identifier for the overarching scenario experiment"
-    )
-    global_seed: int = Field(
-        ..., 
-        description="Global seed to ensure deterministic entity resolution and state transitions"
-    )
-
+from ecosystem.applications.arcturus.contracts.shared.base_models import (
+    SimulationContext, 
+    ContractEnvelope
+)
 # --------------------------------
-# 2. CORE CONSTITUTIONAL ENTITIES
+# 1. CORE CONSTITUTIONAL ENTITIES
 # --------------------------------
 
 class OrganizationState(BaseModel):
@@ -120,12 +103,12 @@ class RelationshipState(BaseModel):
     relationship_type: str = Field(..., description="Directionality (e.g., Parent-to-Child, Peer-to-Peer)")
 
 # ---------------------------------------------------------
-# 3. THE BOOTSTRAP CONTRACT
+# 2. THE BOOTSTRAP CONTRACT
 # ---------------------------------------------------------
-class OntologySnapshotContract(SimulationContext):
+class OntologySnapshotContract(ContractEnvelope):
     """
     Immutable, versioned domain state for clock ticks and deterministic replay.
-    Upstream platforms will build against this exact shape.
+    Wrapped in the shared ContractEnvelope per architectural directives.
     """
     snapshot_version: str = Field(
         default="1.0", 
