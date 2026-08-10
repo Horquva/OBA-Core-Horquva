@@ -19,3 +19,6 @@ backend/.env
 
 # Internal planning docs
 FRONTEND_PLAN.md
+
+# Sentinel local database
+security_quality_platform/sentinel_security_quality.db
