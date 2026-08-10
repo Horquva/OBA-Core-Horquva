@@ -1,4 +1,16 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+
+from security_quality_platform.api.routes import router
+from security_quality_platform.database import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
 
 app = FastAPI(
     title="Sentinel Security Quality & Compliance Platform",
@@ -7,7 +19,10 @@ app = FastAPI(
         "Independent security verification, evidence, compliance, trust, "
         "regression and certification control plane for Sentinel."
     ),
+    lifespan=lifespan,
 )
+
+app.include_router(router)
 
 
 @app.get("/health")
