@@ -337,9 +337,23 @@ class CertificationResponse(BaseModel):
     model_config = {"from_attributes": True}
     
     
+# ---------------------------------------------------------------------------
+# CI/CD Verification Ingestion
+# ---------------------------------------------------------------------------
+
+class VerificationIngestRequest(BaseModel):
+    assessment_id: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    check_type: str = Field(min_length=1)
+    result: TestResult
+    evidence_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[a-fA-F0-9]{64}$",
+    )
+    artifact_reference: str | None = None
+    actor: str = Field(min_length=1)    
     
-    
-    
+
     
     
     

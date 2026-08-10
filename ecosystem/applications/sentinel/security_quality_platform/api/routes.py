@@ -83,6 +83,7 @@ from security_quality_platform.api.schemas import (
     ExceptionCreateRequest,
     ExceptionResponse,
     ExceptionTransitionRequest,
+    VerificationIngestRequest
 )
 from security_quality_platform.domain.enums import ExceptionStatus
 from security_quality_platform.domain.models import ExceptionRecord
@@ -1009,14 +1010,70 @@ def list_audit_records(
     
     
     
+@router.post("/maintenance/enforce-expirations")
+def run_expiry_enforcement(
+    db: Session = Depends(get_db),
+):
+    return enforce_expirations(db)
     
     
-    
-    
-    
-    
-    
-    
+@router.post("/verification/ingest")
+def ingest_verification_result(
+    payload: VerificationIngestRequest,
+    db: Session = Depends(get_db),
+):
+    assessment = db.get(Assessment, payload.assessment_id)
+
+    if assessment is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Assessment not found",
+        )
+
+    evidence_id = None
+
+    if payload.evidence_sha256 and payload.artifact_reference:
+        evidence = Evidence(
+            assessment_id=assessment.id,
+            evidence_type=payload.check_type,
+            source=payload.source,
+            storage_reference=payload.artifact_reference,
+            sha256=payload.evidence_sha256.lower(),
+            provenance=f"CI/CD ingestion from {payload.source}",
+            collected_by=payload.actor,
+            integrity_verified=False,
+        )
+
+        db.add(evidence)
+        db.flush()
+        evidence_id = evidence.id
+
+    audit = AuditRecord(
+        correlation_id=assessment.correlation_id,
+        actor=payload.actor,
+        action="VERIFICATION_RESULT_INGESTED",
+        resource_type="Assessment",
+        resource_id=assessment.id,
+        previous_state=None,
+        new_state=payload.result.value,
+        details=(
+            f"source={payload.source}; "
+            f"check_type={payload.check_type}; "
+            f"evidence_id={evidence_id}"
+        ),
+    )
+
+    db.add(audit)
+    db.commit()
+
+    return {
+        "assessment_id": assessment.id,
+        "source": payload.source,
+        "check_type": payload.check_type,
+        "result": payload.result.value,
+        "evidence_id": evidence_id,
+        "status": "INGESTED",
+    }
     
     
     
