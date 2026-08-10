@@ -1,6 +1,6 @@
 # ANTARES ENGINEERING OPERATIONS PLATFORM
 ### Owner: Kamil Ejaz — Engineering Lead
-### Status: Din 1 ✅ | Din 2 ✅ (persistence + status board added) | baaki Din progressively ban rahe hain
+### Status: Din 1 ✅ | Din 2 ✅ | Din 3-4 ✅ | Din 5 ✅ (CI: lint + build + tests automated) | baaki Din progressively ban rahe hain
 
 ---
 
@@ -32,19 +32,29 @@ nahi. Isko run kar ke tum khud dekh sakte ho ke ye:
 antares-engops/
 ├── package.json
 ├── dashboard-data.json      ← demo chalane ke baad auto-generate hota hai
+├── .github/
+│   └── workflows/
+│       └── ci.yml            ← Din 5: GitHub Actions — har push/PR par khud CI chalata hai (NAYA)
+├── scripts/
+│   ├── lint.js                ← Din 5: static code checks (NAYA)
+│   ├── buildcheck.js          ← Din 5: syntax/build verification (NAYA)
+│   └── ci.js                   ← Din 5: poora pipeline — lint → build → tests (NAYA)
 ├── store/
 │   └── state.json           ← Din 2: persisted data (demo chalane ke baad banta hai)
 ├── src/
-│   ├── models.js            ← Platform, Job, Status enum, Event
-│   ├── persistence.js        ← Din 2: save/load state to disk (NAYA)
-│   ├── board.js               ← Din 2: standalone status board (NAYA)
-│   ├── qualityGates.js       ← real validation checks (Din 5)
-│   ├── engine.js             ← poora orchestration engine (Din 3,4,6,7)
+│   ├── models.js            ← Platform, Job, Execution, Status enum, Event
+│   ├── persistence.js        ← Din 2: save/load state to disk
+│   ├── board.js               ← Din 2: standalone status board
+│   ├── cli.js                  ← Din 3-4: Engineering API / command-line interface
+│   ├── qualityGates.js       ← real validation checks (Din 5, job-output level)
+│   ├── engine.js             ← poora orchestration engine (Din 3,4,6,7) — ab Execution tracking ke sath
 │   ├── seed.js                ← 10 real Antares platforms register karta hai
 │   └── demo.js                ← end-to-end live demo (Din 10) — ab persist bhi karta hai
 └── test/
     ├── engine.test.js         ← 15 automated tests (Din 8-9)
-    └── persistence.test.js    ← 4 automated tests, Din 2 (NAYA)
+    ├── persistence.test.js    ← 4 automated tests, Din 2
+    ├── orchestration.test.js  ← 8 automated tests, Din 3-4
+    └── ci.test.js              ← 3 automated tests, Din 5 (NAYA)
 ```
 
 ---
@@ -53,9 +63,24 @@ antares-engops/
 
 ```bash
 cd antares-engops
-npm test               # 19/19 tests pass honge (15 engine + 4 persistence)
+npm test               # 30/30 tests pass honge (15 engine + 4 persistence + 8 orchestration + 3 CI)
 npm run demo           # poora end-to-end demo console par chalega
-node src/board.js      # Din 2: naya, alag command — saved state se status board dikhata hai
+node src/board.js      # Din 2: saved state se status board dikhata hai
+
+# Din 5: CI pipeline — code push karne se PEHLE ye chalao:
+npm run ci              # lint -> build -> tests, sab ek sath, is order mein
+npm run lint            # sirf lint
+npm run buildcheck      # sirf build/syntax check
+
+# Din 3-4: CLI se live kaam karo (koi bhi command, kabhi bhi):
+node src/cli.js register-platform cap-validation "Capability Validation" "Zara Fatima"
+node src/cli.js create-job J-001 cap-validation "Validate governance capability"
+node src/cli.js start J-001 zara
+node src/cli.js evidence J-001 "source:org-signal-report"
+node src/cli.js submit J-001 "Capability looks strong"
+node src/cli.js history J-001
+node src/cli.js board
+node src/cli.js ask "kya kuch blocked hai?"
 ```
 
 `npm run demo` chalane ke baad 2 files ban jati hain:
@@ -75,8 +100,8 @@ program ke sath nahi marta.
 |---|---|---|
 | **Din 1** | System Map banao | `seed.js` mein poori chain register hoti hai; README + dashboard mein poora map dikhta hai |
 | **Din 2** | Foundation — task/dependency/ownership/evidence tracking, basic dashboard | `models.js` (Platform, Job, Evidence) + `engine.js` ka `attachEvidence()`, `getSystemHealth()` — **plus `persistence.js` (save/load to disk) aur `board.js` (standalone status board) jo Din 2 mein add hue** |
-| **Din 3-4** | Live orchestration — Job Model, status flow QUEUED→RUNNING→VALIDATING→PASSED→INTEGRATED→RELEASE_READY | `engine.js` — `start()`, `submitForValidation()`, `integrate()`, `releaseReady()`, aur `ALLOWED_TRANSITIONS` jo illegal jump reject karta hai |
-| **Din 5** | CI/CD + Quality Gates — broken output silently na phaile | `qualityGates.js` — 5 real checks: dependency integrity, required fields, no-mock-markers, evidence-present, self-tests |
+| **Din 3-4** | Live orchestration — Job Model (Platform·Task·Dependency·Execution·Status), status flow QUEUED→RUNNING→VALIDATING→PASSED→INTEGRATED→RELEASE_READY | `engine.js` — `start()`, `submitForValidation()`, `integrate()`, `releaseReady()`, `ALLOWED_TRANSITIONS` (illegal jump reject karta hai) — **plus `models.js` ka naya `Execution` model (har attempt ka alag record) aur `cli.js` (Engineering API — command-line se live use)** |
+| **Din 5** | CI/CD + Quality Gates — broken output silently na phaile | `qualityGates.js` (job-output gate, 5 checks) — **plus naya: `scripts/lint.js` (code static checks), `scripts/buildcheck.js` (syntax/build), `scripts/ci.js` (poora pipeline, fail-fast), `.github/workflows/ci.yml` (har push/PR par khud chalta hai)** |
 | **Din 6** | Observability — System/Engineering/Platform health, clean dashboard | `engine.js` ka `getSystemHealth()` + `getPlatformHealth()` + React dashboard artifact |
 | **Din 7** | AI Engineering Ops Assistant — "kaunsa platform blocked hai? kyun?" real data se | `engine.js` ka `askAssistant()` + `explainBlock()` + `explainFailure()` — deterministic, LLM nahi, isliye kabhi hallucinate nahi karta |
 | **Din 8-9** | System-wide integration test, failures intentionally introduce karo | `test/engine.test.js` — 15 tests jisme dependency-blocking, gate-failure, retry, illegal-transition sab cover hain; `demo.js` mein jaan-boojh kar ek FAILED aur ek BLOCKED case dikhaya gaya hai |
