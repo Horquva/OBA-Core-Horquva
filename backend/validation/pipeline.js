@@ -1,6 +1,33 @@
 function validateInput(input) {
-  if (!input || typeof input !== 'object') {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('Validation input must be an object')
+  }
+
+  const requiredFields = [
+    'logicValid',
+    'industryPatternValid',
+    'internalConsistencyValid',
+    'expectedOutcomeValid',
+  ]
+
+  const missingFields = requiredFields.filter(
+    (field) => !(field in input)
+  )
+
+  if (missingFields.length > 0) {
+    throw new Error(
+      `Validation input is missing required fields: ${missingFields.join(', ')}`
+    )
+  }
+
+  const invalidFields = requiredFields.filter(
+    (field) => typeof input[field] !== 'boolean'
+  )
+
+  if (invalidFields.length > 0) {
+    throw new Error(
+      `Validation input fields must be boolean: ${invalidFields.join(', ')}`
+    )
   }
 
   const checks = {
