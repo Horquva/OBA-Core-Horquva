@@ -1,17 +1,31 @@
 -- ============================================================
 -- OBA — MIGRATION 01: BASE ORGANIZATIONAL SCHEMA
 -- Creates all core organizational tables (M01–M20 foundation).
--- Run this FIRST in the Supabase SQL Editor, in this order:
---   01_schema_migration.sql   (this file — base tables)
---   02_seed_data.sql          (seed base data)
---   03_fizza_modules_schema.sql (intelligence module tables)
---   04_fizza_modules_seed.sql   (seed intelligence data)
--- Safe to re-run: it drops the base tables first, then recreates them.
+--
+-- ⛔ DO NOT RUN THIS FILE BY HAND. NOT IN THE SUPABASE SQL EDITOR,
+--    NOT WITH psql, NOT "just to check".
+--
+--    It begins with DROP TABLE across 36 tables. The whole team shares
+--    ONE database, so running it by hand destroys everyone's data —
+--    including human corrections and snapshots. It is safe for the
+--    SCHEMA and catastrophic for the DATA.
+--
+--    The only supported way to apply this file is:
+--        node run_migrations.js          (from backend/)
+--    which records it in `schema_migrations` and never re-applies it.
+--    `node run_migrations.js --dry-run` is always safe.
+--
+--    Never delete this file's row from `schema_migrations` — that is
+--    what makes the DROP below unreachable on a re-run.
+--
+--    See BUILD_SPEC Part A0 and Part F, threat 1.
+--
+-- Apply order is by filename: 01 → 02 → 03 → 04 → 05 → 06 → …
 -- Tables seeded with explicit ids use SERIAL so that the seed's
 -- setval('<table>_id_seq', N) calls work.
 -- ============================================================
 
--- ── Clean slate (safe re-run) ─────────────────────────────────
+-- ── DESTRUCTIVE. Reachable only on a first apply — see the header ──
 DROP TABLE IF EXISTS
   employees, ai_platforms, agents, owners, workflows,
   employee_agent, agent_platform, dependencies, recommendations,

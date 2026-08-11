@@ -19,3 +19,7 @@ backend/.env
 
 # Internal planning docs
 FRONTEND_PLAN.md
+
+# Never commit any env file (BUILD_SPEC Part F, threat 5)
+.env*
+!.env.example

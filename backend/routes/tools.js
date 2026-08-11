@@ -57,12 +57,40 @@ function normalize(t) {
     departments: Array.isArray(t.departments) ? t.departments : (t.department ? [t.department] : []),
     workflows: Array.isArray(t.workflows) ? t.workflows : [],
     agents_using: Array.isArray(t.agents_using) ? t.agents_using.map(String) : [],
-    monthly_cost_usd: Number(t.monthly_cost_usd != null ? t.monthly_cost_usd : (t.monthly_cost != null ? t.monthly_cost : 0)),
+    // `ai_platforms` spells this `cost_monthly`. Without it every Supabase row
+    // normalised to 0, the "does Supabase have real data?" check below failed,
+    // and the route silently served the local JSON dataset instead.
+    monthly_cost_usd: Number(
+      t.monthly_cost_usd != null ? t.monthly_cost_usd
+        : t.monthly_cost != null ? t.monthly_cost
+          : t.cost_monthly != null ? t.cost_monthly : 0
+    ),
     criticality: (t.criticality || t.risk || 'low'),
     documented: Boolean(t.documented != null ? t.documented : (t.has_policy != null ? t.has_policy : false)),
     backup_tool: (t.backup_tool != null ? t.backup_tool : (t.fallback_tool != null ? t.fallback_tool : null)),
     access_owner: t.access_owner || t.owner || 'Unassigned',
   }
+}
+
+/** Who uses each platform. `ai_platforms` has no users column — the mapping
+ *  lives in `tool_users` (platform_id -> employee_id). Returns
+ *  { [platform_id]: { users: [name], departments: [dept] } }. */
+async function loadPlatformUsers() {
+  const { data: links, error } = await supabase
+    .from('tool_users')
+    .select('platform_id, employees ( name, department )')
+
+  if (error || !Array.isArray(links)) return {}
+
+  const byPlatform = {}
+  for (const l of links) {
+    const e = l.employees
+    if (!e) continue
+    const slot = (byPlatform[l.platform_id] = byPlatform[l.platform_id] || { users: [], departments: [] })
+    if (e.name && !slot.users.includes(e.name)) slot.users.push(e.name)
+    if (e.department && !slot.departments.includes(e.department)) slot.departments.push(e.department)
+  }
+  return byPlatform
 }
 
 router.get('/', async (req, res) => {
@@ -71,7 +99,8 @@ router.get('/', async (req, res) => {
     if (supabase) {
       const { data, error } = await supabase.from('ai_platforms').select('*')
       if (!error && Array.isArray(data) && data.length) {
-        const mapped = data.map(normalize)
+        const usage = await loadPlatformUsers()
+        const mapped = data.map((t) => normalize({ ...t, ...(usage[t.id] || {}) }))
         const spend = mapped.reduce((s, t) => s + t.monthly_cost_usd, 0)
         const users = mapped.reduce((s, t) => s + t.users.length, 0)
         if (spend > 0 || users > 0) return res.json(mapped)
