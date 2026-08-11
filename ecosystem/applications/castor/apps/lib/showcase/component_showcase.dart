@@ -6,6 +6,7 @@ import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
 import '../views/widgets/pill_button.dart';
 import '../views/widgets/severity_badge.dart';
+import '../views/widgets/status_pill.dart';
 import '../views/widgets/tag_chip.dart';
 
 /// A simple gallery screen that displays every reusable component in one place.
@@ -114,6 +115,31 @@ class ComponentShowcase extends StatelessWidget {
                   // Tinted chip: green text on very light green.
                   TagChip(label: 'People', color: AppColors.informational),
                 ],
+              ),
+            ],
+          ),
+
+          // ─── Status Pill ───────────────────────────────────────────────
+          _section(
+            title: 'Status Pill',
+            children: [
+              StatusPill(
+                label: 'All Systems Operational',
+                showChevron: true,
+                onTap: () {},
+              ),
+              const SizedBox(height: AppSpacing.md),
+              // Different status colour (amber = attention needed).
+              const StatusPill(
+                label: 'Attention Needed',
+                dotColor: AppColors.important,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              // Icon instead of a dot (e.g. the "Last updated" pill).
+              StatusPill(
+                label: 'Last updated: 08:42 AM',
+                icon: Icons.power_settings_new,
+                onTap: () {},
               ),
             ],
           ),
