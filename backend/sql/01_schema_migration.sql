@@ -5,7 +5,7 @@
 -- ⛔ DO NOT RUN THIS FILE BY HAND. NOT IN THE SUPABASE SQL EDITOR,
 --    NOT WITH psql, NOT "just to check".
 --
---    It begins with DROP TABLE across 36 tables. The whole team shares
+--    It begins with DROP TABLE across 42 tables. The whole team shares
 --    ONE database, so running it by hand destroys everyone's data —
 --    including human corrections and snapshots. It is safe for the
 --    SCHEMA and catastrophic for the DATA.

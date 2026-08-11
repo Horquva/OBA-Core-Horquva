@@ -228,7 +228,7 @@ shape and passes every rule below. What follows is the contract a *replacement* 
 
 ## Where the reporting lines came from
 
-`backend/sql/01_schema_migration.sql:32` has carried them all along, and **the column is populated**
+`backend/sql/01_schema_migration.sql:46` has carried them all along, and **the column is populated**
 — verified against `sql/02_seed_data.sql`, which fills `manager` on 34 of 40 rows:
 
 ```sql
@@ -354,7 +354,7 @@ sections in Part 0 get filled.
 
 Read before your first commit.
 
-**1. `backend/sql/01_schema_migration.sql` starts with `DROP TABLE IF EXISTS` across 36 tables.** Its
+**1. `backend/sql/01_schema_migration.sql` starts with `DROP TABLE IF EXISTS` across 42 tables.** Its
 comment calls this "Clean slate (safe re-run)." **It is not safe.** It is safe for the *schema* and
 catastrophic for the *data*. Running that file by hand wipes every table for everyone.
 
