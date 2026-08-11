@@ -12,6 +12,7 @@ const tests = [
   'intelligence.verify.test.js',
   'auth.unit.test.js',
   'validation/pipeline.test.js',
+  'validation/input-contract.test.js',
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
 if (process.env.BASE_URL) tests.push('api.smoke.test.js')
