@@ -6,6 +6,7 @@ import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
 import '../views/widgets/pill_button.dart';
 import '../views/widgets/severity_badge.dart';
+import '../views/widgets/stat_item.dart';
 import '../views/widgets/status_pill.dart';
 import '../views/widgets/tag_chip.dart';
 
@@ -140,6 +141,40 @@ class ComponentShowcase extends StatelessWidget {
                 label: 'Last updated: 08:42 AM',
                 icon: Icons.power_settings_new,
                 onTap: () {},
+              ),
+            ],
+          ),
+
+          // ─── Stat Item ─────────────────────────────────────────────────
+          _section(
+            title: 'Stat Item',
+            children: [
+              // Three stats side by side, like the Overview header.
+              // Expanded splits the row evenly so long labels can wrap.
+              const Row(
+                children: [
+                  Expanded(
+                    child: StatItem(
+                      icon: Icons.show_chart,
+                      value: '12,481',
+                      label: 'Signals analyzed',
+                    ),
+                  ),
+                  Expanded(
+                    child: StatItem(
+                      icon: Icons.auto_awesome,
+                      value: '7',
+                      label: 'Material changes',
+                    ),
+                  ),
+                  Expanded(
+                    child: StatItem(
+                      icon: Icons.adjust,
+                      value: '2',
+                      label: 'Require attention',
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
