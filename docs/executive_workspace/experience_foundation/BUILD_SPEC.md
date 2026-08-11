@@ -12,8 +12,9 @@ what made every number disagree with every other number. One of them won and now
 Part 0 has the full story and says what happens to the rest. **Do not merge datasets** — Part 0A
 explains why the loader will reject it.
 
-**One thing is missing and only the team lead can supply it: names.** Every item in **A4** has an
-empty Owner and Reviewer cell. That table is the last gate before this document is handoff-ready.
+**Every item has a named owner and reviewer** — see **A4**, assigned from the team structure of
+2026-08-11. Two of them are flagged there as worth confirming before kickoff, and nobody should hear
+their assignment from this document first.
 
 ### Read in this order
 
@@ -31,8 +32,8 @@ database.
 
 - **Which real company's data we use.** A sourcing problem, not an engineering one — the shape is
   fully specified in Part 0 and Part 0A. See Part F.
-- **Who does each item.** A4's cells are empty. Nothing else in this plan survives contact with a
-  team until they are filled.
+- **Whether each person accepts their assignment.** A4 names everyone, but a name in a table is a
+  proposal, not a commitment. Two cells are explicitly flagged as guesses.
 
 ---
 
@@ -456,30 +457,68 @@ curl -s localhost:3000/api/<your-endpoint> | head -c 400
 
 ## A4 · Who owns each item
 
-**⛔ Every Owner and Reviewer cell is empty. Fill them before anyone starts.** This is the one thing
-this document cannot decide for itself, and it is the difference between W1 taking four days and
-taking three weeks.
+Assigned from the team structure of 2026-08-11. **Affan Ahmed Khan is deliberately in no cell** — as
+Team Lead his job here is unblocking, not owning a ticket. See the two open questions at the end.
 
-| # | Item | Owner | Reviewer | Skill profile | Split into |
+| # | Item | Owner | Reviewer | Why them | Split into |
 |---|---|---|---|---|---|
-| **W1** | Foundations | ⬜ | ⬜ | Express routing + SQL. **The person who knows this codebase best** — W1 calibrates every other estimate | 1 ticket |
-| **W2** | Company dataset intake | ⬜ | ⬜ | Data modelling + the brain's graph. The most senior person available | **8 tickets** — Part C |
-| **W3** | Identity and claims | ⬜ | ⬜ | Thinks in invariants. Small item, high blast radius | 1 ticket |
-| **W4** | Human corrections | ⬜ | ⬜ | **Two people** — one backend, one React | 4 back + 3 front |
-| **W5** | Change over time | ⬜ | ⬜ | Diffing and event modelling. Needs W1b/W1c done first | 3 tickets |
-| **W6** | Provenance and honesty | ⬜ | ⬜ | Touches all 55 modules through one function, plus every page — needs both halves | 2 tickets |
-| **W7** | Missing pages | ⬜ | ⬜ | **Two React people.** Six independent pages — the most parallel item here | 6 tickets, one per page |
-| **W8** | Conversation | ⬜ | ⬜ | Backend-heavy, product judgement required. First on the cut list — **assign last** | 4 back + 2 front |
-| **W9** | Wire the brain to the routes | ⬜ | ⬜ | Understands both the brain and the routes | 1 ticket |
-| **W10** | Close the API | ⬜ | ⬜ | Security-minded backend + one React change. Independent of everything | 2 tickets |
+| **W1** | Foundations | **Muhammad Haroon** | **Saad Mehmood** | Full-stack, backend+frontend integration — W1 is routing and SQL across both halves. ⚠ see note 1 | 1 ticket |
+| **W2** | Company dataset intake | **Saad Mehmood** | **Ahmad Tanveer** | AI Pipeline Architect, "end-to-end cognitive pipeline integrity" — W2 *is* that pipeline, and it is the largest item | **8 tickets** — Part C |
+| **W3** | Identity and claims | **Janita Tahir** | **Saad Mehmood** | Cognitive platforms + the database background this needs. Small, invariant-heavy, high blast radius | 1 ticket |
+| **W4** | Human corrections | **Umer Siddiqui** (back)<br>**Zoya Khaliq** (front) | **Muhammad Haroon** | OCOS intelligence for the write path; Executive Experience for the three shared components. Reviewer sees both halves | 4 back + 3 front |
+| **W5** | Change over time | **Maaz Khan** | **Jawad Zaheer** | OCOS intelligence — snapshot diffing and typed events. Pairs with Aleesha Manahil | 3 tickets |
+| **W6** | Provenance and honesty | **Jawad Zaheer** (back)<br>**Zoya Khaliq** (front) | **Muhammad Ahmed** | Reasoning/intelligence owns confidence banding and `ev()`; the banner is Executive Experience. Pairs with Ahmed Abubakar | 2 tickets |
+| **W7** | Missing pages | **Fatima Asif**<br>**Mushtaq Ahmad** (junior) | **Zoya Khaliq** | Six independent pages — the natural place for a junior to work beside a senior on real tickets | 6 tickets, one per page |
+| **W8** | Conversation | **Muhammad Ahmed** | **Jawad Zaheer** | Reasoning/intelligence — subject resolution across turns. ⛔ **assigned, do not start** — first on the cut list | 4 back + 2 front |
+| **W9** | Wire the brain to the routes | **Ahmad Tanveer** | **Saad Mehmood** | "Reporting / Technical Ownership" — this item owns the one open architectural decision (persist vs live) | 1 ticket |
+| **W10** | Close the API | **Bisma Nadeem** | **Muhammad Haroon** | ⚠ see note 2 | 2 tickets |
 
-**Names, not roles.** A cell reading "Engineering" is an empty cell.
+### The three juniors pair, they do not own
 
-**The gate: no branch is created for a W-item until both its cells are filled.** A blank row is not a
-reason to start anyway — it means nobody has decided this item is happening yet. Say so and wait.
+Per the team structure, all three are on a learning/support track under senior guidance. They get
+real tickets inside someone else's item, not an item of their own:
 
-**One person can own several items. Nobody reviews their own.** On a small team expect names to
-repeat in the Owner column; that is fine. Owner and reviewer being the same person is not.
+| Junior | Pairs with | On |
+|---|---|---|
+| **Aleesha Manahil** | Maaz Khan | W5 — the typed-event tickets |
+| **Ahmed Abubakar** | Jawad Zaheer | W6 — `ev()` and the freshness bands |
+| **Mushtaq Ahmad** | Fatima Asif | W7 — Evidence and Claims, the two smallest pages |
+
+### Two roles outside the items
+
+| Role | Owner | What only they do |
+|---|---|---|
+| **Database** | **Janita Tahir** | Approves every new table (A2), owns the `--baseline` decision (A0), takes the pre-W2 backup, and is the only person who runs anything by hand against Supabase |
+| **Frontend contract** | **Zoya Khaliq** | Owns `frontend/lib/api.ts`. 30 files depend on it; response-shape changes go through this person or the halves diverge silently |
+
+### ⚠ Two assignments to confirm before kickoff
+
+**Note 1 — W1 is a guess.** Its skill profile says *"the person who knows this codebase best,"* and a
+role title cannot tell you that. Muhammad Haroon fits on paper. If someone else has actually been in
+`backend/routes/` and `index.js`, swap them in — W1 calibrates every other estimate in this plan, so
+this is the worst cell to get wrong.
+
+**Note 2 — W10 is deliberately outside its owner's specialty.** Bisma Nadeem is AI/ML on cognitive
+platforms, not security. W10 is assigned to her *because* it is the most mechanically specified item
+here — 46 mount points, three named tiers, an inverted sweep as the test — so it is the safest place
+to work outside your specialty, with a full-stack reviewer. If that reads wrong, swap W10 and W9.
+
+### Load, and the one bottleneck
+
+**Saad Mehmood owns W2 (16–20 pd) and reviews W1, W3 and W9.** That is correct for the architect and
+it is also the single point of failure in this table: three items stall the day he is unavailable.
+If W1 slips for want of an answer, that is the cause. Consider moving the W3 review to Ahmad Tanveer.
+
+Everyone else carries one item plus at most one review. Jawad Zaheer and Bisma Nadeem are the
+lightest and are the first people to pull work toward if something slips.
+
+**Nobody reviews their own item** — checked across all ten rows.
+
+### The gate
+
+**No branch is created for a W-item until both its cells are filled.** They now are. What has *not*
+happened is the conversation — every person above should hear their assignment from Affan before
+they read it here, and say yes.
 
 **The Owner** splits the item into the tickets above · picks the order · **writes the "done when" for
 each ticket before starting it**, in the style of W1's · runs the W1 endpoint sweep before and after ·
@@ -489,13 +528,6 @@ says when the estimate is wrong on the day they know, not at the end.
 item's "done when", not against taste · **checks one number by hand against the database**, which is
 the only thing that catches the class of bug in W1f · blocks merge on a missing value-pinning test, a
 missing `lib/api.ts` method (A1 rule 7), or a `.env` in the diff.
-
-### Two roles outside the items
-
-| Role | Owner | What only they do |
-|---|---|---|
-| **Database** | ⬜ | Approves every new table (A2), owns the `--baseline` decision (A0), takes the pre-W2 backup, and is the only person who runs anything by hand against Supabase |
-| **Frontend contract** | ⬜ | Owns `frontend/lib/api.ts`. 30 files depend on it; response-shape changes go through this person or the halves diverge silently |
 
 ---
 
@@ -621,7 +653,7 @@ nine tickets. What remains is wiring, which is the mechanical part.
 
 ## W1 — Foundations · 3–4 pd · do this first
 
-**Owner** ⬜ · **Reviewer** ⬜
+**Owner** Muhammad Haroon · **Reviewer** Saad Mehmood
 
 **a. 21 written endpoints are unreachable.** Six route files were built and never mounted, because
 `backend/index.js` requires a sibling *file* instead of the *folder* — `require('./routes/x/x')`
@@ -801,7 +833,7 @@ mounts.forEach((m) => scan(m[1], m[2]))
 
 ## W2 — Company dataset intake · 16–20 pd · the main event
 
-**Owner** ⬜ · **Reviewer** ⬜ · Eight tickets, not one.
+**Owner** Saad Mehmood · **Reviewer** Ahmad Tanveer · Eight tickets, not one.
 
 **The problem.** Eight sources feed different parts of the system and none of them agree — see
 Part 0's table, which says what happens to each.
@@ -926,7 +958,7 @@ unknown state. Do not replace one fallback with another.
 
 ## W3 — Identity and claims · 6–8 pd
 
-**Owner** ⬜ · **Reviewer** ⬜ · Quiet, and everything leans on it.
+**Owner** Janita Tahir · **Reviewer** Saad Mehmood · Quiet, and everything leans on it.
 
 **The problem.** Three identity systems, nothing joining them:
 
@@ -969,7 +1001,7 @@ answer OBA gives carries a `truth_claims.id` that returns the claim.
 
 ## W4 — Human corrections · 18–24 pd (10–14 backend + 8–10 frontend)
 
-**Owner** ⬜ · **Reviewer** ⬜ · **Two people**, one per half.
+**Owner** Umer Siddiqui (backend) and Zoya Khaliq (frontend) · **Reviewer** Muhammad Haroon
 
 **The problem.** Nothing in 203 endpoints lets a person say "that's wrong." The system asserts and
 the human watches.
@@ -1057,7 +1089,7 @@ Add each endpoint's method to `frontend/lib/api.ts` in the same PR (A1 rule 7).
 
 ## W5 — Change over time · 13–17 pd (10–14 backend + 3 frontend)
 
-**Owner** ⬜ · **Reviewer** ⬜
+**Owner** Maaz Khan · **Reviewer** Jawad Zaheer · Aleesha Manahil pairs on the event tickets.
 
 **The problem.** `history` in the dataset is monthly rollups — headcount, cost, risk index. Nothing
 records that *this person* stopped owning *that agent* on the 14th.
@@ -1093,7 +1125,8 @@ it into exactly two places:
 
 ## W6 — Provenance and honesty · 8–10 pd
 
-**Owner** ⬜ · **Reviewer** ⬜
+**Owner** Jawad Zaheer (backend) and Zoya Khaliq (frontend) · **Reviewer** Muhammad Ahmed ·
+Ahmed Abubakar pairs on `ev()`.
 
 **Where:** `implementations.js:21` · `IMPL.M01`, `IMPL.M15`, `IMPL.M46` · a banner in
 `frontend/components/global/` · every page.
@@ -1117,7 +1150,9 @@ it into exactly two places:
 
 ## W7 — Missing pages · 12–16 pd
 
-**Owner** ⬜ · **Reviewer** ⬜ · **Six independent tickets, one per page** — the most parallelisable
+**Owner** Fatima Asif, with Mushtaq Ahmad on Evidence and Claims · **Reviewer** Zoya Khaliq
+
+**Six independent tickets, one per page** — the most parallelisable
 item in the plan, and the natural place for two React people.
 
 23 view folders exist. Six of the eleven the product needs don't: **People · Teams · Systems ·
@@ -1232,7 +1267,8 @@ pages without working search is unusable.
 
 ## W8 — Conversation · 19–23 pd (14–18 backend + 5 frontend)
 
-**Owner** ⬜ · **Reviewer** ⬜ · **Assign last** — see the start order.
+**Owner** Muhammad Ahmed · **Reviewer** Jawad Zaheer · ⛔ **Assigned but do not start** — see the
+start order and the cut list.
 
 **What exists:** `routes/executive/executive.js` has `/ask`, `/questions`, `/history`.
 `routes/voice/voice.js` has `/ask`, `/intents`, `/history` plus `intentParser.js`. Tables
@@ -1269,7 +1305,7 @@ Two follow-up-only intents: "what's the evidence" and "how reliable is that".
 
 ## W9 — Wire the brain to the routes · 6–8 pd
 
-**Owner** ⬜ · **Reviewer** ⬜ · This owner also makes the architectural call below.
+**Owner** Ahmad Tanveer · **Reviewer** Saad Mehmood · This owner makes the architectural call below.
 
 **The problem.** 55 modules compute ownership, risk and dependencies from the graph. 38 of 46 route
 mounts compute the same things from Supabase. **One route file of 66 uses the brain** —
@@ -1299,7 +1335,7 @@ and isn't needed for the demo.
 
 ## W10 — Close the API · 6–9 pd (4–6 backend + 2–3 frontend)
 
-**Owner** ⬜ · **Reviewer** ⬜ · Depends on nothing. Can start day one.
+**Owner** Bisma Nadeem · **Reviewer** Muhammad Haroon · Depends on nothing. Can start day one.
 
 **The problem, counted exactly.** 66 route files hold **203 endpoints** — 183 `GET`, 19 `POST`, one
 `DELETE`. `requireAuth` is applied to **one** (`GET /api/auth/me`); `requireRole` to **zero**.
@@ -1634,8 +1670,8 @@ Fix or delete both.
 
 **0. Before any W-item — three things that block or endanger everyone.**
 
-- **Fill in A4.** Ten owners, ten reviewers, two standing roles. An hour of one person's attention,
-  and every estimate in Part C depends on it.
+- ✅ **A4 is filled in.** Ten owners, ten reviewers, two standing roles, three juniors paired.
+  **Still do: talk to all fourteen people** and confirm notes 1 and 2 in A4.
 - **Give each developer their own Supabase project** (threat 1).
 - **Start sourcing a real company** (Part F). No longer a blocker for building — `data/company.json`
   covers that — but it is still the blocker for anyone trusting the answers, and it has a long lead
