@@ -1307,8 +1307,8 @@ Two follow-up-only intents: "what's the evidence" and "how reliable is that".
 
 **Owner** Ahmad Tanveer · **Reviewer** Saad Mehmood · This owner makes the architectural call below.
 
-**The problem.** 55 modules compute ownership, risk and dependencies from the graph. 38 of 46 route
-mounts compute the same things from Supabase. **One route file of 66 uses the brain** —
+**The problem.** 55 modules compute ownership, risk and dependencies from the graph. **54 of 66 route
+files compute the same things from Supabase, and exactly one uses the brain** —
 `routes/intelligence/prediction.js`. Two systems answering the same question differently is the most
 visible way this product loses credibility.
 
