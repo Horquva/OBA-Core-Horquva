@@ -65,7 +65,7 @@ has no table for, and those are authored fresh against the surviving cast.
 
 | Source | What it is | Who reads it | Disposition |
 |---|---|---|---|
-| `data/company.json` | **the company** — 11 sections, 40 people | nothing yet — W2 wires it | **the single source** |
+| `data/company.json` | **the company** — 17 sections, 40 people | nothing yet — W2 wires it | **the single source** |
 | Supabase (70 tables) | the same company, plus ~50 tables of computed output | **54 of 66 route files** | stays: written from the dataset by `toTables.js`, and the store for everything computed or human-written |
 | `data/sunrise_care.json` | a different company, 8 first names | `intelligence/constitutional.js`, `tools.js`, `avatar/index.js`, `automation/index.js`, `selfHealing/index.js` | **deleted**; those five routes repoint to Supabase like the other 54 |
 | `graphSeeder.js` | "Horquva Pilot Org", 16 entities | the brain, all 55 modules | `graphLoader.js` becomes the default. **Deleted once `systems` is authored** — that is the last entity type it holds alone |
@@ -145,24 +145,17 @@ stay `null` and render as R-3 `NOT_INGESTED`. Do not infer the rest from tool na
 
 ### Why `organization`, `departments`, `processes` and `policies` are here
 
-**They are what made `graphSeeder.js` impossible to delete.** Those four entity types —
-`organization`, `department`, `process`, `policy` — existed *only* in Horquva Pilot Org. Any dataset
-without them leaves the graph with no org node, no departments, and nothing for M19 Governance or
-M20 Accountability to reason about, which is why a second company had to stay behind.
+**They are what made `graphSeeder.js` impossible to delete.** Those four entity types existed *only*
+in Horquva Pilot Org. Without them the graph has no org node, no departments, and nothing for M19
+Governance or M20 Accountability to work on — so a second company had to stay behind to supply them.
 
-They are now sourced from the real cast: departments from `department_exposure` joined to their
-head, policies from `tool_policies` and `accountability_entities`, processes and their accountable
-owners from the RACI links in `accountability_links`.
+They now come from the real cast: departments from `department_exposure` joined to their head,
+policies from `tool_policies` and `accountability_entities`, processes and their accountable owners
+from `accountability_links`.
 
-**The six roots turned out to be exactly the six department heads** — Robert Chen/Engineering, Lisa
-Wang/Product, Jennifer Foster/Operations, Nathan Wright/Data, Rebecca Stone/Sales, Victoria
-Adams/Finance. That gives the graph a real organization → department → people hierarchy from one
-cast, which is what Horquva Pilot Org was faking.
-
-**`graphSeeder.js` now covers nothing this file doesn't.** With `systems` authored, every entity type
-it held alone is sourced here, and `collaborations` replaces the only relationship type it uniquely
-demonstrated. It is content-redundant today and **gets deleted in W2, the moment `graphLoader.js`
-exists** — not before, because `runtime.js:63` still boots the brain from it.
+**`graphSeeder.js` is now content-redundant** — every type it held alone is sourced here, and
+`collaborations` replaces the only relationship type it uniquely demonstrated. It is deleted in W2
+**the moment `graphLoader.js` exists**, and not before: `runtime.js:63` still boots the brain from it.
 
 ### ⚠ The dataset now contains three real R-1 `CONFLICT` cases — keep them
 
@@ -389,7 +382,8 @@ and read what it lists.
 ## A1 · Branching and review
 
 1. Branch from `ocos/develop`. Never from `main`.
-2. One item = one branch = one PR. `feat/W3-ownership-override`.
+2. **One ticket = one branch = one PR** — not one item. W2 is eight tickets and eight PRs.
+   Name the branch for the ticket: `feat/W2-graph-loader`, `feat/W4-ownership-override`.
 3. Tell the reviewer when it's ready — branch name and item id.
 4. Rebase on `ocos/develop` before review.
 5. Tests in the same PR.
@@ -439,7 +433,13 @@ you change the API port.
 1. `curl http://localhost:3000/api/dashboard` returns JSON containing `"totalEmployees":40`
 2. The backend log reads `Organizational Brain: READY — 55/55 modules, 55 capabilities`
 3. `npm test` in `backend/` prints `ALL TEST SUITES PASSED`
-4. `http://localhost:3001` loads the dashboard with no red error box
+4. `http://localhost:3001` renders with no red error box — the **sign-in page** on a fresh browser,
+   or the **Executive Command Center** dashboard once you have signed in
+
+⚠ **The UI is behind a login wall, so a sign-in screen is correct, not a broken build.** `app_users`
+is empty, so sign in with the `ADMIN_EMAIL` and `ADMIN_PASSWORD` already in your `backend/.env` —
+`routes/auth/auth.js:86` falls back to them when no user rows exist. The token is kept in
+`localStorage`, so you will land on the dashboard from then on.
 
 If (1) fails, your `.env` is wrong — check `DATABASE_URL` uses the **pooler** host, not
 `db.<ref>.supabase.co`, which is IPv6-only and will not resolve on most machines.
@@ -793,8 +793,8 @@ violations shipping today, and `lesson_learned` has no source at all — there i
   real number. *(f)*
 
 **Reproduce the endpoint sweep before claiming (a) is done** — a count is the only way to know you
-didn't break something else while mounting six routers. Save as `backend/tools/sweep.js`, start the
-server, run `node tools/sweep.js`:
+didn't break something else while mounting six routers. It is committed at
+`backend/tools/sweep.js` — start the server, then `node tools/sweep.js`:
 
 ```js
 // Lists every GET reachable through index.js and its status. Read-only.
@@ -869,8 +869,11 @@ the other, and nothing reads the file directly except the two loaders.
   *report* the six roots rather than reject them.
 - `backend/sql/07_employee_status.sql` — the two new columns Part 0A needs, `status` and `left_at`.
 - `backend/lib/company/toTables.js` — dataset → the existing Supabase tables: `employees`, `agents`,
-  `ai_platforms`, `workflows`, `dependencies`, `knowledge_assets`. Do not create parallel ones. It
-  must be idempotent — running it twice changes nothing.
+  `ai_platforms`, `workflows`, `dependencies`, `knowledge_assets`. Do not create parallel ones.
+  ⛔ **Upsert on the natural key. Never `DELETE`, never `TRUNCATE`.** 33 foreign keys point at these
+  tables from roughly 50 tables of computed output; clearing and re-inserting either fails on the
+  constraints or cascades away work nobody can regenerate. Running it twice must change no rows —
+  prove that with a test.
 - ⚠ `backend/sql/08_authored_sections.sql` — **four genuinely new tables**: `systems`, `incidents`,
   `decisions_log`, `external_entities`. These are the sections with no source table, so unlike
   everything else in this item there is nothing to reuse. This is also why
@@ -1359,7 +1362,8 @@ writes.
 
    | Tier | What's in it | Middleware |
    |---|---|---|
-   | **Public** | `POST /api/auth/register`, `/login`, `/reset-password`, and one liveness endpoint | none |
+   | **Public** | `POST /api/auth/login`, `/reset-password`, and one liveness endpoint | none |
+   | **Registration** | ⚠ `POST /api/auth/register` — **not public.** Leaving it open lets anyone create an account and then read all 183 GETs, which defeats the item. Make it `requireAuth, requireRole('admin')` after the first admin exists | `requireAuth, requireRole('admin')` |
    | **Authenticated read** | every other `GET` — 183 minus the liveness one | `requireAuth` |
    | **Privileged write** | every `POST`/`PUT`/`DELETE` outside auth, including all of W4's | `requireAuth, requireRole('admin','executive')` |
 
