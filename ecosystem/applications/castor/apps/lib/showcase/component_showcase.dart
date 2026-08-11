@@ -6,6 +6,7 @@ import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
 import '../views/widgets/pill_button.dart';
 import '../views/widgets/severity_badge.dart';
+import '../views/widgets/tag_chip.dart';
 
 /// A simple gallery screen that displays every reusable component in one place.
 ///
@@ -93,6 +94,25 @@ class ComponentShowcase extends StatelessWidget {
                   SeverityBadge(severity: Severity.informational),
                   // Custom label while keeping a severity colour.
                   SeverityBadge(severity: Severity.critical, label: 'URGENT'),
+                ],
+              ),
+            ],
+          ),
+
+          // ─── Tag Chip ──────────────────────────────────────────────────
+          _section(
+            title: 'Tag Chip',
+            children: [
+              const Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  TagChip(label: 'Operations'),
+                  TagChip(label: 'Risk'),
+                  TagChip(label: 'Finance'),
+                  TagChip(label: 'Security'),
+                  // Tinted chip: green text on very light green.
+                  TagChip(label: 'People', color: AppColors.informational),
                 ],
               ),
             ],
