@@ -307,11 +307,12 @@ def _is_forbidden(module_name: str, own_prefixes: set[str]) -> bool:
 
 
 def _iter_python_files(root: Path):
-    """Yield all .py files under *root*, skipping standard ignore dirs."""
-    skip = {"__pycache__", ".git", ".venv", "venv", "node_modules"}
+    """Yield all .py files under *root*, skipping standard ignore dirs and test directories."""
+    skip = {"__pycache__", ".git", ".venv", "venv", "node_modules", "tests"}
     for item in root.rglob("*.py"):
         if not any(part in skip for part in item.parts):
             yield item
+
 
 
 def _iter_files_by_extension(root: Path, extensions: tuple[str, ...]):

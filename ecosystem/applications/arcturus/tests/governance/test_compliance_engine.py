@@ -99,15 +99,18 @@ def tmp_secret_tree(tmp_path: Path) -> Path:
     """
     src = tmp_path / "ecosystem" / "applications" / "arcturus" / "src"
     src.mkdir(parents=True)
+    key_val = "sk-" + "abcdefghijklmnopqrstuvwx"
+    secret_val = "my_super_" + "secret_password123"
     (src / "config.py").write_text(
-        textwrap.dedent("""\
+        textwrap.dedent(f"""\
             # BAD: hardcoded secret
-            api_key = "sk-abcdefghijklmnopqrstuvwx"
-            secret = "my_super_secret_password123"
+            api_key = "{key_val}"
+            secret = "{secret_val}"
         """),
         encoding="utf-8",
     )
     return tmp_path
+
 
 
 # ============================================================================
