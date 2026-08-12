@@ -15,6 +15,7 @@ from ecosystem.applications.arcturus.contracts.simulation.base_models import (
     ExecutionStatus,
     RunHistoryRecord,
 )
+from ecosystem.applications.arcturus.contracts.synthetic_data.base_models import SyntheticGenerationResult
 from ecosystem.applications.arcturus.src.simulation.checkpoint_store import CheckpointStore
 
 
@@ -36,12 +37,20 @@ class RuntimeEngine:
     def initialize_run(
         self,
         context: SimulationContext,
-        synthetic_seed_data: dict[str, Any] | None = None,
+        synthetic_result: SyntheticGenerationResult | None = None,
     ) -> None:
         if self._status != ExecutionStatus.CREATED:
             raise BusinessRuleViolation(f"initialize_run() called from invalid state: {self._status}")
+        if synthetic_result is not None and synthetic_result.context.run_id != context.run_id:
+            raise BusinessRuleViolation(
+                "synthetic_result.context does not match this run's SimulationContext"
+            )
         self._context = context
-        self._state = {"seed_data": synthetic_seed_data or {}}
+        self._state = {
+            "artifacts": [a.model_dump() for a in synthetic_result.artifacts] if synthetic_result else [],
+            "relationships": [r.model_dump() for r in synthetic_result.relationships] if synthetic_result else [],
+            "deterministic_fingerprint": synthetic_result.deterministic_fingerprint if synthetic_result else None,
+        }
         self._clock_step = 0
         self._started_at = datetime.now(timezone.utc)
         self._status = ExecutionStatus.INITIALIZED
