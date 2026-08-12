@@ -22,7 +22,7 @@ const path = require('path');
  */
 
 const SRC_DIR = path.join(__dirname, '..', 'src');
-const PRINT_ALLOWED_FILES = new Set(['demo.js', 'board.js', 'cli.js']);
+const PRINT_ALLOWED_FILES = new Set(['demo.js', 'board.js', 'cli.js', 'dashboard.js']);
 
 function listJsFiles(dir) {
   return fs.readdirSync(dir).filter((f) => f.endsWith('.js'));

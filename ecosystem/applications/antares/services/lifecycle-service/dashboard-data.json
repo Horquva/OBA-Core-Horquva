@@ -5,77 +5,77 @@
       "name": "Technology Intelligence",
       "owner": "Aurangzeb Malik",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.042Z"
+      "registeredAt": "2026-08-12T03:45:34.217Z"
     },
     {
       "id": "org-futures",
       "name": "Organizational Futures Engineering",
       "owner": "Muhammad Muzammel Aslam",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     },
     {
       "id": "future-signal",
       "name": "Future-Signal Intelligence",
       "owner": "Syed Hadeed Safdar",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     },
     {
       "id": "future-org",
       "name": "Future Organization Engineering (AI Agents)",
       "owner": "Zeeshan Farooq",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     },
     {
       "id": "aiml-intel",
       "name": "AI/ML Intelligence (within Future Organization)",
       "owner": "Muhammad Hasnain Ajmal",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     },
     {
       "id": "trust-gov",
       "name": "Trust & Governance Intelligence",
       "owner": "Kanwal Raveen",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     },
     {
       "id": "cap-validation",
       "name": "Capability Validation",
       "owner": "Zara Fatima",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     },
     {
       "id": "enterprise-validation",
       "name": "Enterprise Validation",
       "owner": "Ammara Nasir",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     },
     {
       "id": "knowledge-ops",
       "name": "Knowledge Operationalization",
       "owner": "Laiba Mahboob",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     },
     {
       "id": "cap-ops",
       "name": "Capability Operationalization",
       "owner": "Abbas Raza",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     },
     {
       "id": "eng-ops",
       "name": "Engineering Operations",
       "owner": "Kamil Ejaz",
       "description": "",
-      "registeredAt": "2026-08-09T04:16:54.073Z"
+      "registeredAt": "2026-08-12T03:45:34.220Z"
     }
   ],
   "jobs": [
@@ -102,7 +102,7 @@
       "evidence": [
         {
           "ref": "source:governance-radar-report-2026",
-          "attachedAt": "2026-08-09T04:16:54.107Z"
+          "attachedAt": "2026-08-12T03:45:34.237Z"
         }
       ],
       "qualityGateResult": {
@@ -134,32 +134,35 @@
             "message": "1/1 declared self-tests passed"
           }
         ],
-        "evaluatedAt": "2026-08-09T04:16:54.110Z"
+        "evaluatedAt": "2026-08-12T03:45:34.238Z"
       },
+      "executions": [
+        "EXEC-1"
+      ],
       "history": [
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.106Z",
+          "at": "2026-08-12T03:45:34.236Z",
           "note": "Job created"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.107Z",
+          "at": "2026-08-12T03:45:34.237Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.108Z",
+          "at": "2026-08-12T03:45:34.237Z",
           "note": "Quality gates running"
         },
         {
           "status": "PASSED",
-          "at": "2026-08-09T04:16:54.110Z",
+          "at": "2026-08-12T03:45:34.238Z",
           "note": "All quality gates passed"
         },
         {
           "status": "INTEGRATED",
-          "at": "2026-08-09T04:16:54.125Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Consumed by downstream platform"
         }
       ]
@@ -188,7 +191,7 @@
       "evidence": [
         {
           "ref": "ref:J-TECH-01",
-          "attachedAt": "2026-08-09T04:16:54.112Z"
+          "attachedAt": "2026-08-12T03:45:34.239Z"
         }
       ],
       "qualityGateResult": {
@@ -220,32 +223,35 @@
             "message": "1/1 declared self-tests passed"
           }
         ],
-        "evaluatedAt": "2026-08-09T04:16:54.112Z"
+        "evaluatedAt": "2026-08-12T03:45:34.240Z"
       },
+      "executions": [
+        "EXEC-2"
+      ],
       "history": [
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.111Z",
+          "at": "2026-08-12T03:45:34.239Z",
           "note": "Job created"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.112Z",
+          "at": "2026-08-12T03:45:34.239Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.112Z",
+          "at": "2026-08-12T03:45:34.239Z",
           "note": "Quality gates running"
         },
         {
           "status": "PASSED",
-          "at": "2026-08-09T04:16:54.113Z",
+          "at": "2026-08-12T03:45:34.240Z",
           "note": "All quality gates passed"
         },
         {
           "status": "INTEGRATED",
-          "at": "2026-08-09T04:16:54.125Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Consumed by downstream platform"
         }
       ]
@@ -278,7 +284,7 @@
       "evidence": [
         {
           "ref": "ref:J-SIGNAL-01",
-          "attachedAt": "2026-08-09T04:16:54.114Z"
+          "attachedAt": "2026-08-12T03:45:34.240Z"
         }
       ],
       "qualityGateResult": {
@@ -310,32 +316,35 @@
             "message": "1/1 declared self-tests passed"
           }
         ],
-        "evaluatedAt": "2026-08-09T04:16:54.114Z"
+        "evaluatedAt": "2026-08-12T03:45:34.240Z"
       },
+      "executions": [
+        "EXEC-3"
+      ],
       "history": [
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.113Z",
+          "at": "2026-08-12T03:45:34.240Z",
           "note": "Job created"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.114Z",
+          "at": "2026-08-12T03:45:34.240Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.114Z",
+          "at": "2026-08-12T03:45:34.240Z",
           "note": "Quality gates running"
         },
         {
           "status": "PASSED",
-          "at": "2026-08-09T04:16:54.114Z",
+          "at": "2026-08-12T03:45:34.240Z",
           "note": "All quality gates passed"
         },
         {
           "status": "INTEGRATED",
-          "at": "2026-08-09T04:16:54.125Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Consumed by downstream platform"
         }
       ]
@@ -364,7 +373,7 @@
       "evidence": [
         {
           "ref": "ref:J-ORGFUT-01",
-          "attachedAt": "2026-08-09T04:16:54.115Z"
+          "attachedAt": "2026-08-12T03:45:34.241Z"
         }
       ],
       "qualityGateResult": {
@@ -396,32 +405,35 @@
             "message": "1/1 declared self-tests passed"
           }
         ],
-        "evaluatedAt": "2026-08-09T04:16:54.115Z"
+        "evaluatedAt": "2026-08-12T03:45:34.241Z"
       },
+      "executions": [
+        "EXEC-4"
+      ],
       "history": [
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.115Z",
+          "at": "2026-08-12T03:45:34.241Z",
           "note": "Job created"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.115Z",
+          "at": "2026-08-12T03:45:34.241Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.115Z",
+          "at": "2026-08-12T03:45:34.241Z",
           "note": "Quality gates running"
         },
         {
           "status": "PASSED",
-          "at": "2026-08-09T04:16:54.115Z",
+          "at": "2026-08-12T03:45:34.241Z",
           "note": "All quality gates passed"
         },
         {
           "status": "INTEGRATED",
-          "at": "2026-08-09T04:16:54.125Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Consumed by downstream platform"
         }
       ]
@@ -458,11 +470,11 @@
       "evidence": [
         {
           "ref": "ref:J-ORGFUT-01",
-          "attachedAt": "2026-08-09T04:16:54.120Z"
+          "attachedAt": "2026-08-12T03:45:34.244Z"
         },
         {
           "ref": "ref:J-TRUST-01",
-          "attachedAt": "2026-08-09T04:16:54.120Z"
+          "attachedAt": "2026-08-12T03:45:34.244Z"
         }
       ],
       "qualityGateResult": {
@@ -494,52 +506,56 @@
             "message": "2/2 declared self-tests passed"
           }
         ],
-        "evaluatedAt": "2026-08-09T04:16:54.120Z"
+        "evaluatedAt": "2026-08-12T03:45:34.244Z"
       },
+      "executions": [
+        "EXEC-5",
+        "EXEC-6"
+      ],
       "history": [
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.115Z",
+          "at": "2026-08-12T03:45:34.241Z",
           "note": "Job created"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.116Z",
+          "at": "2026-08-12T03:45:34.241Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.116Z",
+          "at": "2026-08-12T03:45:34.241Z",
           "note": "Quality gates running"
         },
         {
           "status": "FAILED",
-          "at": "2026-08-09T04:16:54.116Z",
+          "at": "2026-08-12T03:45:34.242Z",
           "note": "Gate failure: evidence-attached"
         },
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.120Z",
+          "at": "2026-08-12T03:45:34.244Z",
           "note": "Requeued for retry"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.120Z",
+          "at": "2026-08-12T03:45:34.244Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.120Z",
+          "at": "2026-08-12T03:45:34.244Z",
           "note": "Quality gates running"
         },
         {
           "status": "PASSED",
-          "at": "2026-08-09T04:16:54.120Z",
+          "at": "2026-08-12T03:45:34.244Z",
           "note": "All quality gates passed"
         },
         {
           "status": "INTEGRATED",
-          "at": "2026-08-09T04:16:54.125Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Consumed by downstream platform"
         }
       ]
@@ -568,7 +584,7 @@
       "evidence": [
         {
           "ref": "ref:J-CAPOPS-01",
-          "attachedAt": "2026-08-09T04:16:54.126Z"
+          "attachedAt": "2026-08-12T03:45:34.248Z"
         }
       ],
       "qualityGateResult": {
@@ -600,37 +616,40 @@
             "message": "1/1 declared self-tests passed"
           }
         ],
-        "evaluatedAt": "2026-08-09T04:16:54.126Z"
+        "evaluatedAt": "2026-08-12T03:45:34.248Z"
       },
+      "executions": [
+        "EXEC-10"
+      ],
       "history": [
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.118Z",
+          "at": "2026-08-12T03:45:34.243Z",
           "note": "Job created"
         },
         {
           "status": "BLOCKED",
-          "at": "2026-08-09T04:16:54.118Z",
+          "at": "2026-08-12T03:45:34.243Z",
           "note": "Blocked on: J-VALID-01"
         },
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.126Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Dependencies satisfied, unblocked"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.126Z",
+          "at": "2026-08-12T03:45:34.248Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.126Z",
+          "at": "2026-08-12T03:45:34.248Z",
           "note": "Quality gates running"
         },
         {
           "status": "PASSED",
-          "at": "2026-08-09T04:16:54.126Z",
+          "at": "2026-08-12T03:45:34.248Z",
           "note": "All quality gates passed"
         }
       ]
@@ -659,7 +678,7 @@
       "evidence": [
         {
           "ref": "ref:J-VALID-01",
-          "attachedAt": "2026-08-09T04:16:54.123Z"
+          "attachedAt": "2026-08-12T03:45:34.245Z"
         }
       ],
       "qualityGateResult": {
@@ -691,32 +710,35 @@
             "message": "1/1 declared self-tests passed"
           }
         ],
-        "evaluatedAt": "2026-08-09T04:16:54.123Z"
+        "evaluatedAt": "2026-08-12T03:45:34.245Z"
       },
+      "executions": [
+        "EXEC-7"
+      ],
       "history": [
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.122Z",
+          "at": "2026-08-12T03:45:34.245Z",
           "note": "Job created"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.122Z",
+          "at": "2026-08-12T03:45:34.245Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.123Z",
+          "at": "2026-08-12T03:45:34.245Z",
           "note": "Quality gates running"
         },
         {
           "status": "PASSED",
-          "at": "2026-08-09T04:16:54.123Z",
+          "at": "2026-08-12T03:45:34.245Z",
           "note": "All quality gates passed"
         },
         {
           "status": "INTEGRATED",
-          "at": "2026-08-09T04:16:54.126Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Consumed by downstream platform"
         }
       ]
@@ -745,7 +767,7 @@
       "evidence": [
         {
           "ref": "ref:J-ENTVAL-01",
-          "attachedAt": "2026-08-09T04:16:54.123Z"
+          "attachedAt": "2026-08-12T03:45:34.245Z"
         }
       ],
       "qualityGateResult": {
@@ -777,32 +799,35 @@
             "message": "1/1 declared self-tests passed"
           }
         ],
-        "evaluatedAt": "2026-08-09T04:16:54.123Z"
+        "evaluatedAt": "2026-08-12T03:45:34.245Z"
       },
+      "executions": [
+        "EXEC-8"
+      ],
       "history": [
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.123Z",
+          "at": "2026-08-12T03:45:34.245Z",
           "note": "Job created"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.123Z",
+          "at": "2026-08-12T03:45:34.245Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.123Z",
+          "at": "2026-08-12T03:45:34.245Z",
           "note": "Quality gates running"
         },
         {
           "status": "PASSED",
-          "at": "2026-08-09T04:16:54.123Z",
+          "at": "2026-08-12T03:45:34.245Z",
           "note": "All quality gates passed"
         },
         {
           "status": "INTEGRATED",
-          "at": "2026-08-09T04:16:54.126Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Consumed by downstream platform"
         }
       ]
@@ -831,7 +856,7 @@
       "evidence": [
         {
           "ref": "ref:J-KNOW-01",
-          "attachedAt": "2026-08-09T04:16:54.124Z"
+          "attachedAt": "2026-08-12T03:45:34.246Z"
         }
       ],
       "qualityGateResult": {
@@ -863,40 +888,125 @@
             "message": "1/1 declared self-tests passed"
           }
         ],
-        "evaluatedAt": "2026-08-09T04:16:54.125Z"
+        "evaluatedAt": "2026-08-12T03:45:34.246Z"
       },
+      "executions": [
+        "EXEC-9"
+      ],
       "history": [
         {
           "status": "QUEUED",
-          "at": "2026-08-09T04:16:54.124Z",
+          "at": "2026-08-12T03:45:34.246Z",
           "note": "Job created"
         },
         {
           "status": "RUNNING",
-          "at": "2026-08-09T04:16:54.124Z",
+          "at": "2026-08-12T03:45:34.246Z",
           "note": "Execution started"
         },
         {
           "status": "VALIDATING",
-          "at": "2026-08-09T04:16:54.124Z",
+          "at": "2026-08-12T03:45:34.246Z",
           "note": "Quality gates running"
         },
         {
           "status": "PASSED",
-          "at": "2026-08-09T04:16:54.125Z",
+          "at": "2026-08-12T03:45:34.246Z",
           "note": "All quality gates passed"
         },
         {
           "status": "INTEGRATED",
-          "at": "2026-08-09T04:16:54.126Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Consumed by downstream platform"
         },
         {
           "status": "RELEASE_READY",
-          "at": "2026-08-09T04:16:54.126Z",
+          "at": "2026-08-12T03:45:34.247Z",
           "note": "Marked release-ready"
         }
       ]
+    }
+  ],
+  "executions": [
+    {
+      "id": "EXEC-1",
+      "jobId": "J-TECH-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.237Z",
+      "endedAt": "2026-08-12T03:45:34.238Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-2",
+      "jobId": "J-SIGNAL-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.239Z",
+      "endedAt": "2026-08-12T03:45:34.240Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-3",
+      "jobId": "J-ORGFUT-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.240Z",
+      "endedAt": "2026-08-12T03:45:34.240Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-4",
+      "jobId": "J-TRUST-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.241Z",
+      "endedAt": "2026-08-12T03:45:34.241Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-5",
+      "jobId": "J-VALID-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.241Z",
+      "endedAt": "2026-08-12T03:45:34.242Z",
+      "result": "FAILED"
+    },
+    {
+      "id": "EXEC-6",
+      "jobId": "J-VALID-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.244Z",
+      "endedAt": "2026-08-12T03:45:34.244Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-7",
+      "jobId": "J-ENTVAL-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.245Z",
+      "endedAt": "2026-08-12T03:45:34.245Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-8",
+      "jobId": "J-KNOW-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.245Z",
+      "endedAt": "2026-08-12T03:45:34.245Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-9",
+      "jobId": "J-CAPOPS-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.246Z",
+      "endedAt": "2026-08-12T03:45:34.246Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-10",
+      "jobId": "J-FUTUREORG-01",
+      "triggeredBy": "system",
+      "startedAt": "2026-08-12T03:45:34.248Z",
+      "endedAt": "2026-08-12T03:45:34.248Z",
+      "result": "PASSED"
     }
   ],
   "systemHealth": {
@@ -925,106 +1035,106 @@
       "jobId": "J-FUTUREORG-01",
       "platformId": "future-org",
       "message": "VALIDATING -> PASSED (All quality gates passed)",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.248Z"
     },
     {
       "type": "STATUS_CHANGE",
       "jobId": "J-FUTUREORG-01",
       "platformId": "future-org",
       "message": "RUNNING -> VALIDATING (Quality gates running)",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.248Z"
     },
     {
       "type": "EVIDENCE_ATTACHED",
       "jobId": "J-FUTUREORG-01",
       "platformId": "future-org",
       "message": "Evidence attached: ref:J-CAPOPS-01",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.248Z"
+    },
+    {
+      "type": "EXECUTION_STARTED",
+      "jobId": "J-FUTUREORG-01",
+      "platformId": "future-org",
+      "message": "EXEC-10 started by system",
+      "at": "2026-08-12T03:45:34.248Z"
     },
     {
       "type": "STATUS_CHANGE",
       "jobId": "J-FUTUREORG-01",
       "platformId": "future-org",
       "message": "QUEUED -> RUNNING (Execution started)",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.248Z"
     },
     {
       "type": "STATUS_CHANGE",
       "jobId": "J-CAPOPS-01",
       "platformId": "cap-ops",
       "message": "INTEGRATED -> RELEASE_READY (Marked release-ready)",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.247Z"
     },
     {
       "type": "INTEGRATION",
       "jobId": "J-CAPOPS-01",
       "platformId": "cap-ops",
       "message": "Integrated downstream",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.247Z"
     },
     {
       "type": "STATUS_CHANGE",
       "jobId": "J-CAPOPS-01",
       "platformId": "cap-ops",
       "message": "PASSED -> INTEGRATED (Consumed by downstream platform)",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.247Z"
     },
     {
       "type": "INTEGRATION",
       "jobId": "J-KNOW-01",
       "platformId": "knowledge-ops",
       "message": "Integrated downstream",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.247Z"
     },
     {
       "type": "STATUS_CHANGE",
       "jobId": "J-KNOW-01",
       "platformId": "knowledge-ops",
       "message": "PASSED -> INTEGRATED (Consumed by downstream platform)",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.247Z"
     },
     {
       "type": "INTEGRATION",
       "jobId": "J-ENTVAL-01",
       "platformId": "enterprise-validation",
       "message": "Integrated downstream",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.247Z"
     },
     {
       "type": "STATUS_CHANGE",
       "jobId": "J-ENTVAL-01",
       "platformId": "enterprise-validation",
       "message": "PASSED -> INTEGRATED (Consumed by downstream platform)",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.247Z"
     },
     {
       "type": "STATUS_CHANGE",
       "jobId": "J-FUTUREORG-01",
       "platformId": "future-org",
       "message": "BLOCKED -> QUEUED (Dependencies satisfied, unblocked)",
-      "at": "2026-08-09T04:16:54.126Z"
+      "at": "2026-08-12T03:45:34.247Z"
     },
     {
       "type": "INTEGRATION",
       "jobId": "J-VALID-01",
       "platformId": "cap-validation",
       "message": "Integrated downstream",
-      "at": "2026-08-09T04:16:54.125Z"
+      "at": "2026-08-12T03:45:34.247Z"
     },
     {
       "type": "STATUS_CHANGE",
       "jobId": "J-VALID-01",
       "platformId": "cap-validation",
       "message": "PASSED -> INTEGRATED (Consumed by downstream platform)",
-      "at": "2026-08-09T04:16:54.125Z"
-    },
-    {
-      "type": "INTEGRATION",
-      "jobId": "J-TRUST-01",
-      "platformId": "trust-gov",
-      "message": "Integrated downstream",
-      "at": "2026-08-09T04:16:54.125Z"
+      "at": "2026-08-12T03:45:34.247Z"
     }
   ],
-  "generatedAt": "2026-08-09T04:16:54.135Z"
+  "generatedAt": "2026-08-12T03:45:34.252Z"
 }
