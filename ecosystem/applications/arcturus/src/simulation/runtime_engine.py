@@ -1,12 +1,6 @@
 """
 Simulation Runtime & Experiment Platform — Runtime Engine
 Owner: Muhammad Maaz Khan
-
-The local, single-process execution kernel for one simulation run.
-initialize_run()'s Ahmed-dependent input is a placeholder until
-SyntheticGenerationResult's shape is confirmed with Ahmed (Synthetic Data
-Platform). step() and finalize_run() do not depend on it and are safe to use
-as-is.
 """
 
 from __future__ import annotations
@@ -15,11 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ecosystem.applications.arcturus.contracts.shared.base_models import SimulationContext
 from ecosystem.applications.arcturus.contracts.shared.errors import BusinessRuleViolation
 from ecosystem.applications.arcturus.contracts.simulation.base_models import (
     ExecutionStatus,
     RunHistoryRecord,
-    SimulationContext,
 )
 from ecosystem.applications.arcturus.src.simulation.checkpoint_store import CheckpointStore
 
@@ -42,9 +36,6 @@ class RuntimeEngine:
     def initialize_run(
         self,
         context: SimulationContext,
-        # TODO(Maaz <-> Ahmed): replace with the real SyntheticGenerationResult
-        # once its shape is confirmed. Left optional so the engine is usable
-        # stand-alone / against hand-built fixtures until then.
         synthetic_seed_data: dict[str, Any] | None = None,
     ) -> None:
         if self._status != ExecutionStatus.CREATED:
@@ -80,7 +71,7 @@ class RuntimeEngine:
         self._status = ExecutionStatus.COMPLETED
         return RunHistoryRecord(
             run_id=self._context.run_id,
-            seed=self._context.seed,
+            seed=self._context.global_seed,
             config=self._context.config,
             status=self._status,
             started_at=self._started_at,
