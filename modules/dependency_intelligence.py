@@ -32,9 +32,11 @@ def build_graph(data: dict) -> tuple[dict, dict, dict]:
     downstream: dict[str, list[str]] = {a["id"]: [] for a in data["agents"]}
     upstream: dict[str, list[str]] = {a["id"]: [] for a in data["agents"]}
 
+    # company.json also carries workflow->agent dependencies (the old sunrise_care.json
+    # dataset only ever had agent->agent), so from/to aren't guaranteed to be pre-seeded agent ids.
     for dep in data["dependencies"]:
-        downstream[dep["from"]].append(dep["to"])
-        upstream[dep["to"]].append(dep["from"])
+        downstream.setdefault(dep["from"], []).append(dep["to"])
+        upstream.setdefault(dep["to"], []).append(dep["from"])
 
     return agents, downstream, upstream
 
@@ -166,7 +168,7 @@ def display_dependency_report(results: list[DependencyResult], data: dict):
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
-    results = run_dependency_intelligence("data/sunrise_care.json")
+    results = run_dependency_intelligence("data/company.json")
     display_dependency_report(results, data)

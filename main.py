@@ -79,7 +79,7 @@ if sys.platform == "win32":
 
 console = Console(file=sys.stdout, force_terminal=True, highlight=False)
 
-DATA_PATH = "data/sunrise_care.json"
+DATA_PATH = "data/company.json"
 
 SEP = "\n" + "-" * 60 + "\n"
 

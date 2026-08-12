@@ -245,7 +245,7 @@ def display_workflow_report(
     # ── Workflow Chain Visualizer ──
     console.print("\n[bold cyan]Workflow Chain: Human > Tool > Agent > Outcome[/bold cyan]\n")
 
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
 
     wf_map = {wf["id"]: wf for wf in data.get("workflows", [])}
@@ -375,7 +375,7 @@ def display_workflow_report(
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
-    wf_risks, node_failures = run_workflow_intelligence("data/sunrise_care.json")
+    wf_risks, node_failures = run_workflow_intelligence("data/company.json")
     display_workflow_report(wf_risks, node_failures, data["company"])

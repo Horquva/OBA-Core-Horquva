@@ -316,7 +316,7 @@ def display_whatif_report(scenarios: list[SimulationScenario], health_before: in
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
-    scenarios, health_score = run_whatif_simulation("data/sunrise_care.json")
+    scenarios, health_score = run_whatif_simulation("data/company.json")
     display_whatif_report(scenarios, health_score, data["company"])

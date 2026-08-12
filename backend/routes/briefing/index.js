@@ -23,17 +23,12 @@ router.get('/health', async (req, res) => {
   }
 })
 
-// GET /api/briefing/recommendations — action recommendations only
-router.get('/recommendations', async (req, res) => {
-  try {
-    const risks = await getRiskSummary()
-    const health = await getOrgHealth()
-    const recommendations = await generateRecommendations(risks, health)
-    res.json(recommendations)
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
+// NOTE: GET /recommendations was deleted here (2026-08-12). It duplicated
+// briefing/briefing.js's route of the same name, which reads the real, populated
+// `recommendations` table (10 rows) directly. This one derived its list from
+// getRiskSummary()/getOrgHealth(), which read orchestration_state/verification_logs/
+// escalation_logs — the same near-empty shadow tables flagged elsewhere. The
+// mounted version is the one to keep.
 
 // GET /api/briefing/latest — full executive briefing
 router.get('/latest', async (req, res) => {

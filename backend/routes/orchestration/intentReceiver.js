@@ -29,11 +29,14 @@ async function receiveIntent(intent) {
   const intent_id = `intent_${Date.now()}`
 
   // In advisory mode — store as advisory, no execution
-  // In assisted mode — store as pending, wait for human approval
-  // In governed_autonomous / fully_autonomous — store as approved, ready to execute
+  // In assisted / governed_autonomous — store as pending, wait for human approval.
+  //   ("Governed" means a human still governs it — only fully_autonomous skips that.
+  //   This used to fall through to 'approved' for governed_autonomous too, which
+  //   made it behave exactly like fully_autonomous despite the name. Fixed 2026-08-12.)
+  // In fully_autonomous — store as approved, ready to execute
   const status = mode === 'advisory' ? 'advisory'
-    : mode === 'assisted' ? 'pending'
-    : 'approved'
+    : mode === 'fully_autonomous' ? 'approved'
+    : 'pending'
 
   const { data, error } = await supabase
     .from('execution_intents')

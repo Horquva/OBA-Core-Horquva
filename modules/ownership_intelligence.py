@@ -157,7 +157,7 @@ def display_ownership_report(results: list[OwnershipResult], company: str):
 
 
 if __name__ == "__main__":
-    results = run_ownership_intelligence("data/sunrise_care.json")
-    with open("data/sunrise_care.json") as f:
+    results = run_ownership_intelligence("data/company.json")
+    with open("data/company.json") as f:
         company = json.load(f)["company"]
     display_ownership_report(results, company)

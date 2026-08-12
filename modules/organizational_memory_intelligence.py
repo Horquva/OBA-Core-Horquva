@@ -353,7 +353,7 @@ def display_organizational_memory_report(
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
-    nodes, carriers, health_score = run_organizational_memory_intelligence("data/sunrise_care.json")
+    nodes, carriers, health_score = run_organizational_memory_intelligence("data/company.json")
     display_organizational_memory_report(nodes, carriers, health_score, data["company"])

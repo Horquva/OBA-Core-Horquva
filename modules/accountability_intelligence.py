@@ -349,7 +349,7 @@ def display_accountability_report(
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
-    results, score, chains, person_coverage = run_accountability_intelligence("data/sunrise_care.json")
+    results, score, chains, person_coverage = run_accountability_intelligence("data/company.json")
     display_accountability_report(results, score, chains, person_coverage, data["company"])

@@ -18,6 +18,7 @@ const CapabilityRegistry = require('../knowledge/capabilityRegistry')
 const KnowledgeGraph = require('../knowledge/knowledgeGraph')
 const { IntelligenceBus } = require('../knowledge/intelligenceExchange')
 const { seedDemoOrganization } = require('../knowledge/graphSeeder')
+const { loadFromSupabase } = require('../knowledge/graphLoader')
 
 const EventSignalBus = require('./eventBus')
 const { BrainStateManager } = require('./brainState')
@@ -56,8 +57,10 @@ class OrganizationalBrainRuntime {
     // Step 2: sync capabilities (Capability Registry)
     const capSync = capabilityRegistry.syncFromModules()
 
-    // Step 3: Intelligence Exchange — mirror published intelligence into the graph
-    intelligenceBus.subscribe('*', (pkg) => graph.sync(pkg))
+    // Step 3: Intelligence Exchange — mirror published intelligence into the graph.
+    // Reads this.graph (not the closed-over `graph` local) so reloadGraph()'s
+    // swap keeps this subscription pointed at the current graph.
+    intelligenceBus.subscribe('*', (pkg) => this.graph.sync(pkg))
 
     // Step 4: Knowledge Graph — load discovered organizational reality
     if (seed) seedDemoOrganization(graph)
@@ -84,6 +87,10 @@ class OrganizationalBrainRuntime {
     this.boundCapabilities = boundCount
 
     // Step 6: validate + build Boot Report
+    // discovery/capSync are stashed so reloadGraph() can rebuild the report
+    // with fresh graph stats without re-running module/capability discovery.
+    this._discovery = discovery
+    this._capSync = capSync
     const graphValidation = graph.validate()
     const report = this._buildBootReport({ discovery, capSync, graphValidation })
     state.setBootReport(report)
@@ -91,6 +98,44 @@ class OrganizationalBrainRuntime {
     this.booted = true
     eventBus.emitSignal('brain.booted', { accepted: report.accepted })
     return report
+  }
+
+  /**
+   * Rebuild the Knowledge Graph from Supabase and swap it in atomically —
+   * never leaves a half-built graph readable. Boots synchronously on
+   * graphSeeder's demo data so the process comes up fast and non-blocking;
+   * call this right after to replace it with real organizational data, and
+   * again on a timer / after any write, per BUILD_SPEC's reload plan.
+   *
+   * Three places hold a graph reference and all three are updated: the
+   * capability implementations read `rt.graph` fresh on every call (safe by
+   * construction), but ExecutionEngine captured `graph` in its constructor
+   * and the Intelligence Exchange subscription above now reads `this.graph`
+   * — both are handled here.
+   */
+  async reloadGraph() {
+    if (!this.booted) throw new Error('reloadGraph: runtime has not booted yet')
+
+    const KnowledgeGraph = require('../knowledge/knowledgeGraph')
+    const next = new KnowledgeGraph()
+    await loadFromSupabase(next)
+
+    const validation = next.validate()
+    if (!validation.valid) {
+      throw new Error(`reloadGraph: refusing to swap in an invalid graph — ${validation.entities.errors.concat(validation.relationships.errors).join('; ')}`)
+    }
+
+    this.graph = next
+    if (this.engine) this.engine.graph = next // ExecutionEngine captured the old graph by reference
+
+    // Rebuild the stored Boot Report so GET /api/brain/boot-report reflects the
+    // new graph instead of the frozen numbers from the initial synchronous boot.
+    const report = this._buildBootReport({ discovery: this._discovery, capSync: this._capSync, graphValidation: validation })
+    this.state.setBootReport(report)
+    this.state.setPhase(report.accepted ? 'ready' : 'degraded')
+
+    this.eventBus.emitSignal('brain.graph.reloaded', { stats: next.stats() })
+    return next.stats()
   }
 
   _buildBootReport({ discovery, capSync, graphValidation }) {

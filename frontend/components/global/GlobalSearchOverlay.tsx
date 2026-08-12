@@ -1,24 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, X, Workflow, Users, Bot, GitFork } from "lucide-react";
+import { Search, X, Workflow, Users, Bot, Wrench } from "lucide-react";
 import { useGlobalPanels } from "./GlobalPanelsContext";
+import { useSearchIndex, SearchEntry } from "@/lib/search";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-// Mock data leveraging A1 Ontology + A6 concept
-const MOCK_RESULTS = [
-  { id: "1", title: "Payroll Processing", type: "Workflow", category: "Finance", icon: Workflow, url: "/workflows" },
-  { id: "2", title: "Sarah Jenkins (Payroll Lead)", type: "Person", category: "HR", icon: Users, url: "/ownership" },
-  { id: "3", title: "Payroll Anomaly Agent", type: "Agent", category: "AI Tools", icon: Bot, url: "/ai-tools" },
-  { id: "4", title: "Payroll DB Dependency", type: "System", category: "Infrastructure", icon: GitFork, url: "/map" }
-];
+const TYPE_ICON: Record<SearchEntry["type"], typeof Workflow> = {
+  Workflow: Workflow,
+  Person: Users,
+  Agent: Bot,
+  Tool: Wrench,
+};
 
 export default function GlobalSearchOverlay() {
   const { isSearchOpen, toggleSearch } = useGlobalPanels();
   const [query, setQuery] = useState("");
   const router = useRouter();
+  const { index } = useSearchIndex();
 
   // Keyboard shortcut listener (Ctrl+K or Cmd+K)
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function GlobalSearchOverlay() {
   }, [toggleSearch]);
 
   const results = query.length > 0
-    ? MOCK_RESULTS.filter(r => r.title.toLowerCase().includes(query.toLowerCase()) || r.type.toLowerCase().includes(query.toLowerCase()))
+    ? index.filter(r => r.title.toLowerCase().includes(query.toLowerCase()) || r.type.toLowerCase().includes(query.toLowerCase())).slice(0, 20)
     : [];
 
   if (!isSearchOpen) return null;
@@ -58,7 +59,7 @@ export default function GlobalSearchOverlay() {
             type="text"
             className="flex-1 bg-transparent border-0 px-4 py-2 text-white placeholder-gray-500 !outline-none focus:!outline-none focus:!ring-0 focus:!border-transparent focus-visible:!outline-none focus-visible:!ring-0 !shadow-none text-lg"
             style={{ outline: 'none', boxShadow: 'none', border: 'none' }}
-            placeholder="Search agents, workflows, people... (A1 Ontology)"
+            placeholder="Search agents, workflows, tools, people..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
@@ -77,7 +78,7 @@ export default function GlobalSearchOverlay() {
             {results.length > 0 ? (
               <ul className="space-y-1">
                 {results.map((result) => {
-                  const Icon = result.icon;
+                  const Icon = TYPE_ICON[result.type];
                   return (
                     <li key={result.id}>
                       <button
@@ -108,7 +109,7 @@ export default function GlobalSearchOverlay() {
             ) : (
               <div className="py-14 text-center text-sm text-gray-400 bg-[#131326]">
                 <p>No results found for "{query}"</p>
-                <p className="mt-2 text-xs text-gray-500">Try searching for "Payroll" or "Agent"</p>
+                <p className="mt-2 text-xs text-gray-500">Try searching for an agent, workflow or person by name</p>
               </div>
             )}
           </div>
@@ -118,7 +119,7 @@ export default function GlobalSearchOverlay() {
         {query.length === 0 && (
           <div className="px-4 py-6 text-center border-t border-white/5 bg-[#131326]">
             <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Entity Resolver Active</p>
-            <p className="text-sm text-gray-400 mt-2">Type "Payroll" to see role-aware entity mapping.</p>
+            <p className="text-sm text-gray-400 mt-2">Search agents, workflows, tools and people across the organization.</p>
           </div>
         )}
       </div>

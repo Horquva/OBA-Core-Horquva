@@ -1,6 +1,6 @@
 # OBA Core — AI Workforce Intelligence Engine
 
-**Developed by Horquva · MVP Demo · Sunrise Care (Fictional Company)**
+**Developed by Horquva · MVP Demo · Northwind Labs (Fictional Company)**
 
 OBA Core (Organizational Brain Analysis) is an enterprise-grade intelligence engine that automatically discovers, maps, and analyzes every AI agent operating inside an organization. It answers the three questions no organization can currently answer:
 

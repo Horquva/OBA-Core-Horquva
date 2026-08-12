@@ -2,8 +2,8 @@ import { getDataset } from '../../lib/data';
 import { computeNetworkRisk } from '../../lib/networkRisk';
 import { CentralityGraph } from '../../components/network/CentralityGraph';
 
-export default function NetworkPage() {
-  const dataset = getDataset();
+export default async function NetworkPage() {
+  const dataset = await getDataset();
   const report = computeNetworkRisk(dataset);
 
   return (

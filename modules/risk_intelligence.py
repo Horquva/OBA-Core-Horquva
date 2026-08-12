@@ -187,7 +187,7 @@ def display_risk_report(results: list[RiskResult], health_score: int, company: s
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         company = json.load(f)["company"]
-    results, health_score = run_risk_intelligence("data/sunrise_care.json")
+    results, health_score = run_risk_intelligence("data/company.json")
     display_risk_report(results, health_score, company)

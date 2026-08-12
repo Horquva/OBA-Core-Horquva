@@ -3,17 +3,21 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const { checkGate } = require('./gateCheck')
 const { escalate } = require('./escalate')
-const fs = require('fs')
-const path = require('path')
 
 // GET /api/avatar — demo-safe module status ping (M21 Executive Avatar).
-// No DB dependency so the Admin Console health check returns 200 (MOUNTED).
-router.get('/', (req, res) => {
-  let criticalRisksTracked = 0
+// `mounted` reflects that this route is registered, not that Supabase is
+// reachable — a DB error still returns 200 with criticalRisksTracked: null
+// rather than failing the Admin Console's health check.
+router.get('/', async (req, res) => {
+  let criticalRisksTracked = null
   try {
-    const d = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'data', 'sunrise_care.json'), 'utf-8'))
-    criticalRisksTracked = (d.knowledge_areas || []).filter(k => (k.criticality || '').toLowerCase() === 'critical').length
+    const { count, error } = await supabase
+      .from('knowledge_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('criticality', 'critical')
+    if (!error) criticalRisksTracked = count
   } catch (_) {}
+
   res.json({
     module: 'M21',
     name: 'Executive Avatar Intelligence',

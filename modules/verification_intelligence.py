@@ -23,7 +23,7 @@ class VerificationRecord:
     flag_reason: str
 
 
-def verify_action(actor_type: str, actor_name: str, action: str, workflow_id: str) -> VerificationRecord:
+def verify_action(actor_type: str, actor_name: str, action: str, workflow_id: str, risky_actors: list[str] = None) -> VerificationRecord:
     """
     Takes an action and creates a verification record for it.
     Flags it if it looks risky.
@@ -34,7 +34,7 @@ def verify_action(actor_type: str, actor_name: str, action: str, workflow_id: st
     status = "completed"
 
     # Flag if actor has no backup (single point of failure)
-    risky_actors = ["Robert"]  # from sunrise_care data — owns 5 agents, no backup
+    risky_actors = risky_actors or []
     if actor_name in risky_actors and actor_type == "human":
         flag_reason = f"{actor_name} is a single point of failure with no backup owner"
         policy_compliant = False
@@ -61,13 +61,20 @@ def verify_action(actor_type: str, actor_name: str, action: str, workflow_id: st
 
 def run_verification_intelligence(data_path: str) -> list[VerificationRecord]:
     """
-    Loops through all workflow steps in sunrise_care.json
+    Loops through all workflow steps in company.json
     and creates a verification record for each action.
     """
     with open(data_path) as f:
         data = json.load(f)
 
     agent_map = {a["id"]: a["name"] for a in data.get("agents", [])}
+    # Owners of critical assets (agents/workflows) with no backup owner set —
+    # computed from the loaded dataset instead of a hardcoded name so this stays
+    # meaningful across datasets.
+    risky_actors = sorted({
+        a["owner"] for a in data.get("agents", []) + data.get("workflows", [])
+        if a.get("owner") and not a.get("backup_owner")
+    })
     records = []
 
     for wf in data.get("workflows", []):
@@ -83,6 +90,7 @@ def run_verification_intelligence(data_path: str) -> list[VerificationRecord]:
                 actor_name=actor_name,
                 action=step["action"],
                 workflow_id=wf["id"],
+                risky_actors=risky_actors,
             )
             records.append(record)
 
@@ -148,7 +156,7 @@ def display_verification_report(records: list[VerificationRecord], company: str)
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         company = json.load(f)["company"]
-    records = run_verification_intelligence("data/sunrise_care.json")
+    records = run_verification_intelligence("data/company.json")
     display_verification_report(records, company)

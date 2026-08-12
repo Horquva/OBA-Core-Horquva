@@ -15,47 +15,11 @@ router.get('/', async (req, res) => {
   res.json(data)
 })
 
-// GET /api/orchestration/blocked — get only blocked workflows
-router.get('/blocked', async (req, res) => {
-  const { data, error } = await supabase
-    .from('orchestration_state')
-    .select('*')
-    .eq('status', 'blocked')
-
-  if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
-})
-
-// GET /api/orchestration/collisions — get all workflows with collisions
-router.get('/collisions', async (req, res) => {
-  const { data, error } = await supabase
-    .from('orchestration_state')
-    .select('*')
-    .eq('collision_detected', true)
-
-  if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
-})
-
-// GET /api/orchestration/summary — counts by status
-router.get('/summary', async (req, res) => {
-  const { data, error } = await supabase
-    .from('orchestration_state')
-    .select('*')
-
-  if (error) return res.status(500).json({ error: error.message })
-
-  const summary = {
-    total: data.length,
-    running: data.filter(r => r.status === 'running').length,
-    blocked: data.filter(r => r.status === 'blocked').length,
-    paused: data.filter(r => r.status === 'paused').length,
-    completed: data.filter(r => r.status === 'completed').length,
-    collisions_detected: data.filter(r => r.collision_detected).length,
-  }
-
-  res.json(summary)
-})
+// NOTE: GET /blocked, /collisions, /summary were deleted here (2026-08-12).
+// They duplicated orchestration/orchestration.js's routes of the same name, which
+// read the real, populated `workflow_orchestration`/`workflow_steps` tables.
+// These read `orchestration_state`, a near-empty (2-row) shadow table nothing else
+// uses for display. The mounted versions are the ones to keep.
 
 // POST /api/orchestration — save a workflow orchestration state
 router.post('/', async (req, res) => {
@@ -174,9 +138,11 @@ router.post('/execute/:intent_id', async (req, res) => {
 })
 
 // POST /api/orchestration/approve/:intent_id — approve a pending intent
+// body: { approved_by } — who's approving. No auth wired yet, so this is
+// self-reported, same as POST /mode's `set_by`; tighten together with auth later.
 router.post('/approve/:intent_id', async (req, res) => {
   try {
-    const result = await approveIntent(req.params.intent_id)
+    const result = await approveIntent(req.params.intent_id, req.body?.approved_by)
     res.json({ message: 'Intent approved', intent: result })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -184,9 +150,10 @@ router.post('/approve/:intent_id', async (req, res) => {
 })
 
 // POST /api/orchestration/reject/:intent_id — reject a pending intent
+// body: { rejected_by } — who's rejecting. Same caveat as approve above.
 router.post('/reject/:intent_id', async (req, res) => {
   try {
-    const result = await rejectIntent(req.params.intent_id)
+    const result = await rejectIntent(req.params.intent_id, req.body?.rejected_by)
     res.json({ message: 'Intent rejected', intent: result })
   } catch (err) {
     res.status(500).json({ error: err.message })

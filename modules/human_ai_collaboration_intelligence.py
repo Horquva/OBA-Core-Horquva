@@ -210,5 +210,7 @@ def display_human_ai_collaboration_report(report: CollaborationReport, company: 
 
 
 if __name__ == "__main__":
-    rep = run_human_ai_collaboration_intelligence("data/sunrise_care.json")
-    display_human_ai_collaboration_report(rep, "Sunrise Care")
+    rep = run_human_ai_collaboration_intelligence("data/company.json")
+    with open("data/company.json") as f:
+        company_name = json.load(f)["company"]
+    display_human_ai_collaboration_report(rep, company_name)

@@ -207,8 +207,8 @@ def display_recommendation_report(
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
-    results, health_score = run_risk_intelligence("data/sunrise_care.json")
+    results, health_score = run_risk_intelligence("data/company.json")
     recommendations = generate_recommendations(results, data)
     display_recommendation_report(recommendations, results, health_score, data["company"])

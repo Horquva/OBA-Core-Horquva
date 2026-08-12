@@ -108,7 +108,7 @@ All responses are JSON. Errors return `{ "error": "..." }` with a 4xx/5xx status
 | POST | `/api/voice/intent` | `{ transcript }` -> structured intent signal |
 
 ## Constitutional Intelligence & Meta-Brain (Kamran, Phase 6) - `/api/intelligence`
-These read `data/sunrise_care.json` and need **no** Supabase.
+These read `data/company.json` and need **no** Supabase.
 
 | Method | Endpoint | Module |
 |---|---|---|

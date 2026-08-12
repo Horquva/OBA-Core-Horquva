@@ -353,7 +353,7 @@ def display_knowledge_risk_report(
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
-    nodes, gaps, summary = run_knowledge_risk_intelligence("data/sunrise_care.json")
+    nodes, gaps, summary = run_knowledge_risk_intelligence("data/company.json")
     display_knowledge_risk_report(nodes, gaps, summary, data["company"])

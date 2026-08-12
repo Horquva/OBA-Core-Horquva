@@ -207,5 +207,7 @@ def display_predictive_risk_report(predictions: list[RiskPrediction], summary: d
 
 
 if __name__ == "__main__":
-    preds, summ = run_predictive_risk_intelligence("data/sunrise_care.json")
-    display_predictive_risk_report(preds, summ, "Sunrise Care")
+    preds, summ = run_predictive_risk_intelligence("data/company.json")
+    with open("data/company.json") as f:
+        company_name = json.load(f)["company"]
+    display_predictive_risk_report(preds, summ, company_name)

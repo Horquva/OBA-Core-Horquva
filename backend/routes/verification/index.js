@@ -13,37 +13,11 @@ router.get('/', async (req, res) => {
   res.json(data)
 })
 
-// GET /api/verification/flagged — get only flagged actions
-router.get('/flagged', async (req, res) => {
-  const { data, error } = await supabase
-    .from('verification_logs')
-    .select('*')
-    .eq('status', 'flagged')
-    .order('created_at', { ascending: false })
-
-  if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
-})
-
-// GET /api/verification/summary — counts by status
-router.get('/summary', async (req, res) => {
-  const { data, error } = await supabase
-    .from('verification_logs')
-    .select('*')
-
-  if (error) return res.status(500).json({ error: error.message })
-
-  const summary = {
-    total: data.length,
-    completed: data.filter(r => r.status === 'completed').length,
-    flagged: data.filter(r => r.status === 'flagged').length,
-    failed: data.filter(r => r.status === 'failed').length,
-    policy_violations: data.filter(r => !r.policy_compliant).length,
-    unverified: data.filter(r => !r.verified).length,
-  }
-
-  res.json(summary)
-})
+// NOTE: GET /flagged, /summary were deleted here (2026-08-12). They duplicated
+// verification/intelligence.js's routes of the same name, which read the real,
+// populated `verification_actions` table (20 rows) joined against employees and
+// policy_violations. These read `verification_logs`, a near-empty (2-row) shadow
+// table nothing else uses for display. The mounted versions are the ones to keep.
 
 // POST /api/verification — log a new verification record
 router.post('/', async (req, res) => {

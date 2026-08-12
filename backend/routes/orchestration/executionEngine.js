@@ -87,10 +87,14 @@ function buildWorkflowUpdate(intent) {
   }
 }
 
-async function approveIntent(intent_id) {
+async function approveIntent(intent_id, approved_by) {
   const { data, error } = await supabase
     .from('execution_intents')
-    .update({ status: 'approved' })
+    .update({
+      status: 'approved',
+      approved_by: approved_by || 'unknown',
+      decided_at: new Date().toISOString()
+    })
     .eq('intent_id', intent_id)
     .select()
 
@@ -98,10 +102,14 @@ async function approveIntent(intent_id) {
   return data?.[0]
 }
 
-async function rejectIntent(intent_id) {
+async function rejectIntent(intent_id, rejected_by) {
   const { data, error } = await supabase
     .from('execution_intents')
-    .update({ status: 'rejected' })
+    .update({
+      status: 'rejected',
+      rejected_by: rejected_by || 'unknown',
+      decided_at: new Date().toISOString()
+    })
     .eq('intent_id', intent_id)
     .select()
 

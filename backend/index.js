@@ -36,6 +36,7 @@ console.log("3. Middlewares added")
 app.use(requestLogger)
 
 app.use('/api/agents', require('./routes/agents'))
+app.use('/api/employees', require('./routes/employees'))
 app.use('/api/ownership', require('./routes/ownership'))
 app.use('/api/dependencies', require('./routes/dependencies'))
 app.use('/api/risks', require('./routes/risks'))
@@ -83,14 +84,20 @@ app.use('/api/self-healing', require('./routes/selfHealing'))
 app.use('/api/automation', require('./routes/automation'))
 
 // ─── Organizational Brain: constitutional runtime for M01–M55 (mounted at /api/brain) ───
+// Boots synchronously on graphSeeder's demo data (fast, non-blocking startup),
+// then swaps in the real Supabase-backed graph once loaded. If Supabase is
+// unreachable the process stays up on demo data rather than failing to boot.
 try {
   const { mountBrain } = require('./brain')
-  const { report } = mountBrain(app)
+  const { report, runtime } = mountBrain(app)
   console.log(
     `Organizational Brain: ${report.accepted ? 'READY' : 'DEGRADED'} — ` +
     `${report.modules.discovered}/${report.modules.expected} modules, ` +
     `${report.capabilities.registered} capabilities`
   )
+  runtime.reloadGraph()
+    .then((stats) => console.log('Organizational Brain: graph reloaded from Supabase —', JSON.stringify(stats)))
+    .catch((err) => console.error('Organizational Brain: graph reload from Supabase failed, staying on demo data —', err.message))
 } catch (e) {
   console.error('Organizational Brain failed to boot:', e.message)
 }

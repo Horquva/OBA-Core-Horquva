@@ -323,7 +323,7 @@ def display_ai_tool_report(
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
-    tool_risks, dep_maps, dept_tool_map = run_ai_tool_intelligence("data/sunrise_care.json")
+    tool_risks, dep_maps, dept_tool_map = run_ai_tool_intelligence("data/company.json")
     display_ai_tool_report(tool_risks, dep_maps, dept_tool_map, data["company"])

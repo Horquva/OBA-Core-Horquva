@@ -2,24 +2,21 @@
 // Phase 6 — Constitutional Intelligence & Meta-Brain (M36–M55)
 // Owner: Kamran
 //
-// These endpoints expose the constitutional intelligence modules over HTTP.
-// They compute from the canonical local dataset (data/sunrise_care.json) so
-// they can be verified WITHOUT a live Supabase connection. This mirrors the
-// Python reference implementation in /modules and keeps the locked module
-// definitions (M36, M38, M39, M40, M46, M48, M50, M54, M55) as the single
-// source of truth.
+// These endpoints expose the constitutional intelligence modules over HTTP,
+// reading live from Supabase like the other 54 route files. The nine scoring
+// functions below are pure functions of one shared shape (agents, workflows,
+// ai_tools, knowledge_areas, incidents, decisions_log, history) assembled by
+// lib/orgDataset.js's loadOrgDataset() — shared with voice/voice.js, so the
+// same real joins aren't duplicated. Two gaps are real, not bugs: no
+// per-agent/workflow "documented" or "backup_owner" column exists without a
+// join (see orgDataset.js), and no incidents table with resolution/lesson
+// tracking exists at all — `incidents` is always [] rather than fabricated.
 // ─────────────────────────────────────────────────────────────
 
 const express = require('express')
 const router = express.Router()
-const fs = require('fs')
-const path = require('path')
+const { loadOrgDataset: loadData } = require('../../lib/orgDataset')
 
-const DATA_PATH = path.join(__dirname, '..', '..', '..', 'data', 'sunrise_care.json')
-
-function loadData() {
-  return JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8'))
-}
 function assetsOf(d) {
   return [...(d.agents || []), ...(d.workflows || [])]
 }
@@ -215,8 +212,8 @@ function orchestrator(d) {
 // ─────────────────────────────────────────────────────────────
 // ROUTES
 // ─────────────────────────────────────────────────────────────
-const wrap = (fn) => (req, res) => {
-  try { res.json(fn(loadData())) } catch (err) { res.status(500).json({ error: err.message }) }
+const wrap = (fn) => async (req, res) => {
+  try { res.json(fn(await loadData())) } catch (err) { res.status(500).json({ error: err.message }) }
 }
 
 router.get('/signals', wrap(signalIntelligence))            // M36

@@ -42,6 +42,17 @@ function buildBrainRouter(brain) {
     }
   })
 
+  // Admin: rebuild the Knowledge Graph from Supabase and swap it in atomically.
+  // No auth layer exists yet to actually gate this "admin-only" — see BUILD_SPEC.
+  router.post('/reload-graph', async (req, res) => {
+    try {
+      const stats = await brain.reloadGraph()
+      res.json({ reloaded: true, stats })
+    } catch (e) {
+      res.status(500).json({ reloaded: false, error: e.message })
+    }
+  })
+
   // Preview the constitutional execution order for a set of modules.
   router.post('/plan', (req, res) => {
     const { modules } = req.body || {}

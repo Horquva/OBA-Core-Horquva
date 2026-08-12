@@ -210,7 +210,7 @@ def display_orchestration_report(states: list[OrchestrationState], collisions: l
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         company = json.load(f)["company"]
-    states, collisions = run_workflow_orchestration_intelligence("data/sunrise_care.json")
+    states, collisions = run_workflow_orchestration_intelligence("data/company.json")
     display_orchestration_report(states, collisions, company)

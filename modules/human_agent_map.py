@@ -272,7 +272,7 @@ def display_human_agent_map(
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         data = json.load(f)
-    profiles, gaps, results = run_human_agent_map("data/sunrise_care.json")
+    profiles, gaps, results = run_human_agent_map("data/company.json")
     display_human_agent_map(profiles, gaps, results, data["company"])

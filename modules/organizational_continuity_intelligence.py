@@ -279,7 +279,7 @@ def display_continuity_report(nodes, plans, org_score, dept_map, company: str):
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         company = json.load(f)["company"]
-    nodes, plans, org_score, dept_map = run_continuity_intelligence("data/sunrise_care.json")
+    nodes, plans, org_score, dept_map = run_continuity_intelligence("data/company.json")
     display_continuity_report(nodes, plans, org_score, dept_map, company)

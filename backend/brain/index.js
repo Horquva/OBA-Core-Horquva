@@ -43,6 +43,7 @@ function mountBrain(app, options = {}) {
         'GET  /api/brain/signals',
         'POST /api/brain/ask        { modules|need, context }',
         'POST /api/brain/plan       { modules }',
+        'POST /api/brain/reload-graph',
         'GET  /api/brain/registry/modules',
         'GET  /api/brain/registry/capabilities',
         'GET  /api/brain/graph/entities',

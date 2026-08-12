@@ -284,7 +284,7 @@ def display_decision_report(decisions: list[DecisionRecord], decision_index: int
 
 
 if __name__ == "__main__":
-    with open("data/sunrise_care.json") as f:
+    with open("data/company.json") as f:
         company = json.load(f)["company"]
-    decisions, index = run_decision_intelligence("data/sunrise_care.json")
+    decisions, index = run_decision_intelligence("data/company.json")
     display_decision_report(decisions, index, company)

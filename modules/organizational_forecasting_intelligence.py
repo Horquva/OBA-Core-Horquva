@@ -182,5 +182,7 @@ def display_organizational_forecasting_report(forecasts: list[Forecast], outlook
 
 
 if __name__ == "__main__":
-    fcs, outlook = run_organizational_forecasting_intelligence("data/sunrise_care.json")
-    display_organizational_forecasting_report(fcs, outlook, "Sunrise Care")
+    fcs, outlook = run_organizational_forecasting_intelligence("data/company.json")
+    with open("data/company.json") as f:
+        company_name = json.load(f)["company"]
+    display_organizational_forecasting_report(fcs, outlook, company_name)

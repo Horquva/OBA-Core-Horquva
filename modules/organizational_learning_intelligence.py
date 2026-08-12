@@ -17,7 +17,7 @@ Purpose:
     institutional knowledge has been captured and acted upon.
 
     NOTE: This console build derives learning signals from the organizational
-    snapshot (data/sunrise_care.json). In the hosted platform these same
+    snapshot (data/company.json). In the hosted platform these same
     signals are continuously fed by failure_logs / incident_logs / decision
     history tables.
 """
@@ -191,5 +191,7 @@ def display_organizational_learning_report(report: LearningReport, company: str)
 
 
 if __name__ == "__main__":
-    rep = run_organizational_learning_intelligence("data/sunrise_care.json")
-    display_organizational_learning_report(rep, "Sunrise Care")
+    rep = run_organizational_learning_intelligence("data/company.json")
+    with open("data/company.json") as f:
+        company_name = json.load(f)["company"]
+    display_organizational_learning_report(rep, company_name)

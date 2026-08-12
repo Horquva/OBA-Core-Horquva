@@ -5,7 +5,7 @@ modules rely on. New Phase 4/5/7 modules use these richer keys.
 """
 import json
 
-PATH = "data/sunrise_care.json"
+PATH = "data/company.json"
 
 with open(PATH) as f:
     data = json.load(f)
