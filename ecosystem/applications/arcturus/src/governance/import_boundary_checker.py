@@ -287,11 +287,12 @@ def _resolve_own_prefixes(file_posix: str) -> set[str]:
     """
     own: set[str] = set()
     for key, prefix in _PLATFORM_SRC_PATHS.items():
-        # Convert dotted prefix back to a path fragment for matching
-        path_fragment = prefix.replace(".", "/")
-        if path_fragment in file_posix:
+        path_fragment_src = prefix.replace(".", "/")
+        path_fragment_test = f"tests/{key}"
+        if path_fragment_src in file_posix or path_fragment_test in file_posix:
             own.add(prefix)
     return own
+
 
 
 def _is_forbidden(module_name: str, own_prefixes: set[str]) -> bool:
