@@ -19,6 +19,7 @@ assert.strictEqual(result.qualityGate, 'ACCEPTANCE')
 assert.strictEqual(typeof result.score, 'number')
 assert.strictEqual(result.decision, 'ACCEPT')
 assert.strictEqual(result.requiresHumanReview, false)
+assert.ok(result.audit)
 
 assert.ok(result.audit)
 assert.ok(result.audit.timestamp)
