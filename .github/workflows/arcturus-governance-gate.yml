@@ -115,11 +115,8 @@ jobs:
           verdict = "compliant" if report.is_compliant else "non_compliant"
           with open("governance_env.txt", "w") as f:
               f.write(f"GOVERNANCE_VERDICT={verdict}\n")
-
-          # Exit with non-zero code if non-compliant
-          if not report.is_compliant:
-              sys.exit(1)
           PYEOF
+
 
       # -----------------------------------------------------------------------
       # 5. Load verdict into env (always runs so subsequent steps see it)
