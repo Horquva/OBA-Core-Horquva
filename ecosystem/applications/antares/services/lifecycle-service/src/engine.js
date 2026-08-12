@@ -279,6 +279,58 @@ class EngineeringOperationsEngine {
   }
 
   /**
+   * Din 7: platform-level view of blocking — "kaunsa PLATFORM blocked
+   * hai, kyun" is a different question than "kaunsa JOB blocked hai".
+   * One platform can own several jobs; this groups by platform and
+   * explains each one's blocked jobs together.
+   */
+  findBlockedPlatforms() {
+    const blockedJobs = this.findBlockedJobs();
+    const byPlatform = new Map();
+    for (const job of blockedJobs) {
+      if (!byPlatform.has(job.platformId)) byPlatform.set(job.platformId, []);
+      byPlatform.get(job.platformId).push(job);
+    }
+    return [...byPlatform.entries()].map(([platformId, jobs]) => {
+      const platform = this.platforms.get(platformId);
+      return {
+        platformId,
+        platformName: platform ? platform.name : platformId,
+        owner: platform ? platform.owner : 'unknown',
+        blockedJobs: jobs,
+      };
+    });
+  }
+
+  explainPlatformBlockage(platformId) {
+    const platform = this.platforms.get(platformId);
+    if (!platform) return `Unknown platform: ${platformId}`;
+    const jobs = [...this.jobs.values()].filter((j) => j.platformId === platformId && j.status === JobStatus.BLOCKED);
+    if (jobs.length === 0) {
+      return `${platform.name} (${platform.owner}) — koi job blocked nahi hai.`;
+    }
+    return `${platform.name} (${platform.owner}) — ${jobs.length} job(s) blocked:\n` +
+      jobs.map((j) => '  ' + this.explainBlock(j.id)).join('\n');
+  }
+
+  /**
+   * Finds a platform by matching the question text against platform
+   * names and owner names (case-insensitive substring match). Returns
+   * null if no platform is mentioned — the assistant then falls back
+   * to a system-wide answer instead of guessing.
+   */
+  _findMentionedPlatform(question) {
+    const q = question.toLowerCase();
+    for (const platform of this.platforms.values()) {
+      const nameHit = platform.name && q.includes(platform.name.toLowerCase());
+      const ownerHit = platform.owner && q.includes(platform.owner.toLowerCase());
+      const ownerFirstNameHit = platform.owner && q.includes(platform.owner.toLowerCase().split(' ')[0]);
+      if (nameHit || ownerHit || ownerFirstNameHit) return platform;
+    }
+    return null;
+  }
+
+  /**
    * Very small deterministic NLU: routes a natural-language question to
    * the correct real-data function via keyword matching. This is
    * intentionally NOT a generative model — it must never hallucinate
@@ -286,24 +338,42 @@ class EngineeringOperationsEngine {
    */
   askAssistant(question) {
     const q = (question || '').toLowerCase();
+    const mentionedPlatform = this._findMentionedPlatform(question || '');
+
     if (q.includes('block')) {
-      const blocked = this.findBlockedJobs();
-      if (blocked.length === 0) return 'Koi platform/job is waqt blocked nahi hai.';
-      return blocked.map((j) => this.explainBlock(j.id)).join('\n');
+      // Din 7: "kaunsa platform blocked hai, kyun" — platform-specific if named
+      if (mentionedPlatform) return this.explainPlatformBlockage(mentionedPlatform.id);
+
+      const blockedPlatforms = this.findBlockedPlatforms();
+      if (blockedPlatforms.length === 0) return 'Koi platform/job is waqt blocked nahi hai.';
+      return blockedPlatforms
+        .map((bp) => `${bp.platformName} (${bp.owner}) — ${bp.blockedJobs.length} job(s) blocked:\n` +
+          bp.blockedJobs.map((j) => '  ' + this.explainBlock(j.id)).join('\n'))
+        .join('\n');
     }
     if (q.includes('fail')) {
+      if (mentionedPlatform) {
+        const jobs = [...this.jobs.values()].filter((j) => j.platformId === mentionedPlatform.id && j.status === JobStatus.FAILED);
+        if (jobs.length === 0) return `${mentionedPlatform.name} (${mentionedPlatform.owner}) — koi job failed nahi hai.`;
+        return jobs.map((j) => this.explainFailure(j.id)).join('\n');
+      }
       const failed = this.findFailedJobs();
       if (failed.length === 0) return 'Koi job is waqt failed state mein nahi hai.';
       return failed.map((j) => this.explainFailure(j.id)).join('\n');
     }
     if (q.includes('health') || q.includes('status')) {
+      if (mentionedPlatform) {
+        const ph = this.getPlatformHealth(mentionedPlatform.id);
+        return `${mentionedPlatform.name} (${mentionedPlatform.owner}): ${ph.totalJobs} jobs — ` +
+          Object.entries(ph.byStatus).filter(([, count]) => count > 0).map(([status, count]) => `${status}:${count}`).join(', ');
+      }
       const h = this.getSystemHealth();
       return `System health: ${h.healthLabel}. ${h.totalJobs} jobs total — ${h.blocked} blocked, ${h.failed} failed, ${h.integrated} integrated, ${h.releaseReady} release-ready. Gate pass rate: ${h.gatePassRatePct}%.`;
     }
     if (q.includes('recent') || q.includes('change') || q.includes('event')) {
       return this.recentEvents(5).map((e) => `[${e.type}] ${e.message}`).join('\n');
     }
-    return "Samajh nahi aaya — poochho: 'kya blocked hai', 'kya failed hai', 'system health kya hai', ya 'recent changes kya hain'.";
+    return "Samajh nahi aaya — poochho: 'kya blocked hai', 'kya failed hai', 'system health kya hai', ya 'recent changes kya hain'. Kisi platform/member ka naam bhi le sakte ho, jaise 'Zara ka kaam blocked hai kya?'.";
   }
 
   // ---------- internal ----------
