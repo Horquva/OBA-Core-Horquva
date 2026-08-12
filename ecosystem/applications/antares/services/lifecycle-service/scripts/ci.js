@@ -5,6 +5,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { runLint, } = require('./lint');
 const { runBuildCheck } = require('./buildcheck');
+const { recordCiRun } = require('../src/ciHistory');
 
 /**
  * scripts/ci.js
@@ -56,6 +57,7 @@ function main() {
       console.log(`  ${entry.file}: ${entry.problems.join('; ')}`);
     }
     console.log('\nCI STOPPED — lint failed. Fix the issues above before continuing.');
+    recordCiRun({ lintPassed: false, buildPassed: false, testsPassed: false, overallPassed: false });
     process.exitCode = 1;
     return;
   }
@@ -67,6 +69,7 @@ function main() {
   if (!build.passed) {
     for (const f of build.failures) console.log(`  ${f.file}: ${f.error.trim()}`);
     console.log('\nCI STOPPED — build failed. Fix the syntax errors above before continuing.');
+    recordCiRun({ lintPassed: true, buildPassed: false, testsPassed: false, overallPassed: false });
     process.exitCode = 1;
     return;
   }
@@ -76,6 +79,7 @@ function main() {
   const tests = runTests();
   if (!tests.passed) {
     console.log('\nCI STOPPED — tests failed. Fix the failing tests above before continuing.');
+    recordCiRun({ lintPassed: true, buildPassed: true, testsPassed: false, overallPassed: false });
     process.exitCode = 1;
     return;
   }
@@ -83,6 +87,7 @@ function main() {
   section('QUALITY GATE RESULT');
   console.log('ALL STAGES PASSED \u2705\u2705\u2705');
   console.log('This change is a RELEASE CANDIDATE — safe to open a Pull Request.');
+  recordCiRun({ lintPassed: true, buildPassed: true, testsPassed: true, overallPassed: true });
   process.exitCode = 0;
 }
 
