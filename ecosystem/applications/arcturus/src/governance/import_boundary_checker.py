@@ -314,9 +314,10 @@ def _iter_python_files(root: Path):
 
 
 def _iter_files_by_extension(root: Path, extensions: tuple[str, ...]):
-    """Yield all files under *root* matching *extensions*, skipping caches."""
-    skip = {"__pycache__", ".git", ".venv", "venv", "node_modules"}
+    """Yield all files under *root* matching *extensions*, skipping caches and test directories."""
+    skip = {"__pycache__", ".git", ".venv", "venv", "node_modules", "tests"}
     for item in root.rglob("*"):
         if item.is_file() and item.suffix in extensions:
             if not any(part in skip for part in item.parts):
                 yield item
+
