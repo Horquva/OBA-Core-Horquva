@@ -1,43 +1,77 @@
-# =============================================================================
-# 🌌 Arcturus Platform — Global Pytest Fixtures Configuration
-# Location: ecosystem/applications/arcturus/tests/conftest.py
-# =============================================================================
+"""
+Arcturus Shared Test Harness — conftest.py
+==========================================
+Governance Owner: Hashim Ali Khan (@Hashimali-khan)
+Day 1 Deliverable: Shared pytest fixtures for the entire Arcturus test suite.
 
-import random
-import re
+This module is the single source of truth for all shared test fixtures.
+Every platform's test suite must import these fixtures rather than
+redefining its own copies.
 
-def seed_fixture() -> int:
-    """
-    Pytest-equivalent fixture that resets Python's pseudo-random number generator
-    to reset logical clock determinism. Enforces a baseline seed of 42.
-    """
-    random.seed(42)
-    return 42
+Architectural Law: All fixtures live under ecosystem/applications/arcturus/tests/
+and must never import from sibling platform src/ internals directly.
+"""
+from __future__ import annotations
 
-def load_codeowners_map(codeowners_path: str = ".github/CODEOWNERS") -> dict:
+import sys
+from pathlib import Path
+
+import pytest
+
+# ---------------------------------------------------------------------------
+# Path Bootstrap — ensures ecosystem root is importable in all test contexts
+# ---------------------------------------------------------------------------
+_REPO_ROOT = Path(__file__).resolve().parents[4]  # c:/data/Horquva/OBA-Core-Horquva
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+# ---------------------------------------------------------------------------
+# Internal imports after path bootstrap
+# ---------------------------------------------------------------------------
+from ecosystem.applications.arcturus.tests.helpers.simulation_context_factory import (
+    build_simulation_context,
+    load_codeowners_map,
+    seed_fixture as _seed_fixture,
+)
+
+
+# ---------------------------------------------------------------------------
+# Shared Fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def simulation_context():
     """
-    Parses the baseline CODEOWNERS file programmatically to support automated
-    governance compliance scans. Maps directories to owners.
+    Returns a deterministic SimulationContext for use across all Arcturus tests.
+
+    Scope: session — built once per test run; never rebuilt between tests
+    unless explicitly parametrized.
     """
-    ownership_map = {}
-    try:
-        with open(codeowners_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-            
-        for line in lines:
-            line = line.strip()
-            # Ignore comments and empty lines
-            if not line or line.startswith("#"):
-                continue
-            
-            parts = re.split(r"\s+", line)
-            if len(parts) >= 2:
-                path = parts[0]
-                owners = [owner.strip() for owner in parts[1:] if owner.startswith("@")]
-                ownership_map[path] = owners
-    except FileNotFoundError:
-        # Fallback dictionary for testing if run outside root context
-        ownership_map = {
-            "/ecosystem/applications/arcturus/src/control_plane/ontology/": ["@MuhammadHamza-7035"]
-        }
-    return ownership_map
+    return build_simulation_context(
+        experiment_id="EXP-ARCTURUS-W3",
+        global_seed=42,
+    )
+
+
+@pytest.fixture
+def seed_fixture():
+    """
+    Returns the canonical integer seed used for reproducible test runs.
+
+    Scope: function — fresh reference each test (value is stateless).
+    """
+    return _seed_fixture()
+
+
+@pytest.fixture(scope="session")
+def codeowners_map():
+    """
+    Returns the parsed CODEOWNERS mapping from the Arcturus .github directory.
+
+    Scope: session — file is stable across the full test run.
+    Keys are glob patterns; values are lists of GitHub handles.
+    """
+    codeowners_path = (
+        Path(__file__).resolve().parents[1] / ".github" / "CODEOWNERS"
+    )
+    return load_codeowners_map(codeowners_path)
