@@ -1,0 +1,206 @@
+name: Arcturus Governance Gate
+
+# ============================================================================
+# Arcturus Governance Gate CI Workflow
+# ============================================================================
+# Owner: Hashim Ali Khan (@Hashimali-khan)
+# Day 3 Deliverable: run_governance_gate
+#
+# Triggers on every pull request that targets initiative/arcturus.
+# Runs the full ArcturusComplianceScanner suite and posts results as a
+# structured PR comment. Non-compliant scans fail the check.
+# ============================================================================
+
+on:
+  pull_request:
+    branches:
+      - initiative/arcturus
+    paths:
+      - "ecosystem/applications/arcturus/**"
+      - ".github/workflows/arcturus-governance-gate.yml"
+
+  # Allow manual triggering for ad-hoc governance audits
+  workflow_dispatch:
+    inputs:
+      fail_on_violation:
+        description: "Fail the workflow if any violation is found"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+  pull-requests: write   # Required to post PR comments
+
+jobs:
+  run_governance_gate:
+    name: "Run Governance Gate"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history needed for git status dirtiness checks
+          fetch-depth: 0
+
+      # -----------------------------------------------------------------------
+      # 2. Set up Python
+      # -----------------------------------------------------------------------
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # -----------------------------------------------------------------------
+      # 3. Install dependencies
+      # -----------------------------------------------------------------------
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pydantic pytest
+
+      # -----------------------------------------------------------------------
+      # 4. Run the Compliance Scanner
+      # -----------------------------------------------------------------------
+      - name: Run ArcturusComplianceScanner
+        id: scan
+        run: |
+          python - <<'PYEOF'
+          import sys
+          import json
+          from pathlib import Path
+
+          # Add repo root to sys.path so imports resolve correctly
+          repo_root = Path.cwd()
+          sys.path.insert(0, str(repo_root))
+
+          from ecosystem.applications.arcturus.src.governance.compliance_scanner import (
+              ArcturusComplianceScanner,
+          )
+          from ecosystem.applications.arcturus.src.governance.reporting.markdown_reporter import (
+              emit_markdown_report,
+          )
+          from ecosystem.applications.arcturus.src.governance.reporting.pr_comment_payload import (
+              build_pr_comment_payload,
+              serialise_payload,
+          )
+
+          scanner = ArcturusComplianceScanner(repo_root=repo_root)
+          report = scanner.run_full_scan()
+
+          # Render markdown and write to artifact
+          md = emit_markdown_report(
+              report,
+              output_path=repo_root / "governance_report.md",
+          )
+
+          # Build PR comment payload and write to artifact
+          payload = build_pr_comment_payload(report, markdown_body=md)
+          payload_path = repo_root / "governance_payload.json"
+          payload_path.write_text(serialise_payload(payload), encoding="utf-8")
+
+          # Print summary to workflow logs
+          print(report.summary())
+
+          # Set GitHub Actions output variables
+          verdict = "compliant" if report.is_compliant else "non_compliant"
+          with open("governance_env.txt", "w") as f:
+              f.write(f"GOVERNANCE_VERDICT={verdict}\n")
+          PYEOF
+
+
+      # -----------------------------------------------------------------------
+      # 5. Load verdict into env (always runs so subsequent steps see it)
+      # -----------------------------------------------------------------------
+      - name: Load governance verdict into environment
+        if: always()
+        run: |
+          if [ -f governance_env.txt ]; then
+            cat governance_env.txt >> "$GITHUB_ENV"
+          fi
+
+      # -----------------------------------------------------------------------
+      # 6. Upload governance artifacts
+      # -----------------------------------------------------------------------
+      - name: Upload governance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcturus-governance-report
+          path: |
+            governance_report.md
+            governance_payload.json
+          retention-days: 30
+
+      # -----------------------------------------------------------------------
+      # 7. Post PR comment (only on pull_request events)
+      # -----------------------------------------------------------------------
+      - name: Post governance results as PR comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Read the payload
+            let payload;
+            try {
+              payload = JSON.parse(fs.readFileSync('governance_payload.json', 'utf8'));
+            } catch (e) {
+              console.log('No payload file found — skipping comment');
+              return;
+            }
+
+            const tag = payload.tag;
+            const body = payload.body;
+
+            // Look for an existing comment with the governance tag
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.data.find(c => c.body.includes(tag));
+
+            if (existing) {
+              // Update the existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+              console.log('Updated existing governance comment');
+            } else {
+              // Create a new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+              console.log('Created new governance comment');
+            }
+
+      # -----------------------------------------------------------------------
+      # 8. Fail the job if non-compliant (deferred so artifacts upload first)
+      # -----------------------------------------------------------------------
+      - name: Enforce compliance gate
+        if: always()
+        run: |
+          FAIL_ON_VIOLATION="${{ github.event.inputs.fail_on_violation || 'true' }}"
+          if [ "$GOVERNANCE_VERDICT" = "non_compliant" ] && [ "$FAIL_ON_VIOLATION" = "true" ]; then
+            echo "❌ Governance gate failed — review the report above."
+            exit 1
+          fi
+          echo "✅ Governance gate passed."
