@@ -3,6 +3,7 @@ const { calculateScore } = require('./scoring')
 const { makeDecision } = require('./decision')
 const { createReview } = require('./review')
 const { createAuditRecord } = require('./audit')
+const { normalizeValidationResult } = require('./normalize')
 
 function validate(input) {
   const pipelineResult = validateInput(input)
@@ -26,6 +27,7 @@ function validate(input) {
     ...review,
     audit,
   }
+return normalizeValidationResult(result)
 }
 
 module.exports = {
