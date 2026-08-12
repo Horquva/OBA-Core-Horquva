@@ -1,6 +1,6 @@
 # ANTARES ENGINEERING OPERATIONS PLATFORM
 ### Owner: Kamil Ejaz — Engineering Lead
-### Status: Din 1 ✅ | Din 2 ✅ | Din 3-4 ✅ | Din 5 ✅ (CI: lint + build + tests automated) | baaki Din progressively ban rahe hain
+### Status: Din 1 ✅ | Din 2 ✅ | Din 3-4 ✅ | Din 5 ✅ | Din 6 ✅ (System/Engineering/Platform Health + dashboard) | baaki Din progressively ban rahe hain
 
 ---
 
@@ -47,6 +47,9 @@ antares-engops/
 │   ├── board.js               ← Din 2: standalone status board
 │   ├── cli.js                  ← Din 3-4: Engineering API / command-line interface
 │   ├── qualityGates.js       ← real validation checks (Din 5, job-output level)
+│   ├── ciHistory.js           ← Din 6: saves every CI run, computes Engineering Health (NAYA)
+│   ├── observability.js       ← Din 6: combines System + Engineering + Platform Health (NAYA)
+│   ├── dashboard.js            ← Din 6: clean operational dashboard (NAYA)
 │   ├── engine.js             ← poora orchestration engine (Din 3,4,6,7) — ab Execution tracking ke sath
 │   ├── seed.js                ← 10 real Antares platforms register karta hai
 │   └── demo.js                ← end-to-end live demo (Din 10) — ab persist bhi karta hai
@@ -54,7 +57,8 @@ antares-engops/
     ├── engine.test.js         ← 15 automated tests (Din 8-9)
     ├── persistence.test.js    ← 4 automated tests, Din 2
     ├── orchestration.test.js  ← 8 automated tests, Din 3-4
-    └── ci.test.js              ← 3 automated tests, Din 5 (NAYA)
+    ├── ci.test.js              ← 3 automated tests, Din 5
+    └── observability.test.js  ← 5 automated tests, Din 6 (NAYA)
 ```
 
 ---
@@ -63,14 +67,15 @@ antares-engops/
 
 ```bash
 cd antares-engops
-npm test               # 30/30 tests pass honge (15 engine + 4 persistence + 8 orchestration + 3 CI)
+npm test               # 35/35 tests pass honge
 npm run demo           # poora end-to-end demo console par chalega
 node src/board.js      # Din 2: saved state se status board dikhata hai
 
 # Din 5: CI pipeline — code push karne se PEHLE ye chalao:
 npm run ci              # lint -> build -> tests, sab ek sath, is order mein
-npm run lint            # sirf lint
-npm run buildcheck      # sirf build/syntax check
+
+# Din 6: poora observability dashboard (System + Engineering + Platform Health)
+node src/dashboard.js
 
 # Din 3-4: CLI se live kaam karo (koi bhi command, kabhi bhi):
 node src/cli.js register-platform cap-validation "Capability Validation" "Zara Fatima"
@@ -102,7 +107,7 @@ program ke sath nahi marta.
 | **Din 2** | Foundation — task/dependency/ownership/evidence tracking, basic dashboard | `models.js` (Platform, Job, Evidence) + `engine.js` ka `attachEvidence()`, `getSystemHealth()` — **plus `persistence.js` (save/load to disk) aur `board.js` (standalone status board) jo Din 2 mein add hue** |
 | **Din 3-4** | Live orchestration — Job Model (Platform·Task·Dependency·Execution·Status), status flow QUEUED→RUNNING→VALIDATING→PASSED→INTEGRATED→RELEASE_READY | `engine.js` — `start()`, `submitForValidation()`, `integrate()`, `releaseReady()`, `ALLOWED_TRANSITIONS` (illegal jump reject karta hai) — **plus `models.js` ka naya `Execution` model (har attempt ka alag record) aur `cli.js` (Engineering API — command-line se live use)** |
 | **Din 5** | CI/CD + Quality Gates — broken output silently na phaile | `qualityGates.js` (job-output gate, 5 checks) — **plus naya: `scripts/lint.js` (code static checks), `scripts/buildcheck.js` (syntax/build), `scripts/ci.js` (poora pipeline, fail-fast), `.github/workflows/ci.yml` (har push/PR par khud chalta hai)** |
-| **Din 6** | Observability — System/Engineering/Platform health, clean dashboard | `engine.js` ka `getSystemHealth()` + `getPlatformHealth()` + React dashboard artifact |
+| **Din 6** | Observability — System/Engineering/Platform health, clean dashboard | `engine.js` ka `getSystemHealth()` + `getPlatformHealth()` (Din 1 se) — **plus naya: `ciHistory.js` (Engineering Health, real CI run history se), `observability.js` (teeno health ek jagah), `dashboard.js` (clean terminal dashboard, Antares screenshot ke style mein) — aur pehle bana React dashboard artifact bhi isi data ko visually dikhata hai** |
 | **Din 7** | AI Engineering Ops Assistant — "kaunsa platform blocked hai? kyun?" real data se | `engine.js` ka `askAssistant()` + `explainBlock()` + `explainFailure()` — deterministic, LLM nahi, isliye kabhi hallucinate nahi karta |
 | **Din 8-9** | System-wide integration test, failures intentionally introduce karo | `test/engine.test.js` — 15 tests jisme dependency-blocking, gate-failure, retry, illegal-transition sab cover hain; `demo.js` mein jaan-boojh kar ek FAILED aur ek BLOCKED case dikhaya gaya hai |
 | **Din 10** | Final live demo — poori chain ek sath chalao | `demo.js` — Aurangzeb → Syed → Muzammel → Kanwal → Zara → Ammara → Laiba → Abbas → Zeeshan tak poori real chain chalti hai, retry aur auto-unblock ke sath |
