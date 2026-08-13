@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "trustSignal.schema.json",
+  "title": "TrustSignal",
+  "description": "A single dynamic, evidence-based signal about how much to trust an actor for one action. Multiple signal types are NEVER collapsed into one number — model confidence and org trust always stay separate signal records.",
+  "type": "object",
+  "required": ["id", "actorId", "signalType", "value", "source", "computedAt"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^TS-[0-9]+$" },
+    "actorId": { "type": "string" },
+    "actionRequestId": { "type": "string", "description": "Optional link to the Event this signal was computed for" },
+    "signalType": {
+      "type": "string",
+      "enum": ["MODEL_CONFIDENCE", "ORG_TRUST_SCORE", "HISTORICAL_ACCURACY", "ANOMALY_FLAG"],
+      "description": "MODEL_CONFIDENCE = the AI's own certainty. ORG_TRUST_SCORE = org's learned trust in this actor over time. These must never be merged into a single value."
+    },
+    "value": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "0-1 normalized score. For ANOMALY_FLAG, 1 = anomaly detected, 0 = none."
+    },
+    "source": { "type": "string", "description": "What computed this signal, e.g. 'trust-intelligence-engine-v1'" },
+    "computedAt": { "type": "string", "format": "date-time" }
+  }
+}
