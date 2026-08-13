@@ -19,6 +19,16 @@ jobs:
   full-rescan:
     name: Full Security Gate (scheduled)
     uses: ./.github/workflows/security-gate.yml
+    # A calling job must explicitly grant every permission the reusable
+    # workflow's own jobs need — top-level workflow permissions above are
+    # NOT automatically passed through. security-gate.yml's SAST job needs
+    # pull-requests: write (missing here previously), which is why this
+    # job failed to even start ("Startup failure") rather than failing
+    # partway through.
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
     secrets: inherit
 
   notify-on-failure:
