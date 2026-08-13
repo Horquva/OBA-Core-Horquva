@@ -68,7 +68,7 @@ def test_constraint_orphaned_capability_injection(runtime: OntologyRuntime, base
         "organizations": [], "divisions": [], "departments": [], "roles": [], "employees": [], "relationships": [],
         "capabilities": [
             # Injecting an orphaned capability mapped to department ID 999
-            {"cap_id": 101, "dept_id": 999, "name": "Predictive Analytics", "maturity_score": 4.5}
+            {"cap_id": 101, "dept_id": 999, "readiness_score": 0.8}
         ]
     }
     
@@ -86,11 +86,11 @@ def test_constraint_invalid_department_hierarchy(runtime: OntologyRuntime, base_
         "snapshot_version": "1.0",
         "organizations": [], "roles": [], "employees": [], "capabilities": [], "relationships": [],
         "divisions": [
-            {"div_id": 10, "org_id": 1, "name": "Engineering"}
+            {"div_id": 10, "org_id": 1, "div_name": "Engineering"}
         ],
         "departments": [
             # Injecting a department pointing to division 99 (doesn't exist)
-            {"dept_id": 50, "div_id": 99, "name": "Platform Team"}
+            {"dept_id": 50, "div_id": 99, "dept_name": "Platform Team"}
         ]
     }
 
@@ -110,10 +110,10 @@ def test_valid_ontology_resolution(runtime: OntologyRuntime, base_context: Simul
         "snapshot_version": "1.0",
         "organizations": [], "roles": [], "employees": [], "capabilities": [], "relationships": [],
         "divisions": [
-            {"div_id": 10, "org_id": 1, "name": "Engineering"}
+            {"div_id": 10, "org_id": 1, "div_name": "Engineering"}
         ],
         "departments": [
-            {"dept_id": 50, "div_id": 10, "name": "Platform Team"}
+            {"dept_id": 50, "div_id": 10, "dept_name": "Platform Team"}
         ]
     }
     
