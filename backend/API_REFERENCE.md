@@ -102,13 +102,23 @@ All responses are JSON. Errors return `{ "error": "..." }` with a 4xx/5xx status
 | GET | `/api/governance/offenders` | Worst governance offenders |
 
 ## Voice Intelligence (Huzaifa, M22) - `/api/voice`
+A live conversational engine, not a Deepgram transcript mock — it rebuilds an
+in-memory org graph from Supabase on every call and does real intent
+classification + entity resolution. There is no `/transcribe` or `/intent`
+endpoint (no audio handling of any kind); the actual surface is:
+
 | Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/api/voice/transcribe` | `{ text }` or `{ audio (base64) }` -> transcript |
-| POST | `/api/voice/intent` | `{ transcript }` -> structured intent signal |
+| GET/POST | `/api/voice/ask` | `?q=` or `{ question }` -> answer + resolved entity + confidence |
+| POST | `/api/voice/command` | `{ text }` -> structured command execution |
+| GET | `/api/voice/intents` | Supported intents / example queries |
+| GET | `/api/voice/history` | Recent conversation history |
+| GET | `/api/voice/daily-summary` | Today's spoken executive briefing |
 
 ## Constitutional Intelligence & Meta-Brain (Kamran, Phase 6) - `/api/intelligence`
-These read `data/company.json` and need **no** Supabase.
+These read live from Supabase via `lib/orgDataset.js` (shared with voice.js) —
+**not** from `data/company.json`, which nothing reads at runtime. They do not
+survive a Supabase outage.
 
 | Method | Endpoint | Module |
 |---|---|---|

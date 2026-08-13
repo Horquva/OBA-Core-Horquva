@@ -192,9 +192,14 @@ router.get('/mode', async (req, res) => {
       .limit(1)
       .maybeSingle()
 
+    // Fail open to the safe 'advisory' default either way, but a real query
+    // error (bad credentials, dropped table) must still be visible in the log —
+    // otherwise an outage here is indistinguishable from "no mode set yet".
+    if (error) console.warn(`[supabase] optional read failed — execution_mode: ${error.message}`)
     if (error || !data) return res.json({ executionMode: 'advisory' })
     res.json({ executionMode: data.mode })
   } catch (err) {
+    console.warn(`[supabase] optional read failed — execution_mode: ${err.message}`)
     res.json({ executionMode: 'advisory' })
   }
 })

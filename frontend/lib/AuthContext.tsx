@@ -86,6 +86,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Best-effort server-side revocation so the token can't be replayed after
+    // logout — fire-and-forget, must never block or fail the local logout
+    // (e.g. if the backend happens to be down when the user clicks Log Out).
+    if (token) {
+      fetch(`${API_BASE}/api/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
     setUser(null);
     setToken(null);
     try {
@@ -93,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(USER_KEY);
     } catch (_) {}
     router.push('/login');
-  }, [router]);
+  }, [router, token]);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, register, resetPassword, logout }}>

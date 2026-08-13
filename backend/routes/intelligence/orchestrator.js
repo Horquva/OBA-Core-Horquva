@@ -19,16 +19,20 @@ const { must, optional } = require('../../lib/supabaseQuery')
 // healthTrend, the only genuinely independent signals in this registry.
 // readBrainCore() is still called (see orchestrate()) purely to surface
 // `brainPosture` for display.
+// Weights sum to exactly 1.00 — verified module weights are displayed to the
+// caller (GET /modules) as-is, so they must be honest percentages, not just
+// relative ratios. (The score itself renormalizes by the verified subset's
+// total weight regardless, so this rescaling doesn't change any computed score.)
 const MODULE_REGISTRY = [
-  { key: 'governance',        label: 'Governance Intelligence',        weight: 0.12 },
-  { key: 'continuity',        label: 'Continuity Resilience',          weight: 0.12 },
-  { key: 'orgHealth',         label: 'Organizational Health',          weight: 0.10 },
-  { key: 'predictiveRisk',    label: 'Predictive Risk Intelligence',   weight: 0.10 },
-  { key: 'memory',            label: 'Memory Intelligence',            weight: 0.08 },
-  { key: 'collaboration',     label: 'Human-AI Collaboration',         weight: 0.07 },
-  { key: 'accountability',    label: 'Accountability Intelligence',    weight: 0.07 },
-  { key: 'domainInt',         label: 'Domain Intelligence',            weight: 0.06 },
-  { key: 'decisionQuality',   label: 'Decision Quality',               weight: 0.04 },
+  { key: 'governance',        label: 'Governance Intelligence',        weight: 0.15 },
+  { key: 'continuity',        label: 'Continuity Resilience',          weight: 0.15 },
+  { key: 'orgHealth',         label: 'Organizational Health',          weight: 0.12 },
+  { key: 'predictiveRisk',    label: 'Predictive Risk Intelligence',   weight: 0.12 },
+  { key: 'memory',            label: 'Memory Intelligence',            weight: 0.10 },
+  { key: 'collaboration',     label: 'Human-AI Collaboration',         weight: 0.09 },
+  { key: 'accountability',    label: 'Accountability Intelligence',    weight: 0.09 },
+  { key: 'domainInt',         label: 'Domain Intelligence',            weight: 0.07 },
+  { key: 'decisionQuality',   label: 'Decision Quality',               weight: 0.05 },
   { key: 'aiAdoption',        label: 'AI Adoption Score',              weight: 0.02 },
   { key: 'executiveBriefing', label: 'Executive Briefing',             weight: 0.02 },
   { key: 'executiveMemory',   label: 'Executive Memory',               weight: 0.01 },

@@ -73,7 +73,7 @@ class OrganizationalBrainRuntime {
     const comm = new CommunicationLayer({ moduleRegistry, capabilityRegistry, eventBus })
     const engine = new ExecutionEngine({
       moduleRegistry, capabilityRegistry, communicationLayer: comm,
-      graph, state, eventBus,
+      graph, state, eventBus, intelligenceBus,
     })
 
     // Expose the assembled brain

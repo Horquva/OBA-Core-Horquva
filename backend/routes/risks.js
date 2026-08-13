@@ -14,7 +14,9 @@ router.get('/', async (req, res) => {
   const maxScore = 100
 
   const raw = agents.reduce((sum, a) => sum + (weights[a.risk] || 0), 0)
-  const score = Math.min(Math.round((raw / (agents.length * 40)) * 100), maxScore)
+  const score = agents.length
+    ? Math.min(Math.round((raw / (agents.length * 40)) * 100), maxScore)
+    : 0
 
   const breakdown = {
     critical: agents.filter(a => a.risk === 'critical').length,

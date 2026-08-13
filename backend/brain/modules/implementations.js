@@ -15,9 +15,17 @@
  *                          M38 M39 M40 M46 M48 M50 M54 M55
  *   Tahir    (prediction)— M11 M12 M13 M17 M32 M33 M37 M41 M42 M43 M44 M45 M47 M49
  *   Anusha   (executive) — M15 M16 M21 M23 M51 M52 M53
+ *
+ * NOTE - module-code overlap: M39, M40, M46, M48 and M54 below are ALSO
+ * independently implemented in backend/routes/intelligence/constitutional.js
+ * (via lib/orgDataset.js's Supabase joins, not this file's knowledge graph).
+ * See that file's header comment for why the split exists. Both are real,
+ * neither is a stub, and they can disagree — if you're changing scoring logic
+ * for any of these five codes, check both files.
  */
 
 const A = require('./analytics')
+const { propagateConfidence } = require('../knowledge/intelligenceExchange')
 const ev = (source, ref, note) => ({ source, ref, note })
 
 const IMPL = {}
@@ -754,7 +762,11 @@ IMPL.M55 = (rt, context) => {
   const health = prior.find((p) => p.sourceModule === 'M25')
   const risk = prior.find((p) => p.sourceModule === 'M03')
   const advisor = prior.find((p) => p.sourceModule === 'M48')
-  const fusedConfidence = prior.length ? A.round(Math.min(...prior.map((p) => p.confidence)) * 0.5 + (prior.reduce((s, p) => s + p.confidence, 0) / prior.length) * 0.5) : 0.5
+  // Uses the same weakest-link/average fusion (propagateConfidence, 0.6/0.4) that
+  // ExecutionEngine applies to its own top-level fusedConfidence — M55 is supposed
+  // to be the authoritative fusion, so it must not compute that number differently
+  // from the engine that reports it to the caller.
+  const fusedConfidence = prior.length ? A.round(propagateConfidence(prior)) : 0.5
   const keyRecommendations = [...new Set(prior.flatMap((p) => p.recommendations || []))].slice(0, 10)
   const evidence = prior.map((p) => ev('module', p.sourceModule, `${p.type}`))
   return {

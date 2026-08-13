@@ -52,7 +52,9 @@ function buildBrainRouter(brain) {
     const { modules, need, context } = req.body || {}
     try {
       const result = await engine.execute({ modules: modules || [], need, context: context || {} })
-      res.json(result)
+      // Same reason as /status: this may be answering from the demo graph.
+      // dataSource.live is the only thing on this response that says so.
+      res.json({ ...result, dataSource: state.graph() })
     } catch (e) {
       res.status(400).json({ error: e.message })
     }

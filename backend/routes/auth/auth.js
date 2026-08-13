@@ -4,6 +4,7 @@
  *   POST /api/auth/register   { email, password, name?, role?, org? }
  *   POST /api/auth/login      { email, password }   -> { token, user }
  *   GET  /api/auth/me         (Bearer token)         -> { user }
+ *   POST /api/auth/logout     (Bearer token)         -> { ok: true }
  *
  * Storage: Supabase table `app_users` (create it with sql/auth_schema.sql).
  * If the table is unavailable, the ADMIN_EMAIL/ADMIN_PASSWORD env fallback keeps
@@ -15,6 +16,13 @@ const router = express.Router()
 const { sign } = require('../../lib/jwt')
 const password = require('../../lib/password')
 const { requireAuth } = require('../../middleware/auth')
+const { rateLimit } = require('../../middleware/rateLimit')
+const { revoke } = require('../../lib/tokenBlocklist')
+
+// 10 attempts / 15 min per IP+email — slows brute-forcing without a real
+// account-lockout system (which would need its own UX for legitimate users
+// locked out by an attacker guessing their email).
+const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, keyField: 'email' })
 
 let supabase = null
 try {
@@ -71,7 +79,7 @@ router.post('/register', async (req, res) => {
 })
 
 // -- LOGIN -----------------------------------------------------
-router.post('/login', async (req, res) => {
+router.post('/login', authRateLimit, async (req, res) => {
 	const { email, password: pass } = req.body || {}
 	if (!email || !pass) return res.status(400).json({ error: 'email and password are required' })
 
@@ -101,8 +109,23 @@ router.get('/me', requireAuth, (req, res) => {
 	res.json({ user: req.user })
 })
 
+// -- LOGOUT ------------------------------------------------------
+// Revokes this specific token (by jti) so it can't be reused after logout,
+// without invalidating the user's other active sessions/tokens.
+router.post('/logout', requireAuth, (req, res) => {
+	revoke(req.user.jti, req.user.exp)
+	res.json({ ok: true })
+})
+
 // -- RESET PASSWORD (MVP) --------------------------------------
-router.post('/reset-password', async (req, res) => {
+// KNOWN GAP: this takes only email + new password — no token/OTP proving the
+// caller actually owns the mailbox, so anyone who knows a user's email can
+// take over their account. Closing that needs a real email-delivery flow
+// (issue a signed reset token, email it, verify it here) which this repo has
+// no infrastructure for yet (no mail service configured anywhere). Rate
+// limiting below reduces the blast radius in the meantime but does not close
+// the gap — do not treat this endpoint as secured.
+router.post('/reset-password', authRateLimit, async (req, res) => {
 	const { email, password: newPass } = req.body || {}
 	if (!email || !newPass) return res.status(400).json({ error: 'email and password are required' })
 	if (!supabase) return res.status(503).json({ error: 'User store not configured. Set up the Supabase app_users table.' })

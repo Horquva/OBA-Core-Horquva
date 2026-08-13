@@ -41,7 +41,7 @@ export default function SimulationPage() {
         backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
         criticality: a.risk || a.criticality || 'low',
         department: a.department || (a.owner?.department) || 'Unassigned',
-        documented: true,
+        documented: Boolean(a.documented ?? false),
       })) : [];
 
       const mappedDeps: Dependency[] = Array.isArray(depsData.dependencies) 

@@ -36,8 +36,7 @@ export default function RiskPage() {
         backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
         criticality: a.risk || a.criticality || 'low',
         department: a.department || (a.owner?.department) || 'Unassigned',
-        // Hardcode documented as true just to satisfy the frontend interface if backend missing it
-        documented: true,
+        documented: Boolean(a.documented ?? false),
       })) : [];
 
       const dependencies: Dependency[] = Array.isArray(depsData.dependencies) ? depsData.dependencies.map((d: any) => ({

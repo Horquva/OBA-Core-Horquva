@@ -16,13 +16,14 @@ const crypto = require('crypto')
 const { propagateConfidence } = require('../knowledge/intelligenceExchange')
 
 class ExecutionEngine {
-  constructor({ moduleRegistry, capabilityRegistry, communicationLayer, graph, state, eventBus }) {
+  constructor({ moduleRegistry, capabilityRegistry, communicationLayer, graph, state, eventBus, intelligenceBus }) {
     this.moduleRegistry = moduleRegistry
     this.capabilityRegistry = capabilityRegistry
     this.comm = communicationLayer
     this.graph = graph
     this.state = state
     this.eventBus = eventBus
+    this.intelligenceBus = intelligenceBus
   }
 
   /** Topologically order module codes by dependsOn (Kahn's algorithm). */
@@ -127,7 +128,11 @@ class ExecutionEngine {
         try {
           // priorIntel lets constitutional gates work (M46 gates M48; M55 fuses all).
           const intel = await this.comm.invoke(cap.id, { ...context, execId, priorIntel })
-          this.graph.sync(intel) // synchronize into the knowledge graph
+          // Publishing (not a direct graph.sync call) is what makes this module's
+          // output visible on GET /api/brain/intelligence/history and to any other
+          // '*' subscriber — the runtime's own graph-sync subscription (runtime.js)
+          // is what actually performs the sync in response to this publish.
+          this.intelligenceBus.publish(intel)
           priorIntel.push({ module: code, package: intel })
           packages.push(intel)
           results.push({
@@ -144,9 +149,15 @@ class ExecutionEngine {
     this.eventBus.emitSignal('execution.completed', { execId })
 
     const successful = results.filter((r) => !r.error && !r.skipped)
-    const fusedConfidence = propagateConfidence(
-      successful.map((r) => ({ confidence: r.confidence ?? 0 }))
-    )
+    // M55 (Meta-Brain Orchestrator) is constitutionally the module that fuses ALL
+    // prior intelligence into one answer, and always runs last. If it ran, its own
+    // confidence already IS the fused answer — re-fusing over the full result set
+    // here would just double the same signals through a second, separate average.
+    // Only fall back to fusing the raw result set when M55 wasn't part of this run.
+    const m55Result = successful.find((r) => r.module === 'M55')
+    const fusedConfidence = m55Result
+      ? m55Result.confidence ?? 0
+      : propagateConfidence(successful.map((r) => ({ confidence: r.confidence ?? 0 })))
 
     return {
       execId,

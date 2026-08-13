@@ -9,6 +9,7 @@
  */
 
 const { verify } = require('../lib/jwt')
+const { isRevoked } = require('../lib/tokenBlocklist')
 
 const SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
 
@@ -25,8 +26,10 @@ function orgContext(req, _res, next) {
 	if (token) {
 		try {
 			const user = verify(token, SECRET)
-			req.user = user
-			req.org = user.org || null
+			if (!isRevoked(user.jti)) {
+				req.user = user
+				req.org = user.org || null
+			}
 		} catch (_) {
 			/* invalid token — ignore, request stays anonymous */
 		}
@@ -43,6 +46,7 @@ function requireAuth(req, res, next) {
 	if (!token) return res.status(401).json({ error: 'Authentication required' })
 	try {
 		const user = verify(token, SECRET)
+		if (isRevoked(user.jti)) return res.status(401).json({ error: 'Token has been revoked (logged out)' })
 		req.user = user
 		req.org = user.org || null
 		next()

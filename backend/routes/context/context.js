@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
-const { must } = require('../../lib/supabaseQuery')
+const { must, optional } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -199,38 +199,40 @@ router.get('/metrics', async (req, res) => {
   try {
     const items = await fetchByType('metric')
 
-    // Pull live metric signals from existing modules
+    // Pull live metric signals from existing modules — maybeSingle since an
+    // empty table (no snapshot recorded yet) is legitimate, not a failure;
+    // optional() still logs a real query error instead of rendering it as null.
     const [healthSnapshot, docTrend, orgScore] = await Promise.all([
-      supabase
+      optional('org_health_snapshots', supabase
         .from('org_health_snapshots')
         .select('health_index, health_status, snapshot_month')
         .order('snapshot_month', { ascending: false })
         .limit(1)
-        .single(),
+        .maybeSingle()),
 
-      supabase
+      optional('documentation_trend', supabase
         .from('documentation_trend')
         .select('coverage_pct, recorded_month')
         .order('recorded_month', { ascending: false })
         .limit(1)
-        .single(),
+        .maybeSingle()),
 
-      supabase
+      optional('intelligence_results(org_score)', supabase
         .from('intelligence_results')
         .select('score, rating')
         .eq('result_key', 'org_score')
-        .single()
+        .maybeSingle())
     ])
 
     res.json({
       totalWeakMetrics: items.length,
       contextItems: items.map(formatItem),
       liveMetrics: {
-        organizationalHealthIndex: healthSnapshot.data?.health_index ?? null,
-        healthStatus:              healthSnapshot.data?.health_status ?? null,
-        documentationCoverage:     docTrend.data?.coverage_pct ?? null,
-        orgIntelligenceScore:      orgScore.data?.score ?? null,
-        orgIntelligenceRating:     orgScore.data?.rating ?? null
+        organizationalHealthIndex: healthSnapshot?.health_index ?? null,
+        healthStatus:              healthSnapshot?.health_status ?? null,
+        documentationCoverage:     docTrend?.coverage_pct ?? null,
+        orgIntelligenceScore:      orgScore?.score ?? null,
+        orgIntelligenceRating:     orgScore?.rating ?? null
       }
     })
   } catch (err) {

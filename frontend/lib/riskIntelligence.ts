@@ -107,6 +107,68 @@ export interface RiskIntelligenceReport {
   totalAgents: number;
   orphanedCount: number;
   spofCount: number;
+  summary: OrgHealthSummary;
+}
+
+export interface OrgHealthSummary {
+  mostOverloadedOwner: { name: string; agentCount: number; backupCount: number } | null;
+  highestRisk: { name: string; score: number } | null;
+  maxCascade: number;
+  undocumentedCount: number;
+  findings: string[];
+}
+
+function buildSummary(
+  profiles: AgentRiskProfile[],
+  criticalCount: number,
+  highCount: number,
+  orphanedNames: string[]
+): OrgHealthSummary {
+  const byOwner: Record<string, AgentRiskProfile[]> = {};
+  profiles.forEach(p => {
+    const owner = p.agent.owner;
+    if (!owner) return;
+    (byOwner[owner] = byOwner[owner] || []).push(p);
+  });
+
+  let mostOverloadedOwner: OrgHealthSummary['mostOverloadedOwner'] = null;
+  for (const [name, owned] of Object.entries(byOwner)) {
+    const backupCount = owned.filter(p => p.agent.backup_owner).length;
+    if (!mostOverloadedOwner || owned.length > mostOverloadedOwner.agentCount) {
+      mostOverloadedOwner = { name, agentCount: owned.length, backupCount };
+    }
+  }
+
+  const highestRiskProfile = profiles.reduce<AgentRiskProfile | null>((max, p) => (
+    !max || p.compositeScore > max.compositeScore ? p : max
+  ), null);
+  const highestRisk = highestRiskProfile
+    ? { name: highestRiskProfile.agent.name, score: highestRiskProfile.compositeScore }
+    : null;
+
+  const spofProfiles = profiles.filter(p => p.isSPOF);
+  const maxCascade = spofProfiles.reduce((max, p) => Math.max(max, p.downstreamCount), 0);
+  const worstSpof = spofProfiles.reduce<AgentRiskProfile | null>((max, p) => (
+    !max || p.downstreamCount > max.downstreamCount ? p : max
+  ), null);
+
+  const undocumentedCount = profiles.filter(p => !p.agent.documented).length;
+
+  const findings: string[] = [];
+  if (criticalCount > 0) findings.push(`${criticalCount} agent${criticalCount === 1 ? '' : 's'} at CRITICAL risk — immediate intervention required`);
+  if (highCount > 0) findings.push(`${highCount} agent${highCount === 1 ? '' : 's'} at HIGH risk — escalate to department heads`);
+  if (mostOverloadedOwner && mostOverloadedOwner.agentCount >= 2) {
+    const missingBackups = mostOverloadedOwner.agentCount - mostOverloadedOwner.backupCount;
+    findings.push(`${mostOverloadedOwner.name} owns ${mostOverloadedOwner.agentCount} agents with ${missingBackups} lacking backup coverage — concentration risk`);
+  }
+  if (orphanedNames.length > 0) {
+    findings.push(`${orphanedNames.length} orphaned agent${orphanedNames.length === 1 ? '' : 's'}: ${orphanedNames.join(' & ')}`);
+  }
+  if (worstSpof) {
+    findings.push(`SPOF detected: ${worstSpof.agent.name} → cascades to ${worstSpof.downstreamCount}+ downstream agents`);
+  }
+
+  return { mostOverloadedOwner, highestRisk, maxCascade, undocumentedCount, findings };
 }
 
 export function computeRiskIntelligence(
@@ -168,6 +230,8 @@ export function computeRiskIntelligence(
   else if (ohs >= 50) healthStatus = 'AT_RISK';
   else               healthStatus = 'CRITICAL';
 
+  const orphanedNames = profiles.filter(p => p.isOrphaned).map(p => p.agent.name);
+
   return {
     agents: profiles,
     criticalAgents,
@@ -177,7 +241,8 @@ export function computeRiskIntelligence(
     organizationalHealthScore: ohs,
     healthStatus,
     totalAgents: agents.length,
-    orphanedCount: profiles.filter(p => p.isOrphaned).length,
+    orphanedCount: orphanedNames.length,
     spofCount: profiles.filter(p => p.isSPOF).length,
+    summary: buildSummary(profiles, criticalAgents.length, highAgents.length, orphanedNames),
   };
 }

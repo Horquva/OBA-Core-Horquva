@@ -38,7 +38,9 @@ router.get('/', async (req, res) => {
   // Risk score calculation
   const weights = { critical: 40, high: 20, medium: 10, low: 5 }
   const raw = agents.data.reduce((sum, a) => sum + (weights[a.risk] || 0), 0)
-  const riskScore = Math.min(Math.round((raw / (totalAgents * 40)) * 100), 100)
+  const riskScore = totalAgents
+    ? Math.min(Math.round((raw / (totalAgents * 40)) * 100), 100)
+    : 0
 
   // Workload
   const avgWorkload = employees.data.length > 0

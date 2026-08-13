@@ -6,17 +6,6 @@ const supabase = require('../../supabase')
 // HELPERS
 // ─────────────────────────────────────────────
 
-async function fetchForecast(horizon) {
-  const { data, error } = await supabase
-    .from('organizational_forecasts')
-    .select('*')
-    .eq('horizon_days', horizon)
-    .single()
-
-  if (error) throw new Error(error.message)
-  return data
-}
-
 async function fetchAllForecasts() {
   const { data, error } = await supabase
     .from('organizational_forecasts')

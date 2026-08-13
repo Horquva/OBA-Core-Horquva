@@ -80,31 +80,35 @@ router.get('/escalations/summary', async (req, res) => {
 
 // POST /api/avatar/check — gate check + auto-escalate if fails
 router.post('/check', async (req, res) => {
-  const { workflow_id } = req.body
+  try {
+    const { workflow_id } = req.body
 
-  if (!Number.isInteger(Number(workflow_id))) {
-    return res.status(400).json({ error: 'workflow_id is required and must be an integer workflow id' })
-  }
+    if (!Number.isInteger(Number(workflow_id))) {
+      return res.status(400).json({ error: 'workflow_id is required and must be an integer workflow id' })
+    }
 
-  const gateResult = await checkGate(workflow_id)
+    const gateResult = await checkGate(workflow_id)
 
-  if (gateResult.can_act) {
-    return res.json({
+    if (gateResult.can_act) {
+      return res.json({
+        workflow_id,
+        can_act: true,
+        message: 'Workflow cleared. Executive Avatar may proceed.',
+        escalation: null
+      })
+    }
+
+    const escalation = await escalate(gateResult)
+
+    res.json({
       workflow_id,
-      can_act: true,
-      message: 'Workflow cleared. Executive Avatar may proceed.',
-      escalation: null
+      can_act: false,
+      message: escalation.message,
+      escalation
     })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
-
-  const escalation = await escalate(gateResult)
-
-  res.json({
-    workflow_id,
-    can_act: false,
-    message: escalation.message,
-    escalation
-  })
 })
 
 module.exports = router

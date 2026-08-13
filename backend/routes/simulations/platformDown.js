@@ -20,47 +20,53 @@ router.get('/', async (req, res) => {
 })
 
 router.get('/:platform', async (req, res) => {
-  const { platform } = req.params
+  try {
+    const { platform } = req.params
 
-  // Get platform
-  const { data: plat } = await supabase
-    .from('ai_platforms')
-    .select('id, name, type, status')
-    .ilike('name', platform)
-    .single()
+    // Get platform
+    const { data: plat, error: platErr } = await supabase
+      .from('ai_platforms')
+      .select('id, name, type, status')
+      .ilike('name', platform)
+      .maybeSingle()
+    if (platErr) return res.status(500).json({ error: platErr.message })
+    if (!plat) return res.status(404).json({ error: 'Platform not found' })
 
-  if (!plat) return res.status(404).json({ error: 'Platform not found' })
+    // Get agents on this platform
+    const { data: agentLinks, error: agentErr } = await supabase
+      .from('agent_platform')
+      .select('agents(id, name, status, risk)')
+      .eq('platform_id', plat.id)
+    if (agentErr) return res.status(500).json({ error: agentErr.message })
 
-  // Get agents on this platform
-  const { data: agentLinks } = await supabase
-    .from('agent_platform')
-    .select('agents(id, name, status, risk)')
-    .eq('platform_id', plat.id)
+    const impactedAgents = (agentLinks || []).map(l => l.agents)
 
-  const impactedAgents = agentLinks.map(l => l.agents)
+    // Get workflows for those agents
+    const agentIds = impactedAgents.map(a => a.id)
+    const { data: wfLinks, error: wfErr } = await supabase
+      .from('workflow_dependencies')
+      .select('workflows(id, name, status, risk)')
+      .in('agent_id', agentIds)
+    if (wfErr) return res.status(500).json({ error: wfErr.message })
 
-  // Get workflows for those agents
-  const agentIds = impactedAgents.map(a => a.id)
-  const { data: wfLinks } = await supabase
-    .from('workflow_dependencies')
-    .select('workflows(id, name, status, risk)')
-    .in('agent_id', agentIds)
+    const impactedWorkflows = [...new Map(
+      (wfLinks || []).map(w => [w.workflows.id, w.workflows])
+    ).values()]
 
-  const impactedWorkflows = [...new Map(
-    wfLinks.map(w => [w.workflows.id, w.workflows])
-  ).values()]
+    const riskLevel = impactedAgents.length >= 3 ? 'critical' : 'high'
 
-  const riskLevel = impactedAgents.length >= 3 ? 'critical' : 'high'
-
-  res.json({
-    scenario:         `If ${plat.name} goes down`,
-    impactedAgents,
-    impactedWorkflows,
-    impactedPeople:   [],
-    healthBefore:     'stable',
-    healthAfter:      'degraded',
-    riskLevel
-  })
+    res.json({
+      scenario:         `If ${plat.name} goes down`,
+      impactedAgents,
+      impactedWorkflows,
+      impactedPeople:   [],
+      healthBefore:     'stable',
+      healthAfter:      'degraded',
+      riskLevel
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 module.exports = router

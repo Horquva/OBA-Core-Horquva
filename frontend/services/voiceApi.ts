@@ -31,98 +31,64 @@ export interface VoiceHistory {
 
 // Ask OBA a question
 export async function askOBA(question: string): Promise<VoiceResponse> {
-  try {
-    const response = await fetch(
-      `${API_BASE}/ask?q=${encodeURIComponent(question)}`,
-      { headers: authHeader() }
-    );
+  const response = await fetch(
+    `${API_BASE}/ask?q=${encodeURIComponent(question)}`,
+    { headers: authHeader() }
+  );
 
-    if (!response.ok) {
-      throw new Error("Failed to get response from OBA.");
-    }
-
-    return response.json();
-  } catch (error) {
-    console.warn("API Error, falling back to mock response:", error);
-    return {
-      query: question,
-      detectedIntent: "Mock Intent",
-      resolvedEntity: "Mock Entity",
-      entityType: "Mock Type",
-      answer: "I am unable to reach the Organizational Brain backend, but this is a mocked response.",
-      confidence: "MEDIUM"
-    };
+  if (!response.ok) {
+    throw new Error("Failed to get response from OBA.");
   }
+
+  return response.json();
 }
 
 // Daily briefing
 export async function getDailySummary() {
-  try {
-    const response = await fetch(`${API_BASE}/daily-summary`, { headers: authHeader() });
+  const response = await fetch(`${API_BASE}/daily-summary`, { headers: authHeader() });
 
-    if (!response.ok) {
-      throw new Error("Failed to load daily summary.");
-    }
-
-    return response.json();
-  } catch (error) {
-    console.warn("API Error, falling back to mock response:", error);
-    return { summary: "This is a mocked daily executive briefing since the API is unreachable." };
+  if (!response.ok) {
+    throw new Error("Failed to load daily summary.");
   }
+
+  return response.json();
 }
 
 // Suggested prompts
 export async function getVoiceIntents() {
-  try {
-    const response = await fetch(`${API_BASE}/intents`, { headers: authHeader() });
+  const response = await fetch(`${API_BASE}/intents`, { headers: authHeader() });
 
-    if (!response.ok) {
-      throw new Error("Failed to load voice intents.");
-    }
-
-    return response.json();
-  } catch (error) {
-    console.warn("API Error, falling back to mock response:", error);
-    return [
-      { intent_name: "Check Risk", example_query: "Show me highest active risks" },
-      { intent_name: "Check Ownership", example_query: "Who owns the billing service?" }
-    ];
+  if (!response.ok) {
+    throw new Error("Failed to load voice intents.");
   }
+
+  return response.json();
 }
 
 // Conversation history
 export async function getVoiceHistory() {
-  try {
-    const response = await fetch(`${API_BASE}/history`);
+  const response = await fetch(`${API_BASE}/history`, { headers: authHeader() });
 
-    if (!response.ok) {
-      throw new Error("Failed to load history.");
-    }
-
-    return response.json();
-  } catch (error) {
-    console.warn("API Error, falling back to mock response:", error);
-    return [];
+  if (!response.ok) {
+    throw new Error("Failed to load history.");
   }
+
+  return response.json();
 }
+
 export async function executeVoiceCommand(text: string) {
-  try {
-    const response = await fetch(`${API_BASE}/command`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader(),
-      },
-      body: JSON.stringify({ text }),
-    });
+  const response = await fetch(`${API_BASE}/command`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader(),
+    },
+    body: JSON.stringify({ text }),
+  });
 
-    if (!response.ok) {
-      throw new Error("Voice command failed.");
-    }
-
-    return response.json();
-  } catch (error) {
-    console.warn("API Error, falling back to mock response:", error);
-    return { status: "Feature mocked due to missing API" };
+  if (!response.ok) {
+    throw new Error("Voice command failed.");
   }
+
+  return response.json();
 }

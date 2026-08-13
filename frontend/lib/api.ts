@@ -57,7 +57,7 @@ export interface WorkflowTool {
 }
 
 export interface WorkflowFailure {
-  failure_type: 'human_spof' | 'tool_spof' | 'agent_spof';
+  failure_type: 'human_spof' | 'tool_failure' | 'process_gap' | 'escalation_failure';
   severity: RiskLevel;
   description: string;
 }
@@ -117,8 +117,9 @@ export interface WorkflowFailureItem {
   severitySummary: WorkflowFailureSeveritySummary;
   breakdown: {
     human_spof: WorkflowFailureBreakdownGroup;
-    tool_spof: WorkflowFailureBreakdownGroup;
-    agent_spof: WorkflowFailureBreakdownGroup;
+    tool_failure: WorkflowFailureBreakdownGroup;
+    process_gap: WorkflowFailureBreakdownGroup;
+    escalation_failure: WorkflowFailureBreakdownGroup;
   };
 }
 

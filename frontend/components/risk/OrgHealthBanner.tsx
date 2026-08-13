@@ -7,23 +7,39 @@ interface OrgHealthBannerProps {
   report: RiskIntelligenceReport;
 }
 
-const FINDINGS = [
-  '5 agents at CRITICAL risk — immediate intervention required',
-  '6 agents at HIGH risk — escalate to department heads',
-  'Robert owns 5 agents with zero backup coverage — single human SPOF',
-  '2 orphaned agents: Inventory Agent & Data Backup Agent',
-  'SPOF detected: Inventory Agent → cascades to 3+ downstream agents',
-];
-
-const INSIGHT_COLS = [
-  { label: 'Most Overloaded Owner', value: 'Robert', sub: '5 agents, 0 backups', color: 'text-red-400' },
-  { label: 'Highest Risk Score',   value: '85',     sub: 'Data Backup Agent',  color: 'text-red-400' },
-  { label: 'SPOF Cascade Risk',    value: '5+',     sub: 'agents can be disrupted', color: 'text-orange-400' },
-  { label: 'Undocumented Agents',  value: '7',      sub: 'of 15 agents',       color: 'text-yellow-400' },
-];
-
 export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
-  const { organizationalHealthScore: ohs, healthStatus, criticalAgents, highAgents } = report;
+  const { organizationalHealthScore: ohs, healthStatus, summary, totalAgents } = report;
+
+  const findings = summary.findings.length > 0
+    ? summary.findings
+    : ['No elevated risk findings — organization is within normal ownership and documentation coverage.'];
+
+  const insightCols = [
+    {
+      label: 'Most Overloaded Owner',
+      value: summary.mostOverloadedOwner?.name ?? '—',
+      sub: summary.mostOverloadedOwner ? `${summary.mostOverloadedOwner.agentCount} agents, ${summary.mostOverloadedOwner.backupCount} backups` : 'no owners assigned',
+      color: 'text-red-400',
+    },
+    {
+      label: 'Highest Risk Score',
+      value: summary.highestRisk ? String(summary.highestRisk.score) : '—',
+      sub: summary.highestRisk?.name ?? 'n/a',
+      color: 'text-red-400',
+    },
+    {
+      label: 'SPOF Cascade Risk',
+      value: summary.maxCascade > 0 ? `${summary.maxCascade}+` : '0',
+      sub: 'agents can be disrupted',
+      color: 'text-orange-400',
+    },
+    {
+      label: 'Undocumented Agents',
+      value: String(summary.undocumentedCount),
+      sub: `of ${totalAgents} agents`,
+      color: 'text-yellow-400',
+    },
+  ];
 
   const gradient = '';
   const borderColor = 'border-[var(--border-subtle)]';
@@ -44,7 +60,7 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
             <div>
               <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Organizational Health Summary</h2>
               <p className="text-xs text-[color:var(--text-secondary)] mt-0.5">
-                Sunrise Care — {report.totalAgents} agents analysed across all departments
+                {totalAgents} agents analysed across all departments
               </p>
             </div>
             <div className="text-right">
@@ -81,7 +97,7 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
 
         {/* Insight columns */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-[var(--border-subtle)] border-b border-[var(--border-subtle)]">
-          {INSIGHT_COLS.map((col, idx) => (
+          {insightCols.map((col, idx) => (
             <div key={idx} className="bg-[var(--bg-elevated)] px-5 py-4">
               <p className="text-[10px] uppercase tracking-widest text-[color:var(--text-tertiary)] mb-1">{col.label}</p>
               <p className={clsx('text-2xl font-bold tracking-tight', col.color)}>{col.value}</p>
@@ -93,10 +109,10 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
         {/* Key findings */}
         <div className="px-6 py-5">
           <p className="text-[10px] uppercase tracking-widest text-[color:var(--text-tertiary)] font-semibold mb-3">
-            Key Findings — Sunrise Care Demo
+            Key Findings
           </p>
           <div className="space-y-2">
-            {FINDINGS.map((finding, i) => (
+            {findings.map((finding, i) => (
               <div key={i} className="flex items-start gap-2.5">
                 <div className={clsx(
                   'w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5',

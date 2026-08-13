@@ -11,6 +11,16 @@
 // per-agent/workflow "documented" or "backup_owner" column exists without a
 // join (see orgDataset.js), and no incidents table with resolution/lesson
 // tracking exists at all — `incidents` is always [] rather than fabricated.
+//
+// NOTE - module-code overlap: M39, M40, M46, M48 and M54 are ALSO implemented
+// in backend/brain/modules/implementations.js and reachable via
+// intelligence/prediction.js, which computes them from the brain's knowledge
+// graph instead of this file's orgDataset.js pipeline. That's a deliberate
+// two-pipeline architecture (this file predates the brain runtime and was kept
+// because voice.js shares its dataset loader), but it means these five module
+// codes can return two different answers depending on which route you call.
+// Neither implementation is "the bug" - the duplication itself is the risk.
+// If you're touching M39/M40/M46/M48/M54 logic, check both files.
 // ─────────────────────────────────────────────────────────────
 
 const express = require('express')
