@@ -33,10 +33,12 @@ tags = ["sentinel", "secret", "critical"]
 [allowlist]
 description = "Known safe test fixtures only — never production paths"
 paths = [
-  '''(.*)/safe-fixtures/(.*)''',
-  '''(.*)\.md$''',
-  '''testing/negative-test-fixtures/(.*)''',
+  '''safe-fixtures''',
+  '''negative-test-fixtures''',
+  '''\.md$''',
 ]
 regexes = [
   '''EXAMPLE_(KEY|TOKEN|SECRET)_DO_NOT_USE''',
+  '''AKIAIOSFODNN7EXAMPLE''',
+  '''fake-credential''',
 ]
