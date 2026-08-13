@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { must } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
 // WEIGHTS (must sum to 1.0)
@@ -69,56 +70,64 @@ function detectTrend(snapshots) {
 // LIVE DIMENSION SCORES — pulled from existing modules
 // ─────────────────────────────────────────────
 
+// Every read here feeds the headline live health index, so every one of them
+// uses must(): a failure has to reach the caller as a 500. Previously these
+// destructured only `{ data }`, so a total Supabase outage scored
+// documentation/continuity/ownership/safety at 0 and incidentLoad at 100,
+// yielding a confident-looking index of 15 / "CRITICAL" — a real number,
+// reported to an executive, derived from nothing.
 async function computeLiveDimensions() {
 
-  // 1 — DOCUMENTATION: from documentation_trend
-  const { data: docTrend } = await supabase
-    .from('documentation_trend')
-    .select('coverage_pct')
-    .order('recorded_month', { ascending: false })
-    .limit(1)
-    .single()
+  const [docTrend, runbooks, collabs, predictions, failures] = await Promise.all([
+    // A missing row here is legitimately "not measured yet", not a failure, so
+    // maybeSingle() — but a broken query still throws.
+    must('documentation_trend', supabase
+      .from('documentation_trend')
+      .select('coverage_pct')
+      .order('recorded_month', { ascending: false })
+      .limit(1)
+      .maybeSingle()),
 
-  const documentationScore = docTrend
-    ? Math.round(docTrend.coverage_pct)
-    : 0
+    must('workflow_runbooks', supabase
+      .from('workflow_runbooks')
+      .select('is_documented')),
+
+    must('collaboration_scores', supabase
+      .from('collaboration_scores')
+      .select('has_backup')),
+
+    must('predictive_risk_scores', supabase
+      .from('predictive_risk_scores')
+      .select('threat_level')),
+
+    must('workflow_failures', supabase
+      .from('workflow_failures')
+      .select('severity')),
+  ])
+
+  // 1 — DOCUMENTATION: from documentation_trend
+  const documentationScore = docTrend ? Math.round(docTrend.coverage_pct) : 0
 
   // 2 — CONTINUITY: from workflow_runbooks — % that are documented
-  const { data: runbooks } = await supabase
-    .from('workflow_runbooks')
-    .select('is_documented')
-
-  const continuityScore = runbooks?.length
+  const continuityScore = runbooks.length
     ? Math.round((runbooks.filter(r => r.is_documented).length / runbooks.length) * 100)
     : 0
 
   // 3 — OWNERSHIP SPREAD: from collaboration_scores — % employees with backup
-  const { data: collabs } = await supabase
-    .from('collaboration_scores')
-    .select('has_backup')
-
-  const ownershipSpreadScore = collabs?.length
+  const ownershipSpreadScore = collabs.length
     ? Math.round((collabs.filter(c => c.has_backup).length / collabs.length) * 100)
     : 0
 
   // 4 — CRITICAL SAFETY: from predictive_risk_scores — % agents NOT at CRITICAL threat
-  const { data: predictions } = await supabase
-    .from('predictive_risk_scores')
-    .select('threat_level')
-
-  const criticalSafetyScore = predictions?.length
+  const criticalSafetyScore = predictions.length
     ? Math.round(
         (predictions.filter(p => p.threat_level !== 'CRITICAL').length / predictions.length) * 100
       )
     : 0
 
   // 5 — INCIDENT LOAD: from workflow_failures — inverse of critical severity %
-  const { data: failures } = await supabase
-    .from('workflow_failures')
-    .select('severity')
-
-  const criticalFailures = failures?.filter(f => f.severity === 'critical').length ?? 0
-  const incidentLoadScore = failures?.length
+  const criticalFailures = failures.filter(f => f.severity === 'critical').length
+  const incidentLoadScore = failures.length
     ? Math.round(((failures.length - criticalFailures) / failures.length) * 100)
     : 100
 
@@ -336,23 +345,25 @@ router.get('/critical', async (req, res) => {
     const [dimensions, predictions, runbooks, accountability] = await Promise.all([
       computeLiveDimensions(),
 
-      supabase
+      must('predictive_risk_scores', supabase
         .from('predictive_risk_scores')
         .select('predicted_score, threat_level, agents(name, risk)')
         .eq('threat_level', 'CRITICAL')
-        .order('predicted_score', { ascending: false }),
+        .order('predicted_score', { ascending: false })),
 
-      supabase
+      must('workflow_runbooks', supabase
         .from('workflow_runbooks')
         .select('workflows(name, department), employees(name)')
-        .eq('is_documented', false),
+        .eq('is_documented', false)),
 
-      supabase
+      // No summary row yet is a real possibility; a broken query is not the same
+      // thing, so maybeSingle() + must() rather than the old bare .single().
+      must('accountability_summary', supabase
         .from('accountability_summary')
         .select('accountability_score, same_r_and_a_count, unique_people_count')
         .order('computed_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle())
     ])
 
     const liveIndex = computeHealthIndex({
@@ -373,20 +384,20 @@ router.get('/critical', async (req, res) => {
         criticalSafety:  { score: dimensions.criticalSafetyScore,   weight: '25%' },
         incidentLoad:    { score: dimensions.incidentLoadScore,      weight: '15%' }
       },
-      criticalAgents: predictions.data?.map(p => ({
+      criticalAgents: predictions.map(p => ({
         name: p.agents?.name,
         predictedScore: p.predicted_score
-      })) ?? [],
-      undocumentedWorkflows: runbooks.data?.map(r => ({
+      })),
+      undocumentedWorkflows: runbooks.map(r => ({
         workflowName: r.workflows?.name,
         department: r.workflows?.department,
         owner: r.employees?.name
-      })) ?? [],
-      accountabilitySummary: accountability.data
+      })),
+      accountabilitySummary: accountability
         ? {
-            score: accountability.data.accountability_score,
-            sameRAndACount: accountability.data.same_r_and_a_count,
-            uniquePeople: accountability.data.unique_people_count
+            score: accountability.accountability_score,
+            sameRAndACount: accountability.same_r_and_a_count,
+            uniquePeople: accountability.unique_people_count
           }
         : null
     })

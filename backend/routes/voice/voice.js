@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
 const { loadOrgDataset } = require('../../lib/orgDataset')
+const { must } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
 // LIVE ORGANIZATIONAL BRAIN
@@ -479,18 +480,33 @@ const SUPPORTED_INTENTS = [
 router.get('/intents', async (req, res) => {
   try {
     const { data, error } = await supabase.from('voice_intents').select('intent_name, example_query').order('intent_name')
-    if (!error && data && data.length) return res.json(data)
-  } catch (_) { /* fall through */ }
+    // Falling back to SUPPORTED_INTENTS is deliberate and safe — it documents
+    // this engine's real code behavior rather than organizational data, so it
+    // cannot misreport the org. But a failed query is still logged rather than
+    // silently absorbed into an identical-looking response.
+    if (error) console.warn(`[voice] voice_intents read failed, serving the built-in list: ${error.message}`)
+    else if (data && data.length) return res.json(data)
+  } catch (e) {
+    console.warn(`[voice] voice_intents read threw, serving the built-in list: ${e.message}`)
+  }
   res.json(SUPPORTED_INTENTS)
 })
 
 // GET /api/voice/history
+// Unlike /intents there is no honest fallback for a log — an empty array is a
+// factual claim that nothing has been asked. This used to answer 200 [] on a
+// failed read, so a broken query looked like a fresh, unused assistant.
 router.get('/history', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('voice_history').select('*').order('created_at', { ascending: false }).limit(20)
-    if (!error && data) return res.json(data)
-  } catch (_) { /* fall through */ }
-  res.json([])
+    const data = await must('voice_history', supabase
+      .from('voice_history')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20))
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 // GET /api/voice/daily-summary — always computed live. voice_daily_summary

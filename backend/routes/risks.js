@@ -28,15 +28,20 @@ router.get('/', async (req, res) => {
     (a.risk === 'critical' || a.risk === 'high') && a.owner_id
   )
 
-  // Fetch dependency counts for SPOF analysis
-  const { data: deps } = await supabase
+  // Fetch dependency counts for SPOF analysis. This used to fall back to `[]`
+  // on failure, which meant a broken query reported zero dependents for every
+  // agent — every genuine single point of failure would silently disappear
+  // from singlePointsOfFailure during an outage instead of the request failing.
+  const { data: deps, error: depsErr } = await supabase
     .from('dependencies')
     .select('target_id, target_type, dependency_type')
     .eq('target_type', 'agent')
     .in('dependency_type', ['critical', 'high'])
 
+  if (depsErr) return res.status(500).json({ error: depsErr.message })
+
   const depCounts = {}
-  ;(deps || []).forEach(d => {
+  deps.forEach(d => {
     depCounts[d.target_id] = (depCounts[d.target_id] || 0) + 1
   })
 

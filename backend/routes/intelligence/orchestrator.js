@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { must, optional } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
 // MODULE REGISTRY
@@ -41,11 +42,11 @@ const MODULE_REGISTRY = [
 // ─────────────────────────────────────────────
 
 async function readBrainCore() {
-  const { data } = await supabase
+  const data = await must('brain_core_snapshots', supabase
     .from('brain_core_snapshots')
     .select('brain_index, posture')
     .order('computed_at', { ascending: false })
-    .limit(1).single()
+    .limit(1).maybeSingle())
 
   return {
     score:    data?.brain_index ?? 0,
@@ -56,42 +57,42 @@ async function readBrainCore() {
 }
 
 async function readGovernance() {
-  const { data } = await supabase
+  const data = await must('intelligence_results', supabase
     .from('intelligence_results')
     .select('score')
     .eq('result_type', 'pillar')
     .eq('result_key', 'GI')
-    .single()
+    .maybeSingle())
 
   return { score: data?.score ?? 0, verified: !!data, source: 'intelligence_results' }
 }
 
 async function readContinuity() {
-  const { data } = await supabase
+  const data = await must('org_health_snapshots', supabase
     .from('org_health_snapshots')
     .select('continuity_score')
     .order('snapshot_month', { ascending: false })
-    .limit(1).single()
+    .limit(1).maybeSingle())
 
   return { score: data?.continuity_score ?? 0, verified: !!data, source: 'org_health_snapshots' }
 }
 
 async function readOrgHealth() {
-  const { data } = await supabase
+  const data = await must('org_health_snapshots', supabase
     .from('org_health_snapshots')
     .select('health_index')
     .order('snapshot_month', { ascending: false })
-    .limit(1).single()
+    .limit(1).maybeSingle())
 
   return { score: data?.health_index ?? 0, verified: !!data, source: 'org_health_snapshots' }
 }
 
 async function readPredictiveRisk() {
-  const { data } = await supabase
+  const data = await must('predictive_risk_scores', supabase
     .from('predictive_risk_scores')
-    .select('threat_level')
+    .select('threat_level'))
 
-  if (!data?.length) return { score: 0, verified: false, source: 'predictive_risk_scores' }
+  if (!data.length) return { score: 0, verified: false, source: 'predictive_risk_scores' }
 
   const critical = data.filter(p => p.threat_level === 'CRITICAL').length
   const score = Math.round(((data.length - critical) / data.length) * 100)
@@ -100,53 +101,53 @@ async function readPredictiveRisk() {
 }
 
 async function readMemory() {
-  const { data } = await supabase
+  const data = await must('intelligence_results', supabase
     .from('intelligence_results')
     .select('score')
     .eq('result_type', 'pillar')
     .eq('result_key', 'MI')
-    .single()
+    .maybeSingle())
 
   return { score: data?.score ?? 0, verified: !!data, source: 'intelligence_results' }
 }
 
 async function readCollaboration() {
-  const { data } = await supabase
+  const data = await must('collaboration_summary', supabase
     .from('collaboration_summary')
     .select('collaboration_score')
     .order('computed_at', { ascending: false })
-    .limit(1).single()
+    .limit(1).maybeSingle())
 
   return { score: data?.collaboration_score ?? 0, verified: !!data, source: 'collaboration_summary' }
 }
 
 async function readAccountability() {
-  const { data } = await supabase
+  const data = await must('accountability_summary', supabase
     .from('accountability_summary')
     .select('accountability_score')
     .order('computed_at', { ascending: false })
-    .limit(1).single()
+    .limit(1).maybeSingle())
 
   return { score: data?.accountability_score ?? 0, verified: !!data, source: 'accountability_summary' }
 }
 
 async function readDomainIntelligence() {
-  const { data } = await supabase
+  const data = await must('intelligence_results', supabase
     .from('intelligence_results')
     .select('score')
     .eq('result_type', 'pillar')
     .eq('result_key', 'DI')
-    .single()
+    .maybeSingle())
 
   return { score: data?.score ?? 0, verified: !!data, source: 'intelligence_results' }
 }
 
 async function readDecisionQuality() {
-  const { data } = await supabase
+  const data = await must('decision_history', supabase
     .from('decision_history')
-    .select('outcome')
+    .select('outcome'))
 
-  if (!data?.length) return { score: 50, verified: false, source: 'decision_history' }
+  if (!data.length) return { score: 50, verified: false, source: 'decision_history' }
 
   const negative = data.filter(d => d.outcome === 'negative').length
   const score = Math.round(((data.length - negative) / data.length) * 100)
@@ -155,21 +156,21 @@ async function readDecisionQuality() {
 }
 
 async function readAIAdoption() {
-  const { data } = await supabase
+  const data = await must('collaboration_summary', supabase
     .from('collaboration_summary')
     .select('ai_adoption_score')
     .order('computed_at', { ascending: false })
-    .limit(1).single()
+    .limit(1).maybeSingle())
 
   return { score: data?.ai_adoption_score ?? 0, verified: !!data, source: 'collaboration_summary' }
 }
 
 async function readExecutiveBriefing() {
-  const { data } = await supabase
+  const data = await must('executive_briefings', supabase
     .from('executive_briefings')
     .select('doc_trend_current')
     .order('briefing_date', { ascending: false })
-    .limit(1).single()
+    .limit(1).maybeSingle())
 
   // Use documentation trend as a proxy for briefing quality
   const score = data?.doc_trend_current
@@ -180,11 +181,11 @@ async function readExecutiveBriefing() {
 }
 
 async function readExecutiveMemory() {
-  const { data } = await supabase
+  const data = await must('executive_memory_items', supabase
     .from('executive_memory_items')
-    .select('relevance_score, severity')
+    .select('relevance_score, severity'))
 
-  if (!data?.length) return { score: 0, verified: false, source: 'executive_memory_items' }
+  if (!data.length) return { score: 0, verified: false, source: 'executive_memory_items' }
 
   // Invert: more critical memory items = lower memory health score
   const critical = data.filter(m => m.severity === 'critical').length
@@ -194,12 +195,12 @@ async function readExecutiveMemory() {
 }
 
 async function readHealthTrend() {
-  const { data } = await supabase
+  const data = await must('org_health_snapshots', supabase
     .from('org_health_snapshots')
     .select('health_index')
-    .order('snapshot_month', { ascending: true })
+    .order('snapshot_month', { ascending: true }))
 
-  if (!data || data.length < 2) return { score: 50, verified: false, source: 'org_health_snapshots' }
+  if (data.length < 2) return { score: 50, verified: false, source: 'org_health_snapshots' }
 
   const latest  = data[data.length - 1].health_index
   const earliest = data[0].health_index
@@ -313,25 +314,43 @@ function computeTrustScore(modules) {
 // CORE ORCHESTRATION
 // ─────────────────────────────────────────────
 
+/**
+ * Run one module reader, turning a query failure into an explicit `unavailable`
+ * marker. `verified: false` means "no row on record" and only that — it used to
+ * absorb query failures too, silently dropping a module from the weighted
+ * average and renormalizing the rest, so the headline Organizational
+ * Intelligence Score changed composition with nothing saying so.
+ */
+async function readModule(key, reader) {
+  try {
+    return await reader()
+  } catch (err) {
+    console.error(`[orchestrator] module '${key}' unavailable: ${err.message}`)
+    return { score: 0, verified: false, source: null, unavailable: true, error: err.message }
+  }
+}
+
 async function orchestrate() {
   // Read all voting modules, plus brainCore separately for display only
   // (see the comment on MODULE_REGISTRY — it does not vote).
   const [results, brainCoreResult] = await Promise.all([
     Promise.all(
       MODULE_REGISTRY.map(async cfg => {
-        const result = await MODULE_READERS[cfg.key]()
+        const result = await readModule(cfg.key, MODULE_READERS[cfg.key])
         return {
-          key:      cfg.key,
-          label:    cfg.label,
-          weight:   cfg.weight,
-          score:    result.score,
-          verified: result.verified,
-          source:   result.source,
-          meta:     result.meta ?? null
+          key:         cfg.key,
+          label:       cfg.label,
+          weight:      cfg.weight,
+          score:       result.score,
+          verified:    result.verified,
+          source:      result.source,
+          meta:        result.meta ?? null,
+          unavailable: !!result.unavailable,
+          error:       result.error ?? null
         }
       })
     ),
-    readBrainCore()
+    readModule('brainCore', readBrainCore)
   ])
 
   // Only verified modules contribute to the score
@@ -349,7 +368,19 @@ async function orchestrate() {
   const trust   = computeTrustScore(results)
   const brainPosture = brainCoreResult?.meta?.posture ?? null
 
-  return { score, rating, verdict, recs, trust, brainPosture, modules: results }
+  const unavailable = results.filter(m => m.unavailable)
+  const dataIntegrity = {
+    degraded: unavailable.length > 0,
+    modulesRead: results.length,
+    modulesVerified: verified.length,
+    modulesUnavailable: unavailable.length,
+    unavailableModules: unavailable.map(m => ({ key: m.key, label: m.label, error: m.error })),
+    warning: unavailable.length
+      ? `${unavailable.length} of ${results.length} modules could not be read. This score was computed from the rest and is NOT a complete picture.`
+      : null,
+  }
+
+  return { score, rating, verdict, recs, trust, brainPosture, modules: results, dataIntegrity }
 }
 
 // ─────────────────────────────────────────────
@@ -359,16 +390,36 @@ async function orchestrate() {
 async function getOrComputeOrchestration() {
   const today = new Date().toISOString().split('T')[0]
 
-  const { data: cached } = await supabase
+  // A failed cache read is non-fatal — recomputing live is the right fallback —
+  // but the error is logged rather than discarded.
+  const cached = await optional('orchestrator_snapshots (cache read)', supabase
     .from('orchestrator_snapshots')
     .select('*')
     .gte('computed_at', `${today}T00:00:00`)
     .order('computed_at', { ascending: false })
-    .limit(1).single()
+    .limit(1).maybeSingle())
 
   if (cached) return { ...cached, fromCache: true }
 
   const result = await orchestrate()
+
+  // Never cache an incomplete score. Persisting a degraded result would pin a
+  // number computed during a partial outage for the rest of the day.
+  if (result.dataIntegrity.degraded) {
+    console.warn('[orchestrator] not caching a degraded snapshot —', result.dataIntegrity.warning)
+    return {
+      organizational_intelligence_score: result.score,
+      rating:        result.rating,
+      final_verdict: result.verdict,
+      brain_posture: result.brainPosture,
+      trust_score:   result.trust,
+      executive_recommendations: result.recs,
+      modules:       result.modules,
+      dataIntegrity: result.dataIntegrity,
+      computed_at:   new Date().toISOString(),
+      fromCache:     false
+    }
+  }
 
   const moduleBreakdown = {}
   result.modules.forEach(m => {
@@ -378,7 +429,7 @@ async function getOrComputeOrchestration() {
     }
   })
 
-  const { data: saved } = await supabase
+  const { data: saved, error: saveError } = await supabase
     .from('orchestrator_snapshots')
     .insert({
       organizational_intelligence_score: result.score,
@@ -391,6 +442,11 @@ async function getOrComputeOrchestration() {
     })
     .select().single()
 
+  // The score is still valid if only the write failed — return it, but say so.
+  if (saveError) {
+    console.warn(`[orchestrator] failed to persist snapshot: ${saveError.message}`)
+  }
+
   return {
     ...(saved ?? {}),
     organizational_intelligence_score: result.score,
@@ -400,6 +456,7 @@ async function getOrComputeOrchestration() {
     trust_score:   result.trust,
     executive_recommendations: result.recs,
     modules: result.modules,
+    dataIntegrity: result.dataIntegrity,
     fromCache: false
   }
 }
@@ -419,7 +476,10 @@ router.get('/', async (req, res) => {
       brainPosture:    snap.brain_posture,
       trustScore:      snap.trust_score,
       generatedAt:     snap.computed_at ?? new Date().toISOString(),
-      fromCache:       snap.fromCache
+      fromCache:       snap.fromCache,
+      // Absent on a cache hit — a snapshot is only ever persisted when every
+      // module read cleanly, so there is no degradation to report.
+      dataIntegrity:   snap.dataIntegrity ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -443,7 +503,8 @@ router.get('/summary', async (req, res) => {
       topRecommendations: (
         snap.executive_recommendations ?? []
       ).slice(0, 3),
-      generatedAt: snap.computed_at ?? new Date().toISOString()
+      generatedAt: snap.computed_at ?? new Date().toISOString(),
+      dataIntegrity: snap.dataIntegrity ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -461,7 +522,8 @@ router.get('/verdict', async (req, res) => {
     res.json({
       finalVerdict: snap.final_verdict,
       rating:       snap.rating,
-      brainPosture: snap.brain_posture
+      brainPosture: snap.brain_posture,
+      dataIntegrity: snap.dataIntegrity ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -481,6 +543,7 @@ router.get('/recommendations', async (req, res) => {
       organizationalIntelligenceScore: result.score,
       rating: result.rating,
       totalRecommendations: result.recs.length,
+      dataIntegrity: result.dataIntegrity,
       recommendations: result.recs.map((r, i) => ({
         rank:           i + 1,
         recommendation: r
@@ -505,13 +568,17 @@ router.get('/modules', async (req, res) => {
     res.json({
       totalModules:    result.modules.length,
       verifiedModules: result.modules.filter(m => m.verified).length,
+      dataIntegrity:   result.dataIntegrity,
       modules: sorted.map(m => ({
         name:     m.label,
         key:      m.key,
         verified: m.verified,
         score:    m.score,
         weight:   `${Math.round(m.weight * 100)}%`,
-        source:   m.source
+        source:   m.source,
+        // Separates "no row seeded" from "this query failed".
+        unavailable: m.unavailable,
+        error:       m.error
       }))
     })
   } catch (err) {
@@ -529,7 +596,8 @@ router.get('/score', async (req, res) => {
 
     res.json({
       organizationalIntelligenceScore: snap.organizational_intelligence_score,
-      rating: snap.rating
+      rating: snap.rating,
+      dataIntegrity: snap.dataIntegrity ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

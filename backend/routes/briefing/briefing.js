@@ -1,54 +1,49 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { must, optional } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
 // HELPERS — pull live signals from existing modules
 // ─────────────────────────────────────────────
 
 async function getTopSPOF() {
-  const { data } = await supabase
+  return must('predictive_risk_scores', supabase
     .from('predictive_risk_scores')
     .select('predicted_score, agents(name, risk, owner_id)')
     .eq('threat_level', 'CRITICAL')
     .order('predicted_score', { ascending: false })
     .limit(1)
-    .single()
-
-  return data ?? null
+    .maybeSingle())
 }
 
 async function getMostOverloaded() {
-  const { data } = await supabase
+  return must('collaboration_scores', supabase
     .from('collaboration_scores')
     .select('dependency_score, critical_agents_owned, has_backup, employees(name, department)')
     .order('dependency_score', { ascending: false })
     .limit(1)
-    .single()
-
-  return data ?? null
+    .maybeSingle())
 }
 
 async function getLatestIncident() {
-  const { data } = await supabase
+  return must('workflow_failures', supabase
     .from('workflow_failures')
     .select('failure_type, severity, description, workflow_id, workflows(name)')
     .eq('severity', 'critical')
     .order('workflow_id', { ascending: false })
     .limit(1)
-    .single()
-
-  return data ?? null
+    .maybeSingle())
 }
 
 async function getDocTrend() {
-  const { data } = await supabase
+  const data = await must('documentation_trend', supabase
     .from('documentation_trend')
     .select('*')
     .order('recorded_month', { ascending: false })
-    .limit(2)
+    .limit(2))
 
-  if (!data || data.length < 2) return null
+  if (data.length < 2) return null
 
   const [latest, previous] = data
   const direction =
@@ -115,11 +110,13 @@ router.get('/today', async (req, res) => {
   try {
     // Try to serve today's cached briefing first
     const today = new Date().toISOString().split('T')[0]
-    const { data: cached } = await supabase
+    // A failed cache read is non-fatal — computing live is the right fallback —
+    // but log the real error rather than silently treating it as "no cache".
+    const cached = await optional('executive_briefings (cache read)', supabase
       .from('executive_briefings')
       .select('*')
       .eq('briefing_date', today)
-      .single()
+      .maybeSingle())
 
     if (cached) return res.json(cached)
 
@@ -148,8 +145,12 @@ router.get('/today', async (req, res) => {
       summary_points: summaryPoints
     }
 
-    // Cache it
-    await supabase.from('executive_briefings').insert(briefing)
+    // Cache it. The briefing is already computed and valid, so a write failure
+    // must not deny it to the caller — but it can't vanish either.
+    const { error: cacheError } = await supabase.from('executive_briefings').insert(briefing)
+    if (cacheError) {
+      console.warn(`[briefing] failed to cache today's briefing: ${cacheError.message}`)
+    }
 
     res.json(briefing)
   } catch (err) {
@@ -313,15 +314,17 @@ router.get('/top-risks', async (req, res) => {
 
 router.get('/recommendations', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    // Both `if (error) return res.json([])` and the catch block used to answer
+    // 200 with an empty array, so a broken query rendered in the UI as "you have
+    // no outstanding recommendations" — the most reassuring possible reading of
+    // a database failure. Failures are now 500s.
+    const data = await must('recommendations', supabase
       .from('recommendations')
       .select('asset_name, asset_type, priority, recommendation, status')
       .neq('status', 'done')
-      .limit(10)
+      .limit(10))
 
-    if (error) return res.json([])
-
-    const items = (data || []).map((r) => ({
+    const items = data.map((r) => ({
       type: (r.priority || r.asset_type || 'info').toString().toLowerCase(),
       message: r.asset_name
         ? `${r.asset_name}: ${r.recommendation}`
@@ -330,7 +333,7 @@ router.get('/recommendations', async (req, res) => {
 
     res.json(items)
   } catch (err) {
-    res.json([])
+    res.status(500).json({ error: err.message })
   }
 })
 

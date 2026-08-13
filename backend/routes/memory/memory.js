@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { must, optional } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -74,11 +75,14 @@ async function resolveAssetName(assetType, assetId) {
   const table = tableMap[assetType]
   if (!table) return 'Unknown'
 
-  const { data } = await supabase
+  // A name lookup that fails is not worth failing the whole request over, but
+  // 'Unknown' must not be the silent answer to a broken query — that reads as a
+  // real, unnamed asset. optional() logs the actual error.
+  const data = await optional(`${table} (name for id ${assetId})`, supabase
     .from(table)
     .select('name')
     .eq('id', assetId)
-    .single()
+    .maybeSingle())
 
   return data?.name ?? 'Unknown'
 }
@@ -141,17 +145,19 @@ router.get('/employee/:name', async (req, res) => {
       })
     )
 
-    // Workflow runbooks owned by employee
-    const { data: runbooks } = await supabase
+    // Workflow runbooks owned by employee. This feeds both the department list
+    // and the carrier-risk verdict, so a failed read must not pass as "owns no
+    // runbooks" — that understates the person's risk.
+    const runbooks = await must('workflow_runbooks', supabase
       .from('workflow_runbooks')
       .select('workflow_id, is_documented, last_updated, workflows(name, department)')
-      .eq('owner_id', emp.id)
+      .eq('owner_id', emp.id))
 
     // Departments impacted
     const departments = [
       ...new Set([
         emp.department,
-        ...(runbooks ?? []).map(r => r.workflows?.department).filter(Boolean)
+        ...runbooks.map(r => r.workflows?.department).filter(Boolean)
       ])
     ]
 
@@ -179,7 +185,7 @@ router.get('/employee/:name', async (req, res) => {
         criticality:  a.criticality,
         memoryStatus: a.memoryStatus
       })),
-      workflowRunbooks: (runbooks ?? []).map(r => ({
+      workflowRunbooks: runbooks.map(r => ({
         workflowName:  r.workflows?.name,
         department:    r.workflows?.department,
         isDocumented:  r.is_documented,

@@ -1,6 +1,22 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { must } = require('../../lib/supabaseQuery')
+
+// ─────────────────────────────────────────────
+// Every puller below returns `null` for "genuinely nothing on record" and
+// THROWS for "the query failed" — the caller turns the first into a plain
+// "no data found" answer and the second into a 500.
+//
+// These used to destructure only `{ data }` from a `.single()` call. Because
+// `.single()` errors on zero rows, a legitimately-empty table and a real
+// outage — bad credentials, a dropped table, an RLS rejection — both arrived as
+// `data: null` and were reported to an executive as "No data found for this
+// question. Ensure the relevant modules have been seeded." An executive acting
+// on "nothing to report" when the truth is "we cannot see anything" is the
+// worst version of this bug in the codebase, which is why it is fixed here
+// first. `.maybeSingle()` + must() separates the two.
+// ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────
 // INTENT MATCHING
@@ -36,13 +52,13 @@ function detectQuestionType(question) {
 // ─────────────────────────────────────────────
 
 async function answerRisk() {
-  const { data } = await supabase
+  const data = await must('predictive_risk_scores', supabase
     .from('predictive_risk_scores')
     .select('predicted_score, threat_level, reasons, agents(name, risk, owner_id)')
     .eq('threat_level', 'CRITICAL')
     .order('predicted_score', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle())
 
   if (!data) return null
 
@@ -55,12 +71,12 @@ async function answerRisk() {
 }
 
 async function answerOwnership() {
-  const { data } = await supabase
+  const data = await must('collaboration_scores', supabase
     .from('collaboration_scores')
     .select('dependency_score, critical_agents_owned, has_backup, employees(name, department, role)')
     .order('dependency_score', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle())
 
   if (!data) return null
 
@@ -73,12 +89,12 @@ async function answerOwnership() {
 }
 
 async function answerContinuity() {
-  const { data } = await supabase
+  const data = await must('workflow_runbooks', supabase
     .from('workflow_runbooks')
     .select('workflow_id, is_documented, owner_id, workflows(name, department), employees(name)')
-    .eq('is_documented', false)
+    .eq('is_documented', false))
 
-  if (!data?.length) return null
+  if (!data.length) return null
 
   const names = data.map(r => r.workflows?.name).filter(Boolean).join(', ')
   const top = data[0]
@@ -92,13 +108,13 @@ async function answerContinuity() {
 }
 
 async function answerPredictive() {
-  const { data } = await supabase
+  const data = await must('predictive_risk_scores', supabase
     .from('predictive_risk_scores')
     .select('predicted_score, threat_level, is_emerging_threat, reasons, agents(name, risk)')
     .eq('is_emerging_threat', true)
-    .order('predicted_score', { ascending: false })
+    .order('predicted_score', { ascending: false }))
 
-  if (!data?.length) return null
+  if (!data.length) return null
 
   const names = data.map(d => d.agents?.name).filter(Boolean).join(', ')
 
@@ -111,13 +127,13 @@ async function answerPredictive() {
 }
 
 async function answerGovernance() {
-  const { data } = await supabase
+  const data = await must('accountability_scores', supabase
     .from('accountability_scores')
     .select('score, status, same_r_and_a, accountability_entities(entity_name, entity_type)')
     .in('status', ['AT_RISK', 'CRITICAL'])
-    .order('score', { ascending: true })
+    .order('score', { ascending: true }))
 
-  if (!data?.length) return null
+  if (!data.length) return null
 
   const names = data.map(d => d.accountability_entities?.entity_name).filter(Boolean).join(', ')
 
@@ -130,12 +146,12 @@ async function answerGovernance() {
 }
 
 async function answerAccountability() {
-  const { data: summary } = await supabase
+  const summary = await must('accountability_summary', supabase
     .from('accountability_summary')
     .select('*')
     .order('computed_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle())
 
   if (!summary) return null
 
@@ -148,13 +164,13 @@ async function answerAccountability() {
 }
 
 async function answerKnowledge() {
-  const { data } = await supabase
+  const data = await must('knowledge_assets', supabase
     .from('knowledge_assets')
     .select('criticality, is_documented, owner_id, employees(name, department)')
     .eq('is_documented', false)
     .eq('criticality', 'critical')
     .limit(1)
-    .single()
+    .maybeSingle())
 
   if (!data) return null
 
@@ -167,11 +183,11 @@ async function answerKnowledge() {
 }
 
 async function answerGeneral() {
-  const { data: orgScore } = await supabase
+  const orgScore = await must('intelligence_results', supabase
     .from('intelligence_results')
     .select('score, rating, strengths, weaknesses')
     .eq('result_key', 'org_score')
-    .single()
+    .maybeSingle())
 
   if (!orgScore) {
     return {
@@ -225,8 +241,11 @@ router.get('/ask', async (req, res) => {
       })
     }
 
-    // Log session to DB
-    await supabase.from('executive_sessions').insert({
+    // Log the session. This is an audit trail, not part of the answer, so a
+    // write failure must not deny the executive their answer — but it is logged
+    // rather than discarded, since a silently broken audit trail is its own
+    // problem.
+    const { error: logError } = await supabase.from('executive_sessions').insert({
       question,
       question_type: questionType,
       answer_summary: result.answer,
@@ -234,6 +253,9 @@ router.get('/ask', async (req, res) => {
       responsible_person: result.responsiblePerson,
       data_sources: result.dataSources
     })
+    if (logError) {
+      console.warn(`[executive] failed to log session to executive_sessions: ${logError.message}`)
+    }
 
     res.json({
       question,
@@ -302,15 +324,23 @@ router.get('/briefing', async (req, res) => {
       answerAccountability()
     ])
 
+    // A null puller result now means "nothing on record" and nothing else —
+    // a failed query throws and this route 500s. Spreading a null used to emit
+    // a bare { topic } with no `answer` key at all, leaving the client to guess
+    // whether the finding was empty or the field was lost; say so explicitly.
+    const finding = (topic, result) => result
+      ? { topic, ...result }
+      : { topic, answer: null, entityName: null, responsiblePerson: null, dataSources: [], noDataOnRecord: true }
+
     res.json({
       title: 'Executive Intelligence Briefing',
       generatedAt: new Date().toISOString(),
       findings: [
-        { topic: 'Biggest Risk',       ...risk },
-        { topic: 'Ownership Load',     ...ownership },
-        { topic: 'Continuity Gaps',    ...continuity },
-        { topic: 'Governance Issues',  ...governance },
-        { topic: 'Accountability',     ...accountability }
+        finding('Biggest Risk',      risk),
+        finding('Ownership Load',    ownership),
+        finding('Continuity Gaps',   continuity),
+        finding('Governance Issues', governance),
+        finding('Accountability',    accountability)
       ]
     })
   } catch (err) {
