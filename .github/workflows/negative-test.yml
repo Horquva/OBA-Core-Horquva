@@ -46,10 +46,14 @@ jobs:
           gitleaks detect \
             --source testing/negative-test-fixtures/ \
             --no-git \
-            --config security-gates/secret-detection/gitleaks-rules/.gitleaks.toml \
+            --config security-gates/secret-detection/gitleaks-rules/.gitleaks-negative-test.toml \
             --report-format json \
             --report-path gitleaks-negative-test-result.json \
             --redact
+        # Uses .gitleaks-negative-test.toml (NOT production .gitleaks.toml):
+        # the production config excludes this folder so real PRs aren't
+        # blocked by our own known fixture; this test-only config has no
+        # such exclusion, so detection is genuinely exercised here.
         # --no-git: scans files on disk directly rather than git commit
         # history, since this subdirectory is not itself a git repo root.
 

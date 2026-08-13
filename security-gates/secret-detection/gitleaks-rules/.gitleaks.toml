@@ -1,4 +1,4 @@
-title = "Sentinel Gitleaks Configuration — Part G: Secret Management"
+title = "Sentinel Gitleaks Configuration — Part G: Secret Management (PRODUCTION)"
 
 # Extend Gitleaks' default, well-maintained ruleset (AWS keys, GCP keys,
 # private keys, generic API key patterns, etc.) rather than reinventing it.
@@ -18,22 +18,25 @@ description = "Sentinel internal machine identity credential"
 regex = '''sntl-svc-[a-z0-9]{16}\.[A-Za-z0-9+/=]{40,}'''
 tags = ["sentinel", "secret", "critical"]
 
-# --- Allowlist: reduce false positives without disabling detection entirely ---
+# --- Allowlist ---
 #
-# IMPORTANT: this allowlist must never contain the literal fake secret values
-# used by testing/negative-test-fixtures/ — doing so silently defeats the
-# Part R negative test (it makes the "known-bad" fixture invisible to the
-# scanner, which is the opposite of what that test exists to prove).
-# A previous version of this file exempted "AKIAIOSFODNN7EXAMPLE" and
-# "fake-credential" directly, which caused exactly that failure. Removed.
+# IMPORTANT: This is the PRODUCTION config, used by the real security-gate.yml
+# that scans the whole repository on every PR. It intentionally excludes
+# testing/negative-test-fixtures/ — that folder permanently contains a
+# deliberately fake, known-bad credential used to PROVE the scanner works
+# (see .github/workflows/negative-test.yml). Without this exclusion, every
+# future real PR would fail on this known, intentional test fixture forever.
+#
+# The dedicated proof test in negative-test.yml does NOT use this config —
+# it uses .gitleaks-negative-test.toml (no exclusion), so detection is still
+# genuinely exercised and verified there.
 [allowlist]
 description = "Known safe test fixtures only — never production paths"
 paths = [
   '''(.*)/safe-fixtures/(.*)''',
-  '''(.*)/negative-test-fixtures/(.*)''',
   '''(.*)\.md$''',
+  '''testing/negative-test-fixtures/(.*)''',
 ]
 regexes = [
-  # Placeholder example values explicitly marked as fake in docs (not in negative-test-fixtures)
   '''EXAMPLE_(KEY|TOKEN|SECRET)_DO_NOT_USE''',
 ]
