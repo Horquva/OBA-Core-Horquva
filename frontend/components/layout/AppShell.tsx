@@ -4,7 +4,6 @@ import React, { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { useAuth } from '@/lib/AuthContext';
-import GlobalAvatarPanel from '@/components/global/GlobalAvatarPanel';
 import GlobalNotificationPanel from '@/components/global/GlobalNotificationPanel';
 import GlobalSearchOverlay from '@/components/global/GlobalSearchOverlay';
 
@@ -39,7 +38,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden relative">
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
       </div>
-      <GlobalAvatarPanel />
       <GlobalNotificationPanel />
       <GlobalSearchOverlay />
     </div>

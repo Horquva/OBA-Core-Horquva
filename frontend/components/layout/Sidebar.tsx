@@ -22,7 +22,6 @@ import {
   Activity,
   Network,
   Bell,
-  MessageCircle,
   Search,
   LogOut,
 } from 'lucide-react';
@@ -58,7 +57,7 @@ const navigation: NavItem[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const { toggleNotificationPanel, toggleAvatarPanel, toggleSearch } = useGlobalPanels();
+  const { toggleNotificationPanel, toggleSearch } = useGlobalPanels();
   const { user, logout } = useAuth();
 
   const role = (user?.role || 'employee').toLowerCase();
@@ -367,35 +366,6 @@ export function Sidebar() {
             aria-label="Notification Center"
           >
             <Bell size={16} />
-          </button>
-
-          {/* Avatar Voice Button */}
-          <button
-            onClick={toggleAvatarPanel}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: 'transparent',
-              border: '1px solid transparent',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
-            aria-label="OBA Assistant"
-          >
-            <MessageCircle size={16} />
           </button>
 
           {/* Theme Toggle Button */}
