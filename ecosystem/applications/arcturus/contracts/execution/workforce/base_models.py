@@ -49,7 +49,42 @@ class WorkforceRoleContract(BaseModel):
         default_factory=list,
         description="Agents currently assigned to this role",
     )
+class AgentAssignment(BaseModel):
+    """
+    Represents one synthetic agent assigned to a role.
+    """
 
+    agent_id: int = Field(
+        ...,
+        description="Unique identifier of the assigned agent",
+    )
+
+    role_id: int = Field(
+        ...,
+        description="Role assigned to the agent",
+    )
+
+
+class AgentAssignmentPayload(ContractEnvelope):
+    """
+    Represents the workforce agent-to-role assignments
+    passed from the Workforce platform to the Workflow platform.
+    """
+
+    assignment_id: str = Field(
+        ...,
+        description="Unique identifier for this assignment payload",
+    )
+
+    enterprise_instance_id: str = Field(
+        ...,
+        description="References the EnterpriseInstancePayload.instance_id",
+    )
+
+    assignments: List[AgentAssignment] = Field(
+        default_factory=list,
+        description="Agent-to-role assignments for the enterprise",
+    )
 
 class WorkforceAgentRoster(ContractEnvelope):
     """
