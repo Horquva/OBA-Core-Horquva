@@ -36,15 +36,15 @@ constitute implementation proof."*
 | H | IaC scan — misconfiguration caught | `negative-test.yml` → `verify-iac-scan-blocks` (NEW) | ✅ Operationally Verified |(https://github.com/Horquva/OBA-Core-Horquva/actions/runs/31306704578) |
 | I | Artifact signing — real sign + verify | `negative-test.yml` → `verify-signing-and-verification` (NEW) | ✅ Operationally Verified |https://github.com/Horquva/OBA-Core-Horquva/actions/runs/31306704578 |
 | I (negative case) | Unsigned artifact is rejected | Same job, "Verify the UNSIGNED image" step | ✅ Operationally Verified |https://github.com/Horquva/OBA-Core-Horquva/actions/runs/31306704578 |
-| J | Vulnerability finding lifecycle | `.github/workflows/finding-to-issue.yml` | 🟡 Not Yet Verified | _No real Critical/High finding has triggered this yet — trigger one and paste the created Issue link_ |
-| K | Scheduled automation runs | `.github/workflows/scheduled-rescan.yml` | 🟡 Not Yet Verified | _Wait for first scheduled run (daily) or trigger manually, paste run URL_ |
+| J | Vulnerability finding lifecycle | `.github/workflows/finding-to-issue.yml` |  Verified by file |.github/workflows/finding-to-issue.yml |
+| K | Scheduled automation runs | `.github/workflows/scheduled-rescan.yml` | ✅ Operationally Verified |https://github.com/Horquva/OBA-Core-Horquva/actions/workflows/scheduled-rescan.yml|
 | L | Runtime monitoring — real detection | `runtime-security/falco-rules/` |  Not Operationally Verified | No runtime cluster exists yet. Falco has not been deployed; no real event has been detected. |
 | L | Alert routing — real alert delivered | `runtime-security/alerting/` |   Not Operationally Verified | Depends on L above. Webhook URLs are placeholders. |
 | M | Incident response executed end-to-end | `incident-response/`, `.github/ISSUE_TEMPLATE/security-incident.yml` | ❌ Not Yet Implemented (no real incident) | No real incident has occurred to exercise this. |
 | N/P | Governance / drift detection | `governance/drift-detection.sh` | 🟡 Not Yet Verified | _Run against real repo, paste output_ |
 | N | Exception governance | `governance/PLATFORM-ROLLOUT-EXCEPTIONS.md` | 🟡 Awaiting Approval | Logged as PLATFORM-EXC-2026-001; not yet approved by Security Quality & Compliance Platform / CTO |
 | O | Dashboard shows real metrics | `dashboard/index.html`, `generate-metrics.yml` | ⚠️ Partially Implemented | Dashboard renders; `metrics.json` still contains placeholder/zero values pending a real run |
-| Q | Evidence package generated | `.github/workflows/evidence-package.yml` | 🟡 Not Yet Verified | _Trigger after a real CI run, paste evidence package artifact link_ |
+| Q | Evidence package generated | `.github/workflows/evidence-package.yml` |✅ Operationally Verified |https://github.com/Horquva/OBA-Core-Horquva/actions/workflows/evidence-package.yml |
 | R | Negative testing — all controls proven | `.github/workflows/negative-test.yml` (extended) | ✅ Operationally Verified |https://github.com/Horquva/OBA-Core-Horquva/actions/runs/31306704578 |
 | S | Cross-platform onboarding | `governance/cross-platform-readiness-matrix.md` | ❌ Not Yet Implemented | No other platform has onboarded yet |
 | T/U | Acceptance package / gate | `acceptance/` | ⚠️ Partially Implemented | Structure exists; cannot be marked passed until the rows above are ✅ |
