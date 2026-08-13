@@ -2,45 +2,24 @@
 Simulation Runtime & Experiment Platform — Contracts
 Owner: Muhammad Maaz Khan
 
-Pydantic contracts that mediate every cross-platform handoff into and out of
-the Simulation Runtime. Per the Arcturus workflow standard, no platform may
-import another platform's internal code directly — all communication happens
-through these validated payloads.
-
-Status: DRAFT. Payloads marked "PROPOSED" need to be confirmed jointly with
-Amina (Validation) and Javeria (Behavior & Workflow) before being locked.
+SimulationContext + ContractEnvelope now live in
+contracts/shared/base_models.py (locked by Hashim) and are imported here,
+not redefined, per the architecture directive.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
-# ---------------------------------------------------------------------------
-# Master context — every other Runtime contract inherits run identity from this
-# ---------------------------------------------------------------------------
-
-class SimulationContext(BaseModel):
-    """The bounded 'world' of a single simulation run."""
-
-    run_id: UUID = Field(default_factory=uuid4)
-    trace_id: UUID = Field(default_factory=uuid4)
-    experiment_id: str = Field(..., min_length=3, description="Stable identifier for the run")
-    seed: int = Field(
-        ..., ge=0, description="Deterministic seed propagated from Maryam's ScenarioDSLPayload.seed"
-    )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    config: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("experiment_id")
-    @classmethod
-    def normalize_experiment_id(cls, value: str) -> str:
-        return value.strip()
+from ecosystem.applications.arcturus.contracts.shared.base_models import (
+    ContractEnvelope,
+    SimulationContext,
+)
 
 
 class ExecutionStatus(str, Enum):
@@ -66,7 +45,9 @@ class EnterpriseStateContract(BaseModel):
 
 
 class CapabilityDependencyGraph(BaseModel):
-    """From Hamza's Enterprise Ontology Platform. Must be acyclic."""
+    """From Hamza's Enterprise Ontology Platform. Must be acyclic.
+    NOTE: this is Maaz's placeholder shape - not yet confirmed against
+    Hamza's real OntologySnapshotContract."""
 
     nodes: list[str] = Field(default_factory=list)
     edges: list[tuple[str, str]] = Field(default_factory=list)
@@ -144,10 +125,10 @@ class WorkforceAgentRoster(BaseModel):
 # OUTBOUND — what the Runtime produces for other platforms
 # ---------------------------------------------------------------------------
 
-class ExperimentResultPackage(BaseModel):
-    """PROPOSED — for Amina's Validation & Evaluation Platform."""
+class ExperimentResultPackage(ContractEnvelope):
+    """For Amina's Validation & Evaluation Platform.
+    Inherits run_id/trace_id/experiment_id/global_seed via .context (ContractEnvelope)."""
 
-    run_id: UUID
     scenario_id: str = Field(..., min_length=3)
     final_status: ExecutionStatus
     state_snapshot: dict[str, Any] = Field(default_factory=dict)
