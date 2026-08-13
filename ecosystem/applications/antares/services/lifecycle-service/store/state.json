@@ -1,0 +1,183 @@
+{
+  "savedAt": "2026-08-13T10:51:54.173Z",
+  "platforms": [
+    {
+      "id": "tech-intel",
+      "name": "Technology Intelligence",
+      "owner": "Aurangzeb Malik",
+      "description": "",
+      "registeredAt": "2026-08-13T10:50:10.175Z"
+    },
+    {
+      "id": "knowledge-ops",
+      "name": "Knowledge Operationalization",
+      "owner": "Laiba Mahboob",
+      "description": "",
+      "registeredAt": "2026-08-13T10:50:25.215Z"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "J-TECH-01",
+      "platformId": "tech-intel",
+      "task": "discover signal",
+      "dependsOn": [],
+      "status": "INTEGRATED",
+      "artifact": {
+        "summary": "clean signal",
+        "output": {
+          "note": "clean signal"
+        }
+      },
+      "evidence": [
+        {
+          "ref": "source-a",
+          "attachedAt": "2026-08-13T10:51:07.989Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "no self-tests declared (allowed, but not verified)"
+          }
+        ],
+        "evaluatedAt": "2026-08-13T10:51:26.159Z"
+      },
+      "executions": [
+        "EXEC-1"
+      ],
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-13T10:50:40.330Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-13T10:50:53.779Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-13T10:51:26.156Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-13T10:51:26.159Z",
+          "note": "All quality gates passed"
+        },
+        {
+          "status": "INTEGRATED",
+          "at": "2026-08-13T10:51:40.874Z",
+          "note": "Consumed by downstream platform"
+        }
+      ]
+    }
+  ],
+  "executions": [
+    {
+      "id": "EXEC-1",
+      "jobId": "J-TECH-01",
+      "triggeredBy": "cli-user",
+      "startedAt": "2026-08-13T10:50:53.782Z",
+      "endedAt": "2026-08-13T10:51:26.159Z",
+      "result": "PASSED"
+    }
+  ],
+  "events": [
+    {
+      "type": "PLATFORM_REGISTERED",
+      "jobId": null,
+      "platformId": "tech-intel",
+      "message": "Platform registered: Technology Intelligence (Aurangzeb Malik)",
+      "at": "2026-08-13T10:50:10.177Z"
+    },
+    {
+      "type": "PLATFORM_REGISTERED",
+      "jobId": null,
+      "platformId": "knowledge-ops",
+      "message": "Platform registered: Knowledge Operationalization (Laiba Mahboob)",
+      "at": "2026-08-13T10:50:25.216Z"
+    },
+    {
+      "type": "JOB_CREATED",
+      "jobId": "J-TECH-01",
+      "platformId": "tech-intel",
+      "message": "Job created: discover signal",
+      "at": "2026-08-13T10:50:40.332Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-TECH-01",
+      "platformId": "tech-intel",
+      "message": "QUEUED -> RUNNING (Execution started)",
+      "at": "2026-08-13T10:50:53.782Z"
+    },
+    {
+      "type": "EXECUTION_STARTED",
+      "jobId": "J-TECH-01",
+      "platformId": "tech-intel",
+      "message": "EXEC-1 started by cli-user",
+      "at": "2026-08-13T10:50:53.782Z"
+    },
+    {
+      "type": "EVIDENCE_ATTACHED",
+      "jobId": "J-TECH-01",
+      "platformId": "tech-intel",
+      "message": "Evidence attached: source-a",
+      "at": "2026-08-13T10:51:07.993Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-TECH-01",
+      "platformId": "tech-intel",
+      "message": "RUNNING -> VALIDATING (Quality gates running)",
+      "at": "2026-08-13T10:51:26.158Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-TECH-01",
+      "platformId": "tech-intel",
+      "message": "VALIDATING -> PASSED (All quality gates passed)",
+      "at": "2026-08-13T10:51:26.159Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-TECH-01",
+      "platformId": "tech-intel",
+      "message": "PASSED -> INTEGRATED (Consumed by downstream platform)",
+      "at": "2026-08-13T10:51:40.875Z"
+    },
+    {
+      "type": "INTEGRATION",
+      "jobId": "J-TECH-01",
+      "platformId": "tech-intel",
+      "message": "Integrated downstream",
+      "at": "2026-08-13T10:51:40.875Z"
+    }
+  ]
+}

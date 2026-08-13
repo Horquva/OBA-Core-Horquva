@@ -2,6 +2,7 @@
 
 const { loadOrCreate, saveState } = require('./persistence');
 const { printBoard } = require('./board');
+const { checkAllContracts } = require('./contracts');
 
 /**
  * cli.js
@@ -94,6 +95,11 @@ function handleCommand(argv, engine) {
     case 'board': {
       printBoard(engine);
       return { ok: true, silent: true };
+    }
+    case 'contracts': {
+      const result = checkAllContracts(engine);
+      if (result.valid) return { ok: true, message: 'Sab platform-to-platform contracts sahi hain \u2705' };
+      return { ok: false, message: 'Contract violations mili:\n' + result.violations.map((v) => '  - ' + v).join('\n') };
     }
     case 'ask': {
       const question = args.join(' ');
