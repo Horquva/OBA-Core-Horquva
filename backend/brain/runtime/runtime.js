@@ -62,8 +62,12 @@ class OrganizationalBrainRuntime {
     // swap keeps this subscription pointed at the current graph.
     intelligenceBus.subscribe('*', (pkg) => this.graph.sync(pkg))
 
-    // Step 4: Knowledge Graph — load discovered organizational reality
+    // Step 4: Knowledge Graph — load discovered organizational reality.
+    // This is SYNTHETIC demo data. reloadGraph() replaces it with the real
+    // Supabase graph; until that succeeds, everything downstream is answering
+    // from a 16-entity fiction. Recorded on state so it is queryable.
     if (seed) seedDemoOrganization(graph)
+    state.setGraphSource(seed ? 'demo-seed' : 'none', graph.stats())
 
     // Step 5: Runtime integration (Communication Layer + Execution Engine)
     const comm = new CommunicationLayer({ moduleRegistry, capabilityRegistry, eventBus })
@@ -117,16 +121,29 @@ class OrganizationalBrainRuntime {
     if (!this.booted) throw new Error('reloadGraph: runtime has not booted yet')
 
     const KnowledgeGraph = require('../knowledge/knowledgeGraph')
-    const next = new KnowledgeGraph()
-    await loadFromSupabase(next)
 
-    const validation = next.validate()
-    if (!validation.valid) {
-      throw new Error(`reloadGraph: refusing to swap in an invalid graph — ${validation.entities.errors.concat(validation.relationships.errors).join('; ')}`)
+    // Any failure here leaves the previous graph in place — which on a
+    // boot-time failure is the synthetic demo graph. Record it on state before
+    // rethrowing: a caller that only logs the rejection would otherwise leave
+    // the brain serving fiction indefinitely while still reporting READY.
+    let next
+    let validation
+    try {
+      next = new KnowledgeGraph()
+      await loadFromSupabase(next)
+
+      validation = next.validate()
+      if (!validation.valid) {
+        throw new Error(`reloadGraph: refusing to swap in an invalid graph — ${validation.entities.errors.concat(validation.relationships.errors).join('; ')}`)
+      }
+    } catch (err) {
+      this.state.recordGraphSyncFailure(err)
+      throw err
     }
 
     this.graph = next
     if (this.engine) this.engine.graph = next // ExecutionEngine captured the old graph by reference
+    this.state.setGraphSource('supabase', next.stats())
 
     // Rebuild the stored Boot Report so GET /api/brain/boot-report reflects the
     // new graph instead of the frozen numbers from the initial synchronous boot.
@@ -159,12 +176,17 @@ class OrganizationalBrainRuntime {
     ]
     const accepted = criteria.every((c) => c.pass)
 
+    // Whether the graph is real is deliberately NOT an acceptance criterion:
+    // `accepted` gates state.isReady(), which gates POST /api/brain/ask, and a
+    // Supabase outage should not take the runtime offline. It is reported as its
+    // own field instead, so "READY" can never again be read as "on real data".
     return {
       title: 'ORGANIZATIONAL BRAIN — BOOT REPORT',
       generatedAt: new Date().toISOString(),
       phase: 'Phase 1 — Assembly',
       accepted,
       status: accepted ? 'READY — progressing to Enterprise Testing & Validation' : 'DEGRADED — acceptance criteria unmet',
+      dataSource: this.state.graph(),
       modules: {
         discovered: discovery.discovered,
         expected: MODULES.length,

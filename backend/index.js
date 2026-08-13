@@ -103,9 +103,20 @@ try {
     `${report.modules.discovered}/${report.modules.expected} modules, ` +
     `${report.capabilities.registered} capabilities`
   )
+  // Fire-and-forget by design — the server must not block on Supabase. But a
+  // failure here means every answer the brain gives comes from the synthetic
+  // demo graph, so it is logged as the loud, unambiguous failure it is and
+  // recorded on runtime state (see GET /api/brain/status -> dataSource).
   runtime.reloadGraph()
     .then((stats) => console.log('Organizational Brain: graph reloaded from Supabase —', JSON.stringify(stats)))
-    .catch((err) => console.error('Organizational Brain: graph reload from Supabase failed, staying on demo data —', err.message))
+    .catch((err) => {
+      console.error('='.repeat(78))
+      console.error('Organizational Brain: SUPABASE GRAPH LOAD FAILED —', err.message)
+      console.error('The brain is serving the SYNTHETIC DEMO GRAPH. Every number it')
+      console.error('produces is fiction until this succeeds. Check GET /api/brain/status')
+      console.error('-> dataSource, and retry with POST /api/brain/reload-graph.')
+      console.error('='.repeat(78))
+    })
 } catch (e) {
   console.error('Organizational Brain failed to boot:', e.message)
 }

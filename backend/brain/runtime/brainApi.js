@@ -14,15 +14,31 @@ function buildBrainRouter(brain) {
   const router = express.Router()
   const { state, eventBus, engine, moduleRegistry } = brain
 
-  // Brain lifecycle + boot report
+  // Brain lifecycle + boot report.
+  //
+  // `dataSource` is the field to check before trusting anything else here. The
+  // brain boots on a synthetic 16-entity demo graph and swaps in the real
+  // Supabase graph asynchronously; `phase` reads 'ready' in both cases, so it
+  // cannot tell you which one you are being served. If the swap fails the brain
+  // keeps answering from the demo graph indefinitely, and `dataSource.live`
+  // is the only thing that says so.
   router.get('/status', (req, res) => {
-    res.json({ phase: state.phase, ready: state.isReady(), snapshot: state.snapshot() })
+    res.json({
+      phase: state.phase,
+      ready: state.isReady(),
+      dataSource: state.graph(),
+      snapshot: state.snapshot(),
+    })
   })
 
   router.get('/boot-report', (req, res) => {
     const r = state.bootReport()
     if (!r) return res.status(503).json({ error: 'Brain has not booted' })
-    res.json(r)
+    // Every other field is a boot-time fact and stays frozen, but the stored
+    // report is only rebuilt on a *successful* graph swap — so its sync counters
+    // would sit at zero after a failed one, reading as "not attempted yet"
+    // rather than "attempted and failed". Overlay the current provenance.
+    res.json({ ...r, dataSource: state.graph() })
   })
 
   router.get('/signals', (req, res) => {
@@ -47,9 +63,11 @@ function buildBrainRouter(brain) {
   router.post('/reload-graph', async (req, res) => {
     try {
       const stats = await brain.reloadGraph()
-      res.json({ reloaded: true, stats })
+      res.json({ reloaded: true, stats, dataSource: state.graph() })
     } catch (e) {
-      res.status(500).json({ reloaded: false, error: e.message })
+      // A failed reload leaves the previous graph in place. Return what is
+      // actually being served so the caller isn't left guessing.
+      res.status(500).json({ reloaded: false, error: e.message, dataSource: state.graph() })
     }
   })
 

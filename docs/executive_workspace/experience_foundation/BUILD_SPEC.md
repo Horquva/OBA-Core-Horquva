@@ -967,6 +967,41 @@ leave a half-built graph readable. Call it on a timer at `LOAD_INTERVAL_HOURS` (
 after any W4 write. Expose it as an admin-only route for manual triggering. Record `lastLoadedAt`;
 F27 and R-3's `STALE` state both read it.
 
+**2026-08-13 — `reloadGraph()` exists and its provenance is now observable. The timer does not.**
+`runtime.reloadGraph()` rebuilds and swaps atomically, is called once from `backend/index.js` at
+startup, and is exposed at `POST /api/brain/reload-graph`. **Still open:** the
+`LOAD_INTERVAL_HOURS` timer (R-7) and the post-W4-write call — reload happens exactly once per
+process today.
+
+What was fixed instead was the thing that made a failure invisible. The brain boots synchronously on
+`graphSeeder.js`'s 16-entity demo graph and swaps in the real 131-entity Supabase graph
+asynchronously; the swap was fire-and-forget, its rejection only `console.error`'d. So a Supabase
+outage at boot left the brain serving **synthetic data indefinitely while `/api/brain/status` kept
+reporting `READY`** — nothing in any payload distinguished the two.
+
+`BrainStateManager` now tracks graph provenance, surfaced as a `dataSource` block on
+`GET /api/brain/status`, `GET /api/brain/boot-report` and `POST /api/brain/reload-graph`:
+
+| field | on the real graph | after a failed load |
+|---|---|---|
+| `source` | `supabase` | `demo-seed` |
+| `live` / `servingDemoData` | `true` / `false` | `false` / `true` |
+| `entities` / `relationships` | 131 / 237 | 16 / 24 |
+| `loadedAt` | swap timestamp | demo seed timestamp — this is the `lastLoadedAt` R-3's `STALE` state should read |
+| `syncAttempts` / `syncFailures` | 1 / 0 | 1 / 1 |
+| `lastSyncError` | `null` | `{ message, at }` |
+| `warning` | `null` | "Serving the synthetic demo graph, NOT real organizational data…" |
+
+Verified both paths live by pointing `SUPABASE_URL` at an unreachable host. Boot-time failure also
+now logs a loud, banner-delimited error instead of one line.
+
+⚠ **Deliberate choice: `accepted`/`phase` still read `READY` on demo data.** `accepted` gates
+`state.isReady()`, which gates `POST /api/brain/ask` — failing acceptance on a Supabase outage would
+take the runtime offline rather than degrade it. Whether that is the right trade is a product call
+that has **not** been made; if the answer is "an outage should hard-fail the brain", add a criterion
+to `_buildBootReport()` and expect `/ask` to 503. Until then, **`dataSource.live` is the field to
+check — `ready: true` does not mean the data is real.**
+
 **Removing the other sources is most of the work, and it's mechanical:**
 
 - Repoint the five routes that read `data/sunrise_care.json` directly — `intelligence/constitutional.js`,
