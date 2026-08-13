@@ -25,13 +25,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # FIX: semgrep-action has no "SEMGREP_RULES" env var — that was never
+      # a real input, so our custom rules (security-gates/sast/semgrep-rules/)
+      # were silently never loaded, and only the community registry configs
+      # ran. Confirmed by a real negative test on 2026-xx-xx: a deliberately
+      # rule-matching fixture (testing/negative-test-fixtures/sast-trigger.js)
+      # passed cleanly when it should have been blocked. Fixed by passing
+      # every config (registry + local custom rules) directly via the
+      # action's own "config" input, which accepts a comma-separated list.
       - name: Run Semgrep
         uses: semgrep/semgrep-action@v1
         with:
-          config: security-gates/sast/config/semgrep.yml
-        env:
-          SEMGREP_RULES: security-gates/sast/semgrep-rules/
-          # Fails the step (blocking) on findings at/above policy threshold defined in semgrep.yml
+          config: >-
+            p/security-audit,p/secrets,p/owasp-top-ten,p/nodejsscan,security-gates/sast/semgrep-rules/
+          # Fails the step (blocking) on ERROR-severity findings
 
       - name: Upload SAST results (evidence)
         if: always()
