@@ -8,6 +8,7 @@ import { ConcentrationRiskPanel } from '../../components/knowledge/Concentration
 import { UndocumentedAssetsTable } from '../../components/knowledge/UndocumentedAssetsTable';
 import { DepartureSim } from '../../components/knowledge/DepartureSim';
 import { KnowledgeGapsPanel } from '../../components/knowledge/KnowledgeGapsPanel';
+import { authHeader } from '../../lib/authFetch';
 import { KnowledgeConcentrationGauge } from '../../components/knowledge/KnowledgeConcentrationGauge';
 import { EntitySearchPanel } from '../../components/knowledge/EntitySearchPanel';
 
@@ -22,9 +23,9 @@ export default function KnowledgePage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] }),
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
     .then(([agentsData, wData, toolsData]) => {
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map((a: any) => ({

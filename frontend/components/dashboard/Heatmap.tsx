@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { authHeader } from '../../lib/authFetch';
 
 interface AgentRow {
   department: string;
@@ -21,7 +22,7 @@ export function Heatmap() {
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    fetch(`${base}/api/agents`)
+    fetch(`${base}/api/agents`, { headers: authHeader() })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {

@@ -8,6 +8,7 @@ import { DependencyPipeline } from '../../components/ownership/DependencyPipelin
 import { HumanDependencyRisks } from '../../components/ownership/HumanDependencyRisks';
 import { OrgRelationshipMap } from '../../components/ownership/OrgRelationshipMap';
 import { AccountabilityChainTable } from '../../components/dashboard/AccountabilityChainTable';
+import { authHeader } from '../../lib/authFetch';
 import { Dataset } from '../../types';
 
 export default function OwnershipPage() {
@@ -19,9 +20,9 @@ export default function OwnershipPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
     
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] })
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] })
     ])
     .then(([agentsData, toolsData, wfsData]) => {
       const agents = Array.isArray(agentsData) ? agentsData.map((a: any) => ({

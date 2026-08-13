@@ -655,26 +655,73 @@ nine tickets. What remains is wiring, which is the mechanical part.
 
 **Owner** Muhammad Haroon · **Reviewer** Saad Mehmood
 
-**a. 21 written endpoints are unreachable.** Six route files were built and never mounted, because
-`backend/index.js` requires a sibling *file* instead of the *folder* — `require('./routes/x/x')`
-loads `x.js` and never touches `x/index.js`. The six files hold **29** endpoints; **8** collide with
-a path already served by the mounted sibling, leaving **21** genuinely lost.
+**a. ~~21 written endpoints are unreachable.~~ CLOSED 2026-08-13 — decided: delete.** No work
+remains here. Recorded below because the decision matters more than the ticket did.
 
-| Unmounted file | Endpoints | What `index.js` mounts instead | Colliding paths |
+Six route files were built and never mounted, because `backend/index.js` requires a sibling *file*
+instead of the *folder* — `require('./routes/x/x')` loads `x.js` and never touches `x/index.js`.
+Earlier passes trimmed the duplicate reads and left the rest as **an open decision: delete the
+second system, keep it mounted but labeled as placeholder, or connect it to the live tables.**
+
+**That call has been made — delete.** All **15** files are gone (the six `index.js` files plus the
+nine engines and helpers only they used):
+
+| Feature | Files deleted |
+|---|---|
+| Intent / execution pipeline | `orchestration/{index,intentReceiver,executionEngine}.js` |
+| Governance enforcement | `governance/{index,governanceEngine}.js` |
+| Briefing engine + recs | `briefing/{index,briefingEngine,recommendations}.js` |
+| Continuity risk engine | `continuity/{index,continuityEngine}.js` |
+| Self-healing engine | `selfHealing/healingEngine.js` |
+| Legacy verification CRUD | `verification/index.js` |
+| Deepgram voice pipeline | `voice/{index,intentParser,stt}.js` |
+
+**Why delete rather than reconnect.** The whole cluster sits on one schema — `schema.sql`'s
+`orchestration_state` / `verification_logs` / `execution_intents`, keyed by **text** ids (`wf_001`)
+and seeded with "Robert", from the retired Sunrise Care dataset. The live app is on `sql/01`+`02`
+with **integer** ids. Row counts measured directly against the live database:
+
+| Live table | Rows | Shadow table it shadows | Rows |
 |---|---|---|---|
-| `routes/orchestration/index.js` | **12** — incl. `POST /approve/:id`, `/reject/:id`, `/execute/:id` | `orchestration/orchestration.js` (5, read-only) | `GET /blocked`, `/collisions`, `/summary`, `/mode` |
-| `routes/verification/index.js` | 4 — incl. `POST /` | `verification/intelligence.js` | `GET /flagged`, `/summary` |
-| `routes/briefing/index.js` | 4 | `briefing/briefing.js` | `GET /recommendations` |
-| `routes/voice/index.js` | 3 — the whole speech pipeline | `voice/voice.js` | `POST /command` |
-| `routes/continuity/index.js` | 3 — incl. `POST /plan` | `continuity/continuity.js` | — |
-| `routes/governance/index.js` | 3 — incl. `POST /enforce` | `governance/governance.js` | — |
+| `workflow_orchestration` + `workflow_steps` | 10 / 39 | `orchestration_state` | 2 |
+| `verification_actions` + `policy_violations` | 20 / 5 | `verification_logs` | 2 |
+| `recommendations` | 10 | (derived from the three shadow tables) | — |
+| — | — | `execution_intents` | **0** |
 
-⚠ **Mounting a file does not win those paths.** Express matches the first router registered, so a
-collision means your newly mounted handler silently never runs. For each of the 8, decide with the
-reviewer which implementation is correct and delete the other.
+Reconnecting would have lit up governance, continuity and intent endpoints reporting confidently on
+`wf_001` and "Robert" — data describing nothing real. That is the exact failure this spec's R-3
+exists to prevent, so the code was removed rather than rewired. The intent/execution pipeline
+(`execution_mode` → intent → human approve/reject → execute) was the one genuinely unique capability
+in the cluster and it went too: `execution_intents` had zero rows and nothing emitted into it.
+**It is recoverable from git if the product ever wants it — start from this commit's parent.**
 
-Review each file, then mount or delete it. **Most of the write endpoints in this codebase are in
-these six files** — the live API has seven writes total, three of which are login.
+**Both remaining path collisions are resolved by the deletion.** `GET /mode` and `POST /command` now
+have exactly one implementation each — the live `orchestration/orchestration.js` and `voice/voice.js`.
+There is no longer any endpoint to *set* the execution mode; `GET /api/orchestration/mode` is
+read-only and the frontend's `AutomationModeControl` only reads it.
+
+**Two live bugs fixed at the same time, both in the avatar gate check** — a live route that was
+collateral damage from the split:
+- `avatar/gateCheck.js` queried the 2-row shadow tables, so no real workflow ever matched: every
+  check pushed `no_orchestration_record` and forced `can_act:false`, auto-escalating everything. Now
+  reads `verification_actions` + `workflow_orchestration`, deriving collision from `workflow_steps`
+  actor overlap the way `/api/orchestration/collisions` already does (the live table has no
+  `collision_detected` column). Verified live: workflow 9 clears, workflow 8 escalates with four
+  real reasons.
+- `avatar/escalate.js` inserted `escalation_id`, `actor_type`, `actor_name`, `reasons` and `message`
+  into `escalation_logs` — **none of those five columns exist**, so every gate failure threw instead
+  of escalating. `POST /api/avatar/check` was non-functional, not merely over-eager. Fixed to the
+  real columns; actor and reason list now go into `detail`.
+
+`escalation_logs` **stays live** — `avatar/index.js` reads it. `orchestration_state`,
+`verification_logs` and `execution_intents` are now referenced by nothing; the tables were left in
+place deliberately (dropping them needs a migration and buys nothing). Migrations `07` and `08`
+still apply cleanly and are harmless, but the columns they added
+(`execution_intents.approved_by`/`rejected_by`/`decided_at`, `execution_mode.set_by`) no longer have
+a writer. **Do not read the presence of these tables as evidence a feature is missing.**
+
+There is also no `DEEPGRAM_API_KEY` in `backend/.env`, so the deleted "speech pipeline" could only
+ever have returned its hardcoded mock transcript (`"Check the status of workflow wf_001…"`).
 
 **This is already breaking the app.** Three paths `frontend/lib/api.ts` calls return 404 today,
 verified by calling them: `/api/briefing/health` and `/api/briefing/risks` (both in the unmounted

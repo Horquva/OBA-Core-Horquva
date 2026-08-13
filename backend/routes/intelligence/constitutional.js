@@ -137,29 +137,6 @@ function autonomousAdvisor(d) {
   return { recommendedActions: advice.length, heldBack, trustScore: truth.trustScore, advice }
 }
 
-// ── M25 helper (health) reused by M50 ──
-function healthIndex(d) {
-  const assets = assetsOf(d)
-  const total = assets.length || 1
-  const dims = {
-    documentation: pct(assets.filter(a => a.documented).length, total),
-    continuity: pct(assets.filter(a => a.backup_owner).length, total),
-    ownershipSpread: pct(new Set(assets.map(a => a.owner).filter(Boolean)).size, total),
-    criticalSafety: pct(total - assets.filter(a => (a.criticality || '').toLowerCase() === 'critical' && !a.backup_owner).length, total),
-  }
-  return Math.round(Object.values(dims).reduce((s, v) => s + v, 0) / Object.keys(dims).length)
-}
-
-// ── M50 — Brain Core Logic ──
-function brainCore(d) {
-  const health = healthIndex(d)
-  const trust = truthIntelligence(d).trustScore
-  const stability = signalIntelligence(d).stabilityScore
-  const brainIndex = Math.round(0.45 * health + 0.3 * stability + 0.25 * trust)
-  const posture = brainIndex >= 75 ? 'OPTIMIZE' : brainIndex >= 55 ? 'STABILIZE' : brainIndex >= 40 ? 'DEFEND' : 'RECOVER'
-  return { brainIndex, posture, inputs: { healthM25: health, signalM36: stability, truthM46: trust } }
-}
-
 // ── M54 — Simulation Universe ──
 function simulationUniverse(d) {
   const assets = assetsOf(d)
@@ -185,30 +162,6 @@ function simulationUniverse(d) {
   return { baseline, survivability: Math.max(0, baseline - (worst ? worst.resilienceDrop : 0)), worst, scenarios }
 }
 
-// ── M55 — Intelligence Orchestrator (meta-brain, runs last) ──
-function orchestrator(d) {
-  const signal = signalIntelligence(d)
-  const capability = capabilityIntelligence(d)
-  const alignment = strategicAlignment(d)
-  const truth = truthIntelligence(d)
-  const brain = brainCore(d)
-  const sim = simulationUniverse(d)
-  const advisor = autonomousAdvisor(d)
-  const pipeline = {
-    'M36 Signal': signal.stabilityScore,
-    'M39 Capability': capability.orgCapability,
-    'M40 Alignment': alignment.alignment,
-    'M46 Truth': truth.trustScore,
-    'M50 Brain Core': brain.brainIndex,
-    'M54 Survivability': sim.survivability,
-  }
-  const vals = Object.values(pipeline)
-  const orgIntelligence = Math.round(vals.reduce((s, v) => s + v, 0) / vals.length)
-  const grade = orgIntelligence >= 80 ? 'A' : orgIntelligence >= 65 ? 'B' : orgIntelligence >= 50 ? 'C' : 'D'
-  const topAction = advisor.advice[0] ? advisor.advice[0].action : 'Maintain current controls'
-  return { organizationalIntelligenceScore: orgIntelligence, grade, posture: brain.posture, topPriority: topAction, pipeline }
-}
-
 // ─────────────────────────────────────────────────────────────
 // ROUTES
 // ─────────────────────────────────────────────────────────────
@@ -222,9 +175,11 @@ router.get('/capability', wrap(capabilityIntelligence))     // M39
 router.get('/alignment', wrap(strategicAlignment))          // M40
 router.get('/truth', wrap(truthIntelligence))               // M46
 router.get('/advisor', wrap(autonomousAdvisor))             // M48
-router.get('/brain-core', wrap(brainCore))                  // M50
 router.get('/simulation-universe', wrap(simulationUniverse))// M54
-router.get('/orchestrator', wrap(orchestrator))             // M55
+// M50 and M55 are NOT served here. index.js mounts brainCore.js and
+// orchestrator.js at the more specific /api/intelligence/brain-core and
+// /api/intelligence/orchestrator prefixes, so this router never sees those
+// paths. Duplicate handlers used to sit here and were silently unreachable.
 
 // Index of all Phase 6 constitutional intelligence endpoints
 router.get('/', (req, res) => {
@@ -238,9 +193,9 @@ router.get('/', (req, res) => {
       'M40 Strategic Alignment': 'GET /api/intelligence/alignment',
       'M46 Truth Intelligence': 'GET /api/intelligence/truth',
       'M48 Autonomous Advisor': 'GET /api/intelligence/advisor',
-      'M50 Brain Core Logic': 'GET /api/intelligence/brain-core',
       'M54 Simulation Universe': 'GET /api/intelligence/simulation-universe',
-      'M55 Intelligence Orchestrator': 'GET /api/intelligence/orchestrator',
+      'M50 Brain Core Logic': 'GET /api/intelligence/brain-core (served by brainCore.js)',
+      'M55 Intelligence Orchestrator': 'GET /api/intelligence/orchestrator (served by orchestrator.js)',
     },
   })
 })

@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { RiskBadge } from '../ui/RiskBadge';
 import { deriveRisk } from '../../lib/risk';
 import type { Agent, RiskLevel } from '../../types';
+import { authHeader } from '../../lib/authFetch';
 
 export function AgentTable() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -13,7 +14,7 @@ export function AgentTable() {
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    fetch(`${base}/api/agents`)
+    fetch(`${base}/api/agents`, { headers: authHeader() })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {

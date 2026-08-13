@@ -8,6 +8,7 @@ import { BlastRadiusSimulator } from '../../components/map/BlastRadiusSimulator'
 import { DependencyEvolutionTab } from '../../components/map/DependencyEvolutionTab';
 import { HiddenDependencyOverlay } from '../../components/map/HiddenDependencyOverlay';
 import { getSPOFs, getDownstream } from '../../lib/graph';
+import { authHeader } from '../../lib/authFetch';
 import { Agent, Dependency } from '../../types';
 
 export default function DependencyMapPage() {
@@ -20,11 +21,11 @@ export default function DependencyMapPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
     
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => {
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load agents');
         return r.json();
       }),
-      fetch(`${base}/api/dependencies`).then(r => {
+      fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load dependencies');
         return r.json();
       })

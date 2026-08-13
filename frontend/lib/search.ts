@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { authHeader } from './authFetch';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
@@ -12,7 +13,7 @@ export interface SearchEntry {
 
 async function safeJson(path: string): Promise<any[]> {
   try {
-    const res = await fetch(`${BASE}${path}`, { cache: 'no-store' });
+    const res = await fetch(`${BASE}${path}`, { cache: 'no-store', headers: authHeader() });
     const data = res.ok ? await res.json() : [];
     return Array.isArray(data) ? data : [];
   } catch {

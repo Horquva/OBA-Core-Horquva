@@ -8,8 +8,17 @@ const supabase = require('../../supabase')
 // weight, and display label.
 // ─────────────────────────────────────────────
 
+// 'brainCore' is deliberately NOT a voting member here. Its own score
+// (brainCore.js) is already a weighted average of governance, continuity,
+// orgHealth, predictiveRisk, memory, collaboration, accountability,
+// domainInt, decisionQuality and aiAdoption — all ten of which vote below
+// in their own right. Including brainCore as an eleventh, 0.18-weighted
+// entry counted those same ten signals a second time and structurally
+// over-weighted them relative to executiveBriefing/executiveMemory/
+// healthTrend, the only genuinely independent signals in this registry.
+// readBrainCore() is still called (see orchestrate()) purely to surface
+// `brainPosture` for display.
 const MODULE_REGISTRY = [
-  { key: 'brainCore',         label: 'Organizational Brain Core',     weight: 0.18 },
   { key: 'governance',        label: 'Governance Intelligence',        weight: 0.12 },
   { key: 'continuity',        label: 'Continuity Resilience',          weight: 0.12 },
   { key: 'orgHealth',         label: 'Organizational Health',          weight: 0.10 },
@@ -203,7 +212,6 @@ async function readHealthTrend() {
 }
 
 const MODULE_READERS = {
-  brainCore:         readBrainCore,
   governance:        readGovernance,
   continuity:        readContinuity,
   orgHealth:         readOrgHealth,
@@ -306,21 +314,25 @@ function computeTrustScore(modules) {
 // ─────────────────────────────────────────────
 
 async function orchestrate() {
-  // Read all modules in parallel
-  const results = await Promise.all(
-    MODULE_REGISTRY.map(async cfg => {
-      const result = await MODULE_READERS[cfg.key]()
-      return {
-        key:      cfg.key,
-        label:    cfg.label,
-        weight:   cfg.weight,
-        score:    result.score,
-        verified: result.verified,
-        source:   result.source,
-        meta:     result.meta ?? null
-      }
-    })
-  )
+  // Read all voting modules, plus brainCore separately for display only
+  // (see the comment on MODULE_REGISTRY — it does not vote).
+  const [results, brainCoreResult] = await Promise.all([
+    Promise.all(
+      MODULE_REGISTRY.map(async cfg => {
+        const result = await MODULE_READERS[cfg.key]()
+        return {
+          key:      cfg.key,
+          label:    cfg.label,
+          weight:   cfg.weight,
+          score:    result.score,
+          verified: result.verified,
+          source:   result.source,
+          meta:     result.meta ?? null
+        }
+      })
+    ),
+    readBrainCore()
+  ])
 
   // Only verified modules contribute to the score
   const verified = results.filter(m => m.verified)
@@ -335,10 +347,7 @@ async function orchestrate() {
   const verdict = generateVerdict(score, rating, results)
   const recs    = generateRecommendations(results)
   const trust   = computeTrustScore(results)
-
-  // Brain posture from brainCore meta
-  const brainMeta = results.find(m => m.key === 'brainCore')
-  const brainPosture = brainMeta?.meta?.posture ?? null
+  const brainPosture = brainCoreResult?.meta?.posture ?? null
 
   return { score, rating, verdict, recs, trust, brainPosture, modules: results }
 }

@@ -35,6 +35,15 @@ console.log("3. Middlewares added")
 
 app.use(requestLogger)
 
+const { requireAuth } = require('./middleware/auth')
+
+// Auth endpoints stay reachable without a token — register/login/reset-password
+// have to be, and GET /api/auth/me already gates itself with requireAuth.
+app.use('/api/auth', require('./routes/auth/auth'))
+
+// Everything else under /api touches real org data — require a valid bearer token.
+app.use('/api', requireAuth)
+
 app.use('/api/agents', require('./routes/agents'))
 app.use('/api/employees', require('./routes/employees'))
 app.use('/api/ownership', require('./routes/ownership'))
@@ -77,7 +86,6 @@ app.use('/api/context', require('./routes/context/context'))
 app.use('/api/intelligence/orchestrator', require('./routes/intelligence/orchestrator'))
 app.use('/api/intelligence', require('./routes/intelligence/prediction'))
 app.use('/api/signals', require('./routes/signals/signals'))
-app.use('/api/auth', require('./routes/auth/auth'))
 app.use('/api/intelligence', require('./routes/intelligence/constitutional'))
 app.use('/api/avatar', require('./routes/avatar'))
 app.use('/api/self-healing', require('./routes/selfHealing'))

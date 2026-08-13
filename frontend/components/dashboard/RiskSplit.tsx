@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, FileText, UserPlus, ShieldAlert } from 'lucide-react';
 import { briefingApi } from '../../lib/api';
+import { authHeader } from '../../lib/authFetch';
 
 interface AgentRow {
   id: string;
@@ -31,7 +32,7 @@ export function RiskSplit() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.json()).catch(() => []),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.json()).catch(() => []),
       briefingApi.recommendations().catch(() => [] as { type: string; message: string }[]),
     ]).then(([agentData, briefingRecs]) => {
       const agentList: AgentRow[] = Array.isArray(agentData) ? agentData.map(a => ({

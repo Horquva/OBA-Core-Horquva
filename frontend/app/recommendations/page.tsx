@@ -8,6 +8,7 @@ import RecommendationList from '../../components/recommendations/RecommendationL
 import DemoSummary from '../../components/recommendations/DemoSummary';
 import { DecisionSupportQueue } from '../../components/recommendations/DecisionSupportQueue';
 import { OpportunityBacklogTab } from '../../components/recommendations/OpportunityBacklogTab';
+import { authHeader } from '../../lib/authFetch';
 import { VerifiedAdvisorPanel } from '../../components/recommendations/VerifiedAdvisorPanel';
 import { Dataset } from '../../types';
 
@@ -20,10 +21,10 @@ export default function RecommendationsPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
     
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/dependencies`).then(r => r.ok ? r.json() : { dependencies: [] }),
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => r.ok ? r.json() : { dependencies: [] }),
+      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
     ])
     .then(([agentsData, depsData, toolsData, wData]) => {
       setDataset({

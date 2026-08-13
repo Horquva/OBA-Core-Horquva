@@ -6,6 +6,7 @@ import { Agent, Workflow, AITool } from '../../types';
 import { AutomationStatusStrip } from '../../components/continuity/AutomationStatusStrip';
 import { ContinuityTab } from '../../components/continuity/ContinuityTab';
 import { GovernanceTab } from '../../components/continuity/GovernanceTab';
+import { authHeader } from '../../lib/authFetch';
 
 export default function ContinuityPage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
@@ -18,9 +19,9 @@ export default function ContinuityPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] }),
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
     .then(([agentsData, wData, toolsData]) => {
       // Normalize agents

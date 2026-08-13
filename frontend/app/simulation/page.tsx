@@ -7,6 +7,7 @@ import { TwinHealthIndex } from '../../components/simulation/TwinHealthIndex';
 import { TwinSyncStatus } from '../../components/simulation/TwinSyncStatus';
 import { ScenarioSandbox } from '../../components/simulation/ScenarioSandbox';
 import { Agent, Dependency, AITool } from '../../types';
+import { authHeader } from '../../lib/authFetch';
 
 export default function SimulationPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -19,15 +20,15 @@ export default function SimulationPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
     
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => {
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load agents');
         return r.json();
       }),
-      fetch(`${base}/api/dependencies`).then(r => {
+      fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load dependencies');
         return r.json();
       }),
-      fetch(`${base}/api/tools`).then(r => {
+      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load tools');
         return r.json();
       })

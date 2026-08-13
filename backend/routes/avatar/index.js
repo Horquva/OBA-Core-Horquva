@@ -82,8 +82,8 @@ router.get('/escalations/summary', async (req, res) => {
 router.post('/check', async (req, res) => {
   const { workflow_id } = req.body
 
-  if (!workflow_id) {
-    return res.status(400).json({ error: 'workflow_id is required' })
+  if (!Number.isInteger(Number(workflow_id))) {
+    return res.status(400).json({ error: 'workflow_id is required and must be an integer workflow id' })
   }
 
   const gateResult = await checkGate(workflow_id)

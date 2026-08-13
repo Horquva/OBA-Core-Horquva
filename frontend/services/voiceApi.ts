@@ -1,3 +1,5 @@
+import { authHeader } from "../lib/authFetch";
+
 const API_ROOT =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "http://localhost:3000";
 const API_BASE = `${API_ROOT}/api/voice`;
@@ -31,7 +33,8 @@ export interface VoiceHistory {
 export async function askOBA(question: string): Promise<VoiceResponse> {
   try {
     const response = await fetch(
-      `${API_BASE}/ask?q=${encodeURIComponent(question)}`
+      `${API_BASE}/ask?q=${encodeURIComponent(question)}`,
+      { headers: authHeader() }
     );
 
     if (!response.ok) {
@@ -55,7 +58,7 @@ export async function askOBA(question: string): Promise<VoiceResponse> {
 // Daily briefing
 export async function getDailySummary() {
   try {
-    const response = await fetch(`${API_BASE}/daily-summary`);
+    const response = await fetch(`${API_BASE}/daily-summary`, { headers: authHeader() });
 
     if (!response.ok) {
       throw new Error("Failed to load daily summary.");
@@ -71,7 +74,7 @@ export async function getDailySummary() {
 // Suggested prompts
 export async function getVoiceIntents() {
   try {
-    const response = await fetch(`${API_BASE}/intents`);
+    const response = await fetch(`${API_BASE}/intents`, { headers: authHeader() });
 
     if (!response.ok) {
       throw new Error("Failed to load voice intents.");
@@ -108,6 +111,7 @@ export async function executeVoiceCommand(text: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...authHeader(),
       },
       body: JSON.stringify({ text }),
     });

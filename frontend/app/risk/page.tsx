@@ -8,6 +8,7 @@ import { RiskScoreTable } from '../../components/risk/RiskScoreTable';
 import { OrgHealthBanner } from '../../components/risk/OrgHealthBanner';
 import { PredictedRiskPanel } from '../../components/risk/PredictedRiskPanel';
 import { Agent, Dependency } from '../../types';
+import { authHeader } from '../../lib/authFetch';
 
 export default function RiskPage() {
   const [report, setReport] = useState<RiskIntelligenceReport | null>(null);
@@ -18,11 +19,11 @@ export default function RiskPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
     
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => {
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load agents');
         return r.json();
       }),
-      fetch(`${base}/api/dependencies`).then(r => {
+      fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load dependencies');
         return r.json();
       })

@@ -1,4 +1,5 @@
 import type { RiskLevel } from '../types';
+import { authHeader } from './authFetch';
 
 // ─── Base ────────────────────────────────────────────────────────────────────
 
@@ -8,7 +9,7 @@ const BASE =
 /** Minimal wrapper — throws on non-2xx so callers can catch uniformly. */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeader(), ...init?.headers },
     ...init,
   });
 
@@ -267,7 +268,7 @@ export const orchestration = {
   blocked: () =>
     request<BlockedResponse>('/api/orchestration/blocked'),
 
-  /** GET /api/orchestration/mode — may not be implemented yet */
+  /** GET /api/orchestration/mode — read-only; there is no endpoint to set it */
   mode: () =>
     request<{ executionMode: string }>('/api/orchestration/mode'),
 };
@@ -725,8 +726,6 @@ export interface BriefingLatest {
 
 export const briefingApi = {
   latest: () => request<BriefingLatest>('/api/briefing/today'),
-  risks: () => request<Record<string, unknown>>('/api/briefing/risks'),
-  health: () => request<Record<string, unknown>>('/api/briefing/health'),
   recommendations: () =>
     request<{ type: string; message: string }[]>('/api/briefing/recommendations'),
 };
@@ -985,6 +984,7 @@ export async function pingEndpoint(path: string): Promise<PingResult> {
     const res = await fetch(`${BASE}${path}`, {
       method: 'GET',
       signal: controller.signal,
+      headers: { ...authHeader() },
     });
     clearTimeout(timeoutId);
     return {

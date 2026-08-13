@@ -8,6 +8,7 @@ import { CriticalToolPanel } from '../../components/ai-tools/CriticalToolPanel';
 import { ToolRiskTable } from '../../components/ai-tools/ToolRiskTable';
 import { OutageImpactPanel } from '../../components/ai-tools/OutageImpactPanel';
 import { DeptExposureTable } from '../../components/ai-tools/DeptExposureTable';
+import { authHeader } from '../../lib/authFetch';
 import { ExternalEcosystemTab } from '../../components/ai-tools/ExternalEcosystemTab';
 
 export default function AIToolsPage() {
@@ -21,9 +22,9 @@ export default function AIToolsPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
     ])
     .then(([toolsData, agentsData, wData]) => {
       // Normalize tools

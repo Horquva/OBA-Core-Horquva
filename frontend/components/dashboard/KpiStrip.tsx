@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, Users, AlertTriangle, Link2 } from 'lucide-react';
 import { healthApi } from '../../lib/api';
+import { authHeader } from '../../lib/authFetch';
 
 interface KpiData {
   riskScore: number;
@@ -19,7 +20,7 @@ export function KpiStrip() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.json()).catch(() => []),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.json()).catch(() => []),
       healthApi.summary().catch(() => null),
     ]).then(([agents, health]) => {
       const agentList = Array.isArray(agents) ? agents.map((a: any) => ({

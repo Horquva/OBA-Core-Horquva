@@ -6,6 +6,7 @@ import { Agent, Workflow, AITool } from '../../types';
 import { MemoryHeader } from '../../components/memory/MemoryHeader';
 import { MemoryCarriersPanel } from '../../components/memory/MemoryCarriersPanel';
 import { LostAssetsPanel } from '../../components/memory/LostAssetsPanel';
+import { authHeader } from '../../lib/authFetch';
 
 export default function MemoryPage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
@@ -18,9 +19,9 @@ export default function MemoryPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] }),
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
     .then(([agentsData, wData, toolsData]) => {
       // Normalize agents

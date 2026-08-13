@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NotificationItem, NotificationGroup, NotificationSeverity } from '../types/notification';
+import { authHeader } from './authFetch';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
@@ -35,7 +36,7 @@ function titleCase(s: string): string {
 
 async function safeJson(path: string): Promise<any> {
   try {
-    const res = await fetch(`${BASE}${path}`, { cache: 'no-store' });
+    const res = await fetch(`${BASE}${path}`, { cache: 'no-store', headers: authHeader() });
     return res.ok ? await res.json() : null;
   } catch {
     return null;
