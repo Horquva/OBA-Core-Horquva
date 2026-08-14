@@ -5,6 +5,7 @@ import '../theme/app_icons.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
+import '../views/widgets/bottom_nav_bar.dart';
 import '../views/widgets/decision_card.dart';
 import '../views/widgets/pill_button.dart';
 import '../views/widgets/severity_badge.dart';
@@ -215,8 +216,7 @@ class ComponentShowcase extends StatelessWidget {
                 severity: Severity.important,
                 time: '07:30 AM',
                 title: 'Cybersecurity threat detected',
-                description:
-                    'Suspicious login attempts detected from unusual '
+                description: 'Suspicious login attempts detected from unusual '
                     'geographic locations.',
                 tags: const ['Security', 'Threat'],
                 onTap: () {},
@@ -296,6 +296,12 @@ class ComponentShowcase extends StatelessWidget {
               ),
             ],
           ),
+
+          // ─── Bottom Nav Bar ────────────────────────────────────────────
+          _section(
+            title: 'Bottom Nav Bar',
+            children: const [_BottomNavDemo()],
+          ),
         ],
       ),
     );
@@ -311,6 +317,27 @@ class ComponentShowcase extends StatelessWidget {
         ...children,
         const SizedBox(height: AppSpacing.xxl),
       ],
+    );
+  }
+}
+
+/// A small stateful demo so the bottom nav bar reacts to taps in the showcase.
+class _BottomNavDemo extends StatefulWidget {
+  const _BottomNavDemo();
+
+  @override
+  State<_BottomNavDemo> createState() => _BottomNavDemoState();
+}
+
+class _BottomNavDemoState extends State<_BottomNavDemo> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavBar(
+      currentIndex: _index,
+      onTap: (i) => setState(() => _index = i),
+      onCastorTap: () {},
     );
   }
 }

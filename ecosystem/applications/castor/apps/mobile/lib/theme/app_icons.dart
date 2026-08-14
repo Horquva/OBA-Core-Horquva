@@ -20,7 +20,10 @@ abstract final class AppIcons {
   static const IconData knowledgeGraph = LucideIcons.network;
   static const IconData reports = LucideIcons.barChart2;
   static const IconData simulations = LucideIcons.boxes;
+  static const IconData organization = LucideIcons.users;
   static const IconData settings = LucideIcons.settings;
+  static const IconData more = LucideIcons.layoutGrid; // bottom-nav "More"
+  static const IconData castor = LucideIcons.sparkle; // center brand star
 
   // ─── Top bar / actions ─────────────────────────────────────────────────
   static const IconData notification = LucideIcons.bell;
