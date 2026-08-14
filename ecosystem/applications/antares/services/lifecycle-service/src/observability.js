@@ -5,13 +5,13 @@ const { getEngineeringHealth } = require('./ciHistory');
 /**
  * observability.js
  * ----------------
- * Din 6 ka core: teen alag "health" cheezein ek jagah la kar deta hai.
+ * Day 6's core: brings three separate "health" concepts together.
  *
- *   1) System Health     — engine.getSystemHealth()      (Din 1 se hai)
- *   2) Engineering Health — ciHistory.getEngineeringHealth() (AAJ naya)
- *   3) Platform Health    — engine.getPlatformHealth() (har platform ke liye)
+ *   1) System Health      — engine.getSystemHealth()         (since Day 1)
+ *   2) Engineering Health  — ciHistory.getEngineeringHealth() (new today)
+ *   3) Platform Health     — engine.getPlatformHealth()       (per platform)
  *
- * Ye teeno alag concepts hain: System = job-level status,
+ * These are three distinct concepts: System = job-level status,
  * Engineering = code-quality/CI trend, Platform = per-owner breakdown.
  */
 

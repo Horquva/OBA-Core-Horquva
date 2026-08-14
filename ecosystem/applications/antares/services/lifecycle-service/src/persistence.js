@@ -9,13 +9,13 @@ const { Platform, EngineeringJob, Execution, EngineeringEvent } = require('./mod
 /**
  * persistence.js
  * --------------
- * Din 2 ka sabse zaroori hissa: "foundation" ka matlab hai ke data
- * program band hone ke baad bhi zinda rahe. Abhi tak engine sirf RAM
- * mein chalta tha — is file ne wahi gap poora kiya.
+ * Day 2's most important piece: "foundation" means the data survives
+ * after the program exits. Until now the engine only lived in RAM —
+ * this file closes that gap.
  *
- * Ye ek asal database nahi hai (wo baad mein aayega, jab real Antares
- * repo ke andar Postgres/Mongo lagega) — lekin ye REAL persistence hai:
- * file band karo, computer restart karo, data wapas mil jayega.
+ * This is not a real database (that comes later, once Postgres/Mongo
+ * is wired into the real Antares repo) — but it IS real persistence:
+ * close the process, restart the computer, the data comes back.
  */
 
 const DEFAULT_STORE_PATH = path.join(__dirname, '..', 'store', 'state.json');

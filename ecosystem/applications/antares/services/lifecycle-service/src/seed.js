@@ -5,8 +5,8 @@ const { EngineeringOperationsEngine } = require('./engine');
 /**
  * seed.js
  * -------
- * Real 10 Antares platforms register hote hain yahan (koi placeholder
- * naam nahi — same log jo Kamil ki team ke roadmap docs mein hain).
+ * The real 11 Antares platforms are registered here — no placeholder
+ * names, these are the same people from Kamil's team roadmap docs.
  */
 function buildSeededEngine() {
   const engine = new EngineeringOperationsEngine();

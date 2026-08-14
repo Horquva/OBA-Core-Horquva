@@ -95,6 +95,6 @@ test('CLI ask routes to the real rule-based assistant', () => {
   handleCommand(['register-platform', 'p1', 'Platform One', 'Owner One'], engine);
   handleCommand(['create-job', 'j1', 'p1', 'first'], engine);
   handleCommand(['create-job', 'j2', 'p1', 'second', 'j1'], engine);
-  const result = handleCommand(['ask', 'kya', 'kuch', 'blocked', 'hai?'], engine);
+  const result = handleCommand(['ask', 'is', 'anything', 'blocked?'], engine);
   assert.match(result.message, /j2/);
 });

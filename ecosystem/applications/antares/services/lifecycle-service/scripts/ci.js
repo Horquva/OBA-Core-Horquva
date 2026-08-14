@@ -10,18 +10,18 @@ const { recordCiRun } = require('../src/ciHistory');
 /**
  * scripts/ci.js
  * -------------
- * Din 5 ka poora pipeline, exactly jaisa roadmap mein likha tha:
+ * Day 5's full pipeline, exactly as laid out in the roadmap:
  *
  *   Code Change -> Preflight -> Build -> Static Checks
  *   -> Unit Tests -> Integration Tests -> Quality Gate -> Release Candidate
  *
- * Ye woh cheez hai jo GitHub par har push/PR par khud-ba-khud chalni
- * chahiye (.github/workflows/ci.yml ke through) — taake koi bhi
- * broken cheez `antares` branch mein na phisal sake.
+ * This is the thing that should run automatically on every push/PR on
+ * GitHub (via .github/workflows/ci.yml) — so nothing broken ever
+ * slips into the `antares-team` branch.
  *
- * Rule: agar koi bhi stage FAIL ho, agla stage chalta hi nahi —
- * turant ruk jata hai (fail-fast), taake time zaya na ho aur
- * problem foran samajh aaye.
+ * Rule: if any stage FAILS, the next stage does not run — it stops
+ * immediately (fail-fast), so no time is wasted and the problem is
+ * obvious right away.
  */
 
 function section(title) {

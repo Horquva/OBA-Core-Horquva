@@ -126,10 +126,10 @@ test('askAssistant answers block/fail/health/recent questions from real state, n
   engine.createJob({ id: 'j1', platformId: 'p1', task: 'first' });
   engine.createJob({ id: 'j2', platformId: 'p2', task: 'second', dependsOn: ['j1'] });
 
-  const blockAnswer = engine.askAssistant('kya kuch blocked hai?');
+  const blockAnswer = engine.askAssistant('is anything blocked?');
   assert.match(blockAnswer, /j2/);
 
-  const healthAnswer = engine.askAssistant('system health kya hai?');
+  const healthAnswer = engine.askAssistant('what is the system health?');
   assert.match(healthAnswer, /ATTENTION_NEEDED/);
 });
 

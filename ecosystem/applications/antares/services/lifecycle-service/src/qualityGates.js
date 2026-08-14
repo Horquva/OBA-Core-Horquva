@@ -3,13 +3,13 @@
 /**
  * qualityGates.js
  * ---------------
- * Din 5 requirement: "koi broken output silently poore system mein na
- * phail jaye." Ye file wahi kaam karta hai — har job ke output
- * (artifact) ko real rules ke against check karta hai. Koi bhi check
- * fail ho to poora gate FAIL hota hai aur job aage nahi badhta.
+ * Day 5 requirement: "no broken output should silently spread through
+ * the whole system." This file does exactly that — it checks every
+ * job's output (artifact) against real rules. If any check fails, the
+ * whole gate FAILS and the job does not move forward.
  *
- * Ye "fake lint" nahi hai — ye asal mein artifact object ki shape,
- * evidence, aur declared self-tests ko inspect karta hai.
+ * This is not a "fake lint" — it genuinely inspects the shape of the
+ * artifact object, its evidence, and any declared self-tests.
  */
 
 const FORBIDDEN_MARKERS = [
