@@ -6,12 +6,12 @@
  *
  * models.js
  * ---------
- * Yahan sab core data shapes aur enums define hain. Ye poore engine ka
- * "vocabulary" hai — Platform, EngineeringJob, Status, QualityGateResult,
- * EngineeringEvent. Har cheez yahan se shuru hoti hai.
+ * Core data shapes and enums live here. This is the vocabulary the
+ * rest of the engine is built on — Platform, EngineeringJob, Status,
+ * QualityGateResult, EngineeringEvent. Everything else starts here.
  */
 
-/** Job lifecycle states (locked, Din 3-4 requirement). */
+/** Job lifecycle states (locked, Day 3-4 requirement). */
 const JobStatus = Object.freeze({
   QUEUED: 'QUEUED',
   BLOCKED: 'BLOCKED', // waiting on an unmet dependency
@@ -77,7 +77,7 @@ class EngineeringJob {
     this.artifact = null; // the actual output payload once produced
     this.evidence = []; // evidence references attached to this job
     this.qualityGateResult = null;
-    this.executions = []; // list of Execution ids — one per attempt (Din 3-4)
+    this.executions = []; // list of Execution ids — one per attempt (Day 3-4)
     this.history = [
       { status: JobStatus.QUEUED, at: new Date().toISOString(), note: 'Job created' },
     ];
@@ -87,7 +87,7 @@ class EngineeringJob {
 /**
  * An Execution represents ONE ATTEMPT at running a job. A job can have
  * several executions over time (e.g. attempt 1 fails, attempt 2 passes)
- * — this is the "Execution" piece of the Din 3-4 Job Model
+ * — this is the "Execution" piece of the Day 3-4 Job Model
  * (Platform·Task·Dependency·Execution·Status). Without this, a retry
  * would silently overwrite history with no record of how long the
  * previous attempt took or who triggered it.

@@ -14,26 +14,26 @@ const { runQualityGates } = require('./qualityGates');
 /**
  * engine.js
  * ---------
- * Ye poori file "Kamil ka platform" hai — Antares Engineering Operations.
- * Ye khud koi capability discover/validate nahi karta. Ye sirf:
- *   1) platforms register karta hai
- *   2) jobs track karta hai (dependency + status)
- *   3) quality gates run karta hai
- *   4) observability metrics nikalta hai
- *   5) ek rule-based "AI assistant" deta hai jo REAL state par
- *      sawaalon ka jawab deta hai (LLM nahi — deterministic reasoning,
- *      taake result hamesha evidence-backed rahe)
+ * This whole file IS "Kamil's platform" — Antares Engineering Operations.
+ * It does not discover or validate any capability itself. It only:
+ *   1) registers platforms
+ *   2) tracks jobs (dependencies + status)
+ *   3) runs quality gates
+ *   4) computes observability metrics
+ *   5) provides a rule-based "AI assistant" that answers questions from
+ *      REAL state (not an LLM — deterministic reasoning, so the result
+ *      is always evidence-backed)
  */
 class EngineeringOperationsEngine {
   constructor() {
     this.platforms = new Map(); // id -> Platform
     this.jobs = new Map(); // id -> EngineeringJob
-    this.executions = new Map(); // id -> Execution (Din 3-4)
+    this.executions = new Map(); // id -> Execution (Day 3-4)
     this.events = []; // append-only observability feed
     this._executionCounter = 0;
   }
 
-  // ---------- Din 2/3: platform + job registration ----------
+  // ---------- Day 2/3: platform + job registration ----------
 
   registerPlatform(platformInput) {
     const platform = new Platform(platformInput);
@@ -71,7 +71,7 @@ class EngineeringOperationsEngine {
     return job;
   }
 
-  // ---------- Din 3-4: status flow / orchestration ----------
+  // ---------- Day 3-4: status flow / orchestration ----------
 
   /** Resolves whether each declared dependency is currently satisfied. */
   _dependencyStatuses(job) {
@@ -210,7 +210,7 @@ class EngineeringOperationsEngine {
     return job;
   }
 
-  // ---------- Din 6: observability ----------
+  // ---------- Day 6: observability ----------
 
   getSystemHealth() {
     const jobs = [...this.jobs.values()];
@@ -249,7 +249,7 @@ class EngineeringOperationsEngine {
     return this.events.slice(-limit).reverse();
   }
 
-  // ---------- Din 7: rule-based AI Engineering Operations Assistant ----------
+  // ---------- Day 7: rule-based AI Engineering Operations Assistant ----------
   // Deterministic reasoning over REAL state — never invents information.
 
   findBlockedJobs() {
@@ -279,8 +279,8 @@ class EngineeringOperationsEngine {
   }
 
   /**
-   * Din 7: platform-level view of blocking — "kaunsa PLATFORM blocked
-   * hai, kyun" is a different question than "kaunsa JOB blocked hai".
+   * Day 7: platform-level view of blocking — "which PLATFORM is blocked
+   * is it, and why" is a different question than "which JOB is blocked is it".
    * One platform can own several jobs; this groups by platform and
    * explains each one's blocked jobs together.
    */
@@ -307,7 +307,7 @@ class EngineeringOperationsEngine {
     if (!platform) return `Unknown platform: ${platformId}`;
     const jobs = [...this.jobs.values()].filter((j) => j.platformId === platformId && j.status === JobStatus.BLOCKED);
     if (jobs.length === 0) {
-      return `${platform.name} (${platform.owner}) — koi job blocked nahi hai.`;
+      return `${platform.name} (${platform.owner}) — no jobs are blocked.`;
     }
     return `${platform.name} (${platform.owner}) — ${jobs.length} job(s) blocked:\n` +
       jobs.map((j) => '  ' + this.explainBlock(j.id)).join('\n');
@@ -341,11 +341,11 @@ class EngineeringOperationsEngine {
     const mentionedPlatform = this._findMentionedPlatform(question || '');
 
     if (q.includes('block')) {
-      // Din 7: "kaunsa platform blocked hai, kyun" — platform-specific if named
+      // Day 7: "which platform is blocked, and why" — platform-specific if named
       if (mentionedPlatform) return this.explainPlatformBlockage(mentionedPlatform.id);
 
       const blockedPlatforms = this.findBlockedPlatforms();
-      if (blockedPlatforms.length === 0) return 'Koi platform/job is waqt blocked nahi hai.';
+      if (blockedPlatforms.length === 0) return 'No platform or job is currently blocked.';
       return blockedPlatforms
         .map((bp) => `${bp.platformName} (${bp.owner}) — ${bp.blockedJobs.length} job(s) blocked:\n` +
           bp.blockedJobs.map((j) => '  ' + this.explainBlock(j.id)).join('\n'))
@@ -354,11 +354,11 @@ class EngineeringOperationsEngine {
     if (q.includes('fail')) {
       if (mentionedPlatform) {
         const jobs = [...this.jobs.values()].filter((j) => j.platformId === mentionedPlatform.id && j.status === JobStatus.FAILED);
-        if (jobs.length === 0) return `${mentionedPlatform.name} (${mentionedPlatform.owner}) — koi job failed nahi hai.`;
+        if (jobs.length === 0) return `${mentionedPlatform.name} (${mentionedPlatform.owner}) — no jobs have failed.`;
         return jobs.map((j) => this.explainFailure(j.id)).join('\n');
       }
       const failed = this.findFailedJobs();
-      if (failed.length === 0) return 'Koi job is waqt failed state mein nahi hai.';
+      if (failed.length === 0) return 'No job is currently in a failed state.';
       return failed.map((j) => this.explainFailure(j.id)).join('\n');
     }
     if (q.includes('health') || q.includes('status')) {
@@ -373,7 +373,7 @@ class EngineeringOperationsEngine {
     if (q.includes('recent') || q.includes('change') || q.includes('event')) {
       return this.recentEvents(5).map((e) => `[${e.type}] ${e.message}`).join('\n');
     }
-    return "Samajh nahi aaya — poochho: 'kya blocked hai', 'kya failed hai', 'system health kya hai', ya 'recent changes kya hain'. Kisi platform/member ka naam bhi le sakte ho, jaise 'Zara ka kaam blocked hai kya?'.";
+    return "I didn't understand that — try asking: 'what is blocked', 'what has failed', 'what is the system health', or 'what changed recently'. You can also name a platform or team member, e.g. 'is Zara's work blocked?'.";
   }
 
   // ---------- internal ----------

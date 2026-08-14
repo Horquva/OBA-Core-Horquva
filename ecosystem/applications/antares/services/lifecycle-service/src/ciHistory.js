@@ -6,10 +6,10 @@ const path = require('path');
 /**
  * ciHistory.js
  * ------------
- * Din 5 ka `scripts/ci.js` sirf terminal par result dikhata tha, phir
- * gayab ho jata. Isay "Engineering Health" nikalne ke liye hum har CI
- * run ka result yahan save karte hain — taake bata sakein "pichle 20
- * runs mein se kitne pass hue".
+ * Day 5's `scripts/ci.js` only showed a result in the terminal, then
+ * it was gone. To compute "Engineering Health" we save every CI run's
+ * result here — so we can report things like "how many of the last 20
+ * runs passed".
  */
 
 const DEFAULT_HISTORY_PATH = path.join(__dirname, '..', 'store', 'ci-history.json');

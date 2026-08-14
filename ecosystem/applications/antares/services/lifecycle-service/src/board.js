@@ -5,15 +5,16 @@ const { loadOrCreate } = require('./persistence');
 /**
  * board.js
  * --------
- * Din 2 ka "basic dashboard": teen sawalon ka jawab deta hai —
- *   1) Kya chal raha hai?
- *   2) Kya block hai?
- *   3) Kya change hua (recently)?
+ * Day 2's "basic dashboard": answers three questions —
+ *   1) What is currently running?
+ *   2) What is blocked?
+ *   3) What changed recently?
  *
- * Ye saved state (store/state.json) se padhta hai — matlab kabhi bhi
- * chalao, chahe demo abhi na chal raha ho, tumhe pichla saved snapshot
- * dikhega. Ye asal "operational dashboard" ka pehla, sabse simple
- * version hai — Din 6 mein isay poora observability layer mil jayega.
+ * This reads from saved state (store/state.json) — meaning you can run
+ * it any time, even if the demo isn't currently running, and it will
+ * show the last saved snapshot. This is the first, simplest version of
+ * the real "operational dashboard" — Day 6 gives it a full
+ * observability layer.
  *
  * Run: node src/board.js
  */
@@ -32,11 +33,11 @@ function printBoard(engine) {
   console.log(`Platforms registered: ${platforms.length}   |   Jobs tracked: ${jobs.length}`);
   console.log('');
 
-  // ---------- 1) Kya chal raha hai? ----------
-  console.log('1) KYA CHAL RAHA HAI? (RUNNING / VALIDATING)');
+  // ---------- 1) What is currently running? ----------
+  console.log('1) WHAT IS CURRENTLY RUNNING? (RUNNING / VALIDATING)');
   const running = jobs.filter((j) => j.status === 'RUNNING' || j.status === 'VALIDATING');
   if (running.length === 0) {
-    console.log('   Abhi koi job active nahi hai.');
+    console.log('   No job is active right now.');
   } else {
     for (const j of running) {
       const p = engine.platforms.get(j.platformId);
@@ -45,12 +46,12 @@ function printBoard(engine) {
   }
   console.log('');
 
-  // ---------- 2) Kya block hai? ----------
-  console.log('2) KYA BLOCK HAI?');
+  // ---------- 2) What is blocked? ----------
+  console.log('2) WHAT IS BLOCKED?');
   const blocked = jobs.filter((j) => j.status === 'BLOCKED');
   const failed = jobs.filter((j) => j.status === 'FAILED');
   if (blocked.length === 0 && failed.length === 0) {
-    console.log('   Kuch bhi blocked ya failed nahi hai. \u2705');
+    console.log('   Nothing is blocked or failed. \u2705');
   } else {
     for (const j of blocked) {
       const unmet = j.dependsOn.filter((depId) => {
@@ -68,11 +69,11 @@ function printBoard(engine) {
   }
   console.log('');
 
-  // ---------- 3) Kya change hua? ----------
-  console.log('3) KYA RECENT CHANGE HUA? (last 8 events)');
+  // ---------- 3) What changed recently? ----------
+  console.log('3) WHAT CHANGED RECENTLY? (last 8 events)');
   const recent = engine.events.slice(-8).reverse();
   if (recent.length === 0) {
-    console.log('   Abhi tak koi event nahi hua.');
+    console.log('   No events have happened yet.');
   } else {
     for (const e of recent) {
       console.log(`   [${e.at}] (${e.type}) ${e.message}`);
@@ -85,8 +86,8 @@ function printBoard(engine) {
 if (require.main === module) {
   const engine = loadOrCreate();
   if (engine.platforms.size === 0) {
-    console.log('Koi saved data nahi mila. Pehle "node src/demo.js" chalao,');
-    console.log('phir "node src/board.js" chalao taake saved state dikhe.');
+    console.log('No saved data found. Run "node src/demo.js" first,');
+    console.log('then run "node src/board.js" to see the saved state.');
   } else {
     printBoard(engine);
   }
