@@ -104,6 +104,7 @@ class ScenarioEngine:
                 payload.scenario_id, constraints.scenario_id, "ScenarioConstraintContract"
             )
             self._validate_constraints(constraints)
+            self._validate_constraint_variable_conflicts(payload, constraints)
 
         if expectations is not None:
             self._validate_cross_reference(
@@ -227,6 +228,31 @@ class ScenarioEngine:
                 f"scenario '{expectations.scenario_id}' has no termination_conditions defined",
                 PLATFORM_SOURCE,
             )
+        contradictions = set(expectations.success_criteria) & set(expectations.failure_conditions)
+        if contradictions:
+            raise ArcturusValidationError(
+                f"scenario '{expectations.scenario_id}' has condition(s) listed as both "
+                f"success_criteria and failure_conditions: {sorted(contradictions)}",
+                PLATFORM_SOURCE,
+            )
+
+    def _validate_constraint_variable_conflicts(
+        self, payload: ScenarioDSLPayload, constraints: ScenarioConstraintContract
+    ) -> None:
+        for key, limit in constraints.hard_limits.items():
+            if isinstance(limit, bool) or not isinstance(limit, (int, float)):
+                continue
+            if key not in payload.variables:
+                continue
+            value = payload.variables[key]
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            if value > limit:
+                raise ArcturusValidationError(
+                    f"scenario '{payload.scenario_id}' variable '{key}'={value} exceeds "
+                    f"hard_limits['{key}']={limit}",
+                    PLATFORM_SOURCE,
+                )
 
     def _validate_cross_reference(
         self, expected_id: str, actual_id: str, contract_name: str
@@ -257,6 +283,7 @@ class ScenarioEngine:
             "|".join(sorted(payload.participants)),
             "|".join(sorted(payload.organizational_scope)),
             "|".join(sorted(p.strip().lower() for p in payload.preconditions)),
+            "|".join(f"{k}={v!r}" for k, v in sorted(payload.variables.items())),
         ]
         if constraints is not None:
             parts.append("|".join(sorted(constraints.constraints)))
