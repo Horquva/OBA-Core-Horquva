@@ -85,44 +85,55 @@ class DecisionCard extends StatelessWidget {
                 child: Icon(icon, size: 20, color: color),
               ),
               const SizedBox(width: AppSpacing.md),
-              // The main content column takes the remaining width.
+              // The main content takes the remaining width. A Stack lets the
+              // number circle float at the top-right WITHOUT being part of the
+              // text flow, so the badge and text keep their natural positions.
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                child: Stack(
                   children: [
-                    // Top row: priority badge on the left, number on the right.
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SeverityBadge(severity: severity, label: priorityLabel),
-                        // A small circle showing the decision's number.
-                        Container(
-                          width: 24,
-                          height: 24,
-                          alignment: Alignment.center,
-                          decoration: const BoxDecoration(
-                            color: AppColors.surfaceMuted,
-                            shape: BoxShape.circle,
+                    // Leave a right gutter so the text never runs under the
+                    // number circle.
+                    Padding(
+                      padding: const EdgeInsets.only(right: 44),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SeverityBadge(
+                            severity: severity,
+                            label: priorityLabel,
                           ),
-                          child: Text(
-                            '$number',
-                            style: AppTypography.label
-                                .copyWith(color: AppColors.textPrimary),
-                          ),
-                        ),
-                      ],
+                          const SizedBox(height: AppSpacing.sm),
+                          // Title.
+                          Text(title, style: AppTypography.headingMedium),
+                          const SizedBox(height: AppSpacing.sm),
+                          // Meta line (impact / action).
+                          Text(meta, style: AppTypography.bodyMedium),
+                          const SizedBox(height: AppSpacing.sm),
+                          // Due date.
+                          Text(due, style: AppTypography.label),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    // Title.
-                    Text(title, style: AppTypography.headingMedium),
-                    const SizedBox(height: AppSpacing.sm),
-                    // Meta line (impact / action).
-                    Text(meta, style: AppTypography.bodyMedium),
-                    const SizedBox(height: AppSpacing.sm),
-                    // Due date.
-                    Text(due, style: AppTypography.label),
+                    // The number circle, tinted with the severity colour, sits at
+                    // the top-right and is nudged down a little.
+                    Positioned(
+                      top: AppSpacing.xs,
+                      right: 0,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$number',
+                          style: AppTypography.label.copyWith(color: color),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

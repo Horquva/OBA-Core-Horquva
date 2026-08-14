@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_icons.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
@@ -32,7 +33,7 @@ class ComponentShowcase extends StatelessWidget {
             children: [
               PillButton(
                 label: 'Review & Take Action',
-                icon: Icons.arrow_forward,
+                icon: AppIcons.send,
                 onPressed: () {},
               ),
               const SizedBox(height: AppSpacing.md),
@@ -67,7 +68,7 @@ class ComponentShowcase extends StatelessWidget {
             title: 'Action Button',
             children: [
               ActionButton(
-                icon: Icons.play_arrow,
+                icon: AppIcons.play,
                 title: 'Start Briefing',
                 subtitle: '8 min estimated',
                 onPressed: () {},
@@ -75,7 +76,7 @@ class ComponentShowcase extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               // Same button placed on a dark green background via overrides.
               ActionButton(
-                icon: Icons.play_arrow,
+                icon: AppIcons.play,
                 title: 'Start Briefing',
                 subtitle: '8 min estimated',
                 backgroundColor: AppColors.primary,
@@ -141,7 +142,7 @@ class ComponentShowcase extends StatelessWidget {
               // Icon instead of a dot (e.g. the "Last updated" pill).
               StatusPill(
                 label: 'Last updated: 08:42 AM',
-                icon: Icons.power_settings_new,
+                icon: AppIcons.lastUpdated,
                 onTap: () {},
               ),
             ],
@@ -157,21 +158,21 @@ class ComponentShowcase extends StatelessWidget {
                 children: [
                   Expanded(
                     child: StatItem(
-                      icon: Icons.show_chart,
+                      icon: AppIcons.signals,
                       value: '12,481',
                       label: 'Signals analyzed',
                     ),
                   ),
                   Expanded(
                     child: StatItem(
-                      icon: Icons.auto_awesome,
+                      icon: AppIcons.sparkle,
                       value: '7',
                       label: 'Material changes',
                     ),
                   ),
                   Expanded(
                     child: StatItem(
-                      icon: Icons.adjust,
+                      icon: AppIcons.attention,
                       value: '2',
                       label: 'Require attention',
                     ),
@@ -186,7 +187,7 @@ class ComponentShowcase extends StatelessWidget {
             title: 'Signal Card',
             children: [
               SignalCard(
-                icon: Icons.warning_amber_rounded,
+                icon: AppIcons.critical,
                 severity: Severity.critical,
                 time: '08:12 AM',
                 title: 'Vendor dependency risk increased',
@@ -198,7 +199,31 @@ class ComponentShowcase extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               SignalCard(
-                icon: Icons.trending_up,
+                icon: AppIcons.important,
+                severity: Severity.important,
+                time: '07:45 AM',
+                title: 'Q2 revenue forecast updated',
+                description:
+                    'Finance team updated the forecast. Impact expected on '
+                    'regional allocations.',
+                tags: const ['Finance', 'Planning'],
+                onTap: () {},
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SignalCard(
+                icon: AppIcons.important,
+                severity: Severity.important,
+                time: '07:30 AM',
+                title: 'Cybersecurity threat detected',
+                description:
+                    'Suspicious login attempts detected from unusual '
+                    'geographic locations.',
+                tags: const ['Security', 'Threat'],
+                onTap: () {},
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SignalCard(
+                icon: AppIcons.informational,
                 severity: Severity.informational,
                 time: '06:50 AM',
                 title: 'Employee sentiment improved',
@@ -216,7 +241,7 @@ class ComponentShowcase extends StatelessWidget {
             title: 'Decision Card',
             children: [
               DecisionCard(
-                icon: Icons.account_balance_wallet,
+                icon: AppIcons.urgent,
                 severity: Severity.critical,
                 priorityLabel: 'URGENT',
                 number: 1,
@@ -227,13 +252,46 @@ class ComponentShowcase extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               DecisionCard(
-                icon: Icons.assignment_outlined,
+                icon: AppIcons.highPriority,
                 severity: Severity.important,
                 priorityLabel: 'HIGH PRIORITY',
                 number: 2,
                 title: 'Vendor Risk Assessment',
                 meta: 'High impact • Requires your review',
                 due: 'Due: Tomorrow, 11:00 AM',
+                onTap: () {},
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DecisionCard(
+                icon: AppIcons.highPriority,
+                severity: Severity.important,
+                priorityLabel: 'HIGH PRIORITY',
+                number: 3,
+                title: 'Policy Exception Request',
+                meta: 'Medium impact • Requires approval',
+                due: 'Due: Tomorrow, 04:00 PM',
+                onTap: () {},
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DecisionCard(
+                icon: AppIcons.medium,
+                severity: Severity.informational,
+                priorityLabel: 'MEDIUM',
+                number: 4,
+                title: 'Marketing Budget Reallocation',
+                meta: 'Medium impact • For approval',
+                due: 'Due: May 18, 10:00 AM',
+                onTap: () {},
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DecisionCard(
+                icon: AppIcons.medium,
+                severity: Severity.informational,
+                priorityLabel: 'MEDIUM',
+                number: 5,
+                title: 'New Hiring Request',
+                meta: 'Low impact • For approval',
+                due: 'Due: May 19, 09:00 AM',
                 onTap: () {},
               ),
             ],

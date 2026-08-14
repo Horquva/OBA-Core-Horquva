@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
@@ -80,7 +81,7 @@ class StatusPill extends StatelessWidget {
               if (showChevron) ...[
                 const SizedBox(width: AppSpacing.xs),
                 const Icon(
-                  Icons.keyboard_arrow_down,
+                  AppIcons.dropdown,
                   size: 18,
                   color: AppColors.textSecondary,
                 ),

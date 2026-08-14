@@ -10,7 +10,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   # Loads the Fraunces (serif) and Inter (sans) fonts used by the design system.
   google_fonts: ^6.2.1
-
+  lucide_icons_flutter: ^3.1.15
 dev_dependencies:
   flutter_test:
     sdk: flutter
