@@ -74,7 +74,8 @@ class StatusPill extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Text(
                 label,
-                style: AppTypography.label.copyWith(color: AppColors.textPrimary),
+                style:
+                    AppTypography.label.copyWith(color: AppColors.textPrimary),
               ),
               if (showChevron) ...[
                 const SizedBox(width: AppSpacing.xs),
