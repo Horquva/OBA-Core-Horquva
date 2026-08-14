@@ -7,12 +7,11 @@ const { checkAllContracts } = require('./contracts');
 /**
  * cli.js
  * ------
- * Din 3-4 ka "Engineering API / Service Interface": ye woh jagah hai
- * jahan koi bhi team member — bina JS code likhe — Kamil ke Engineering
- * Operations Platform ko live use kar sakta hai. Har command state ko
- * disk se load karta hai, ek action karta hai, phir wapas save kar deta
- * hai — isi liye ye "live orchestration" hai, ek-baar-chalne-wala demo
- * nahi.
+ * Day 3-4's "Engineering API / Service Interface": this is the place
+ * where any team member — without writing any JS — can use Kamil's
+ * Engineering Operations Platform live. Every command loads state from
+ * disk, performs one action, then saves it back — that's what makes
+ * this "live orchestration" instead of a one-shot demo.
  *
  * Usage:
  *   node src/cli.js register-platform <id> <name> <owner>
@@ -98,8 +97,8 @@ function handleCommand(argv, engine) {
     }
     case 'contracts': {
       const result = checkAllContracts(engine);
-      if (result.valid) return { ok: true, message: 'Sab platform-to-platform contracts sahi hain \u2705' };
-      return { ok: false, message: 'Contract violations mili:\n' + result.violations.map((v) => '  - ' + v).join('\n') };
+      if (result.valid) return { ok: true, message: 'All platform-to-platform contracts are valid \u2705' };
+      return { ok: false, message: 'Contract violations found:\n' + result.violations.map((v) => '  - ' + v).join('\n') };
     }
     case 'ask': {
       const question = args.join(' ');

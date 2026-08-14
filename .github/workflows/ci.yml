@@ -1,18 +1,18 @@
 name: Engineering Operations CI
 
-# Din 5: ye workflow khud-ba-khud chalta hai jab bhi koi is service ke
-# andar (lifecycle-service/) kaam push kare, ya "antares" branch ki
-# taraf Pull Request banaye. Agar lint/build/tests mein se koi bhi fail
-# ho, GitHub PR ke upar laal (red) "X" dikha dega — taake koi bhi
-# broken output "antares" branch mein silently na phisal sake.
+# Day 5: this workflow runs automatically whenever someone pushes work
+# inside this service (lifecycle-service/), or opens a Pull Request
+# against the "antares-team" branch. If lint/build/tests fail, GitHub
+# shows a red "X" on the PR — so no broken output can silently slip
+# into the "antares-team" branch.
 
 on:
   push:
-    branches: [antares]
+    branches: [antares-team]
     paths:
       - "ecosystem/applications/antares/services/lifecycle-service/**"
   pull_request:
-    branches: [antares]
+    branches: [antares-team]
     paths:
       - "ecosystem/applications/antares/services/lifecycle-service/**"
 

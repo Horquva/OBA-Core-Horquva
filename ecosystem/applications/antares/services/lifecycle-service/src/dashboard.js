@@ -6,11 +6,11 @@ const { getFullObservability } = require('./observability');
 /**
  * dashboard.js
  * ------------
- * Din 6 ka "clean operational dashboard" — Antares UI screenshots
- * (Overview, Live Signals, Evidence Integrity) ka text-based version.
- * Isi data structure (`getFullObservability`) ko baad mein ek real
- * web UI mein bhi dikhaya ja sakta hai — abhi terminal mein taake
- * bina extra setup ke turant kaam kare.
+ * Day 6's "clean operational dashboard" — a text-based version of the
+ * Antares UI screenshots (Overview, Live Signals, Evidence Integrity).
+ * This same data structure (`getFullObservability`) could later feed a
+ * real web UI — for now it runs in the terminal so it works instantly
+ * without extra setup.
  *
  * Run: node src/dashboard.js
  */
@@ -41,7 +41,7 @@ function printDashboard(engine) {
 
   console.log('\n--- ENGINEERING HEALTH (last ' + eh.runsTracked + ' CI runs) ---');
   if (eh.runsTracked === 0) {
-    console.log('  Koi CI history nahi mili. Pehle "node scripts/ci.js" chalao.');
+    console.log('  No CI history found yet. Run "node scripts/ci.js" first.');
   } else {
     console.log(`  Lint    [${bar(eh.lintPassRate)}]`);
     console.log(`  Build   [${bar(eh.buildPassRate)}]`);
@@ -53,7 +53,7 @@ function printDashboard(engine) {
   console.log('\n--- PLATFORM HEALTH (Evidence Integrity per owner) ---');
   const active = obs.platformHealth.filter((ph) => ph.totalJobs > 0);
   if (active.length === 0) {
-    console.log('  Abhi tak kisi platform ka koi job nahi hai.');
+    console.log('  No platform has any jobs yet.');
   } else {
     for (const ph of active) {
       const platform = engine.platforms.get(ph.platformId);
@@ -69,14 +69,14 @@ function printDashboard(engine) {
     if (j.status === 'FAILED') attention.push(`Failed: ${j.id} (${j.task})`);
   }
   if (attention.length === 0) {
-    console.log('  Kuch bhi attention nahi maang raha. \u2705');
+    console.log('  Nothing needs attention. \u2705');
   } else {
     attention.forEach((a) => console.log('  \u2192 ' + a));
   }
 
   console.log('\n--- RECENT EVENTS (Live Signals) ---');
   if (obs.recentEvents.length === 0) {
-    console.log('  Abhi tak koi event nahi hua.');
+    console.log('  No events have happened yet.');
   } else {
     obs.recentEvents.slice(0, 8).forEach((e) => console.log(`  [${e.at}] (${e.type}) ${e.message}`));
   }
@@ -87,7 +87,7 @@ function printDashboard(engine) {
 if (require.main === module) {
   const engine = loadOrCreate();
   if (engine.platforms.size === 0) {
-    console.log('Koi saved data nahi mila. Pehle "node src/demo.js" ya "node src/cli.js" se kuch kaam karo.');
+    console.log('No saved data found. Run "node src/demo.js" or "node src/cli.js" first to create some work.');
   } else {
     printDashboard(engine);
   }
