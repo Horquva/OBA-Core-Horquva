@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from pydantic import ValidationError
 
 from ecosystem.applications.arcturus.contracts.shared.base_models import (
     ArcturusValidationError,
@@ -14,14 +15,8 @@ from ecosystem.applications.arcturus.contracts.execution.workflows.base_models i
 )
 from ecosystem.applications.arcturus.schemas.execution.workflows.base_schemas import (
     ActivityStatus,
-)
-from ecosystem.applications.arcturus.src.execution_plane.workflows.workflow_service import (
-    WorkflowService,
-)
-from ecosystem.applications.arcturus.src.execution_plane.workflows.workflow_adapters import (
-    adapt_agent_assignment_ref,
-    adapt_enterprise_context,
-    resolve_activity_assignments,
+    PolicyEnforcementLevel,
+    PolicyViolationAction,
 )
 
 PLATFORM_SOURCE = "workflow"
@@ -36,10 +31,10 @@ class WorkflowChainResult:
     Bundled output of a single Day 5 workflow-chain run.
 
     - workflow: the compiled WorkflowDefinitionContract
-    - execution_trace: diagnostic dict from WorkflowService.build_execution_trace
-    - sla_result: dict from WorkflowService.evaluate_sla (compliant / breaches / elapsed_seconds)
+    - execution_trace: diagnostic dict of workflow activity execution
+    - sla_result: dict of SLA compliance, breaches, and elapsed seconds
     - evidence: WorkflowExecutionEvidence, the outbound payload consumed by
-      Amina's validation_chain and ultimately by governance_evidence.py
+      validation and governance reporting
     """
 
     def __init__(
@@ -53,6 +48,103 @@ class WorkflowChainResult:
         self.execution_trace = execution_trace
         self.sla_result = sla_result
         self.evidence = evidence
+
+
+# ---------------------------------------------------------------------------
+# Internal Adapters (In-Process Contract Transformers)
+# ---------------------------------------------------------------------------
+
+def _adapt_enterprise_context(enterprise_instance: Any) -> str:
+    """Translates EnterpriseInstancePayload into organizational_context_ref."""
+    if not getattr(enterprise_instance, "is_structurally_valid", False):
+        errors = getattr(enterprise_instance, "validation_errors", [])
+        raise ArcturusValidationError(
+            message=(
+                f"enterprise instance '{getattr(enterprise_instance, 'instance_id', '?')}' "
+                f"is not structurally valid, cannot bind a workflow to it. "
+                f"validation_errors={errors}"
+            ),
+            platform_source=PLATFORM_SOURCE,
+        )
+
+    instance_id = getattr(enterprise_instance, "instance_id", None)
+    if not instance_id:
+        raise ArcturusValidationError(
+            message="enterprise instance payload is missing instance_id",
+            platform_source=PLATFORM_SOURCE,
+        )
+
+    return str(instance_id)
+
+
+def _adapt_agent_assignment_ref(
+    agent_assignment: Any,
+    expected_enterprise_instance_id: str | None = None,
+) -> str:
+    """Translates AgentAssignmentPayload into agent_assignment_ref."""
+    assignment_id = getattr(agent_assignment, "assignment_id", None)
+    if not assignment_id:
+        raise ArcturusValidationError(
+            message="agent assignment payload is missing assignment_id",
+            platform_source=PLATFORM_SOURCE,
+        )
+
+    if expected_enterprise_instance_id is not None:
+        actual_ref = getattr(agent_assignment, "enterprise_instance_id", None)
+        if actual_ref != expected_enterprise_instance_id:
+            raise ArcturusValidationError(
+                message=(
+                    f"agent assignment '{assignment_id}' targets enterprise instance "
+                    f"'{actual_ref}', but workflow is binding to "
+                    f"'{expected_enterprise_instance_id}' — mismatched instance"
+                ),
+                platform_source=PLATFORM_SOURCE,
+            )
+
+    return str(assignment_id)
+
+
+def _resolve_activity_assignments(
+    activities: list[ActivityStateContract],
+    agent_assignment: Any,
+    activity_id_by_role_id: dict[int, str],
+) -> list[ActivityStateContract]:
+    """Maps agents from AgentAssignmentPayload onto ActivityStateContract.assigned_agent_id."""
+    activity_by_id = {a.activity_id: a for a in activities}
+    updated: dict[str, ActivityStateContract] = {a.activity_id: a for a in activities}
+
+    for assignment in getattr(agent_assignment, "assignments", []):
+        role_id = assignment.role_id
+        agent_id = assignment.agent_id
+
+        activity_id = activity_id_by_role_id.get(role_id)
+        if activity_id is None:
+            raise ArcturusValidationError(
+                message=(
+                    f"no activity mapped for role_id={role_id} "
+                    f"(agent_id={agent_id}) — supply an entry in "
+                    f"activity_id_by_role_id or exclude this role from the "
+                    f"assignment payload"
+                ),
+                platform_source=PLATFORM_SOURCE,
+            )
+
+        if activity_id not in activity_by_id:
+            raise ArcturusValidationError(
+                message=(
+                    f"activity_id_by_role_id maps role_id={role_id} to "
+                    f"activity_id='{activity_id}', but no such activity exists "
+                    f"in this workflow"
+                ),
+                platform_source=PLATFORM_SOURCE,
+            )
+
+        current = updated[activity_id]
+        updated[activity_id] = current.model_copy(
+            update={"assigned_agent_id": str(agent_id)}
+        )
+
+    return [updated[a.activity_id] for a in activities]
 
 
 # ---------------------------------------------------------------------------
@@ -74,86 +166,114 @@ def run_workflow_chain(
     created_by: str = "javeria.rafhan",
 ) -> WorkflowChainResult:
     """
-    Day 5 integration chain wrapper for the Workflow platform.
-
-    Wires together, in order:
-      1. Ajwa's EnterpriseInstancePayload   -> organizational_context_ref
-         (via adapt_enterprise_context)
-      2. Syeda's AgentAssignmentPayload     -> agent_assignment_ref
-         (via adapt_agent_assignment_ref, verified against the same
-         enterprise instance resolved in step 1)
-      3. Per-activity agent binding         -> resolve_activity_assignments
-      4. Compilation                        -> WorkflowService.compile_workflow
-      5. SLA evaluation                     -> WorkflowService.evaluate_sla
-      6. Governance policy enforcement      -> WorkflowService.enforce_policy
-         (optional; raises ArcturusValidationError on a blocking breach)
-      7. Execution trace                    -> WorkflowService.build_execution_trace
-      8. Evidence bundle                    -> WorkflowExecutionEvidence
-         (outbound payload for Amina's validation_chain)
-
-    This wrapper only imports the Workflow platform's own outbound
-    contracts, service, and adapters -- it does not import Ajwa's or
-    Syeda's internal platform code -- so it can be safely called by the
-    Day 5 E2E orchestrator without introducing circular coupling between
-    platforms.
-
-    Raises:
-        ArcturusValidationError: if enterprise context adaptation, agent
-        assignment adaptation, activity resolution, workflow compilation,
-        or policy enforcement fails at any step.
+    Day 5 integration chain wrapper for the Behavior & Workflow platform.
+    Consumes and produces Pydantic contracts only (Rule §2.1).
     """
 
-    service = WorkflowService(context=context)
+    # 1. Adapt enterprise context
+    organizational_context_ref = _adapt_enterprise_context(enterprise_instance)
 
-    # 1. Adapt enterprise context (Ajwa -> Workflow)
-    organizational_context_ref = adapt_enterprise_context(enterprise_instance)
-
-    # 2. Adapt agent assignment (Syeda -> Workflow), verified against the
-    #    same enterprise instance the workflow is binding to
-    agent_assignment_ref = adapt_agent_assignment_ref(
+    # 2. Adapt agent assignment, verified against the matching enterprise instance
+    agent_assignment_ref = _adapt_agent_assignment_ref(
         agent_assignment,
         expected_enterprise_instance_id=organizational_context_ref,
     )
 
     # 3. Resolve per-activity agent bindings
-    resolved_activities = resolve_activity_assignments(
+    resolved_activities = _resolve_activity_assignments(
         activities=activities,
         agent_assignment=agent_assignment,
         activity_id_by_role_id=activity_id_by_role_id,
     )
 
-    # 4. Compile the workflow (wraps pydantic ValidationError as
-    #    ArcturusValidationError at the service boundary)
-    workflow = service.compile_workflow(
-        workflow_id=workflow_id,
-        name=workflow_name,
-        activities=resolved_activities,
-        organizational_context_ref=organizational_context_ref,
-        agent_assignment_ref=agent_assignment_ref,
-        description=description,
-        created_by=created_by,
-    )
+    # 4. Compile the workflow contract
+    try:
+        workflow = WorkflowDefinitionContract(
+            context=context,
+            workflow_id=workflow_id,
+            name=workflow_name,
+            description=description,
+            activities=resolved_activities,
+            organizational_context_ref=organizational_context_ref,
+            agent_assignment_ref=agent_assignment_ref,
+            created_by=created_by,
+        )
+    except ValidationError as exc:
+        raise ArcturusValidationError(
+            message=f"workflow compilation failed: {exc}",
+            platform_source=PLATFORM_SOURCE,
+        ) from exc
 
     # 5. Evaluate SLA compliance
-    sla_result = service.evaluate_sla(workflow, sla_seconds=sla_seconds)
+    limits = sla_seconds or {}
+    breaches: list[str] = []
+    elapsed_seconds: dict[str, float] = {}
 
-    # 6. Enforce governance policy, if supplied. Raises on a blocking breach.
-    if policy is not None:
-        service.enforce_policy(policy, sla_result)
+    for activity in workflow.activities:
+        if activity.started_at is None or activity.completed_at is None:
+            continue
 
-    # 7. Build execution trace (diagnostic output for the E2E runner / logs)
-    execution_trace = service.build_execution_trace(workflow)
+        elapsed = (activity.completed_at - activity.started_at).total_seconds()
+        elapsed_seconds[activity.activity_id] = elapsed
+        limit = limits.get(activity.activity_id)
 
-    # 8. Build the outbound evidence bundle for Amina's validation platform
-    completed = sum(
-        1 for a in workflow.activities if a.status == ActivityStatus.COMPLETED
-    )
-    failed = sum(
-        1 for a in workflow.activities if a.status == ActivityStatus.FAILED
-    )
-    escalated = sum(
-        1 for a in workflow.activities if a.status == ActivityStatus.ESCALATED
-    )
+        if limit is not None and elapsed > limit:
+            breaches.append(activity.activity_id)
+
+    sla_result = {
+        "compliant": not breaches,
+        "breaches": breaches,
+        "elapsed_seconds": elapsed_seconds,
+    }
+
+    # 6. Enforce governance policy, if supplied
+    if policy is not None and not sla_result["compliant"]:
+        if policy.violation_action == PolicyViolationAction.ESCALATE:
+            raise ArcturusValidationError(
+                message=(
+                    f"policy {policy.policy_id} escalated for workflow "
+                    f"{policy.applies_to_workflow_id}; breaches={breaches}"
+                ),
+                platform_source=PLATFORM_SOURCE,
+            )
+        elif (
+            policy.enforcement_level == PolicyEnforcementLevel.BLOCKING
+            and policy.violation_action == PolicyViolationAction.HALT_WORKFLOW
+        ):
+            raise ArcturusValidationError(
+                message=(
+                    f"workflow {policy.applies_to_workflow_id} halted by "
+                    f"blocking policy {policy.policy_id}; breaches={breaches}"
+                ),
+                platform_source=PLATFORM_SOURCE,
+            )
+
+    # 7. Build execution trace
+    activity_traces = []
+    for activity in workflow.activities:
+        activity_traces.append(
+            {
+                "activity_id": activity.activity_id,
+                "name": activity.name,
+                "status": activity.status.value,
+                "assigned_agent_id": activity.assigned_agent_id,
+                "started_at": activity.started_at,
+                "completed_at": activity.completed_at,
+            }
+        )
+
+    execution_trace = {
+        "workflow_id": workflow.workflow_id,
+        "workflow_name": workflow.name,
+        "organizational_context_ref": workflow.organizational_context_ref,
+        "agent_assignment_ref": workflow.agent_assignment_ref,
+        "activities": activity_traces,
+    }
+
+    # 8. Build outbound evidence bundle
+    completed = sum(1 for a in workflow.activities if a.status == ActivityStatus.COMPLETED)
+    failed = sum(1 for a in workflow.activities if a.status == ActivityStatus.FAILED)
+    escalated = sum(1 for a in workflow.activities if a.status == ActivityStatus.ESCALATED)
 
     evidence = WorkflowExecutionEvidence(
         context=context,
