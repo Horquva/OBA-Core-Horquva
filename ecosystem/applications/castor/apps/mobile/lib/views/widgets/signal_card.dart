@@ -88,7 +88,9 @@ class SignalCard extends StatelessWidget {
                   spacing: AppSpacing.sm,
                   runSpacing: AppSpacing.sm,
                   children: [
-                    for (final tag in tags) TagChip(label: tag),
+                    // Tint each tag with the signal's severity colour.
+                    for (final tag in tags)
+                      TagChip(label: tag, color: severityColor(severity)),
                   ],
                 ),
               ],

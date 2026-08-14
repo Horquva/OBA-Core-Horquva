@@ -17,6 +17,21 @@ enum Severity {
   informational,
 }
 
+/// Returns the main colour for a severity level.
+///
+/// Kept as a small shared helper so the badge, cards and tags all use the same
+/// colour for the same severity.
+Color severityColor(Severity severity) {
+  switch (severity) {
+    case Severity.critical:
+      return AppColors.critical;
+    case Severity.important:
+      return AppColors.important;
+    case Severity.informational:
+      return AppColors.informational;
+  }
+}
+
 /// Castor Design System — Severity Badge.
 ///
 /// A small, colour-coded chip that shows how urgent something is, e.g.
