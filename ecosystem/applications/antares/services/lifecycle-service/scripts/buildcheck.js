@@ -7,11 +7,10 @@ const { execFileSync } = require('child_process');
 /**
  * scripts/buildcheck.js
  * ----------------------
- * Din 5 ka "Build" hissa. Plain Node.js mein koi compiler nahi hota,
- * lekin "build check" ka matlab hai: kya har file syntactically sahi
- * hai, kya wo load ho sakti hai bina crash kiye. Node ka built-in
- * `--check` flag isay bina file ko actually run kiye hi verify kar
- * deta hai — bilkul jaise ek compiler karta.
+ * Day 5's "Build" piece. Plain Node.js has no compiler, but a "build
+ * check" means: is every file syntactically correct, can it be loaded
+ * without crashing. Node's built-in `--check` flag verifies this
+ * without actually running the file — exactly like a compiler would.
  */
 
 const SRC_DIR = path.join(__dirname, '..', 'src');

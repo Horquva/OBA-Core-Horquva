@@ -34,41 +34,41 @@ test('explainPlatformBlockage names the platform and its blocked job', () => {
 test('explainPlatformBlockage reports clean status when nothing is blocked', () => {
   const engine = seededEngine();
   const explanation = engine.explainPlatformBlockage('tech-intel');
-  assert.match(explanation, /koi job blocked nahi hai/);
+  assert.match(explanation, /no jobs are blocked/);
 });
 
-test('askAssistant answers "kaunsa platform blocked hai" by platform name, not just job id', () => {
+test('askAssistant answers "which platform is blocked" by platform name, not just job id', () => {
   const engine = seededEngine();
-  const answer = engine.askAssistant('Capability Validation blocked hai kya?');
+  const answer = engine.askAssistant('is Capability Validation blocked?');
   assert.match(answer, /Capability Validation/);
   assert.match(answer, /Zara Fatima/);
   assert.doesNotMatch(answer, /Technology Intelligence/); // should NOT mention the unrelated platform
 });
 
-test('askAssistant answers "kaunsa platform blocked hai" by owner name (first name match)', () => {
+test('askAssistant answers "which platform is blocked" by owner name (first name match)', () => {
   const engine = seededEngine();
-  const answer = engine.askAssistant('Zara ka kaam blocked hai kya?');
+  const answer = engine.askAssistant('is Zara\'s work blocked?');
   assert.match(answer, /Zara Fatima/);
   assert.match(answer, /j2/);
 });
 
 test('askAssistant falls back to a system-wide grouped answer when no platform is named', () => {
   const engine = seededEngine();
-  const answer = engine.askAssistant('kya kuch blocked hai?');
+  const answer = engine.askAssistant('is anything blocked?');
   assert.match(answer, /Capability Validation/);
   assert.match(answer, /Zara Fatima/);
 });
 
 test('askAssistant returns a clean-status message for a named platform with nothing blocked', () => {
   const engine = seededEngine();
-  const answer = engine.askAssistant('Aurangzeb ka kaam blocked hai kya?');
+  const answer = engine.askAssistant('is Aurangzeb\'s work blocked?');
   assert.match(answer, /Technology Intelligence/);
-  assert.match(answer, /koi job blocked nahi hai/);
+  assert.match(answer, /no jobs are blocked/);
 });
 
 test('askAssistant health question can be scoped to a named platform', () => {
   const engine = seededEngine();
-  const answer = engine.askAssistant('Zara ka health kya hai?');
+  const answer = engine.askAssistant('what is Zara\'s health?');
   assert.match(answer, /Capability Validation/);
   assert.match(answer, /BLOCKED:1/);
 });

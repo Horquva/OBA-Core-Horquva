@@ -3,30 +3,29 @@
 /**
  * contracts.js
  * ------------
- * Din 1 ke System Map (Output -> Contract -> Consumer) ko yahan
- * machine-checkable rules mein badla gaya hai. Har platform ke liye
- * define hai — wo SIRF kis platform (platforms) se depend ho sakta hai.
- * Agar koi job apne contract se bahar ki cheez par depend kar le
- * (jaise Technology Intelligence directly Capability Operationalization
- * par depend kar jaye — ye galat hai, beech ki poori chain skip ho
- * gayi), to `checkAllContracts` isay pakad lega.
+ * The Day 1 System Map (Output -> Contract -> Consumer) is turned into
+ * machine-checkable rules here. Each platform has a defined list of
+ * the ONLY platforms it may depend on. If a job depends on something
+ * outside its contract (e.g. Technology Intelligence directly
+ * depending on Capability Operationalization — skipping the entire
+ * chain in between), `checkAllContracts` catches it.
  *
- * Ye "kaun kis se baat kar sakta hai" ka rule-book hai — bilkul jaisa
- * Din 1 ke System Map mein tha, ab bas enforceable hai.
+ * This is the "who can talk to whom" rule-book — exactly what was in
+ * the Day 1 System Map, just enforceable now.
  */
 
 const CONTRACTS = {
-  'tech-intel': [], // root source — kisi par depend nahi karta
+  'tech-intel': [], // root source — depends on nothing
   'future-signal': ['tech-intel'],
   'org-futures': ['future-signal', 'tech-intel'],
   'trust-gov': ['org-futures'],
   'cap-validation': ['org-futures', 'trust-gov', 'future-signal'],
   'future-org': ['cap-validation', 'trust-gov', 'cap-ops'],
-  'aiml-intel': ['future-org'], // Zeeshan ke platform ke andar hi
+  'aiml-intel': ['future-org'], // internal to Zeeshan's platform
   'enterprise-validation': ['cap-validation'],
   'knowledge-ops': ['enterprise-validation'],
   'cap-ops': ['knowledge-ops'],
-  'eng-ops': [], // sirf observe karta hai, kisi capability-chain ka hissa nahi
+  'eng-ops': [], // observability only — not part of the capability chain
 };
 
 /** Checks ONE job's dependencies against its platform's contract. */

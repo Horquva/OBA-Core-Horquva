@@ -10,11 +10,10 @@ const { JobStatus } = require('../src/models');
 /**
  * integration.test.js
  * --------------------
- * Din 8-9 ka asal kaam: SAB 11 platforms ko ek sath, poori real chain
- * mein chalana, har platform-to-platform contract check karna, aur
- * JAAN-BOOJH KAR failures introduce kar ke dekhna ke system sahi
- * tareeke se rukta hai (aur recover karta hai) — kabhi silently aage
- * nahi badhta.
+ * Day 8-9's real job: run ALL 11 platforms together, in one real
+ * chain, checking every platform-to-platform contract, and
+ * DELIBERATELY injecting failures to prove the system stops (and
+ * recovers) the right way — it never silently proceeds.
  */
 
 function runFullChain(engine) {
