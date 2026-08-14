@@ -141,3 +141,72 @@ def test_relationship_source_must_reference_generated_artifact() -> None:
             relationships=[invalid_relationship],
             deterministic_fingerprint="fingerprint-001",
         )
+
+
+# ---------------------------------------------------------------------------
+# Day 4 — Failure Injection & Coverage Gate
+# ---------------------------------------------------------------------------
+
+
+def test_missing_required_context_field_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        SimulationContext(global_seed=42)  # missing experiment_id
+
+
+def test_negative_global_seed_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        SimulationContext(experiment_id="EXP-001", global_seed=-1)
+
+
+def test_zero_artifact_count_is_rejected() -> None:
+    context = build_context()
+
+    with pytest.raises(ValidationError):
+        SyntheticGenerationRequest(context=context, requested_artifact_count=0)
+
+
+def test_unknown_field_on_request_is_rejected() -> None:
+    context = build_context()
+
+    with pytest.raises(ValidationError):
+        SyntheticGenerationRequest(context=context, unexpected_field="not-allowed")
+
+
+def test_artifact_missing_required_field_is_rejected() -> None:
+    context = build_context()
+
+    with pytest.raises(ValidationError):
+        SyntheticArtifactContract(
+            artifact_type="document",
+            lifecycle_state="generated",
+            created_at=context.created_at,
+            provenance={"global_seed": context.global_seed},
+            # artifact_id intentionally omitted
+        )
+
+
+def test_artifact_empty_provenance_is_rejected() -> None:
+    context = build_context()
+
+    with pytest.raises(ValidationError):
+        SyntheticArtifactContract(
+            artifact_id="ART-001",
+            artifact_type="document",
+            lifecycle_state="generated",
+            created_at=context.created_at,
+            provenance={},
+        )
+
+
+def test_unknown_field_on_artifact_is_rejected() -> None:
+    context = build_context()
+
+    with pytest.raises(ValidationError):
+        SyntheticArtifactContract(
+            artifact_id="ART-001",
+            artifact_type="document",
+            lifecycle_state="generated",
+            created_at=context.created_at,
+            provenance={"global_seed": context.global_seed},
+            unexpected_field="not-allowed",
+        )
