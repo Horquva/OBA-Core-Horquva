@@ -6,6 +6,7 @@ import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
 import '../views/widgets/pill_button.dart';
 import '../views/widgets/severity_badge.dart';
+import '../views/widgets/signal_card.dart';
 import '../views/widgets/stat_item.dart';
 import '../views/widgets/status_pill.dart';
 import '../views/widgets/tag_chip.dart';
@@ -175,6 +176,34 @@ class ComponentShowcase extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+
+          // ─── Signal Card ───────────────────────────────────────────────
+          _section(
+            title: 'Signal Card',
+            children: [
+              SignalCard(
+                severity: Severity.critical,
+                time: '08:12 AM',
+                title: 'Vendor dependency risk increased',
+                description:
+                    'A key vendor experienced a service disruption impacting '
+                    '3 dependent systems.',
+                tags: const ['Operations', 'Risk'],
+                onTap: () {},
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SignalCard(
+                severity: Severity.informational,
+                time: '06:50 AM',
+                title: 'Employee sentiment improved',
+                description:
+                    'Monthly sentiment score increased by 6% across the '
+                    'organization.',
+                tags: const ['People'],
+                onTap: () {},
               ),
             ],
           ),
