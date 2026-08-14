@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
-import '../../theme/app_radius.dart';
-import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 
 /// How urgent a signal / decision is. Each level has its own colour.
@@ -34,9 +32,10 @@ Color severityColor(Severity severity) {
 
 /// Castor Design System — Severity Badge.
 ///
-/// A small, colour-coded chip that shows how urgent something is, e.g.
-/// "CRITICAL" or "IMPORTANT". The colours come from the severity level so the
-/// meaning stays consistent everywhere.
+/// Shows how urgent something is as small, coloured, uppercase text, e.g.
+/// "CRITICAL". There is no background — just the coloured label (matches the
+/// mockups). The colour comes from the severity level so meaning stays
+/// consistent everywhere.
 ///
 /// Pass a custom [label] if you need different text (e.g. "URGENT") while
 /// keeping the colour of a severity level.
@@ -55,40 +54,21 @@ class SeverityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Choose the text colour, background colour and default label for the level.
-    final Color textColor;
-    final Color backgroundColor;
+    // The default text for each level (used when no custom label is given).
     final String defaultLabel;
-
     switch (severity) {
       case Severity.critical:
-        textColor = AppColors.critical;
-        backgroundColor = AppColors.criticalSurface;
         defaultLabel = 'CRITICAL';
       case Severity.important:
-        textColor = AppColors.important;
-        backgroundColor = AppColors.importantSurface;
         defaultLabel = 'IMPORTANT';
       case Severity.informational:
-        textColor = AppColors.informational;
-        backgroundColor = AppColors.informationalSurface;
         defaultLabel = 'INFORMATIONAL';
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      // The badge hugs its text (it does not stretch to fill the row).
-      child: Text(
-        label ?? defaultLabel,
-        style: AppTypography.overline.copyWith(color: textColor),
-      ),
+    // Just coloured uppercase text — no background box.
+    return Text(
+      label ?? defaultLabel,
+      style: AppTypography.overline.copyWith(color: severityColor(severity)),
     );
   }
 }

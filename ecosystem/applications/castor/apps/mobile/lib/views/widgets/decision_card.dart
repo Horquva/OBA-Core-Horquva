@@ -5,44 +5,50 @@ import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import 'severity_badge.dart';
-import 'tag_chip.dart';
 
-/// Castor Design System — Signal Card.
+/// Castor Design System — Decision Card.
 ///
-/// A card that shows one "signal": a leading [icon] on the left, then its
-/// urgency ([severity]) and [time] on top, a [title], a short [description],
-/// and a row of category [tags]. Tapping can open the signal's detail screen.
-class SignalCard extends StatelessWidget {
-  const SignalCard({
+/// A card for one decision that needs attention. It shows a leading [icon] on
+/// the left, a coloured priority badge and a number on top, then the [title],
+/// a [meta] line (impact / action), and the [due] date.
+///
+/// The priority colour reuses the same [Severity] system as signals, with a
+/// custom [priorityLabel] such as "URGENT" or "HIGH PRIORITY".
+class DecisionCard extends StatelessWidget {
+  const DecisionCard({
     super.key,
     required this.icon,
     required this.severity,
-    required this.time,
+    required this.priorityLabel,
+    required this.number,
     required this.title,
-    required this.description,
-    this.tags = const [],
+    required this.meta,
+    required this.due,
     this.onTap,
   });
 
   /// The leading icon shown on the left of the card.
   final IconData icon;
 
-  /// How urgent the signal is (drives the coloured badge and icon).
+  /// Drives the badge/icon colour (critical = red, important = amber, etc.).
   final Severity severity;
 
-  /// When the signal happened, e.g. "08:12 AM".
-  final String time;
+  /// The text shown in the badge, e.g. "URGENT" or "HIGH PRIORITY".
+  final String priorityLabel;
 
-  /// The signal headline.
+  /// The position number shown in the circle on the right (1, 2, 3 …).
+  final int number;
+
+  /// The decision headline.
   final String title;
 
-  /// A short explanation of the signal.
-  final String description;
+  /// A short line about impact / action, e.g. "High impact • Requires review".
+  final String meta;
 
-  /// Category tags shown at the bottom, e.g. ["Operations", "Risk"].
-  final List<String> tags;
+  /// The deadline text, e.g. "Due: Today, 02:00 PM".
+  final String due;
 
-  /// Optional tap callback (e.g. open the signal detail). Null = not tappable.
+  /// Optional tap callback (e.g. open the decision detail). Null = not tappable.
   final VoidCallback? onTap;
 
   @override
@@ -65,7 +71,6 @@ class SignalCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Row(
-            // Icon aligns with the top of the content.
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Leading icon in a small tinted box.
@@ -86,39 +91,38 @@ class SignalCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Top row: severity badge on the left, time on the right.
+                    // Top row: priority badge on the left, number on the right.
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        SeverityBadge(severity: severity),
-                        Text(time, style: AppTypography.caption),
+                        SeverityBadge(severity: severity, label: priorityLabel),
+                        // A small circle showing the decision's number.
+                        Container(
+                          width: 24,
+                          height: 24,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: AppColors.surfaceMuted,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$number',
+                            style: AppTypography.label
+                                .copyWith(color: AppColors.textPrimary),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     // Title.
                     Text(title, style: AppTypography.headingMedium),
                     const SizedBox(height: AppSpacing.sm),
-                    // Description (two lines max so cards stay a similar height).
-                    Text(
-                      description,
-                      style: AppTypography.bodyMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    // Tags (only shown if there are any).
-                    if (tags.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      Wrap(
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
-                        children: [
-                          // Tint each tag with the signal's severity colour.
-                          for (final tag in tags)
-                            TagChip(label: tag, color: color),
-                        ],
-                      ),
-                    ],
+                    // Meta line (impact / action).
+                    Text(meta, style: AppTypography.bodyMedium),
+                    const SizedBox(height: AppSpacing.sm),
+                    // Due date.
+                    Text(due, style: AppTypography.label),
                   ],
                 ),
               ),

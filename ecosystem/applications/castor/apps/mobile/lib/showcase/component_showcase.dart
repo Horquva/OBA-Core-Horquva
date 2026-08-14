@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
+import '../views/widgets/decision_card.dart';
 import '../views/widgets/pill_button.dart';
 import '../views/widgets/severity_badge.dart';
 import '../views/widgets/signal_card.dart';
@@ -185,6 +186,7 @@ class ComponentShowcase extends StatelessWidget {
             title: 'Signal Card',
             children: [
               SignalCard(
+                icon: Icons.warning_amber_rounded,
                 severity: Severity.critical,
                 time: '08:12 AM',
                 title: 'Vendor dependency risk increased',
@@ -196,6 +198,7 @@ class ComponentShowcase extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               SignalCard(
+                icon: Icons.trending_up,
                 severity: Severity.informational,
                 time: '06:50 AM',
                 title: 'Employee sentiment improved',
@@ -203,6 +206,34 @@ class ComponentShowcase extends StatelessWidget {
                     'Monthly sentiment score increased by 6% across the '
                     'organization.',
                 tags: const ['People'],
+                onTap: () {},
+              ),
+            ],
+          ),
+
+          // ─── Decision Card ─────────────────────────────────────────────
+          _section(
+            title: 'Decision Card',
+            children: [
+              DecisionCard(
+                icon: Icons.account_balance_wallet,
+                severity: Severity.critical,
+                priorityLabel: 'URGENT',
+                number: 1,
+                title: 'Approve Q3 Investment Plan',
+                meta: 'High impact • Requires your decision',
+                due: 'Due: Today, 02:00 PM',
+                onTap: () {},
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DecisionCard(
+                icon: Icons.assignment_outlined,
+                severity: Severity.important,
+                priorityLabel: 'HIGH PRIORITY',
+                number: 2,
+                title: 'Vendor Risk Assessment',
+                meta: 'High impact • Requires your review',
+                due: 'Due: Tomorrow, 11:00 AM',
                 onTap: () {},
               ),
             ],
