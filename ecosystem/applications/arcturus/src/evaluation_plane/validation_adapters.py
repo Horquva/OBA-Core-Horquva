@@ -15,23 +15,20 @@ def experiment_result_to_evidence(package: ExperimentResultPackage) -> EvidenceC
     to know about his platform's shape directly.
 
     Maps:
-      package.context            -> evidence.context
-      package.context.experiment_id (via source) -> evidence.source_execution_id
-      package.state_snapshot / event_count -> evidence.observed_value
-      package.final_status is carried inside observed_value for the
-        Logic/Consistency checks to reference if needed.
+      package.context               -> evidence.context
+      package.context.run_id (str)  -> evidence.source_execution_id
+        (run_id is unique per execution; experiment_id can repeat across
+        reruns of the same experiment, and remains accessible separately
+        via evidence.context.experiment_id)
+      package.state_snapshot        -> evidence.observed_value
+        (the actual measurement only; final_status, event_count, and
+        checkpoint_refs are execution metadata, not the measurement
+        itself, and are intentionally excluded here)
     """
-    observed_value = {
-        "final_status": package.final_status,
-        "event_count": package.event_count,
-        "state_snapshot": package.state_snapshot,
-        "checkpoint_refs": package.checkpoint_refs,
-    }
-
     return EvidenceContract(
         context=package.context,
-        source_execution_id=package.context.experiment_id,
-        observed_value=observed_value,
+        source_execution_id=str(package.context.run_id),
+        observed_value=package.state_snapshot,
         expected_value=None,  # Expected Outcome Check (Day 4+) will supply this from Maryam's scenario data
     )
 
