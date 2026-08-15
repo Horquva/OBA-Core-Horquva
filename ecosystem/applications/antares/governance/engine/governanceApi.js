@@ -27,15 +27,32 @@ const { createTrustSignal } = require('./models');
 const { handleActionRequest } = require('./runtimeEnforcement');
 const { getAuditTrail, findAuditEntry } = require('../audit/auditLog');
 
+// AT-5 (Din 8-9 adversarial testing) found that any caller could self-report an
+// ORG_TRUST_SCORE from an arbitrary "source" string and have it trusted at face value —
+// this could force a CONDITIONAL rule to auto-ALLOW using a completely made-up trust
+// score. Fix: only signals whose `source` is a recognized internal engine are trusted.
+// Anything else is dropped, same as a malformed signal — it simply becomes "absent" to
+// the trust engine, which already treats absence as neutral, never as auto-trust.
+const TRUSTED_SIGNAL_SOURCES = [
+  'trust-engine',
+  'trust-intelligence-engine-v1',
+  'anomaly-detector'
+];
+
 // Raw trust signal payloads (plain objects from the caller) are converted through the
 // Din 2 factory so bad/malformed signals are caught here rather than deep inside the
-// engine. A signal that fails validation is dropped and logged — dropped means that
-// signal type is simply absent to the trust engine, which already treats missing
-// signals as neutral/unknown, never as auto-trust. This never crashes the API.
+// engine. A signal that fails validation OR comes from an unrecognized source is
+// dropped and logged — dropped means that signal type is simply absent to the trust
+// engine, which already treats missing signals as neutral/unknown, never as auto-trust.
+// This never crashes the API.
 function toValidatedSignals(rawSignals) {
   if (!Array.isArray(rawSignals)) return [];
   const valid = [];
   rawSignals.forEach((raw, i) => {
+    if (!TRUSTED_SIGNAL_SOURCES.includes(raw.source)) {
+      console.warn('[governanceApi] dropped trust signal from untrusted source "' + raw.source + '" at index ' + i);
+      return;
+    }
     try {
       valid.push(createTrustSignal(Object.assign({ id: raw.id || 'TS-' + (Date.now() + i) }, raw)));
     } catch (err) {
@@ -103,4 +120,4 @@ function queryAuditTrail(filters) {
   return getAuditTrail();
 }
 
-module.exports = { requestGovernanceDecision, previewGovernanceOutcome, queryAuditTrail };
+module.exports = { requestGovernanceDecision, previewGovernanceOutcome, queryAuditTrail, TRUSTED_SIGNAL_SOURCES };
