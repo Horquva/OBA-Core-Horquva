@@ -17,7 +17,7 @@ logger = logging.getLogger("antares.api")
 
 app = FastAPI(title="Antares Technology Intelligence API (AI-Native)")
 
-API_KEY = os.getenv("ANTARES_API_KEY", "REDACTED")
+API_KEY = os.getenv("ANTARES_API_KEY", "mocked-test-key-for-ci")
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 def verify_api_key(api_key: str = Security(api_key_header)):

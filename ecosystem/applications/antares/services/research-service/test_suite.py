@@ -70,7 +70,7 @@ def client():
         mock_llm.embed.return_value = [[0.1, 0.2, 0.3, 0.4]]
         mock_llm.cosine_similarity.return_value = 0.5
         # Pass valid API key in headers
-        yield TestClient(app, headers={"X-API-Key": "REDACTED"})
+        yield TestClient(app, headers={"X-API-Key": "mocked-test-key-for-ci"})
 
 def test_api_ingest_and_retrieve(client):
     payload = {"raw_text": "Agentic AI is the future.", "source_url": "test_url_99"}
