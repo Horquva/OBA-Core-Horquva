@@ -65,7 +65,7 @@ def test_confidence_calibration():
 
 @pytest.fixture
 def client():
-    with patch('api_server.llm') as mock_llm:
+    with patch('api_server.pipeline.llm') as mock_llm:
         mock_llm.generate_json.return_value = {"technologies": ["Agentic AI"]}
         mock_llm.embed.return_value = [[0.1, 0.2, 0.3, 0.4]]
         mock_llm.cosine_similarity.return_value = 0.5
