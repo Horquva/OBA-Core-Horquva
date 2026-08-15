@@ -6,23 +6,23 @@ const path = require('path');
 /**
  * scripts/lint.js
  * ----------------
- * Din 5 ka "static check" hissa. Ye external package (eslint waghera)
- * use nahi karta — taake har team member bina extra install ke isay
- * chala sake. Ye khud apne rules se har .js file check karta hai:
+ * Day 5's "static check" piece. It doesn't use an external package
+ * (eslint etc.) — so every team member can run it with no extra
+ * install. It checks every .js file against its own rules:
  *
- *   1) file ke shuru mein 'use strict' hona chahiye
- *   2) `var` use nahi honi chahiye (hamesha let/const)
- *   3) koi TODO / FIXME comment reh na gaya ho
+ *   1) the file must start with 'use strict'
+ *   2) `var` must not be used (always let/const)
+ *   3) no leftover TODO / FIXME comment
  *   4) core logic files (models/engine/persistence/qualityGates/seed)
- *      mein "debug" console.log nahi honi chahiye — sirf entrypoint
- *      files (demo, board, cli) ko print karne ki ijazat hai
+ *      must not contain "debug" console.log — only the entrypoint
+ *      files (demo, board, cli) are allowed to print
  *
- * Koi bhi rule fail ho to poora lint FAIL hota hai — exit code 1,
- * taake CI isay pakad sake aur aage na badhne de.
+ * If any rule fails, the whole lint FAILS — exit code 1, so CI can
+ * catch it and stop the pipeline from continuing.
  */
 
 const SRC_DIR = path.join(__dirname, '..', 'src');
-const PRINT_ALLOWED_FILES = new Set(['demo.js', 'board.js', 'cli.js']);
+const PRINT_ALLOWED_FILES = new Set(['demo.js', 'board.js', 'cli.js', 'dashboard.js']);
 
 function listJsFiles(dir) {
   return fs.readdirSync(dir).filter((f) => f.endsWith('.js'));

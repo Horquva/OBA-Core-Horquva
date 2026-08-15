@@ -8,7 +8,8 @@
     "demo": "node src/demo.js",
     "lint": "node scripts/lint.js",
     "buildcheck": "node scripts/buildcheck.js",
-    "ci": "node scripts/ci.js"
+    "ci": "node scripts/ci.js",
+    "dashboard": "node src/dashboard.js"
   },
   "license": "UNLICENSED",
   "private": true
