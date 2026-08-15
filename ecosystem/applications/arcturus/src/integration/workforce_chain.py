@@ -11,62 +11,54 @@ from ecosystem.applications.arcturus.contracts.execution.workforce.base_models i
 from ecosystem.applications.arcturus.contracts.shared.base_models import (
     SimulationContext,
 )
-from ecosystem.applications.arcturus.src.execution_plane.workforce.workforce_adapters import (
-    WorkforceAdapter,
-)
 
 
 class WorkforceChain:
     """
-    Day 5 integration wrapper for the Workforce platform.
+    Day 5 Workforce integration-chain wrapper.
 
-    Connects the Workforce adapter to the cross-platform
-    Arcturus integration chain.
+    This layer works only with shared Workforce contracts.
+    It does not import or depend directly on another
+    platform implementation.
     """
-
-    def __init__(self, adapter: WorkforceAdapter | None = None):
-        self.adapter = adapter or WorkforceAdapter()
 
     def run(
         self,
         context: SimulationContext,
         enterprise_instance_id: str,
         assignment_id: str,
-        agent_count: int,
-        roles: List[WorkforceRoleContract],
+        agents: List[AgentProfileContract],
+        assignments: AgentAssignmentPayload,
+        roster: WorkforceAgentRoster,
     ) -> dict:
         """
-        Execute the Workforce integration slice.
-
-        The chain:
-            1. Materializes workforce agents.
-            2. Assigns agents to roles.
-            3. Builds the workforce roster.
-            4. Returns the contracts required by downstream platforms.
+        Package validated Workforce outputs for the
+        downstream integration chain.
         """
 
-        agents: List[AgentProfileContract] = self.adapter.materialize_agents(
-            context=context,
-            enterprise_instance_id=enterprise_instance_id,
-            agent_count=agent_count,
-        )
+        if assignments.enterprise_instance_id != enterprise_instance_id:
+            raise ValueError(
+                "Assignment payload enterprise_instance_id does not match "
+                "the Workforce chain enterprise_instance_id."
+            )
 
-        assignment_payload: AgentAssignmentPayload = self.adapter.assign_roles(
-            context=context,
-            assignment_id=assignment_id,
-            enterprise_instance_id=enterprise_instance_id,
-            agents=agents,
-            roles=roles,
-        )
+        if roster.enterprise_instance_id != enterprise_instance_id:
+            raise ValueError(
+                "Roster enterprise_instance_id does not match "
+                "the Workforce chain enterprise_instance_id."
+            )
 
-        roster: WorkforceAgentRoster = self.adapter.build_roster(
-            context=context,
-            enterprise_instance_id=enterprise_instance_id,
-            agents=agents,
-            roles=roles,
-        )
+        if assignments.assignment_id != assignment_id:
+            raise ValueError(
+                "Assignment payload assignment_id does not match "
+                "the Workforce chain assignment_id."
+            )
 
         return {
-            "assignment_payload": assignment_payload,
+            "context": context,
+            "enterprise_instance_id": enterprise_instance_id,
+            "assignment_id": assignment_id,
+            "agents": agents,
+            "assignment_payload": assignments,
             "roster": roster,
         }
