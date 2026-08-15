@@ -102,6 +102,9 @@ function handleActionRequest(actionRequest, context, rules, trustSignals, option
   const authResult = authorityCheck(actionRequest, opts.authorityRegistry);
   if (!authResult.passed) {
     const { decision, evidence } = buildAuthorityRejection(actionRequest, context, authResult);
+    if (opts.dryRun) {
+      return { decision, evidence, stageReached: 'authority_check_dry_run', auditWriteFailed: false, auditEntryId: null };
+    }
     const auditResult = appendAuditEntry(decision, evidence, { simulateFailure: opts.simulateAuditFailure });
     return {
       decision,
@@ -115,7 +118,14 @@ function handleActionRequest(actionRequest, context, rules, trustSignals, option
   // Stage 2 & 3: Rules Check + Trust Check (Din 3-5's evaluation engine)
   const { decision, evidence } = evaluateAction(actionRequest, context, rules, trustSignals);
 
-  // Stage 4: Audit (mandatory — every decision must attempt to be recorded)
+  // Dry run (Zara's capability pre-check): preview the outcome, never write audit,
+  // never trigger the ALLOW-audit-failure downgrade — nothing real happened, so there
+  // is nothing to protect by downgrading.
+  if (opts.dryRun) {
+    return { decision, evidence, stageReached: 'dry_run_complete', auditWriteFailed: false, auditEntryId: null };
+  }
+
+  // Stage 4: Audit (mandatory — every REAL decision must attempt to be recorded)
   let auditResult = appendAuditEntry(decision, evidence, { simulateFailure: opts.simulateAuditFailure });
 
   if (!auditResult.success && decision.outcome === 'ALLOW') {
