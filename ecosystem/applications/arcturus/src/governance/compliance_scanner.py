@@ -134,7 +134,7 @@ class ArcturusComplianceScanner:
         self._repo_root: Path = (
             Path(repo_root).resolve()
             if repo_root
-            else Path(__file__).resolve().parents[6]
+            else Path(__file__).resolve().parents[5]
         )
         self._arcturus_root: Path = (
             Path(arcturus_root).resolve()
