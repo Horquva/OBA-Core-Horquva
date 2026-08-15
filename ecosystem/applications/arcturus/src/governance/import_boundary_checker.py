@@ -284,7 +284,11 @@ def _resolve_own_prefixes(file_posix: str) -> set[str]:
     """
     Return the set of platform src prefixes that belong to the file's own
     platform so they are excluded from the forbidden-import check.
+    Integration and governance orchestrators are permitted to import src services.
     """
+    if "src/integration" in file_posix or "src/governance" in file_posix:
+        return set(_FORBIDDEN_CROSS_PLATFORM_PREFIXES)
+
     own: set[str] = set()
     for key, prefix in _PLATFORM_SRC_PATHS.items():
         path_fragment_src = prefix.replace(".", "/")
