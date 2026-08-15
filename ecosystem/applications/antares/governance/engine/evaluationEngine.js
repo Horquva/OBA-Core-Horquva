@@ -21,8 +21,7 @@ const {
   createGovernanceDecision,
   createEvidence
 } = require('./models');
-
-const SEVERITY_ORDER = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+const { runTrustIntelligence } = require('./trustIntelligenceEngine');
 
 let decisionCounter = 0;
 let evidenceCounter = 0;
@@ -58,36 +57,6 @@ function matchRules(rules, actionRequest) {
   return rules.filter((r) => r.active && ruleMatches(r, actionRequest));
 }
 
-function signalValue(trustSignals, signalType) {
-  const found = trustSignals.find((s) => s.signalType === signalType);
-  return found ? found.value : null;
-}
-
-// Returns { riskLevel, orgTrust, modelConfidence, anomaly } — model confidence and org
-// trust are read as two separate signals here on purpose, never combined into one score.
-function assessTrust(trustSignals, matchedRules) {
-  const orgTrust = signalValue(trustSignals, 'ORG_TRUST_SCORE');
-  const modelConfidence = signalValue(trustSignals, 'MODEL_CONFIDENCE');
-  const anomaly = signalValue(trustSignals, 'ANOMALY_FLAG') || 0;
-
-  let baseIndex = matchedRules.length
-    ? Math.max(...matchedRules.map((r) => SEVERITY_ORDER.indexOf(r.severity)))
-    : SEVERITY_ORDER.indexOf('MEDIUM'); // unknown action defaults to at least MEDIUM risk
-
-  // An anomaly is a strong signal on its own — it always pushes risk to at least HIGH,
-  // not just one level up from whatever the rule severity happened to be.
-  if (anomaly >= 0.5) baseIndex = Math.max(baseIndex + 1, SEVERITY_ORDER.indexOf('HIGH'));
-  if (orgTrust !== null && orgTrust < 0.5) baseIndex += 1;
-
-  baseIndex = Math.min(baseIndex, SEVERITY_ORDER.length - 1);
-  return {
-    riskLevel: SEVERITY_ORDER[baseIndex],
-    orgTrust,
-    modelConfidence,
-    anomaly
-  };
-}
-
 function evaluateAction(actionRequest, context, rules, trustSignals) {
   const matched = matchRules(rules, actionRequest);
   const rejectRules = matched.filter((r) => r.requirement === 'REJECT_IF_MATCH');
@@ -95,7 +64,7 @@ function evaluateAction(actionRequest, context, rules, trustSignals) {
   const conditionalRules = matched.filter((r) => r.requirement === 'CONDITIONAL');
   const allowRules = matched.filter((r) => r.requirement === 'ALLOW_IF_MATCH');
 
-  const trust = assessTrust(trustSignals, matched);
+  const trust = runTrustIntelligence(matched, trustSignals, reviewRules.length > 0);
 
   let outcome;
   let reason;
@@ -173,4 +142,4 @@ function evaluateAction(actionRequest, context, rules, trustSignals) {
   return { decision, evidence };
 }
 
-module.exports = { evaluateAction, matchRules, assessTrust, ruleMatches };
+module.exports = { evaluateAction, matchRules, ruleMatches };
