@@ -245,23 +245,18 @@ def _step_scenarios(ctx: SimulationContext) -> dict[str, Any]:
 
 def _step_synthetic_data(ctx: SimulationContext) -> dict[str, Any]:
     """Step 6 — Generate synthetic data artifacts."""
-    from ecosystem.applications.arcturus.src.synthetic_data.generation_service import (
-        SyntheticGenerationService,
-    )
-    from ecosystem.applications.arcturus.contracts.synthetic_data.base_models import (
-        SyntheticGenerationRequest,
+    from ecosystem.applications.arcturus.src.integration.synthetic_data_chain import (
+        run_synthetic_data_chain,
     )
 
-    svc = SyntheticGenerationService()
-    request = SyntheticGenerationRequest(
+    result, evidence = run_synthetic_data_chain(
         context=ctx,
         requested_artifact_types=["report", "document", "meeting"],
         requested_artifact_count=100,
     )
-    result = svc.generate_snapshot(request)
     return {
-        "artifact_count": len(result.artifacts),
-        "provenance_hash": result.deterministic_fingerprint,
+        "artifact_count": evidence["artifact_count"],
+        "provenance_hash": evidence["deterministic_fingerprint"],
     }
 
 
