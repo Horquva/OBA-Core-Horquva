@@ -1,0 +1,129 @@
+graph TB
+    subgraph "Knowledge Consumers"
+        E1["🧑‍💻 Engineers"]
+        E2["👔 Leaders"]
+        E3["🤖 AI Systems"]
+        E4["🔧 Tools & APIs"]
+    end
+
+    subgraph "Discovery & Access Layer"
+        D1["🔍 Search Engine"]
+        D2["📑 Navigation Index"]
+        D3["❓ FAQ System"]
+        D4["🔗 Cross-Link Graph"]
+    end
+
+    subgraph "Knowledge Organization Layer"
+        K1["📚 Architecture Domain"]
+        K2["📋 Standards Domain"]
+        K3["💡 Best Practices Domain"]
+        K4["📖 Playbooks Domain"]
+        K5["🔧 Runbooks Domain"]
+        K6["📚 Lessons Learned Domain"]
+        K7["📝 Glossary Domain"]
+        K8["📄 Templates Domain"]
+    end
+
+    subgraph "Storage & Version Control"
+        S1["📂 Git Repository"]
+        S2["📋 Markdown Files"]
+        S3["🔀 Version History"]
+        S4["📊 Metadata Store"]
+    end
+
+    subgraph "Publication & Governance"
+        P1["👁️ Peer Review"]
+        P2["✅ Quality Validation"]
+        P3["🔐 Access Control"]
+        P4["📅 Lifecycle Management"]
+    end
+
+    subgraph "Integration Points"
+        I1["🧠 Organizational Brain OBA"]
+        I2["⚙️ Engineering Ops Platform"]
+        I3["🔄 Workflow Automation"]
+        I4["👥 Developer Experience"]
+    end
+
+    subgraph "Support & Maintenance"
+        M1["📞 Help & Support"]
+        M2["📈 Metrics & Analytics"]
+        M3["🔄 Continuous Improvement"]
+        M4["📧 Feedback Collection"]
+    end
+
+    E1 --> D1
+    E2 --> D2
+    E3 --> D3
+    E4 --> D4
+
+    D1 --> K1
+    D1 --> K2
+    D1 --> K3
+    D2 --> K4
+    D2 --> K5
+    D3 --> K6
+    D4 --> K7
+    D4 --> K8
+
+    K1 --> S1
+    K2 --> S1
+    K3 --> S1
+    K4 --> S1
+    K5 --> S1
+    K6 --> S1
+    K7 --> S1
+    K8 --> S1
+
+    S1 --> S2
+    S1 --> S3
+    S1 --> S4
+
+    S1 --> P1
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+
+    K1 --> I1
+    K2 --> I2
+    K4 --> I3
+    K3 --> I4
+
+    P4 --> M2
+    M2 --> M3
+    M4 --> M3
+    M1 -.-> M3
+
+    style E1 fill:#e1f5ff
+    style E2 fill:#e1f5ff
+    style E3 fill:#e1f5ff
+    style E4 fill:#e1f5ff
+    
+    style D1 fill:#f3e5f5
+    style D2 fill:#f3e5f5
+    style D3 fill:#f3e5f5
+    style D4 fill:#f3e5f5
+    
+    style K1 fill:#e8f5e9
+    style K2 fill:#e8f5e9
+    style K3 fill:#e8f5e9
+    style K4 fill:#e8f5e9
+    style K5 fill:#e8f5e9
+    style K6 fill:#e8f5e9
+    style K7 fill:#e8f5e9
+    style K8 fill:#e8f5e9
+    
+    style S1 fill:#fff3e0
+    style S2 fill:#fff3e0
+    style S3 fill:#fff3e0
+    style S4 fill:#fff3e0
+    
+    style P1 fill:#fce4ec
+    style P2 fill:#fce4ec
+    style P3 fill:#fce4ec
+    style P4 fill:#fce4ec
+    
+    style I1 fill:#f1f8e9
+    style I2 fill:#f1f8e9
+    style I3 fill:#f1f8e9
+    style I4 fill:#f1f8e9
