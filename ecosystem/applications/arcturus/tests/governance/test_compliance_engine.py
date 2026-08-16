@@ -66,7 +66,7 @@ def tmp_forbidden_import_tree(tmp_path: Path) -> Path:
     (src / "violating_module.py").write_text(
         textwrap.dedent("""\
             # This import is forbidden: crosses platform boundary via src/
-            from ecosystem.applications.arcturus.src.ontology.ontology_controller import OntologyController
+            from ecosystem.applications.arcturus.src.control_plane.ontology.ontology_controller import OntologyController
 
             def bad_function():
                 return OntologyController()

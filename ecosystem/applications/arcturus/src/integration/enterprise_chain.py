@@ -5,10 +5,10 @@ from ecosystem.applications.arcturus.contracts.enterprise.base_models import (
     EnterpriseInstancePayload,
     EnterpriseTemplatePayload,
 )
-from ecosystem.applications.arcturus.src.enterprise.enterprise_generator import (
+from ecosystem.applications.arcturus.src.control_plane.enterprise.enterprise_generator import (
     EnterpriseGenerator,
 )
-from ecosystem.applications.arcturus.src.enterprise.enterprise_adapters import (
+from ecosystem.applications.arcturus.src.control_plane.enterprise.enterprise_adapters import (
     EnterpriseAdapter,
 )
 

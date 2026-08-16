@@ -40,7 +40,7 @@ from ecosystem.applications.arcturus.contracts.control.scenarios.base_models imp
 from ecosystem.applications.arcturus.contracts.shared.base_models import (
     ArcturusValidationError,
 )
-from ecosystem.applications.arcturus.src.scenario_engineering.scenario_engine import (
+from ecosystem.applications.arcturus.src.control_plane.scenarios.scenario_engine import (
     CompiledScenario,
     ScenarioEngine,
 )

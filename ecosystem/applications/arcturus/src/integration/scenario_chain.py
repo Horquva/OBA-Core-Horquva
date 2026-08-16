@@ -38,7 +38,7 @@ from ecosystem.applications.arcturus.contracts.control.scenarios.base_models imp
     ScenarioDSLPayload,
     ScenarioExpectationContract,
 )
-from ecosystem.applications.arcturus.src.scenario_engineering.scenario_adapters import (
+from ecosystem.applications.arcturus.src.control_plane.scenarios.scenario_adapters import (
     ScenarioAdapter,
 )
 

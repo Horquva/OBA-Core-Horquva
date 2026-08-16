@@ -5,7 +5,7 @@ from ecosystem.applications.arcturus.contracts.ontology.ontology_snapshot_contra
 from ecosystem.applications.arcturus.contracts.shared.base_models import ArcturusValidationError
 
 # Note: We can pass the RelationshipEngine here later if we need to validate complex graph edges
-from ecosystem.applications.arcturus.src.ontology.relationship_engine import RelationshipEngine
+from ecosystem.applications.arcturus.src.control_plane.ontology.relationship_engine import RelationshipEngine
 
 logger = logging.getLogger(__name__)
 

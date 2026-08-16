@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 def _step_ontology(ctx: SimulationContext) -> dict[str, Any]:
     """Step 1 — Bootstrap the ontology snapshot."""
-    from ecosystem.applications.arcturus.src.ontology.ontology_runtime import (
+    from ecosystem.applications.arcturus.src.control_plane.ontology.ontology_runtime import (
         OntologyRuntime,
     )
     from ecosystem.applications.arcturus.contracts.ontology.ontology_snapshot_contract import (
@@ -77,7 +77,7 @@ def _step_ontology(ctx: SimulationContext) -> dict[str, Any]:
 
 def _step_enterprise(ctx: SimulationContext, ontology_result: dict) -> dict[str, Any]:
     """Step 2 — Generate synthetic enterprise instance."""
-    from ecosystem.applications.arcturus.src.enterprise.enterprise_generator import (
+    from ecosystem.applications.arcturus.src.control_plane.enterprise.enterprise_generator import (
         EnterpriseGenerator,
     )
     from ecosystem.applications.arcturus.contracts.ontology.ontology_snapshot_contract import (
@@ -218,7 +218,7 @@ def _step_workflows(ctx: SimulationContext) -> dict[str, Any]:
 
 def _step_scenarios(ctx: SimulationContext) -> dict[str, Any]:
     """Step 5 — Compile canonical scenario."""
-    from ecosystem.applications.arcturus.src.scenario_engineering.scenario_engine import (
+    from ecosystem.applications.arcturus.src.control_plane.scenarios.scenario_engine import (
         ScenarioEngine,
     )
     from ecosystem.applications.arcturus.contracts.control.scenarios.base_models import (
@@ -245,23 +245,18 @@ def _step_scenarios(ctx: SimulationContext) -> dict[str, Any]:
 
 def _step_synthetic_data(ctx: SimulationContext) -> dict[str, Any]:
     """Step 6 — Generate synthetic data artifacts."""
-    from ecosystem.applications.arcturus.src.synthetic_data.generation_service import (
-        SyntheticGenerationService,
-    )
-    from ecosystem.applications.arcturus.contracts.synthetic_data.base_models import (
-        SyntheticGenerationRequest,
+    from ecosystem.applications.arcturus.src.integration.synthetic_data_chain import (
+        run_synthetic_data_chain,
     )
 
-    svc = SyntheticGenerationService()
-    request = SyntheticGenerationRequest(
+    result, evidence = run_synthetic_data_chain(
         context=ctx,
         requested_artifact_types=["report", "document", "meeting"],
         requested_artifact_count=100,
     )
-    result = svc.generate_snapshot(request)
     return {
-        "artifact_count": len(result.artifacts),
-        "provenance_hash": result.deterministic_fingerprint,
+        "artifact_count": evidence["artifact_count"],
+        "provenance_hash": evidence["deterministic_fingerprint"],
     }
 
 
