@@ -90,9 +90,6 @@ class ImportBoundaryResult:
 # Each entry is a tuple of (platform_name, forbidden_module_prefix).
 _FORBIDDEN_CROSS_PLATFORM_PREFIXES: list[str] = [
     # Forbid any platform importing another platform's src internals
-    "ecosystem.applications.arcturus.src.ontology",
-    "ecosystem.applications.arcturus.src.enterprise",
-    "ecosystem.applications.arcturus.src.scenario_engineering",
     "ecosystem.applications.arcturus.src.control_plane.ontology",
     "ecosystem.applications.arcturus.src.control_plane.enterprise",
     "ecosystem.applications.arcturus.src.control_plane.scenarios",
@@ -107,12 +104,10 @@ _FORBIDDEN_CROSS_PLATFORM_PREFIXES: list[str] = [
 # The scanner resolves the owning platform from the file's own path and
 # excludes that platform's own prefix from the forbidden list.
 _PLATFORM_SRC_PATHS: dict[str, str] = {
-    "ontology": "ecosystem.applications.arcturus.src.ontology",
-    "enterprise": "ecosystem.applications.arcturus.src.enterprise",
-    "scenario_engineering": "ecosystem.applications.arcturus.src.scenario_engineering",
-    "control_plane_ontology": "ecosystem.applications.arcturus.src.control_plane.ontology",
-    "control_plane_enterprise": "ecosystem.applications.arcturus.src.control_plane.enterprise",
-    "control_plane_scenarios": "ecosystem.applications.arcturus.src.control_plane.scenarios",
+    "ontology": "ecosystem.applications.arcturus.src.control_plane.ontology",
+    "control/enterprise": "ecosystem.applications.arcturus.src.control_plane.enterprise",
+    "scenarios": "ecosystem.applications.arcturus.src.control_plane.scenarios",
+    "scenario_engineering": "ecosystem.applications.arcturus.src.control_plane.scenarios",
     "workforce": "ecosystem.applications.arcturus.src.execution_plane.workforce",
     "workflows": "ecosystem.applications.arcturus.src.execution_plane.workflows",
     "simulation": "ecosystem.applications.arcturus.src.simulation",
@@ -272,10 +267,10 @@ def _check_file_imports(py_file: Path) -> list[ImportViolation]:
 def _extract_module_name(node: ast.Import | ast.ImportFrom) -> str | None:
     """Return the top-level dotted module name from an import AST node."""
     if isinstance(node, ast.Import):
-        # e.g. ``import ecosystem.applications.arcturus.src.ontology.foo``
+        # e.g. ``import ecosystem.applications.arcturus.src.control_plane.ontology.foo``
         return node.names[0].name if node.names else None
     if isinstance(node, ast.ImportFrom):
-        # e.g. ``from ecosystem.applications.arcturus.src.ontology import foo``
+        # e.g. ``from ecosystem.applications.arcturus.src.control_plane.ontology import foo``
         return node.module or ""
     return None
 

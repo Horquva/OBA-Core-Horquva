@@ -13,8 +13,8 @@ from ecosystem.applications.arcturus.contracts.ontology.entity_reference_contrac
 )
 from ecosystem.applications.arcturus.contracts.shared.base_models import ArcturusValidationError
 
-from ecosystem.applications.arcturus.src.ontology.relationship_engine import RelationshipEngine
-from ecosystem.applications.arcturus.src.ontology.constraint_engine import ConstraintEngine
+from ecosystem.applications.arcturus.src.control_plane.ontology.relationship_engine import RelationshipEngine
+from ecosystem.applications.arcturus.src.control_plane.ontology.constraint_engine import ConstraintEngine
 
 logger = logging.getLogger(__name__)
 

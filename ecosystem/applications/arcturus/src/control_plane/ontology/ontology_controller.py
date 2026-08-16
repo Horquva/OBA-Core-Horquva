@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional
 import logging
 
 from ecosystem.applications.arcturus.contracts.shared.base_models import ArcturusValidationError
-from ecosystem.applications.arcturus.src.ontology.ontology_runtime import OntologyRuntime
+from ecosystem.applications.arcturus.src.control_plane.ontology.ontology_runtime import OntologyRuntime
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,7 @@ from ecosystem.applications.arcturus.contracts.shared.base_models import (
     SimulationContext, 
     ArcturusValidationError
 )
-from ecosystem.applications.arcturus.src.ontology.ontology_runtime import OntologyRuntime
+from ecosystem.applications.arcturus.src.control_plane.ontology.ontology_runtime import OntologyRuntime
 
 # --- FIXTURES ---
 

@@ -5,7 +5,7 @@ from ecosystem.applications.arcturus.contracts.enterprise.base_models import (
 from ecosystem.applications.arcturus.contracts.shared.base_models import (
     SimulationContext,
 )
-from ecosystem.applications.arcturus.src.enterprise.enterprise_generator import (
+from ecosystem.applications.arcturus.src.control_plane.enterprise.enterprise_generator import (
     EnterpriseGenerator,
 )
 from ecosystem.applications.arcturus.contracts.enterprise.base_models import (

@@ -24,7 +24,7 @@ from ecosystem.applications.arcturus.contracts.shared.base_models import (
     ArcturusValidationError,
     SimulationContext,
 )
-from ecosystem.applications.arcturus.src.scenario_engineering.scenario_engine import (
+from ecosystem.applications.arcturus.src.control_plane.scenarios.scenario_engine import (
     ScenarioEngine,
 )
 
