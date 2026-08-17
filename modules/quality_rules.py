@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 
 from modules.quality_models import (
+    QualityStandard,
+    GovernanceRule,
     QualityGate,
     EngineeringArtifact,
     QualityCheck,
@@ -85,6 +87,23 @@ def check_readme(
             )
 
     return findings, evidence, remediations
+def create_documentation_rule():
+    standard = QualityStandard(
+        id="DOC-STD-001",
+        name="Documentation Quality Standard",
+        description="Required README sections must be present.",
+        version="1.0",
+    )
+
+    rule = GovernanceRule(
+        id="DOC-RULE-001",
+        name="README Required Sections",
+        description="README must contain Purpose and Installation or Setup sections.",
+        standard_id=standard.id,
+        severity=Severity.MEDIUM,
+    )
+
+    return standard, rule
 class QualityRuleEngine:
     def __init__(self):
         self.rules = []

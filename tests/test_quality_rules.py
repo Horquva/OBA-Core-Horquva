@@ -1,5 +1,5 @@
 from modules.quality_models import EngineeringArtifact
-from modules.quality_rules import check_readme
+from modules.quality_rules import check_readme, QualityRuleEngine, create_documentation_rule
 
 
 artifact = EngineeringArtifact(
@@ -144,3 +144,10 @@ assert all(
 )
 
 print("Evidence and remediation test passed successfully")
+standard, governance_rule = create_documentation_rule()
+
+assert standard.id == "DOC-STD-001"
+assert governance_rule.standard_id == standard.id
+assert governance_rule.active is True
+
+print("Documentation standard and governance rule test passed successfully")
