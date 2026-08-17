@@ -151,3 +151,21 @@ assert governance_rule.standard_id == standard.id
 assert governance_rule.active is True
 
 print("Documentation standard and governance rule test passed successfully")
+def check_dummy_rule(content, artifact, rule_id):
+    return [], [], []
+
+
+engine = QualityRuleEngine()
+engine.register_rule(check_readme)
+engine.register_rule(check_dummy_rule)
+
+quality_checks, findings, evidence, remediations = engine.run(
+    artifact,
+    readme_complete,
+)
+
+assert len(quality_checks) == 2
+assert quality_checks[0].status == "PASSED"
+assert quality_checks[1].status == "PASSED"
+
+print("Multiple rules test passed successfully")
