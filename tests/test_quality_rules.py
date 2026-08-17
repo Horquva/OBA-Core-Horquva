@@ -127,3 +127,9 @@ assert len(evidence) == 2
 assert len(remediations) == 2
 
 print("Quality rule engine test passed successfully")
+gate = engine.evaluate_gate(quality_checks)
+
+assert gate.status == "FAILED"
+assert len(gate.required_check_ids) == 1
+
+print("Quality gate test passed successfully")

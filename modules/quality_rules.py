@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
+
 from modules.quality_models import (
+    QualityGate,
     EngineeringArtifact,
     QualityCheck,
     Severity,
@@ -9,32 +11,30 @@ from modules.quality_models import (
     Evidence,
     Remediation,
 )
-
-REQUIRED_SECTIONS = {
-    "Purpose": ["Purpose"],
-    "Setup": ["Installation", "Setup"],
-}
-
-
 def _has_h2_section(content: str, variants: list[str]) -> bool:
-    headings = re.findall(r"^##\s+(.+?)\s*$", content, re.MULTILINE)
+    headings = re.findall(
+        r"^##\s+(.+?)\s*$",
+        content,
+        re.MULTILINE,
+    )
 
     normalized_headings = {
         heading.strip().lower()
         for heading in headings
     }
 
-    return any(variant.lower() in normalized_headings for variant in variants)
-
-
+    return any(
+        variant.lower() in normalized_headings
+        for variant in variants
+    )
 def check_readme(
     readme_content: str,
     artifact: EngineeringArtifact,
     rule_id: str,
 ) -> tuple[list[Finding], list[Evidence], list[Remediation]]:
-    findings: list[Finding] = []
-    evidence: list[Evidence] = []
-    remediations: list[Remediation] = []
+    findings = []
+    evidence = []
+    remediations = []
 
     checks = [
         ("Purpose", ["Purpose"], "Add a ## Purpose section to the README."),
@@ -85,7 +85,6 @@ def check_readme(
             )
 
     return findings, evidence, remediations
-
 class QualityRuleEngine:
     def __init__(self):
         self.rules = []
@@ -131,4 +130,20 @@ class QualityRuleEngine:
             all_findings,
             all_evidence,
             all_remediations,
+        )
+
+    def evaluate_gate(self, quality_checks, gate_id="default-gate"):
+        status = (
+            "PASSED"
+            if all(check.status == "PASSED" for check in quality_checks)
+            else "FAILED"
+        )
+
+        return QualityGate(
+            id=gate_id,
+            name="Quality Gate",
+            status=status,
+            required_check_ids=[
+                check.id for check in quality_checks
+            ],
         )
