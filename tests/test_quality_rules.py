@@ -169,3 +169,21 @@ assert quality_checks[0].status == "PASSED"
 assert quality_checks[1].status == "PASSED"
 
 print("Multiple rules test passed successfully")
+code_artifact = EngineeringArtifact(
+    id="code-001",
+    name="app.py",
+    artifact_type="code",
+    source="test",
+)
+
+code_checks, code_findings, code_evidence, code_remediations = engine.run(
+    code_artifact,
+    "some python code",
+)
+
+assert len(code_checks) == 0
+assert len(code_findings) == 0
+assert len(code_evidence) == 0
+assert len(code_remediations) == 0
+
+print("Artifact type filtering test passed successfully")
