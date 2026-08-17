@@ -133,3 +133,7 @@ assert gate.status == "FAILED"
 assert len(gate.required_check_ids) == 1
 
 print("Quality gate test passed successfully")
+assert all(finding.status == "OPEN" for finding in findings)
+assert all(remediation.status == "OPEN" for remediation in remediations)
+
+print("Finding lifecycle test passed successfully")
