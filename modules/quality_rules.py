@@ -105,11 +105,12 @@ def create_documentation_rule():
 
     return standard, rule
 class QualityRuleEngine:
+    
     def __init__(self):
         self.rules = []
 
-    def register_rule(self, rule):
-        self.rules.append(rule)
+    def register_rule(self, rule, artifact_type="documentation"):
+        self.rules.append((artifact_type, rule))
 
     def run(self, artifact, content):
         quality_checks = []
@@ -117,7 +118,10 @@ class QualityRuleEngine:
         all_evidence = []
         all_remediations = []
 
-        for rule in self.rules:
+        for rule_type, rule in self.rules:
+            if rule_type != artifact.artifact_type:
+                continue
+
             findings, evidence, remediations = rule(
                 content,
                 artifact,
