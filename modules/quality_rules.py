@@ -86,3 +86,28 @@ def check_readme(
             )
 
     return findings, evidence, remediations
+
+class QualityRuleEngine:
+    def __init__(self):
+        self.rules = []
+
+    def register_rule(self, rule):
+        self.rules.append(rule)
+
+    def run(self, artifact, content):
+        all_findings = []
+        all_evidence = []
+        all_remediations = []
+
+        for rule in self.rules:
+            findings, evidence, remediations = rule(
+                content,
+                artifact,
+                rule.__name__,
+            )
+
+            all_findings.extend(findings)
+            all_evidence.extend(evidence)
+            all_remediations.extend(remediations)
+
+        return all_findings, all_evidence, all_remediations

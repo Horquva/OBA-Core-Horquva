@@ -106,3 +106,21 @@ assert findings[0].title == "README Purpose section missing"
 
 
 print("Quality rules tests passed successfully")
+
+from modules.quality_rules import QualityRuleEngine
+
+
+# Test 6: Generic QualityRuleEngine
+engine = QualityRuleEngine()
+engine.register_rule(check_readme)
+
+findings, evidence, remediations = engine.run(
+    artifact,
+    readme_missing_both,
+)
+
+assert len(findings) == 2
+assert len(evidence) == 2
+assert len(remediations) == 2
+
+print("Quality rule engine test passed successfully")
