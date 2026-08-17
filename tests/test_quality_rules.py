@@ -137,3 +137,10 @@ assert all(finding.status == "OPEN" for finding in findings)
 assert all(remediation.status == "OPEN" for remediation in remediations)
 
 print("Finding lifecycle test passed successfully")
+assert all(evidence.artifact_id == artifact.id for evidence in evidence)
+assert all(
+    remediation.finding_id in [finding.id for finding in findings]
+    for remediation in remediations
+)
+
+print("Evidence and remediation test passed successfully")
