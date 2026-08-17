@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import re
-
 from modules.quality_models import (
     EngineeringArtifact,
-    Evidence,
-    Finding,
-    Remediation,
+    QualityCheck,
     Severity,
+    Finding,
+    Evidence,
+    Remediation,
 )
-
 
 REQUIRED_SECTIONS = {
     "Purpose": ["Purpose"],
@@ -95,6 +94,7 @@ class QualityRuleEngine:
         self.rules.append(rule)
 
     def run(self, artifact, content):
+        quality_checks = []
         all_findings = []
         all_evidence = []
         all_remediations = []
@@ -106,8 +106,29 @@ class QualityRuleEngine:
                 rule.__name__,
             )
 
+            status = "FAILED" if findings else "PASSED"
+            message = (
+                f"{len(findings)} finding(s) detected"
+                if findings
+                else "Rule passed"
+            )
+
+            quality_check = QualityCheck(
+                id=f"{artifact.id}-{rule.__name__}",
+                artifact_id=artifact.id,
+                rule_id=rule.__name__,
+                status=status,
+                message=message,
+            )
+
+            quality_checks.append(quality_check)
             all_findings.extend(findings)
             all_evidence.extend(evidence)
             all_remediations.extend(remediations)
 
-        return all_findings, all_evidence, all_remediations
+        return (
+            quality_checks,
+            all_findings,
+            all_evidence,
+            all_remediations,
+        )

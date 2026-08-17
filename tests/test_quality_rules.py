@@ -114,10 +114,13 @@ from modules.quality_rules import QualityRuleEngine
 engine = QualityRuleEngine()
 engine.register_rule(check_readme)
 
-findings, evidence, remediations = engine.run(
+quality_checks, findings, evidence, remediations = engine.run(
     artifact,
     readme_missing_both,
 )
+assert len(quality_checks) == 1
+assert quality_checks[0].status == "FAILED"
+assert quality_checks[0].message == "2 finding(s) detected"
 
 assert len(findings) == 2
 assert len(evidence) == 2
