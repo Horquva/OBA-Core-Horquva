@@ -6,6 +6,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
 import '../views/widgets/app_text_field.dart';
+import '../views/widgets/app_top_bar.dart';
 import '../views/widgets/bottom_nav_bar.dart';
 import '../views/widgets/decision_card.dart';
 import '../views/widgets/pill_button.dart';
@@ -313,6 +314,29 @@ class ComponentShowcase extends StatelessWidget {
               AppTextField(
                 hintText: 'Search signals...',
                 type: AppTextFieldType.search,
+              ),
+            ],
+          ),
+
+          // ─── App Top Bar ───────────────────────────────────────────────
+          _section(
+            title: 'App Top Bar',
+            children: [
+              // Detail bar with a subtitle and a filter action.
+              AppTopBar(
+                title: 'Signals',
+                subtitle: 'All critical and important signals',
+                onBack: () {},
+                actionIcon: AppIcons.signalsFilter,
+                onAction: () {},
+              ),
+              const SizedBox(height: AppSpacing.md),
+              // Detail bar without a subtitle, with a share action.
+              AppTopBar(
+                title: 'Signal Detail',
+                onBack: () {},
+                actionIcon: AppIcons.signalDetailShare,
+                onAction: () {},
               ),
             ],
           ),
