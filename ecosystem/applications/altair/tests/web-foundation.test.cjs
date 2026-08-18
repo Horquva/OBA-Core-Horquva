@@ -39,8 +39,19 @@ test('UI primitives expose accessible metadata', () => {
 
   assert.equal(button.label, 'Save');
   assert.equal(button.accessibility.role, 'button');
+  assert.equal(button.accessibility.ariaLabel, 'Save');
   assert.equal(field.accessibility.role, 'textbox');
+  assert.equal(field.accessibility.ariaLabel, 'Email');
   assert.equal(empty.accessibility.role, 'status');
+});
+
+test('platform quality helpers sanitize input and expose observability readiness', () => {
+  const sanitized = foundation.sanitizeText('<script>alert(1)</script><b>Safe</b>');
+  assert.equal(sanitized, 'alert(1)Safe');
+
+  const telemetry = foundation.createObservabilityState();
+  assert.equal(telemetry.status, 'ready');
+  assert.ok(Array.isArray(telemetry.events));
 });
 
 test('service boundary treats unauthorized responses as contract-safe errors', async () => {

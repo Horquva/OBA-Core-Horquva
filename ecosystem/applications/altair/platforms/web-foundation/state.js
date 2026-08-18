@@ -1,3 +1,22 @@
+export function sanitizeText(value) {
+  if (value === null || value === undefined) return '';
+
+  const normalized = String(value)
+    .replace(/<\/script>/gi, '')
+    .replace(/<script[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return normalized;
+}
+
 export function createAppState() {
   return {
     sidebarOpen: true,
@@ -5,6 +24,19 @@ export function createAppState() {
     notifications: 0,
     activeRoute: 'dashboard',
     isHydrated: false
+  };
+}
+
+export function createObservabilityState() {
+  return {
+    status: 'ready',
+    events: ['request-boundary', 'session', 'ui-primitives', 'route-state'],
+    timestamp: new Date().toISOString(),
+    metrics: {
+      enabled: true,
+      samplingRate: '1x',
+      traceId: 'altair-local-trace'
+    }
   };
 }
 

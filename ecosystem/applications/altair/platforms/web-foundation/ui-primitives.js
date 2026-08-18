@@ -8,7 +8,8 @@ export function Button({ variant = 'primary', disabled = false, loading = false,
     accessibility: {
       role: 'button',
       focusVisible: true,
-      ariaBusy: loading
+      ariaBusy: loading,
+      ariaLabel: label || 'Action button'
     }
   };
 }
@@ -26,7 +27,8 @@ export function InputField({ label, name, value, placeholder, required = false, 
       label,
       role: 'textbox',
       required,
-      focusVisible: true
+      focusVisible: true,
+      ariaLabel: label || name || 'Input field'
     }
   };
 }
@@ -39,7 +41,8 @@ export function EmptyState({ title, description, actionLabel, actionHandler }) {
     actionHandler,
     accessibility: {
       role: 'status',
-      polite: true
+      polite: true,
+      ariaLabel: title || 'Empty state'
     }
   };
 }
@@ -52,7 +55,8 @@ export function ErrorState({ title, message, retryLabel, retryHandler }) {
     retryHandler,
     accessibility: {
       role: 'alert',
-      polite: false
+      polite: false,
+      ariaLabel: title || 'Error state'
     }
   };
 }
