@@ -77,6 +77,7 @@ app.use('/api/intelligence/orchestrator', require('./routes/intelligence/orchest
 app.use('/api/intelligence', require('./routes/intelligence/prediction'))
 app.use('/api/signals', require('./routes/signals/signals'))
 app.use('/api/auth', require('./routes/auth/auth'))
+app.use('/api/validation', require('./routes/validation'))
 app.use('/api/intelligence', require('./routes/intelligence/constitutional'))
 app.use('/api/avatar', require('./routes/avatar'))
 app.use('/api/self-healing', require('./routes/selfHealing'))
