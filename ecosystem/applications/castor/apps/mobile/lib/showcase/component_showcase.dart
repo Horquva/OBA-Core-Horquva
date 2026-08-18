@@ -9,6 +9,7 @@ import '../views/widgets/app_text_field.dart';
 import '../views/widgets/bottom_nav_bar.dart';
 import '../views/widgets/decision_card.dart';
 import '../views/widgets/pill_button.dart';
+import '../views/widgets/segmented_tabs.dart';
 import '../views/widgets/severity_badge.dart';
 import '../views/widgets/signal_card.dart';
 import '../views/widgets/stat_item.dart';
@@ -316,6 +317,12 @@ class ComponentShowcase extends StatelessWidget {
             ],
           ),
 
+          // ─── Segmented Tabs ────────────────────────────────────────────
+          _section(
+            title: 'Segmented Tabs',
+            children: const [_TabsDemo()],
+          ),
+
           // ─── Bottom Nav Bar ────────────────────────────────────────────
           _section(
             title: 'Bottom Nav Bar',
@@ -357,6 +364,32 @@ class _BottomNavDemoState extends State<_BottomNavDemo> {
       currentIndex: _index,
       onTap: (i) => setState(() => _index = i),
       onCastorTap: () {},
+    );
+  }
+}
+
+/// A small stateful demo so the segmented tabs react to taps in the showcase.
+class _TabsDemo extends StatefulWidget {
+  const _TabsDemo();
+
+  @override
+  State<_TabsDemo> createState() => _TabsDemoState();
+}
+
+class _TabsDemoState extends State<_TabsDemo> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedTabs(
+      currentIndex: _index,
+      onTap: (i) => setState(() => _index = i),
+      tabs: const [
+        SegmentTab('All Signals'),
+        SegmentTab('Critical', count: 2),
+        SegmentTab('Important', count: 5),
+        SegmentTab('Informational', count: 12),
+      ],
     );
   }
 }
