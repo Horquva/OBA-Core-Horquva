@@ -187,3 +187,81 @@ assert len(code_evidence) == 0
 assert len(code_remediations) == 0
 
 print("Artifact type filtering test passed successfully")
+
+# End-to-end quality flow test
+
+e2e_artifact = EngineeringArtifact(
+    id="e2e-readme-001",
+    name="README.md",
+    artifact_type="documentation",
+    source="test",
+)
+
+e2e_engine = QualityRuleEngine()
+e2e_engine.register_rule(check_readme, "documentation")
+
+e2e_content = """
+# Project README
+
+## Purpose
+This project manages organizational quality.
+
+## Setup
+Install the required dependencies and run the application.
+"""
+
+quality_checks, findings, evidence, remediations = e2e_engine.run(
+    e2e_artifact,
+    e2e_content,
+)
+
+quality_gate = e2e_engine.evaluate_gate(quality_checks)
+
+assert len(quality_checks) == 1
+assert quality_checks[0].status == "PASSED"
+
+assert len(findings) == 0
+assert len(evidence) == 0
+assert len(remediations) == 0
+
+assert quality_gate.status == "PASSED"
+assert quality_gate.required_check_ids == [
+    quality_checks[0].id
+]
+
+print("End-to-end quality flow test passed successfully")
+# End-to-end failed quality flow test
+
+failed_artifact = EngineeringArtifact(
+    id="e2e-readme-failed-001",
+    name="README.md",
+    artifact_type="documentation",
+    source="test",
+)
+
+failed_engine = QualityRuleEngine()
+failed_engine.register_rule(check_readme, "documentation")
+
+failed_content = """
+# Project README
+
+This README has no required sections.
+"""
+
+quality_checks, findings, evidence, remediations = failed_engine.run(
+    failed_artifact,
+    failed_content,
+)
+
+quality_gate = failed_engine.evaluate_gate(quality_checks)
+
+assert len(quality_checks) == 1
+assert quality_checks[0].status == "FAILED"
+
+assert len(findings) == 2
+assert len(evidence) == 2
+assert len(remediations) == 2
+
+assert quality_gate.status == "FAILED"
+
+print("End-to-end failed quality flow test passed successfully")
