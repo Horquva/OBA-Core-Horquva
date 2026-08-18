@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Antares Source Record Contract",
+  "type": "object",
+  "properties": {
+    "source_id": { "type": "string" },
+    "title": { "type": "string" },
+    "url": { "type": "string", "format": "uri" },
+    "author": { "type": "string" },
+    "publish_date": { "type": "string", "format": "date-time" },
+    "credibility_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "domain": { "type": "string" },
+    "raw_content": { "type": "string" }
+  },
+  "required": ["source_id", "credibility_score", "url"]
+}
