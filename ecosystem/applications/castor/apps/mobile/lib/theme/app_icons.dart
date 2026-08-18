@@ -34,6 +34,7 @@ abstract final class AppIcons {
   static const IconData lastUpdated = LucideIcons.power;
   static const IconData send = LucideIcons.arrowRight;
   static const IconData play = LucideIcons.play;
+  static const IconData mic = LucideIcons.mic;
 
   // ─── Severity (leading icon on signal cards) ───────────────────────────
   static const IconData critical = LucideIcons.alertTriangle;

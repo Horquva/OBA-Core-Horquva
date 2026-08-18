@@ -5,6 +5,7 @@ import '../theme/app_icons.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../views/widgets/action_button.dart';
+import '../views/widgets/app_text_field.dart';
 import '../views/widgets/bottom_nav_bar.dart';
 import '../views/widgets/decision_card.dart';
 import '../views/widgets/pill_button.dart';
@@ -293,6 +294,24 @@ class ComponentShowcase extends StatelessWidget {
                 meta: 'Low impact • For approval',
                 due: 'Due: May 19, 09:00 AM',
                 onTap: () {},
+              ),
+            ],
+          ),
+
+          // ─── Text Field ────────────────────────────────────────────────
+          _section(
+            title: 'Text Field',
+            children: const [
+              // "Ask" type — mic icon at the end.
+              AppTextField(
+                hintText: 'Ask anything about your organization...',
+                type: AppTextFieldType.ask,
+              ),
+              SizedBox(height: AppSpacing.md),
+              // "Search" type — search icon at the end.
+              AppTextField(
+                hintText: 'Search signals...',
+                type: AppTextFieldType.search,
               ),
             ],
           ),
