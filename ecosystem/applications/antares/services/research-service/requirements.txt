@@ -1,6 +1,8 @@
-pydantic>=2.0.0
+# Only required for the HTTP service layer (src/fsi/api.py).
+# The core pipeline, tests and dashboard run on the standard library alone.
 fastapi>=0.110.0
-uvicorn>=0.29.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.6
 requests>=2.31.0
 pytest>=8.0.0
 httpx>=0.27.0

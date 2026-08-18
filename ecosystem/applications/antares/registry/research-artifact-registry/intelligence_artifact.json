@@ -1,0 +1,275 @@
+{
+  "pattern_id": "pat_90a3b95db85c3aac",
+  "payload": {
+    "schema_version": "fsi.intelligence.v1",
+    "identity": {
+      "pattern_id": "pat_90a3b95db85c3aac",
+      "name": "Human-AI collaboration",
+      "theme": "human_ai_collaboration",
+      "lifecycle_state": "VALIDATED",
+      "generated_at": "2026-08-18T04:07:55+00:00"
+    },
+    "evidence": [
+      {
+        "id": "ev_edbf356af57015c5",
+        "title": "State of Engineering Productivity 2025",
+        "source": "Engineering Productivity Institute",
+        "source_type": "INDUSTRY_REPORT",
+        "status": "VERIFIED",
+        "weight": 0.85,
+        "url": "https://example.org/reports/eng-productivity-2025"
+      },
+      {
+        "id": "ev_121d9a6e73bbccaa",
+        "title": "Copilot adoption in regulated code review",
+        "source": "Journal of Software Organization",
+        "source_type": "PEER_REVIEWED",
+        "status": "VERIFIED",
+        "weight": 1.0,
+        "url": "https://example.org/jso/2026/assisted-review"
+      },
+      {
+        "id": "ev_4f1fadaee84d58ab",
+        "title": "Internal observation: review queue composition shift",
+        "source": "Internal Engineering Observation Log",
+        "source_type": "INTERNAL_OBSERVATION",
+        "status": "VERIFIED",
+        "weight": 0.75,
+        "url": ""
+      },
+      {
+        "id": "ev_0fb5aab34c471011",
+        "title": "Assisted architecture decision records",
+        "source": "Journal of Software Organization",
+        "source_type": "PEER_REVIEWED",
+        "status": "VERIFIED",
+        "weight": 1.0,
+        "url": "https://example.org/jso/2026/assisted-adr"
+      },
+      {
+        "id": "ev_ae2ba52d419436ae",
+        "title": "Architecture practice survey",
+        "source": "Enterprise Architecture Digest",
+        "source_type": "INDUSTRY_REPORT",
+        "status": "VERIFIED",
+        "weight": 0.85,
+        "url": "https://example.org/ead/practice-survey"
+      },
+      {
+        "id": "ev_04022e6f6b6c3634",
+        "title": "Internal observation: ADR authorship shift",
+        "source": "Internal Engineering Observation Log",
+        "source_type": "INTERNAL_OBSERVATION",
+        "status": "VERIFIED",
+        "weight": 0.75,
+        "url": ""
+      }
+    ],
+    "organizational_impact": {
+      "affected_dimensions": [
+        "collaboration",
+        "human_ai_collaboration",
+        "workforce"
+      ],
+      "per_signal": [
+        {
+          "signal_id": "sig_39956fe626e0285b",
+          "dimensions": [
+            {
+              "dimension": "human_ai_collaboration",
+              "direction": "INCREASES",
+              "severity": 5,
+              "horizon_months": 12,
+              "rationale": "Derived from theme 'Human-AI collaboration' prior."
+            },
+            {
+              "dimension": "workforce",
+              "direction": "RESHAPES",
+              "severity": 4,
+              "horizon_months": 18,
+              "rationale": "Derived from theme 'Human-AI collaboration' prior."
+            },
+            {
+              "dimension": "collaboration",
+              "direction": "RESHAPES",
+              "severity": 3,
+              "horizon_months": 18,
+              "rationale": "Derived from theme 'Human-AI collaboration' prior."
+            }
+          ],
+          "breadth": 3,
+          "max_severity": 5,
+          "nearest_horizon_months": 12
+        },
+        {
+          "signal_id": "sig_b8fb00ad17aae76a",
+          "dimensions": [
+            {
+              "dimension": "human_ai_collaboration",
+              "direction": "INCREASES",
+              "severity": 5,
+              "horizon_months": 12,
+              "rationale": "Derived from theme 'Human-AI collaboration' prior."
+            },
+            {
+              "dimension": "workforce",
+              "direction": "RESHAPES",
+              "severity": 4,
+              "horizon_months": 18,
+              "rationale": "Derived from theme 'Human-AI collaboration' prior."
+            },
+            {
+              "dimension": "collaboration",
+              "direction": "RESHAPES",
+              "severity": 3,
+              "horizon_months": 18,
+              "rationale": "Derived from theme 'Human-AI collaboration' prior."
+            }
+          ],
+          "breadth": 3,
+          "max_severity": 5,
+          "nearest_horizon_months": 12
+        }
+      ]
+    },
+    "relationships": [
+      {
+        "source_signal_id": "sig_39956fe626e0285b",
+        "target_signal_id": "sig_b8fb00ad17aae76a",
+        "relation": "SIMILAR_TO",
+        "strength": 0.845,
+        "explanation": "theme overlap 1.00, dimension overlap 1.00, description overlap 0.22",
+        "id": "rel_eaa6c40f06c05966",
+        "created_at": "2026-08-18T04:07:55+00:00"
+      },
+      {
+        "source_signal_id": "sig_39956fe626e0285b",
+        "target_signal_id": "sig_b8fb00ad17aae76a",
+        "relation": "SIMILAR_TO",
+        "strength": 0.845,
+        "explanation": "theme overlap 1.00, dimension overlap 1.00, description overlap 0.22",
+        "id": "rel_eaa6c40f06c05966",
+        "created_at": "2026-08-18T04:07:55+00:00"
+      }
+    ],
+    "pattern_candidates": {
+      "signal_ids": [
+        "sig_39956fe626e0285b",
+        "sig_b8fb00ad17aae76a"
+      ],
+      "why_detected": "2 independent signals classified under 'Human-AI collaboration', corroborated by 6 evidence items across 4 distinct sources.",
+      "open_questions": [
+        "What would falsify this pattern? Name the counter-evidence to look for."
+      ]
+    },
+    "confidence": {
+      "value": 0.722,
+      "band": "MEDIUM",
+      "factors": {
+        "evidence_strength": 0.867,
+        "recurrence": 0.4,
+        "source_diversity": 0.75,
+        "organizational_breadth": 0.5,
+        "temporal_persistence": 1.0,
+        "contradiction_penalty": 0
+      },
+      "method": {
+        "weights": {
+          "evidence_strength": 0.25,
+          "recurrence": 0.2,
+          "source_diversity": 0.2,
+          "organizational_breadth": 0.15,
+          "temporal_persistence": 0.2
+        },
+        "factors": {
+          "evidence_strength": 0.867,
+          "recurrence": 0.4,
+          "source_diversity": 0.75,
+          "organizational_breadth": 0.5,
+          "temporal_persistence": 1.0,
+          "contradiction_penalty": 0
+        },
+        "formula": "sum(weight_i * factor_i) * (1 - contradiction_penalty)"
+      }
+    },
+    "trajectory": {
+      "value": "STABLE",
+      "detail": {
+        "per_signal": {
+          "STABLE": 2
+        },
+        "reason": "2 of 2 backing signals are STABLE."
+      }
+    },
+    "provenance": {
+      "produced_by": "future-signal-intelligence",
+      "owner": "Emerging Organizational Intelligence & Future-Signal Engineering",
+      "human_reviewer": "syed",
+      "audit_trail": [
+        {
+          "seq": 71,
+          "at": "2026-08-18T04:07:55+00:00",
+          "entity_type": "pattern",
+          "entity_id": "pat_90a3b95db85c3aac",
+          "action": "UPSERT",
+          "actor": "system",
+          "detail": "confidence=0.722"
+        },
+        {
+          "seq": 76,
+          "at": "2026-08-18T04:07:55+00:00",
+          "entity_type": "pattern",
+          "entity_id": "pat_90a3b95db85c3aac",
+          "action": "UPSERT",
+          "actor": "system",
+          "detail": "confidence=0.722"
+        },
+        {
+          "seq": 77,
+          "at": "2026-08-18T04:07:55+00:00",
+          "entity_type": "pattern",
+          "entity_id": "pat_90a3b95db85c3aac",
+          "action": "UPSERT",
+          "actor": "system",
+          "detail": "confidence=0.722"
+        },
+        {
+          "seq": 78,
+          "at": "2026-08-18T04:07:55+00:00",
+          "entity_type": "pattern",
+          "entity_id": "pat_90a3b95db85c3aac",
+          "action": "HUMAN_CONFIRM",
+          "actor": "syed",
+          "detail": "Reviewed evidence set; recurrence holds."
+        },
+        {
+          "seq": 79,
+          "at": "2026-08-18T04:07:55+00:00",
+          "entity_type": "pattern",
+          "entity_id": "pat_90a3b95db85c3aac",
+          "action": "UPSERT",
+          "actor": "system",
+          "detail": "confidence=0.722"
+        },
+        {
+          "seq": 80,
+          "at": "2026-08-18T04:07:55+00:00",
+          "entity_type": "pattern",
+          "entity_id": "pat_90a3b95db85c3aac",
+          "action": "HUMAN_VALIDATE",
+          "actor": "syed",
+          "detail": "Approved for Antares lifecycle."
+        }
+      ]
+    },
+    "contradictions": [],
+    "downstream_consumers": [
+      "organizational-futures",
+      "capability-validation",
+      "knowledge-operationalization"
+    ]
+  },
+  "schema_version": "fsi.intelligence.v1",
+  "id": "art_d556d66f8b83e557",
+  "created_at": "2026-08-18T04:07:55+00:00"
+}
