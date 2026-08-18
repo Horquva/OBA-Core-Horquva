@@ -19,3 +19,7 @@ backend/.env
 
 # Internal planning docs
 FRONTEND_PLAN.md
+__pycache__/
+*.pyc
+.pytest_cache/
+fsi.db

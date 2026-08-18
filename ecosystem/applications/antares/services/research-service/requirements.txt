@@ -1,0 +1,5 @@
+# Only required for the HTTP service layer (src/fsi/api.py).
+# The core pipeline, tests and dashboard run on the standard library alone.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
