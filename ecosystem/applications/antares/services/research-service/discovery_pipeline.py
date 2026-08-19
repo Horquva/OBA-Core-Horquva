@@ -26,16 +26,23 @@ class DiscoveryPipeline:
             return [str(t).strip() for t in data["technologies"] if t]
         return []
 
-    def _find_matching_profile(self, tech_name: str, tech_vector: List[float]) -> Optional[TechnologyProfile]:
-        if not tech_vector: return None
+    def _find_matching_profile(self, tech_name: str, tech_vector: List[float],
+                                existing_profiles: List[TechnologyProfile],
+                                existing_vectors: List[List[float]]) -> Optional[TechnologyProfile]:
+        # NOTE (fix): existing_vectors is now embedded ONCE per process_source() call
+        # (batched, in process_source) instead of once per existing profile per raw
+        # technology here. The old version called self.llm.embed([profile.name]) inside
+        # this loop, which meant every new mention re-embedded the *entire* registry via
+        # the Gemini API (O(existing_techs) API calls per ingest) -- expensive and slow
+        # as the registry grows. Vectors are now passed in pre-computed.
+        if not tech_vector or not existing_vectors: return None
         best_match, best_score = None, 0.0
-        for profile in self.registry.technologies.values():
-            existing_vecs = self.llm.embed([profile.name])
-            if existing_vecs:
-                score = self.llm.cosine_similarity(tech_vector, existing_vecs[0])
-                if score > best_score:
-                    best_score = score
-                    best_match = (profile, score)
+        for profile, existing_vec in zip(existing_profiles, existing_vectors):
+            if not existing_vec: continue
+            score = self.llm.cosine_similarity(tech_vector, existing_vec)
+            if score > best_score:
+                best_score = score
+                best_match = (profile, score)
         if best_match and best_match[1] >= self.similarity_threshold:
             logger.info(f"[Semantic Match] '{tech_name}' matched with '{best_match[0].name}' (score: {best_match[1]:.3f})")
             return best_match[0]
@@ -55,12 +62,20 @@ class DiscoveryPipeline:
         vectors = self.llm.embed(raw_techs)
         if not vectors or len(vectors) != len(raw_techs): vectors = [None] * len(raw_techs)
 
+        # Batch-embed the existing registry ONCE per source, not once per raw tech (see
+        # _find_matching_profile for why this matters).
+        existing_profiles = list(self.registry.technologies.values())
+        existing_names = [p.name for p in existing_profiles]
+        existing_vectors = self.llm.embed(existing_names) if existing_names else []
+        if not existing_vectors or len(existing_vectors) != len(existing_profiles):
+            existing_vectors = [None] * len(existing_profiles)
+
         intelligence_records = []
         source_id = hashlib.md5(source_url.encode()).hexdigest()
 
         for i, raw_tech in enumerate(raw_techs):
             tech_vector = vectors[i]
-            matched_profile = self._find_matching_profile(raw_tech, tech_vector)
+            matched_profile = self._find_matching_profile(raw_tech, tech_vector, existing_profiles, existing_vectors)
             evidence_text = self._extract_evidence_sentence(raw_text, raw_tech)
             confidence = ConfidenceMetadata(score=0.90 if tech_vector else 0.60, variance=0.05, sample_size=1, calibration_source="gemini-llm")
             evidence = EvidenceRecord(source_id=source_id, extracted_text=evidence_text, confidence=confidence)

@@ -1,4 +1,4 @@
-from models import SourceRecord, EvidenceRecord, TechnologyProfile, MaturityState
+from models import SourceRecord, EvidenceRecord, TechnologyProfile, MaturityState, ConfidenceMetadata
 from datetime import datetime, timezone
 
 class TechnologyIntelligenceEngine:
@@ -17,7 +17,7 @@ class TechnologyIntelligenceEngine:
         evidence = EvidenceRecord(
             source_id=source_id,
             extracted_text=evidence_text,
-            confidence_score=confidence
+            confidence=ConfidenceMetadata(score=confidence, calibration_source="manual")
         )
         
         if tech_name in self.technologies:
