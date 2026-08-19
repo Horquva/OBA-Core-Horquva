@@ -13,8 +13,8 @@ This service is the core Technology Intelligence Engine for the Antares initiati
 - FastAPI Server: Exposes live HTTP endpoints for downstream consumers.
 
 ## API Endpoints
-- POST /ingest - Ingest a new raw technology signal (JSON payload).
-- GET /intelligence/{tech_name} - Retrieve structured intelligence, maturity, and relationships for a specific technology.
+- POST /v1/ingest - Ingest a new raw technology signal (JSON payload). Requires X-API-Key header.
+- GET /v1/intelligence/{tech_name} - Retrieve structured intelligence, maturity, and relationships for a specific technology. Requires X-API-Key header.
 
 ## How to Run Locally
 1. Create and activate virtual environment:
