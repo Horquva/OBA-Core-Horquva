@@ -20,14 +20,15 @@ function validate(input) {
     pipelineResult
   )
 
-  return {
+  const result = {
     ...pipelineResult,
     score,
     ...decision,
     ...review,
     audit,
   }
-return normalizeValidationResult(result)
+
+  return normalizeValidationResult(result)
 }
 
 module.exports = {
