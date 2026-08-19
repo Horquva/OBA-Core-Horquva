@@ -39,16 +39,14 @@ Edit .env: GEMINI_API_KEY, GEMINI_MODEL=gemini-3.1-flash-lite, ANTARES_API_KEY
 uvicorn api_server:app --port 8000  →  Swagger at http://127.0.0.1:8000/docs
 PYTHONPATH=. pytest -v test_suite.py  →  7 passed, deterministic
 
-## Real bugs caught & fixed (honest, not hidden)
+## Real bugs caught & fixed
 Gitleaks secret in history (BFG scrub); N+1 embedding calls (batch fix); ingestion
 confidence_score vs ConfidenceMetadata mismatch; over-merging 0.80→0.92; .title()
 acronym bug; mock side_effect leakage; test state leakage; pytest collection crash
 from old top-level scripts (moved to manual_scripts/).
 
 ## Ownership boundary
-I own Technology Intelligence only. Org Futures (Muzammel), Trust & Governance
-(Kanwal), Capability Validation (Zara) etc. consume my output; their files in the
-shared docs/research folder remain theirs.
+I own Technology Intelligence only.
 
 ## Left for later (on purpose)
 DB-backed persistence (ADR-001); evaluation datasets with precision/recall/
