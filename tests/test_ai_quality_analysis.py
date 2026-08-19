@@ -1,6 +1,9 @@
 from modules.quality_models import EngineeringArtifact, Finding, Severity
 from modules.ai_quality_analysis import AIQualityAnalyzer
-
+from modules.ai_quality_analysis import (
+    AIQualityAnalyzer,
+    AIEvaluationFramework,
+)
 
 artifact = EngineeringArtifact(
     id="readme-001",
@@ -83,3 +86,57 @@ print("Human review evidence test passed successfully")
 print("Human review lifecycle test passed successfully")
 
 print("AI quality analysis test passed successfully")
+evaluator = AIEvaluationFramework()
+
+expected = [
+    "QUALITY_ISSUE",
+    "QUALITY_ISSUE",
+    "OTHER",
+    "QUALITY_ISSUE",
+]
+
+predicted = [
+    "QUALITY_ISSUE",
+    "QUALITY_ISSUE",
+    "OTHER",
+    "OTHER",
+]
+
+metrics = evaluator.evaluate_classification(
+    expected,
+    predicted,
+)
+
+assert len(metrics) == 4
+
+metric_names = {metric.name for metric in metrics}
+
+assert "AI Classification Accuracy" in metric_names
+assert "AI Classification Precision" in metric_names
+assert "AI Classification Recall" in metric_names
+assert "AI Classification F1 Score" in metric_names
+
+for metric in metrics:
+    assert 0.0 <= metric.value <= 1.0
+    assert metric.unit == "ratio"
+
+print("AI evaluation framework test passed successfully")
+try:
+    evaluator.evaluate_classification(
+        ["QUALITY_ISSUE"],
+        [],
+    )
+    raise AssertionError("Expected ValueError for mismatched input lengths")
+except ValueError:
+    pass
+
+try:
+    evaluator.evaluate_classification(
+        [],
+        [],
+    )
+    raise AssertionError("Expected ValueError for empty evaluation data")
+except ValueError:
+    pass
+
+print("AI evaluation edge case test passed successfully")

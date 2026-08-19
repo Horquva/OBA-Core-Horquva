@@ -94,3 +94,87 @@ class AIQualityAnalyzer:
                 f"for finding '{finding.id}'."
             ),
         )
+class AIEvaluationFramework:
+    def evaluate_classification(
+        self,
+        expected: list[str],
+        predicted: list[str],
+    ):
+        from modules.quality_models import QualityMetric
+
+        if len(expected) != len(predicted):
+            raise ValueError(
+                "Expected and predicted lists must have the same length."
+            )
+
+        if not expected:
+            raise ValueError("Evaluation data cannot be empty.")
+
+        true_positive = sum(
+            1
+            for actual, prediction in zip(expected, predicted)
+            if actual == "QUALITY_ISSUE"
+            and prediction == "QUALITY_ISSUE"
+        )
+
+        actual_positive = sum(
+            1 for actual in expected if actual == "QUALITY_ISSUE"
+        )
+
+        predicted_positive = sum(
+            1 for prediction in predicted
+            if prediction == "QUALITY_ISSUE"
+        )
+
+        correct = sum(
+            1
+            for actual, prediction in zip(expected, predicted)
+            if actual == prediction
+        )
+
+        accuracy = correct / len(expected)
+
+        precision = (
+            true_positive / predicted_positive
+            if predicted_positive
+            else 0.0
+        )
+
+        recall = (
+            true_positive / actual_positive
+            if actual_positive
+            else 0.0
+        )
+
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if precision + recall
+            else 0.0
+        )
+
+        return [
+            QualityMetric(
+                id="AI-EVAL-ACCURACY",
+                name="AI Classification Accuracy",
+                value=accuracy,
+                unit="ratio",
+            ),
+            QualityMetric(
+                id="AI-EVAL-PRECISION",
+                name="AI Classification Precision",
+                value=precision,
+                unit="ratio",
+            ),
+            QualityMetric(
+                id="AI-EVAL-RECALL",
+                name="AI Classification Recall",
+                value=recall,
+                unit="ratio",
+            ),
+            QualityMetric(
+                id="AI-EVAL-F1",
+                name="AI Classification F1 Score",
+                value=f1,
+                unit="ratio",
+            ),
+        ]
