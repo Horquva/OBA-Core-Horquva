@@ -94,6 +94,28 @@ class AIQualityAnalyzer:
                 f"for finding '{finding.id}'."
             ),
         )
+    def detect_duplicate_findings(
+        self,
+        findings: list[Finding],
+    ) -> list[tuple[str, str]]:
+        duplicates = []
+
+        for index, finding in enumerate(findings):
+            for other in findings[index + 1:]:
+                same_artifact = (
+                    finding.artifact_id == other.artifact_id
+                )
+
+                same_rule = (
+                    finding.rule_id == other.rule_id
+                )
+
+                if same_artifact and same_rule:
+                    duplicates.append(
+                        (finding.id, other.id)
+                    )
+
+        return duplicates
 class AIEvaluationFramework:
     def evaluate_classification(
         self,

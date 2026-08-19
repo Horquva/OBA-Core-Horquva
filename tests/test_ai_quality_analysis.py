@@ -140,3 +140,12 @@ except ValueError:
     pass
 
 print("AI evaluation edge case test passed successfully")
+duplicate_findings = analyzer.detect_duplicate_findings(
+    [finding, finding]
+)
+
+assert duplicate_findings == [
+    (finding.id, finding.id)
+]
+
+print("Duplicate finding detection test passed successfully")
