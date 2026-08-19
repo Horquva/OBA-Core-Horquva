@@ -158,7 +158,7 @@ export const sessionAdapter = {
    */
   canAccessRoute({ route, session }) {
     if (!route.requiresAuth) return true;
-    if (!session || !session.isAuthenticated) return false;
+    if (!session || !session.isAuthenticated || !session.token) return false;
     if (this.isTokenExpired(session.expiresAt)) return false;
     return true;
   },

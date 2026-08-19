@@ -80,5 +80,8 @@ const assert = require('node:assert/strict');
     assert.equal(view.route, 'dashboard');
     assert.ok(view.accessibility.label);
     assert.ok(view.sections.length >= 1);
+
+    const fallback = engineering.renderEngineeringApp({ route: 'unknown-route' });
+    assert.equal(fallback.route, 'dashboard');
   });
 })();

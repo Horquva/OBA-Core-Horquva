@@ -42,6 +42,15 @@ const assert = require('node:assert/strict');
     assert.equal(sessionAdapter.canAccessRoute({ route: protectedRoute, session }), false);
   });
 
+  test('session adapter blocks protected access when authentication has no token', () => {
+    const session = sessionAdapter.createSessionState({
+      isAuthenticated: true,
+      expiresAt: new Date(Date.now() + 3600000).toISOString()
+    });
+    const protectedRoute = { id: 'dashboard', requiresAuth: true };
+    assert.equal(sessionAdapter.canAccessRoute({ route: protectedRoute, session }), false);
+  });
+
   test('session adapter allows access to public routes without auth', () => {
     const session = sessionAdapter.createSessionState();
     const publicRoute = { id: 'login', requiresAuth: false };
@@ -71,6 +80,28 @@ const assert = require('node:assert/strict');
     assert.ok(result.data);
     assert.ok(Array.isArray(result.data.summaryCards));
     assert.ok(Array.isArray(result.data.projectStatus));
+  });
+
+  test('dashboard adapter normalizes an upstream unauthorized response', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = async () => ({
+      headers: { get: () => 'application/json' },
+      status: 401,
+      ok: false,
+      text: async () => JSON.stringify({ message: 'Unauthorized' })
+    });
+
+    try {
+      const result = await dashboardServiceAdapter.fetchDashboardData({
+        backendUrl: 'http://upstream.test',
+        useMock: false,
+        token: 'expired-token'
+      });
+      assert.equal(result.status, 'unauthorized');
+      assert.equal(result.error, 'Dashboard access requires authentication');
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 
   // ──── Knowledge Service Tests ────

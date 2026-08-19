@@ -224,8 +224,9 @@ export function renderActivityExperience({ activity = mockData.activity } = {}) 
 }
 
 export function renderEngineeringApp({ route = 'dashboard', appState = null } = {}) {
-  const routeId = (route || 'dashboard').toLowerCase();
-  const currentRoute = resolveEngineeringRoute(routeId);
+  const requestedRouteId = (route || 'dashboard').toLowerCase();
+  const currentRoute = resolveEngineeringRoute(requestedRouteId);
+  const routeId = currentRoute.id;
   const state = appState ?? {
     status: 'ready',
     activeRoute: routeId

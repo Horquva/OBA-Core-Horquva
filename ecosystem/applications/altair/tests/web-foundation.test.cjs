@@ -48,6 +48,7 @@ test('UI primitives expose accessible metadata', () => {
 test('platform quality helpers sanitize input and expose observability readiness', () => {
   const sanitized = foundation.sanitizeText('<script>alert(1)</script><b>Safe</b>');
   assert.equal(sanitized, 'alert(1)Safe');
+  assert.equal(foundation.sanitizeText('&lt;script&gt;safe&lt;/script&gt;'), '&lt;script&gt;safe&lt;/script&gt;');
 
   const telemetry = foundation.createObservabilityState();
   assert.equal(telemetry.status, 'ready');
@@ -73,6 +74,73 @@ test('service boundary treats unauthorized responses as contract-safe errors', a
     assert.equal(result.ok, false);
     assert.equal(result.status, 401);
     assert.equal(result.error, 'Unauthorized request. Authentication is required.');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('service boundary preserves empty successful responses', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    headers: { get: () => 'application/json' },
+    status: 204,
+    ok: true,
+    text: async () => ''
+  });
+
+  try {
+    const result = await foundation.requestService({ method: 'GET', url: '/empty', timeoutMs: 200 });
+    assert.deepEqual(result, { ok: true, status: 204, data: null, error: null });
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('service boundary reports malformed JSON as a contract error', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    headers: { get: () => 'application/json' },
+    status: 200,
+    ok: true,
+    text: async () => '{invalid'
+  });
+
+  try {
+    const result = await foundation.requestService({ method: 'GET', url: '/malformed', timeoutMs: 200 });
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 200);
+    assert.equal(result.error, 'Invalid JSON response.');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('service boundary distinguishes timeout from caller cancellation', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => {
+      const error = new Error('aborted');
+      error.name = 'AbortError';
+      reject(error);
+    }, { once: true });
+  });
+
+  try {
+    const timeout = await foundation.requestService({ method: 'GET', url: '/slow', timeoutMs: 5 });
+    assert.equal(timeout.status, 408);
+    assert.equal(timeout.error, 'Request timed out.');
+
+    const abortController = new AbortController();
+    const cancelledRequest = foundation.requestService({
+      method: 'GET',
+      url: '/cancelled',
+      timeoutMs: 200,
+      signal: abortController.signal
+    });
+    abortController.abort();
+    const cancelled = await cancelledRequest;
+    assert.equal(cancelled.status, 0);
+    assert.equal(cancelled.error, 'Request cancelled.');
   } finally {
     global.fetch = originalFetch;
   }

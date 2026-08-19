@@ -1,8 +1,23 @@
 export async function requestService(request) {
   const controller = new AbortController();
   const timeoutMs = request.timeoutMs ?? 8000;
+  let timedOut = false;
+  let removeAbortListener = null;
 
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  if (request.signal) {
+    if (request.signal.aborted) {
+      controller.abort(request.signal.reason);
+    } else {
+      const forwardAbort = () => controller.abort(request.signal.reason);
+      request.signal.addEventListener('abort', forwardAbort, { once: true });
+      removeAbortListener = () => request.signal.removeEventListener('abort', forwardAbort);
+    }
+  }
+
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
 
   try {
     const response = await fetch(request.url, {
@@ -16,7 +31,26 @@ export async function requestService(request) {
     });
 
     const contentType = response.headers.get('content-type') ?? '';
-    const payload = contentType.includes('application/json') ? await response.json() : null;
+    let payload = null;
+
+    if (contentType.includes('application/json') && response.status !== 204) {
+      const rawPayload = typeof response.text === 'function'
+        ? await response.text()
+        : JSON.stringify(await response.json());
+
+      if (rawPayload) {
+        try {
+          payload = JSON.parse(rawPayload);
+        } catch {
+          return {
+            ok: false,
+            status: response.status,
+            data: null,
+            error: 'Invalid JSON response.'
+          };
+        }
+      }
+    }
 
     if (response.status === 401) {
       return {
@@ -45,14 +79,21 @@ export async function requestService(request) {
       error: null
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Request failed.';
+    const message = timedOut
+      ? 'Request timed out.'
+      : error instanceof Error && error.name === 'AbortError'
+        ? 'Request cancelled.'
+        : error instanceof Error
+          ? error.message
+          : 'Request failed.';
     return {
       ok: false,
-      status: 0,
+      status: timedOut ? 408 : 0,
       data: null,
       error: message
     };
   } finally {
     clearTimeout(timer);
+    removeAbortListener?.();
   }
 }
