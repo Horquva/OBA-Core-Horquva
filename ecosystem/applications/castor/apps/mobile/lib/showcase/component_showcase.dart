@@ -8,6 +8,7 @@ import '../views/widgets/action_button.dart';
 import '../views/widgets/app_text_field.dart';
 import '../views/widgets/app_top_bar.dart';
 import '../views/widgets/bottom_nav_bar.dart';
+import '../views/widgets/briefing_card.dart';
 import '../views/widgets/decision_card.dart';
 import '../views/widgets/pill_button.dart';
 import '../views/widgets/segmented_tabs.dart';
@@ -314,6 +315,27 @@ class ComponentShowcase extends StatelessWidget {
               AppTextField(
                 hintText: 'Search signals...',
                 type: AppTextFieldType.search,
+              ),
+            ],
+          ),
+
+          // ─── Briefing Card ─────────────────────────────────────────────
+          _section(
+            title: 'Briefing Card',
+            children: [
+              BriefingCard(
+                label: 'EXECUTIVE BRIEFING',
+                title: "Here's what matters most.",
+                body: 'I analyzed 12,481 signals and identified '
+                    '7 material changes.',
+                startTitle: 'Start Briefing',
+                startSubtitle: '8 min estimated',
+                summaryTitle: 'Summary',
+                summarySubtitle: 'Key highlights',
+                estimateValue: '72s',
+                estimateLabel: 'estimated',
+                onStart: () {},
+                onSummary: () {},
               ),
             ],
           ),

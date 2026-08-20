@@ -59,4 +59,5 @@ abstract final class AppIcons {
   // ─── Other status / content ────────────────────────────────────────────
   static const IconData sparkle = LucideIcons.sparkles;
   static const IconData attention = LucideIcons.target;
+  static const IconData document = LucideIcons.fileText;
 }
