@@ -18,6 +18,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onNotification,
     this.onAvatar,
     this.hasNotification = true,
+    this.avatarImage,
     this.avatarInitials = 'G',
   });
 
@@ -30,7 +31,11 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Shows the green dot on the bell when true.
   final bool hasNotification;
 
-  /// Placeholder initials shown in the avatar.
+  /// The user's profile picture (DP). When null, a default asset image is
+  /// shown instead.
+  final ImageProvider? avatarImage;
+
+  /// Last-resort initials, shown only if the default image is also missing.
   final String avatarInitials;
 
   @override
@@ -49,9 +54,19 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           child: Row(
             children: [
-              // Brand logo + name.
-              const Icon(AppIcons.castor, color: AppColors.primary, size: 26),
-              const SizedBox(width: AppSpacing.sm),
+              // Brand logo mark (icon only, no text). Falls back to the star
+              // icon if the asset is missing.
+              Image.asset(
+                'assets/images/castor_mark.png',
+                width: 44,
+                height: 44,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                  AppIcons.castor,
+                  color: AppColors.primary,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -123,25 +138,43 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  /// Circular avatar (placeholder shows initials).
+  /// Circular avatar: the user's DP, else a default asset, else initials.
   Widget _avatar() {
+    const double size = 42;
+
+    final Widget picture = avatarImage != null
+        // The user's profile picture.
+        ? Image(image: avatarImage!, width: size, height: size, fit: BoxFit.cover)
+        // No DP set — show the default image (falls back to initials).
+        : Image.asset(
+            'assets/images/default_avatar.png',
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _initialsFallback(size),
+          );
+
     return AdaptiveTap(
       onTap: onAvatar,
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        width: 42,
-        height: 42,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          color: AppColors.primary,
-          shape: BoxShape.circle,
-        ),
-        child: Text(
-          avatarInitials,
-          style: AppTypography.label.copyWith(
-            color: AppColors.onPrimary,
-            fontWeight: FontWeight.w600,
-          ),
+      borderRadius: BorderRadius.circular(size / 2),
+      child: ClipOval(
+        child: SizedBox(width: size, height: size, child: picture),
+      ),
+    );
+  }
+
+  /// A coloured circle with the user's initials (last-resort avatar).
+  Widget _initialsFallback(double size) {
+    return Container(
+      width: size,
+      height: size,
+      color: AppColors.primary,
+      alignment: Alignment.center,
+      child: Text(
+        avatarInitials,
+        style: AppTypography.label.copyWith(
+          color: AppColors.onPrimary,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
