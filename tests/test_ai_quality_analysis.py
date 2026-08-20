@@ -179,3 +179,26 @@ assert compliance_gaps[0]["requires_human_review"] is True
 assert finding.id in compliance_gaps[0]["finding_ids"]
 
 print("Compliance gap identification test passed successfully")
+evaluation_framework = AIEvaluationFramework()
+
+error_metrics = evaluation_framework.evaluate_error_rates(
+    ["QUALITY_ISSUE", "COMPLIANT", "QUALITY_ISSUE", "COMPLIANT"],
+    ["QUALITY_ISSUE", "QUALITY_ISSUE", "COMPLIANT", "COMPLIANT"],
+)
+
+assert len(error_metrics) == 2
+
+false_positive_rate = next(
+    metric for metric in error_metrics
+    if metric.id == "AI-EVAL-FALSE-POSITIVE-RATE"
+)
+
+false_negative_rate = next(
+    metric for metric in error_metrics
+    if metric.id == "AI-EVAL-FALSE-NEGATIVE-RATE"
+)
+
+assert false_positive_rate.value == 0.25
+assert false_negative_rate.value == 0.25
+
+print("AI error rate evaluation test passed successfully")

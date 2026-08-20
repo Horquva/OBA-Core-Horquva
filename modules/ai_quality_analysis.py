@@ -201,7 +201,8 @@ class AIEvaluationFramework:
         )
 
         predicted_positive = sum(
-            1 for prediction in predicted
+            1
+            for prediction in predicted
             if prediction == "QUALITY_ISSUE"
         )
 
@@ -254,6 +255,52 @@ class AIEvaluationFramework:
                 id="AI-EVAL-F1",
                 name="AI Classification F1 Score",
                 value=f1,
+                unit="ratio",
+            ),
+        ]
+
+    def evaluate_error_rates(
+        self,
+        expected: list[str],
+        predicted: list[str],
+    ):
+        from modules.quality_models import QualityMetric
+
+        if len(expected) != len(predicted):
+            raise ValueError(
+                "Expected and predicted lists must have the same length."
+            )
+
+        if not expected:
+            raise ValueError("Evaluation data cannot be empty.")
+
+        false_positive = sum(
+            1
+            for actual, prediction in zip(expected, predicted)
+            if actual != "QUALITY_ISSUE"
+            and prediction == "QUALITY_ISSUE"
+        )
+
+        false_negative = sum(
+            1
+            for actual, prediction in zip(expected, predicted)
+            if actual == "QUALITY_ISSUE"
+            and prediction != "QUALITY_ISSUE"
+        )
+
+        total = len(expected)
+
+        return [
+            QualityMetric(
+                id="AI-EVAL-FALSE-POSITIVE-RATE",
+                name="AI False Positive Rate",
+                value=false_positive / total,
+                unit="ratio",
+            ),
+            QualityMetric(
+                id="AI-EVAL-FALSE-NEGATIVE-RATE",
+                name="AI False Negative Rate",
+                value=false_negative / total,
                 unit="ratio",
             ),
         ]
