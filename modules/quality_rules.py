@@ -154,6 +154,164 @@ class QualityRuleEngine:
             all_evidence,
             all_remediations,
         )
+    def evaluate_compliance(
+        self,
+        findings,
+        requirements,
+    ):
+        compliance_gaps = []
+
+        for requirement in requirements:
+            matching_findings = [
+                finding
+                for finding in findings
+                if finding.rule_id == requirement.id
+                and finding.status == "OPEN"
+            ]
+
+            if requirement.mandatory and matching_findings:
+                compliance_gaps.append(
+                    {
+                        "requirement_id": requirement.id,
+                        "requirement_name": requirement.name,
+                        "status": "GAP",
+                        "finding_ids": [
+                            finding.id for finding in matching_findings
+                        ],
+                    }
+                )
+            else:
+                compliance_gaps.append(
+                    {
+                        "requirement_id": requirement.id,
+                        "requirement_name": requirement.name,
+                        "status": "COMPLIANT",
+                        "finding_ids": [],
+                    }
+                )
+
+        return compliance_gaps
+    def create_governance_event(
+        self,
+        action,
+        actor,
+        artifact_id=None,
+        details="",
+    ):
+        from datetime import datetime
+        from modules.quality_models import AuditRecord
+
+        return AuditRecord(
+            id=f"event-{action.lower().replace(' ', '-')}",
+            action=action,
+            actor=actor,
+            timestamp=datetime.utcnow().isoformat(),
+            artifact_id=artifact_id,
+            details=details,
+        )
+    def update_finding_status(
+        self,
+        finding,
+        status,
+        actor,
+    ):
+        valid_statuses = {
+            "OPEN",
+            "IN_REVIEW",
+            "REMEDIATED",
+            "CLOSED",
+            "REJECTED",
+        }
+
+        if status not in valid_statuses:
+            raise ValueError(
+                f"Invalid finding status: {status}"
+            )
+
+        finding.status = status
+
+        return self.create_governance_event(
+            action=f"FINDING_{status}",
+            actor=actor,
+            artifact_id=finding.artifact_id,
+            details=(
+                f"Finding '{finding.id}' status changed to "
+                f"'{status}'."
+            ),
+        )
+    def create_exception(
+        self,
+        artifact_id,
+        reason,
+        requested_by,
+    ):
+        from modules.quality_models import Exception
+
+        if not reason.strip():
+            raise ValueError(
+                "Exception reason cannot be empty."
+            )
+
+        if not requested_by.strip():
+            raise ValueError(
+                "Exception requester cannot be empty."
+            )
+
+        return Exception(
+            id=f"exception-{artifact_id}",
+            artifact_id=artifact_id,
+            reason=reason,
+            requested_by=requested_by,
+            status="PENDING",
+        )
+    def approve_exception(
+        self,
+        exception,
+        approver,
+    ):
+        if exception.status != "PENDING":
+            raise ValueError(
+                "Only pending exceptions can be approved."
+            )
+
+        if not approver.strip():
+            raise ValueError(
+                "Approver cannot be empty."
+            )
+
+        exception.status = "APPROVED"
+        exception.approved_by = approver
+
+        return self.create_governance_event(
+            action="EXCEPTION_APPROVED",
+            actor=approver,
+            artifact_id=exception.artifact_id,
+            details=(
+                f"Exception '{exception.id}' approved."
+            ),
+        )
+
+    def create_approval(
+        self,
+        review_id,
+        approver,
+        status="APPROVED",
+        comments="",
+    ):
+        from modules.quality_models import Approval
+
+        if not approver.strip():
+            raise ValueError(
+                "Approver cannot be empty."
+            )
+
+        return Approval(
+            id=f"{review_id}-approval",
+            review_id=review_id,
+            approver=approver,
+            status=status,
+            comments=comments,
+        )
 
     def evaluate_gate(self, quality_checks, gate_id="default-gate"):
         status = (
