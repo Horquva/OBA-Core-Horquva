@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ANTARES — Organizational Intelligence</title>
+<script src="data.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#F6F6FB;
+  --card:#FFFFFF;
+  --ink:#151426;
+  --muted:#6E6B85;
+  --faint:#9997AC;
+  --line:#E9E7F3;
+  --accent:#5B3FF0;
+  --accent-2:#9B7CFB;
+  --accent-soft:#EFEBFF;
+  --ok:#12805F;
+  --ok-soft:#E4F6EE;
+  --warn:#B3540C;
+  --warn-soft:#FCEFE1;
+  --shadow: 0 1px 2px rgba(21,20,38,.04), 0 8px 24px -12px rgba(21,20,38,.08);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'Inter',ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14.5px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.shell{display:flex; min-height:100vh}
+
+/* ---------- Sidebar ---------- */
+.sidebar{
+  width:236px; background:var(--card); border-right:1px solid var(--line);
+  padding:20px 14px; flex-shrink:0; display:flex; flex-direction:column;
+  max-height:100vh; overflow-y:auto; position:sticky; top:0;
+}
+.brand{display:flex; align-items:center; gap:10px; padding:2px 8px 20px}
+.brand svg{width:26px; height:26px; flex-shrink:0}
+.brand-text strong{display:block; font-size:15px; letter-spacing:0.08em; font-weight:700}
+.brand-text span{font-size:10.5px; color:var(--faint); letter-spacing:0.02em}
+
+.nav-group{margin-bottom:16px}
+.nav-label{font-size:10px; text-transform:uppercase; letter-spacing:0.09em; color:var(--faint); font-weight:700; padding:0 10px 6px}
+.nav-item{
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  padding:7.5px 10px; border-radius:8px; margin-bottom:1px;
+  color:var(--muted); font-size:13px; font-weight:500;
+  background:none; border:none; cursor:pointer; font-family:inherit;
+  transition:background .12s ease, color .12s ease;
+}
+.nav-item:hover{background:#F5F3FF; color:var(--ink)}
+.nav-item.active{background:var(--accent-soft); color:var(--accent); font-weight:700}
+.nav-item svg{width:15px; height:15px; flex-shrink:0; opacity:.8}
+.nav-item .nqty{margin-left:auto; font-size:10.5px; color:var(--faint); font-weight:600}
+.nav-item.active .nqty{color:var(--accent)}
+
+.sidebar-foot{
+  margin-top:8px; padding:12px; border-radius:10px; background:#FAFAFE; border:1px solid var(--line);
+  font-size:11.5px; color:var(--muted);
+}
+.sidebar-foot strong{display:block; color:var(--ink); font-size:12px}
+.live-dot{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ok); margin-right:5px}
+
+/* ---------- Main ---------- */
+.main{flex:1; padding:22px 32px 60px; max-width:1320px}
+.topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:20px}
+.topbar h1{font-size:13.5px; font-weight:500; color:var(--muted); margin:0}
+.badge{
+  display:inline-flex; align-items:center; gap:6px; font-size:12px;
+  background:var(--ok-soft); color:var(--ok); padding:5px 12px; border-radius:20px; font-weight:600;
+}
+
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ---------- Hero ---------- */
+.hero{
+  display:flex; align-items:center; justify-content:space-between; gap:32px;
+  background:var(--card); border:1px solid var(--line); border-radius:20px;
+  padding:30px 34px; margin-bottom:18px; box-shadow:var(--shadow); overflow:hidden;
+}
+.hero-text h2{font-size:29px; margin:0 0 8px; letter-spacing:-0.015em; font-weight:800}
+.hero-text h2 .accent{color:var(--accent)}
+.hero-text p{color:var(--muted); margin:0; font-size:14px; max-width:460px}
+.hero-orbit{width:150px; height:150px; flex-shrink:0}
+
+/* ---------- 3-card insight row ---------- */
+.insight-row{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:18px}
+.insight-card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:var(--shadow)}
+.insight-card .eyebrow{display:flex; align-items:center; gap:7px; font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.04em; margin-bottom:10px}
+.insight-card .eyebrow svg{width:14px; height:14px}
+.insight-card h4{font-size:15.5px; margin:0 0 10px; font-weight:700; letter-spacing:-0.005em}
+.insight-card ul{margin:0; padding-left:16px; color:var(--muted); font-size:12.5px}
+.insight-card li{margin-bottom:5px}
+
+/* ---------- Stat grid ---------- */
+.grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(170px,1fr)); gap:12px; margin-bottom:18px}
+.stat-card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; box-shadow:var(--shadow)}
+.stat-card .label{font-size:11.5px; color:var(--muted); margin-bottom:8px; font-weight:500}
+.stat-card .value{font-size:26px; font-weight:800; letter-spacing:-0.02em}
+
+/* ---------- Panels ---------- */
+.panels{display:grid; grid-template-columns:1.15fr 1fr; gap:16px; margin-bottom:18px}
+.panel{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:var(--shadow)}
+.panel-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px}
+.panel-head h3{font-size:14px; margin:0; font-weight:700}
+.panel-head .count{color:var(--faint); font-weight:500; font-size:12px}
+.panel-head .view-all{color:var(--accent); font-size:12px; font-weight:600; text-decoration:none}
+
+.row{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13px}
+.row:last-child{border-bottom:none}
+.row .title{font-weight:500}
+.row .sub{color:var(--faint); font-size:11.5px; margin-top:2px}
+.row .who{color:var(--muted); font-size:12px; flex-shrink:0}
+
+.pill{font-size:10px; padding:4px 9px; border-radius:20px; font-weight:700; letter-spacing:.02em; flex-shrink:0}
+.pill.ready{background:var(--ok-soft); color:var(--ok)}
+.pill.pending{background:var(--warn-soft); color:var(--warn)}
+.pill.pattern{background:var(--accent-soft); color:var(--accent)}
+.pill.high{background:#FDEBEA; color:#B3261E}
+.pill.low{background:var(--ok-soft); color:var(--ok)}
+
+/* ---------- Live feed ---------- */
+.feed-panel{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:var(--shadow); margin-bottom:18px}
+.feed-item{display:flex; align-items:flex-start; gap:11px; padding:10px 0; border-bottom:1px solid var(--line)}
+.feed-item:last-child{border-bottom:none}
+.feed-dot{width:8px; height:8px; border-radius:50%; background:var(--accent); margin-top:5px; flex-shrink:0}
+.feed-item .ftitle{font-size:12.5px; font-weight:500}
+.feed-item .fsub{font-size:11px; color:var(--faint); margin-top:2px}
+
+.section-title{font-size:19px; font-weight:800; margin:0 0 4px; letter-spacing:-0.01em}
+.section-sub{color:var(--muted); font-size:13px; margin:0 0 18px}
+.full-list{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:var(--shadow)}
+
+.evidence-card{border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:12px}
+.evidence-card:last-child{margin-bottom:0}
+.evidence-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px}
+.evidence-actor{font-size:13px; font-weight:600}
+.evidence-reason{color:var(--muted); font-size:12.5px; margin:6px 0 0}
+.evidence-id{font-size:11px; color:var(--faint); margin-top:8px}
+
+/* ---------- Empty domain state ---------- */
+.empty-state{
+  background:var(--card); border:1px dashed var(--line); border-radius:16px;
+  padding:48px 32px; text-align:center;
+}
+.empty-state svg{width:34px; height:34px; color:var(--faint); margin-bottom:14px}
+.empty-state h4{font-size:15px; margin:0 0 6px; font-weight:700}
+.empty-state p{color:var(--faint); font-size:12.5px; margin:0; max-width:340px; margin:0 auto}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none">
+        <defs>
+          <linearGradient id="mark" x1="0" y1="0" x2="32" y2="32">
+            <stop offset="0" stop-color="#6E4CFB"/>
+            <stop offset="1" stop-color="#B9A6FF"/>
+          </linearGradient>
+        </defs>
+        <path d="M16 1 L19 13 L31 16 L19 19 L16 31 L13 19 L1 16 L13 13 Z" fill="url(#mark)"/>
+        <circle cx="16" cy="16" r="3" fill="#fff" opacity="0.85"/>
+      </svg>
+      <div class="brand-text"><strong>ANTARES</strong><span>Powered by Horquva OCOS</span></div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Intelligence Domains</div>
+      <button class="nav-item active" data-tab="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Overview</button>
+      <button class="nav-item" data-tab="signals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/></svg>Signals<span class="nqty" id="nq-signals"></span></button>
+      <button class="nav-item" data-tab="evidence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>Evidence<span class="nqty" id="nq-evidence"></span></button>
+      <button class="nav-item" data-tab="governance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>Governance</button>
+      <button class="nav-item" data-tab="organizations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21v-6h6v6"/></svg>Organizations</button>
+      <button class="nav-item" data-tab="technology"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>Technology</button>
+      <button class="nav-item" data-tab="identity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>Identity</button>
+      <button class="nav-item" data-tab="ecosystems"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M9.5 10.5L6.5 7.5M14.5 10.5l3-3M9.5 13.5l-3 3M14.5 13.5l3 3"/></svg>Ecosystems</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Decision</div>
+      <button class="nav-item" data-tab="insights"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/><path d="M10 21h4"/></svg>Insights</button>
+      <button class="nav-item" data-tab="watchlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7z"/></svg>Watchlist</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">System</div>
+      <button class="nav-item" data-tab="platforms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Platforms<span class="nqty" id="nq-platforms"></span></button>
+      <button class="nav-item" data-tab="capabilities"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>Capabilities<span class="nqty" id="nq-caps"></span></button>
+      <button class="nav-item" data-tab="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Activity</button>
+    </div>
+
+    <div class="sidebar-foot">
+      <strong><span class="live-dot"></span>antares-team branch</strong>
+      Live data merged from the team's services.
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1 id="topbar-title">Emerging &amp; Decentralized Organizational Intelligence</h1>
+      <span class="badge"><span class="live-dot"></span>Data merged &amp; verified</span>
+    </div>
+
+    <!-- OVERVIEW -->
+    <section class="tab-panel active" id="tab-overview">
+      <div class="hero">
+        <div class="hero-text">
+          <h2>Explore an <span class="accent">organizational shift</span></h2>
+          <p>Antares reveals what's changing across the Horquva ecosystem — signals, evidence, and governance, unified from every platform the team ships.</p>
+        </div>
+        <svg class="hero-orbit" viewBox="0 0 200 200" fill="none">
+          <circle cx="100" cy="100" r="95" stroke="#EDEAFB" stroke-width="1"/>
+          <circle cx="100" cy="100" r="70" stroke="#E3DEFA" stroke-width="1" stroke-dasharray="2 6"/>
+          <circle cx="100" cy="100" r="45" stroke="#D6CFF8" stroke-width="1"/>
+          <path d="M100 82 L106 96 L120 100 L106 104 L100 118 L94 104 L80 100 L94 96 Z" fill="url(#mark)"/>
+        </svg>
+      </div>
+
+      <div class="insight-row" id="insight-row"></div>
+
+      <div class="grid" id="stat-grid"></div>
+
+      <div class="panels">
+        <div class="panel">
+          <div class="panel-head"><h3>Platforms Registered</h3><span class="count" id="ov-platform-count"></span></div>
+          <div id="ov-platform-list"></div>
+        </div>
+        <div>
+          <div class="feed-panel">
+            <div class="panel-head"><h3>Live Signals</h3></div>
+            <div id="live-feed"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIGNALS -->
+    <section class="tab-panel" id="tab-signals">
+      <h2 class="section-title">Signals</h2>
+      <p class="section-sub">Emerging patterns detected across tracked organizations by the research pipeline.</p>
+      <div class="full-list" id="signals-list"></div>
+    </section>
+
+    <!-- EVIDENCE -->
+    <section class="tab-panel" id="tab-evidence">
+      <h2 class="section-title">Evidence</h2>
+      <p class="section-sub">Verified decision records produced by the governance engine, each backed by an audit trail.</p>
+      <div id="evidence-list"></div>
+    </section>
+
+    <!-- GOVERNANCE -->
+    <section class="tab-panel" id="tab-governance">
+      <h2 class="section-title">Governance</h2>
+      <p class="section-sub">Actions evaluated against rules and trust scores, with an accountable outcome for each.</p>
+      <div class="full-list" id="governance-list"></div>
+    </section>
+
+    <!-- PLATFORMS -->
+    <section class="tab-panel" id="tab-platforms">
+      <h2 class="section-title">Platforms</h2>
+      <p class="section-sub">Every platform registered in the engineering-operations ledger, with its owner and tracked jobs.</p>
+      <div class="full-list" id="platforms-list"></div>
+    </section>
+
+    <!-- CAPABILITIES -->
+    <section class="tab-panel" id="tab-capabilities">
+      <h2 class="section-title">Capabilities</h2>
+      <p class="section-sub">Capabilities tracked through the integration pipeline and their readiness state.</p>
+      <div class="full-list" id="capabilities-list"></div>
+    </section>
+
+    <!-- ACTIVITY -->
+    <section class="tab-panel" id="tab-activity">
+      <h2 class="section-title">Activity</h2>
+      <p class="section-sub">A combined feed of everything the merged services have produced so far.</p>
+      <div class="full-list" id="activity-list"></div>
+    </section>
+
+    <!-- EMPTY DOMAINS: Organizations, Technology, Identity, Ecosystems, Insights, Watchlist -->
+    <section class="tab-panel" id="tab-organizations">
+      <h2 class="section-title">Organizations</h2><p class="section-sub">No dedicated service has been merged for this domain yet.</p>
+      <div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21v-6h6v6"/></svg><h4>Nothing here yet</h4><p>Organizations will populate once a service is assigned and merged into antares-team.</p></div>
+    </section>
+    <section class="tab-panel" id="tab-technology">
+      <h2 class="section-title">Technology</h2><p class="section-sub">No dedicated service has been merged for this domain yet.</p>
+      <div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><h4>Nothing here yet</h4><p>Technology intelligence will populate once its service is merged.</p></div>
+    </section>
+    <section class="tab-panel" id="tab-identity">
+      <h2 class="section-title">Identity</h2><p class="section-sub">No dedicated service has been merged for this domain yet.</p>
+      <div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/></svg><h4>Nothing here yet</h4><p>Identity intelligence will populate once its service is merged.</p></div>
+    </section>
+    <section class="tab-panel" id="tab-ecosystems">
+      <h2 class="section-title">Ecosystems</h2><p class="section-sub">No dedicated service has been merged for this domain yet.</p>
+      <div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/></svg><h4>Nothing here yet</h4><p>Ecosystem mapping will populate once its service is merged.</p></div>
+    </section>
+    <section class="tab-panel" id="tab-insights">
+      <h2 class="section-title">Insights</h2><p class="section-sub">No dedicated service has been merged for this domain yet.</p>
+      <div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg><h4>Nothing here yet</h4><p>Cross-domain insights will populate once more services are merged.</p></div>
+    </section>
+    <section class="tab-panel" id="tab-watchlist">
+      <h2 class="section-title">Watchlist</h2><p class="section-sub">Nothing has been pinned to the watchlist yet.</p>
+      <div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7z"/></svg><h4>Watchlist is empty</h4><p>Pin a signal or capability to track it here.</p></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+const d = window.ANTARES_DATA;
+
+// ---- nav counters ----
+document.getElementById('nq-signals').textContent = d.signals.length;
+document.getElementById('nq-evidence').textContent = d.governance_decisions.length;
+document.getElementById('nq-platforms').textContent = d.platforms.length;
+document.getElementById('nq-caps').textContent = d.capabilities.length;
+
+// ---- Overview: insight row (real, derived from actual data) ----
+document.getElementById('insight-row').innerHTML = `
+  <div class="insight-card">
+    <div class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-5 4 4 8-8"/></svg>What changed</div>
+    <h4>${d.signals.length} new patterns surfaced by research</h4>
+    <ul>${d.signals.slice(0,3).map(s=>`<li>${s.title}</li>`).join('')}</ul>
+  </div>
+  <div class="insight-card">
+    <div class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>Why it matters</div>
+    <h4>Governance is actively enforcing risk rules</h4>
+    <ul>${d.governance_decisions.map(g=>`<li>${g.action} → <b>${g.outcome.replace(/_/g,' ')}</b> (${g.risk} risk)</li>`).join('')}</ul>
+  </div>
+  <div class="insight-card">
+    <div class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>What to investigate</div>
+    <h4>${d.overview.capabilities_in_registry} capabilities awaiting readiness</h4>
+    <ul>${d.capabilities.map(c=>`<li>${c.name} — ${c.state}</li>`).join('') || '<li>Registry is currently empty</li>'}</ul>
+  </div>
+`;
+
+// ---- stat grid ----
+document.getElementById('stat-grid').innerHTML = `
+  <div class="stat-card"><div class="label">Platforms Registered</div><div class="value">${d.overview.platforms_registered}</div></div>
+  <div class="stat-card"><div class="label">Jobs Tracked</div><div class="value">${d.overview.jobs_tracked}</div></div>
+  <div class="stat-card"><div class="label">Capabilities in Registry</div><div class="value">${d.overview.capabilities_in_registry}</div></div>
+  <div class="stat-card"><div class="label">Research Signals</div><div class="value">${d.overview.research_signals}</div></div>
+  <div class="stat-card"><div class="label">Patterns Identified</div><div class="value">${d.overview.research_patterns}</div></div>
+  <div class="stat-card"><div class="label">Governance Decisions</div><div class="value">${d.governance_decisions.length}</div></div>
+`;
+
+document.getElementById('ov-platform-count').textContent = `${d.platforms.length} total`;
+document.getElementById('ov-platform-list').innerHTML = d.platforms.map(p => `
+  <div class="row"><span class="title">${p.name}</span><span class="who">${p.owner}</span></div>
+`).join('');
+
+// ---- live feed ----
+const feedItems = [
+  ...d.signals.slice(0,3).map(s => ({title: s.title, sub: 'Signals · ' + s.orgs[0]})),
+  ...d.governance_decisions.map(g => ({title: g.action + ' → ' + g.outcome.replace(/_/g,' '), sub: 'Governance · ' + g.actor}))
+];
+document.getElementById('live-feed').innerHTML = feedItems.map(f => `
+  <div class="feed-item"><span class="feed-dot"></span><div><div class="ftitle">${f.title}</div><div class="fsub">${f.sub}</div></div></div>
+`).join('');
+
+// ---- Signals tab ----
+document.getElementById('signals-list').innerHTML = d.signals.map(s => `
+  <div class="row"><div><div class="title">${s.title}</div><div class="sub">${s.orgs.join(' · ')}</div></div><span class="pill pattern">${s.state.replace(/_/g,' ')}</span></div>
+`).join('');
+
+// ---- Evidence tab ----
+document.getElementById('evidence-list').innerHTML = d.governance_decisions.map(g => `
+  <div class="evidence-card">
+    <div class="evidence-top"><span class="evidence-actor">${g.actor}</span><span class="pill ${g.outcome === 'ALLOW' ? 'ready' : 'pending'}">${g.outcome.replace(/_/g,' ')}</span></div>
+    <div class="sub">Action: <span class="mono">${g.action}</span></div>
+    <p class="evidence-reason">${g.reason}</p>
+    <div class="evidence-id mono">${g.evidence_id}</div>
+  </div>
+`).join('');
+
+// ---- Governance tab ----
+document.getElementById('governance-list').innerHTML = d.governance_decisions.map(g => `
+  <div class="row"><div><div class="title">${g.action}</div><div class="sub">${g.actor}</div></div><span class="pill ${g.risk === 'HIGH' ? 'high' : 'low'}">${g.risk} risk</span></div>
+`).join('');
+
+// ---- Platforms tab ----
+const jobsByStatus = {};
+d.jobs.forEach(j => { jobsByStatus[j.status] = (jobsByStatus[j.status]||0)+1; });
+document.getElementById('platforms-list').innerHTML = d.platforms.map(p => `
+  <div class="row"><span class="title">${p.name}</span><span class="who">${p.owner}</span></div>
+`).join('') + `<div class="row" style="border-top:2px solid var(--line); margin-top:8px; padding-top:14px"><span class="title">Jobs tracked</span><span class="who">${d.jobs.length} total — ${Object.entries(jobsByStatus).map(([k,v])=>`${v} ${k}`).join(', ')}</span></div>`;
+
+// ---- Capabilities tab ----
+document.getElementById('capabilities-list').innerHTML = d.capabilities.map(c => `
+  <div class="row"><span class="title">${c.name}</span><span class="pill ${c.state.includes('Ready') ? 'ready' : 'pending'}">${c.state}</span></div>
+`).join('') || '<div class="row"><span class="who">No capabilities registered yet</span></div>';
+
+// ---- Activity tab (combined feed) ----
+const allActivity = [
+  ...d.signals.map(s => ({t: s.title, sub: 'Signal detected · ' + s.orgs.join(', '), pill: s.state.replace(/_/g,' '), cls:'pattern'})),
+  ...d.governance_decisions.map(g => ({t: g.action, sub: 'Governance · ' + g.actor, pill: g.outcome.replace(/_/g,' '), cls: g.outcome==='ALLOW'?'ready':'pending'})),
+  ...d.capabilities.map(c => ({t: c.name, sub: 'Capability registry', pill: c.state, cls: c.state.includes('Ready')?'ready':'pending'}))
+];
+document.getElementById('activity-list').innerHTML = allActivity.map(a => `
+  <div class="row"><div><div class="title">${a.t}</div><div class="sub">${a.sub}</div></div><span class="pill ${a.cls}">${a.pill}</span></div>
+`).join('');
+
+// ---- Tab switching ----
+const titles = {
+  overview: "Emerging & Decentralized Organizational Intelligence", signals: "Signals", evidence: "Evidence",
+  governance: "Governance", organizations: "Organizations", technology: "Technology", identity: "Identity",
+  ecosystems: "Ecosystems", insights: "Insights", watchlist: "Watchlist", platforms: "Platforms",
+  capabilities: "Capabilities", activity: "Activity"
+};
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('topbar-title').textContent = titles[tab];
+  });
+});
+</script>
+</body>
+</html>
