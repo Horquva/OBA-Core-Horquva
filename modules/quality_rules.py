@@ -105,7 +105,7 @@ def create_documentation_rule():
 
     return standard, rule
 class QualityRuleEngine:
-    
+
     def __init__(self):
         self.rules = []
 
@@ -129,6 +129,7 @@ class QualityRuleEngine:
             )
 
             status = "FAILED" if findings else "PASSED"
+
             message = (
                 f"{len(findings)} finding(s) detected"
                 if findings
@@ -154,6 +155,7 @@ class QualityRuleEngine:
             all_evidence,
             all_remediations,
         )
+
     def evaluate_compliance(
         self,
         findings,
@@ -176,7 +178,8 @@ class QualityRuleEngine:
                         "requirement_name": requirement.name,
                         "status": "GAP",
                         "finding_ids": [
-                            finding.id for finding in matching_findings
+                            finding.id
+                            for finding in matching_findings
                         ],
                     }
                 )
@@ -191,6 +194,7 @@ class QualityRuleEngine:
                 )
 
         return compliance_gaps
+
     def create_governance_event(
         self,
         action,
@@ -209,6 +213,7 @@ class QualityRuleEngine:
             artifact_id=artifact_id,
             details=details,
         )
+
     def update_finding_status(
         self,
         finding,
@@ -239,6 +244,7 @@ class QualityRuleEngine:
                 f"'{status}'."
             ),
         )
+
     def create_exception(
         self,
         artifact_id,
@@ -264,6 +270,7 @@ class QualityRuleEngine:
             requested_by=requested_by,
             status="PENDING",
         )
+
     def approve_exception(
         self,
         exception,
@@ -313,10 +320,132 @@ class QualityRuleEngine:
             comments=comments,
         )
 
-    def evaluate_gate(self, quality_checks, gate_id="default-gate"):
+    def request_revalidation(
+        self,
+        finding,
+        actor,
+    ):
+        if finding.status != "REMEDIATED":
+            raise ValueError(
+                "Only remediated findings can be revalidated."
+            )
+
+        finding.status = "IN_REVIEW"
+
+        return self.create_governance_event(
+            action="REVALIDATION_REQUESTED",
+            actor=actor,
+            artifact_id=finding.artifact_id,
+            details=(
+                f"Revalidation requested for finding "
+                f"'{finding.id}'."
+            ),
+        )
+
+    def validate_artifact_workflow(
+        self,
+        artifact,
+        content,
+        requirements=None,
+        actor="system",
+    ):
+        requirements = requirements or []
+
+        events = []
+
+        events.append(
+            self.create_governance_event(
+                action="VALIDATION_STARTED",
+                actor=actor,
+                artifact_id=artifact.id,
+                details="Automated quality validation started.",
+            )
+        )
+
+        (
+            quality_checks,
+            findings,
+            evidence,
+            remediations,
+        ) = self.run(
+            artifact,
+            content,
+        )
+
+        for finding in findings:
+            events.append(
+                self.create_governance_event(
+                    action="FINDING_GENERATED",
+                    actor=actor,
+                    artifact_id=artifact.id,
+                    details=(
+                        f"Finding '{finding.id}' generated."
+                    ),
+                )
+            )
+
+        compliance_gaps = self.evaluate_compliance(
+            findings,
+            requirements,
+        )
+
+        for gap in compliance_gaps:
+            if gap["status"] == "GAP":
+                events.append(
+                    self.create_governance_event(
+                        action="COMPLIANCE_ISSUE_DETECTED",
+                        actor=actor,
+                        artifact_id=artifact.id,
+                        details=(
+                            f"Compliance gap detected for "
+                            f"'{gap['requirement_id']}'."
+                        ),
+                    )
+                )
+
+        quality_gate = self.evaluate_gate(
+            quality_checks
+        )
+
+        gate_action = (
+            "QUALITY_GATE_PASSED"
+            if quality_gate.status == "PASSED"
+            else "QUALITY_GATE_FAILED"
+        )
+
+        events.append(
+            self.create_governance_event(
+                action=gate_action,
+                actor=actor,
+                artifact_id=artifact.id,
+                details=(
+                    f"Quality gate status: "
+                    f"{quality_gate.status}."
+                ),
+            )
+        )
+
+        return {
+            "quality_checks": quality_checks,
+            "findings": findings,
+            "evidence": evidence,
+            "remediations": remediations,
+            "compliance_gaps": compliance_gaps,
+            "quality_gate": quality_gate,
+            "events": events,
+        }
+
+    def evaluate_gate(
+        self,
+        quality_checks,
+        gate_id="default-gate",
+    ):
         status = (
             "PASSED"
-            if all(check.status == "PASSED" for check in quality_checks)
+            if all(
+                check.status == "PASSED"
+                for check in quality_checks
+            )
             else "FAILED"
         )
 
@@ -325,6 +454,7 @@ class QualityRuleEngine:
             name="Quality Gate",
             status=status,
             required_check_ids=[
-                check.id for check in quality_checks
+                check.id
+                for check in quality_checks
             ],
         )

@@ -1,13 +1,16 @@
 from modules.quality_models import (
     ComplianceRequirement,
+    EngineeringArtifact,
     Finding,
     Severity,
 )
-from modules.quality_rules import QualityRuleEngine
 
+from modules.quality_rules import (
+    QualityRuleEngine,
+    check_readme,
+)
 
 engine = QualityRuleEngine()
-
 
 # ---------------------------------------------------------
 # 1. Compliance automation
@@ -140,3 +143,117 @@ assert exception_event.action == "EXCEPTION_APPROVED"
 assert exception_event.actor == "governance-lead"
 
 print("Exception approval integration test passed successfully")
+# ---------------------------------------------------------
+# 7. Automated validation workflow
+# ---------------------------------------------------------
+
+workflow_artifact = EngineeringArtifact(
+    id="workflow-readme-001",
+    name="README.md",
+    artifact_type="documentation",
+    source="README.md",
+)
+
+workflow_requirements = [
+    ComplianceRequirement(
+        id="check_readme",
+        name="README Required Sections",
+        description="README must contain required sections.",
+        mandatory=True,
+    )
+]
+
+engine.register_rule(
+    check_readme,
+    artifact_type="documentation",
+)
+
+workflow_result = engine.validate_artifact_workflow(
+    workflow_artifact,
+    "# Project\n\n## Purpose\n\nProject purpose.",
+    workflow_requirements,
+    actor="masooma",
+)
+
+assert "quality_checks" in workflow_result
+assert "findings" in workflow_result
+assert "compliance_gaps" in workflow_result
+assert "quality_gate" in workflow_result
+assert "events" in workflow_result
+
+assert workflow_result["quality_gate"].status == "FAILED"
+
+event_actions = [
+    event.action
+    for event in workflow_result["events"]
+]
+
+assert "VALIDATION_STARTED" in event_actions
+assert "FINDING_GENERATED" in event_actions
+assert "COMPLIANCE_ISSUE_DETECTED" in event_actions
+assert "QUALITY_GATE_FAILED" in event_actions
+
+print("Automated validation workflow test passed successfully")
+
+
+# ---------------------------------------------------------
+# 8. Revalidation workflow
+# ---------------------------------------------------------
+
+revalidation_finding = Finding(
+    id="finding-revalidation-001",
+    artifact_id="workflow-readme-001",
+    title="Documentation issue",
+    description="Issue was remediated.",
+    severity=Severity.MEDIUM,
+    rule_id="DOC-RULE-001",
+    status="REMEDIATED",
+)
+
+revalidation_event = engine.request_revalidation(
+    revalidation_finding,
+    "masooma",
+)
+
+assert revalidation_finding.status == "IN_REVIEW"
+assert revalidation_event.action == "REVALIDATION_REQUESTED"
+assert revalidation_event.actor == "masooma"
+
+print("Revalidation workflow test passed successfully")
+
+
+# ---------------------------------------------------------
+# 9. Successful validation workflow
+# ---------------------------------------------------------
+
+passing_artifact = EngineeringArtifact(
+    id="workflow-readme-002",
+    name="README.md",
+    artifact_type="documentation",
+    source="README.md",
+)
+
+passing_result = engine.validate_artifact_workflow(
+    passing_artifact,
+    (
+        "# Project\n\n"
+        "## Purpose\n\n"
+        "Project purpose.\n\n"
+        "## Setup\n\n"
+        "Installation instructions."
+    ),
+    workflow_requirements,
+    actor="masooma",
+)
+
+assert passing_result["quality_gate"].status == "PASSED"
+
+passing_event_actions = [
+    event.action
+    for event in passing_result["events"]
+]
+
+assert "VALIDATION_STARTED" in passing_event_actions
+assert "QUALITY_GATE_PASSED" in passing_event_actions
+
+print("Successful validation workflow test passed successfully")
