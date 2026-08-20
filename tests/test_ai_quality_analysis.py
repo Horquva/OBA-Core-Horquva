@@ -202,3 +202,18 @@ assert false_positive_rate.value == 0.25
 assert false_negative_rate.value == 0.25
 
 print("AI error rate evaluation test passed successfully")
+evaluation_framework = AIEvaluationFramework()
+
+consistency_metric = evaluation_framework.evaluate_consistency(
+    [
+        ["QUALITY_ISSUE", "COMPLIANT", "QUALITY_ISSUE"],
+        ["QUALITY_ISSUE", "COMPLIANT", "QUALITY_ISSUE"],
+        ["QUALITY_ISSUE", "QUALITY_ISSUE", "QUALITY_ISSUE"],
+    ]
+)
+
+assert consistency_metric.id == "AI-EVAL-CONSISTENCY"
+assert consistency_metric.value == 5 / 6
+assert consistency_metric.unit == "ratio"
+
+print("AI consistency evaluation test passed successfully")
