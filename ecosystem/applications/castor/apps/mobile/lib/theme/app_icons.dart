@@ -60,4 +60,5 @@ abstract final class AppIcons {
   static const IconData sparkle = LucideIcons.sparkles;
   static const IconData attention = LucideIcons.target;
   static const IconData document = LucideIcons.fileText;
+  static const IconData shieldAlert = LucideIcons.shieldAlert; // alert card logo
 }

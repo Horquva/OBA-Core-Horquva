@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_typography.dart';
 
 /// How urgent a signal / decision is. Each level has its own colour.
@@ -27,6 +28,18 @@ Color severityColor(Severity severity) {
       return AppColors.important;
     case Severity.informational:
       return AppColors.informational;
+  }
+}
+
+/// Returns the icon for a severity level (the same icons used on signal cards).
+IconData severityIcon(Severity severity) {
+  switch (severity) {
+    case Severity.critical:
+      return AppIcons.critical;
+    case Severity.important:
+      return AppIcons.important;
+    case Severity.informational:
+      return AppIcons.informational;
   }
 }
 

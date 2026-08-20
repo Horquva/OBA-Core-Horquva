@@ -14,6 +14,8 @@ import '../views/widgets/pill_button.dart';
 import '../views/widgets/segmented_tabs.dart';
 import '../views/widgets/severity_badge.dart';
 import '../views/widgets/signal_card.dart';
+import '../views/widgets/signal_carousel.dart';
+import '../views/widgets/signal_highlight_card.dart';
 import '../views/widgets/stat_item.dart';
 import '../views/widgets/status_pill.dart';
 import '../views/widgets/tag_chip.dart';
@@ -315,6 +317,42 @@ class ComponentShowcase extends StatelessWidget {
               AppTextField(
                 hintText: 'Search signals...',
                 type: AppTextFieldType.search,
+              ),
+            ],
+          ),
+
+          // ─── Signal Highlight (carousel) ───────────────────────────────
+          _section(
+            title: 'Signal Highlight (swipe)',
+            children: [
+              SignalCarousel(
+                cards: [
+                  SignalHighlightCard(
+                    severity: Severity.critical,
+                    number: '01',
+                    title: 'Vendor dependency has created '
+                        'a continuity exposure.',
+                    meta: 'Business Impact: High  •  Probability: Likely',
+                    actionLabel: 'Review & Take Action',
+                    onAction: () {},
+                  ),
+                  SignalHighlightCard(
+                    severity: Severity.important,
+                    number: '02',
+                    title: 'Q2 revenue forecast updated.',
+                    meta: 'Business Impact: Medium  •  Probability: Likely',
+                    actionLabel: 'Review & Take Action',
+                    onAction: () {},
+                  ),
+                  SignalHighlightCard(
+                    severity: Severity.informational,
+                    number: '03',
+                    title: 'Employee sentiment improved.',
+                    meta: 'Business Impact: Low  •  Positive trend',
+                    actionLabel: 'Review & Take Action',
+                    onAction: () {},
+                  ),
+                ],
               ),
             ],
           ),
