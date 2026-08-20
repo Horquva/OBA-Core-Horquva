@@ -158,3 +158,24 @@ assert summary["low"] == 0
 assert summary["requires_attention"] is True
 
 print("Quality summary test passed successfully")
+from modules.quality_models import ComplianceRequirement
+
+requirement = ComplianceRequirement(
+    id="README-001",
+    name="README Required Sections",
+    description="README must contain required sections.",
+    mandatory=True,
+)
+
+compliance_gaps = analyzer.identify_compliance_gaps(
+    [finding],
+    [requirement],
+)
+
+assert len(compliance_gaps) == 1
+assert compliance_gaps[0]["requirement_id"] == "README-001"
+assert compliance_gaps[0]["status"] == "POTENTIAL_GAP"
+assert compliance_gaps[0]["requires_human_review"] is True
+assert finding.id in compliance_gaps[0]["finding_ids"]
+
+print("Compliance gap identification test passed successfully")

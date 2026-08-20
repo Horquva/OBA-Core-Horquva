@@ -116,6 +116,38 @@ class AIQualityAnalyzer:
                     )
 
         return duplicates
+    def identify_compliance_gaps(
+        self,
+        findings: list[Finding],
+        requirements: list,
+    ) -> list[dict]:
+        gaps = []
+
+        for requirement in requirements:
+            if not requirement.mandatory:
+                continue
+
+            related_findings = [
+                finding
+                for finding in findings
+                if finding.rule_id == requirement.id
+            ]
+
+            if related_findings:
+                gaps.append(
+                    {
+                        "requirement_id": requirement.id,
+                        "requirement_name": requirement.name,
+                        "status": "POTENTIAL_GAP",
+                        "finding_ids": [
+                            finding.id
+                            for finding in related_findings
+                        ],
+                        "requires_human_review": True,
+                    }
+                )
+
+        return gaps
     def generate_quality_summary(
         self,
         findings: list[Finding],
