@@ -217,3 +217,54 @@ assert consistency_metric.value == 5 / 6
 assert consistency_metric.unit == "ratio"
 
 print("AI consistency evaluation test passed successfully")
+explainability_recommendation = analyzer.analyze_finding(finding)
+
+explainability_metric = evaluation_framework.evaluate_explainability(
+    [explainability_recommendation]
+)
+
+assert explainability_metric.id == "AI-EVAL-EXPLAINABILITY"
+assert explainability_metric.value == 1.0
+assert explainability_metric.unit == "ratio"
+
+print("AI explainability evaluation test passed successfully")
+human_agreement_metric = evaluation_framework.evaluate_human_agreement(
+    [
+        "QUALITY_ISSUE",
+        "COMPLIANT",
+        "QUALITY_ISSUE",
+        "QUALITY_ISSUE",
+    ],
+    [
+        "QUALITY_ISSUE",
+        "COMPLIANT",
+        "QUALITY_ISSUE",
+        "OTHER",
+    ],
+)
+
+assert human_agreement_metric.id == "AI-EVAL-HUMAN-AGREEMENT"
+assert human_agreement_metric.value == 0.75
+assert human_agreement_metric.unit == "ratio"
+
+print("AI human agreement evaluation test passed successfully")
+regression_metric = evaluation_framework.evaluate_regression(
+    [
+        "QUALITY_ISSUE",
+        "COMPLIANT",
+        "QUALITY_ISSUE",
+        "OTHER",
+    ],
+    [
+        "QUALITY_ISSUE",
+        "QUALITY_ISSUE",
+        "QUALITY_ISSUE",
+        "OTHER",
+    ],
+)
+
+assert regression_metric.id == "AI-EVAL-REGRESSION"
+assert regression_metric.value == 0.25
+assert regression_metric.unit == "ratio"
+
+print("AI regression evaluation test passed successfully")

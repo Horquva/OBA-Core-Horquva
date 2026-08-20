@@ -304,3 +304,144 @@ class AIEvaluationFramework:
                 unit="ratio",
             ),
         ]
+    def evaluate_consistency(
+        self,
+        predictions: list[list[str]],
+    ):
+        from modules.quality_models import QualityMetric
+
+        if not predictions:
+            raise ValueError("Consistency evaluation data cannot be empty.")
+
+        if any(not run for run in predictions):
+            raise ValueError("Each prediction run must contain data.")
+
+        baseline = predictions[0]
+        total = len(baseline)
+
+        if any(len(run) != total for run in predictions):
+            raise ValueError(
+                "All prediction runs must have the same length."
+            )
+
+        comparisons = 0
+        consistent = 0
+
+        for run in predictions[1:]:
+            for expected_prediction, actual_prediction in zip(
+                baseline,
+                run,
+            ):
+                comparisons += 1
+                if expected_prediction == actual_prediction:
+                    consistent += 1
+
+        consistency = (
+            consistent / comparisons
+            if comparisons
+            else 1.0
+        )
+
+        return QualityMetric(
+            id="AI-EVAL-CONSISTENCY",
+            name="AI Classification Consistency",
+            value=consistency,
+            unit="ratio",
+        )
+    def evaluate_explainability(
+        self,
+        recommendations: list[AIQualityRecommendation],
+    ):
+        from modules.quality_models import QualityMetric
+
+        if not recommendations:
+            raise ValueError(
+                "Explainability evaluation data cannot be empty."
+            )
+
+        explainable = sum(
+            1
+            for recommendation in recommendations
+            if recommendation.reasons
+            and all(
+                isinstance(reason, str) and reason.strip()
+                for reason in recommendation.reasons
+            )
+        )
+
+        explainability = explainable / len(recommendations)
+
+        return QualityMetric(
+            id="AI-EVAL-EXPLAINABILITY",
+            name="AI Recommendation Explainability",
+            value=explainability,
+            unit="ratio",
+        )
+    def evaluate_human_agreement(
+        self,
+        ai_predictions: list[str],
+        human_decisions: list[str],
+    ):
+        from modules.quality_models import QualityMetric
+
+        if len(ai_predictions) != len(human_decisions):
+            raise ValueError(
+                "AI predictions and human decisions must have the same length."
+            )
+
+        if not ai_predictions:
+            raise ValueError(
+                "Human agreement evaluation data cannot be empty."
+            )
+
+        agreements = sum(
+            1
+            for ai_prediction, human_decision in zip(
+                ai_predictions,
+                human_decisions,
+            )
+            if ai_prediction == human_decision
+        )
+
+        agreement = agreements / len(ai_predictions)
+
+        return QualityMetric(
+            id="AI-EVAL-HUMAN-AGREEMENT",
+            name="AI Human Agreement",
+            value=agreement,
+            unit="ratio",
+        )
+    def evaluate_regression(
+        self,
+        previous_predictions: list[str],
+        current_predictions: list[str],
+    ):
+        from modules.quality_models import QualityMetric
+
+        if len(previous_predictions) != len(current_predictions):
+            raise ValueError(
+                "Previous and current prediction lists must have the same length."
+            )
+
+        if not previous_predictions:
+            raise ValueError(
+                "Regression evaluation data cannot be empty."
+            )
+
+        changed = sum(
+            1
+            for previous, current in zip(
+                previous_predictions,
+                current_predictions,
+            )
+            if previous != current
+        )
+
+        regression_rate = changed / len(previous_predictions)
+
+        return QualityMetric(
+            id="AI-EVAL-REGRESSION",
+            name="AI Classification Regression Rate",
+            value=regression_rate,
+            unit="ratio",
+        )
