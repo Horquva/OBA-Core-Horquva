@@ -69,51 +69,50 @@ class BriefingCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Top area: text on the left, a decorative wave in the free space.
-          SizedBox(
-            height: 150,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        label,
-                        style: AppTypography.overline.copyWith(
-                          color: _onDark.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        title,
-                        style: AppTypography.displayMedium
-                            .copyWith(color: _onDark),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        body,
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: _onDark.withValues(alpha: 0.8),
-                        ),
-                      ),
-                    ],
-                  ),
+          // Top area: text on the left, a decorative wave filling the free
+          // space on the right. A Stack lets the height grow with the text, so
+          // it never overflows (e.g. when the text wraps to more lines).
+          Stack(
+            children: [
+              const Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: 110,
+                child: CustomPaint(
+                  painter: _WavePainter(),
+                  child: SizedBox.expand(),
                 ),
-                const SizedBox(width: AppSpacing.md),
-                // Decorative wave line in the free right space.
-                const Expanded(
-                  flex: 2,
-                  child: CustomPaint(
-                    painter: _WavePainter(),
-                    child: SizedBox.expand(),
-                  ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 110),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: AppTypography.overline.copyWith(
+                        color: _onDark.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      title,
+                      style: AppTypography.displayMedium
+                          .copyWith(color: _onDark),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      body,
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: _onDark.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.lg),
           // Bottom row: three tiles, all the same height.

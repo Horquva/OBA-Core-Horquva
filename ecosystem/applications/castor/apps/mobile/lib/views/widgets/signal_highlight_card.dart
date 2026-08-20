@@ -76,46 +76,56 @@ class SignalHighlightCard extends StatelessWidget {
               ),
             ),
           ),
-          // Content on the left; right padding keeps it clear of the logo.
-          Padding(
-            padding: const EdgeInsets.only(right: 112),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // "01" number badge + severity badge.
-                Row(
+          // Content on the left.
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Badge + title + meta are padded on the right so they stay clear
+              // of the logo. The button (below the logo) is NOT padded, so it
+              // has room and does not overflow.
+              Padding(
+                padding: const EdgeInsets.only(right: 112),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 26,
-                      height: 26,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        number,
-                        style: AppTypography.overline.copyWith(color: color),
-                      ),
+                    // "01" number badge + severity badge.
+                    Row(
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            number,
+                            style:
+                                AppTypography.overline.copyWith(color: color),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        SeverityBadge(severity: severity),
+                      ],
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    SeverityBadge(severity: severity),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(title, style: AppTypography.headingLarge),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(meta, style: AppTypography.bodyMedium),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Text(title, style: AppTypography.headingLarge),
-                const SizedBox(height: AppSpacing.sm),
-                Text(meta, style: AppTypography.bodyMedium),
-                const SizedBox(height: AppSpacing.lg),
-                // Smaller CTA — hugs its content (not full width).
-                PillButton(
-                  label: actionLabel,
-                  icon: AppIcons.send,
-                  onPressed: onAction,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              // Smaller CTA — hugs its content (not full width).
+              PillButton(
+                label: actionLabel,
+                icon: AppIcons.send,
+                onPressed: onAction,
+              ),
+            ],
           ),
         ],
       ),

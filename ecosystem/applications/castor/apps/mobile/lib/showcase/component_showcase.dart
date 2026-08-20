@@ -10,6 +10,7 @@ import '../views/widgets/app_top_bar.dart';
 import '../views/widgets/bottom_nav_bar.dart';
 import '../views/widgets/briefing_card.dart';
 import '../views/widgets/decision_card.dart';
+import '../views/widgets/home_app_bar.dart';
 import '../views/widgets/pill_button.dart';
 import '../views/widgets/segmented_tabs.dart';
 import '../views/widgets/severity_badge.dart';
@@ -375,6 +376,14 @@ class ComponentShowcase extends StatelessWidget {
                 onStart: () {},
                 onSummary: () {},
               ),
+            ],
+          ),
+
+          // ─── Home App Bar ──────────────────────────────────────────────
+          _section(
+            title: 'Home App Bar',
+            children: [
+              HomeAppBar(onNotification: () {}, onAvatar: () {}),
             ],
           ),
 
