@@ -116,6 +116,31 @@ class AIQualityAnalyzer:
                     )
 
         return duplicates
+    def generate_quality_summary(
+        self,
+        findings: list[Finding],
+    ) -> dict:
+        severity_counts = {
+            "HIGH": 0,
+            "MEDIUM": 0,
+            "LOW": 0,
+        }
+
+        for finding in findings:
+            severity = finding.severity.value
+            if severity in severity_counts:
+                severity_counts[severity] += 1
+
+        return {
+            "total_findings": len(findings),
+            "high": severity_counts["HIGH"],
+            "medium": severity_counts["MEDIUM"],
+            "low": severity_counts["LOW"],
+            "requires_attention": (
+                severity_counts["HIGH"] > 0
+                or severity_counts["MEDIUM"] > 0
+            ),
+        }
 class AIEvaluationFramework:
     def evaluate_classification(
         self,

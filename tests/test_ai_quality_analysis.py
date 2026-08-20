@@ -149,3 +149,12 @@ assert duplicate_findings == [
 ]
 
 print("Duplicate finding detection test passed successfully")
+summary = analyzer.generate_quality_summary([finding])
+
+assert summary["total_findings"] == 1
+assert summary["high"] == 0
+assert summary["medium"] == 1
+assert summary["low"] == 0
+assert summary["requires_attention"] is True
+
+print("Quality summary test passed successfully")
