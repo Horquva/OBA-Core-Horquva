@@ -252,6 +252,170 @@ ecosystem/applications/arcturus/
 
 ---
 
+# DAY 0 — Architecture Alignment (The "Missing Blueprints")
+
+**Theme**: Before a single line of feature code is written, Hashim and Maaz must align on the exact execution models, database schemas, and protocols that will glue the 11 platforms together.
+
+---
+
+### 1. SQLite Schema Definition (Mapped to Contracts)
+**Owner**: Hashim
+All tables must map exactly to `SimulationContext` and platform contracts.
+
+```sql
+CREATE TABLE experiments (
+    -- Maps to SimulationContext.experiment_id (str)
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    -- Maps to SimulationContext.global_seed
+    seed INTEGER NOT NULL,
+    -- Maps to SimulationContext.config
+    config JSON NOT NULL,
+    -- Maps to ExecutionStatus enum
+    status TEXT NOT NULL DEFAULT 'CREATED',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP
+);
+
+CREATE TABLE simulation_runs (
+    -- Maps to SimulationContext.run_id (UUID)
+    run_id TEXT PRIMARY KEY,
+    experiment_id TEXT NOT NULL REFERENCES experiments(id),
+    trace_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP
+);
+
+CREATE TABLE simulation_events (
+    -- Maps to SimulationEventPayload
+    event_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES simulation_runs(run_id),
+    tick INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    affected_entities JSON NOT NULL,
+    observed_state_changes JSON NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE synthetic_artifacts (
+    -- Maps to SyntheticArtifactContract
+    artifact_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES simulation_runs(run_id),
+    artifact_type TEXT NOT NULL,
+    content JSON NOT NULL,
+    metadata JSON NOT NULL,
+    lifecycle_state TEXT NOT NULL,
+    provenance JSON NOT NULL,
+    created_at TIMESTAMP
+);
+
+CREATE TABLE validation_results (
+    -- Maps to ValidationResultContract
+    run_id TEXT NOT NULL REFERENCES simulation_runs(run_id),
+    passed_rules JSON NOT NULL,
+    failed_rules JSON NOT NULL,
+    flagged_rules JSON NOT NULL,
+    final_status TEXT NOT NULL, -- 'validated', 'rejected', 'inconclusive'
+    reason TEXT,
+    evaluated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (run_id)
+);
+```
+
+### 2. Simulation Execution Model & Event Bus
+**Owner**: Maaz & Hashim
+The simulation MUST run asynchronously so it does not block the FastAPI web server.
+
+```python
+# The Event Bus (Hashim) - api/services/event_bus.py
+class EventBus:
+    def __init__(self):
+        self._subscribers: dict[str, list[asyncio.Queue]] = {}
+    
+    async def subscribe(self, experiment_id: str) -> asyncio.Queue:
+        queue = asyncio.Queue(maxsize=2000)
+        self._subscribers.setdefault(experiment_id, []).append(queue)
+        return queue
+        
+    async def publish(self, experiment_id: str, event_type: str, payload: dict):
+        msg = {"type": event_type, "experiment_id": experiment_id, "payload": payload}
+        for q in self._subscribers.get(experiment_id, []):
+            try:
+                q.put_nowait(msg)
+            except asyncio.QueueFull:
+                pass # Drop oldest/log in prod
+```
+
+```python
+# The Execution Loop (Maaz) - Runs in background task
+async def run_simulation_async(context: SimulationContext, engine: RuntimeEngine, bus: EventBus):
+    while engine.status == ExecutionStatus.RUNNING:
+        # Run sync step in thread pool to prevent event loop blocking
+        state = await asyncio.to_thread(engine.step)
+        
+        # Publish tick event
+        await bus.publish(context.experiment_id, "TICK", state)
+        
+        # Allow other tasks to run, simulate clock delay
+        await asyncio.sleep(0.5) 
+```
+
+### 3. Experiment Orchestrator State Machine
+**Owner**: Hashim
+The orchestrator drives the pipeline and handles partial failures.
+**States**: `CREATED -> INIT_ONTOLOGY -> INIT_ENTERPRISE -> INIT_WORKFORCE -> INIT_WORKFLOW -> INIT_SCENARIO -> RUNNING_SIMULATION -> GENERATING_DATA -> VALIDATING -> ASSESSING -> COMPLETED / FAILED`
+
+### 4. WebSocket Message Protocol
+**Owner**: Hashim & Umair
+Defines exactly what JSON shapes the frontend will receive.
+```typescript
+type WSMessage = 
+  | { type: 'STAGE_CHANGE'; experiment_id: string; stage: string }
+  | { type: 'TICK'; experiment_id: string; payload: { tick: number, artifacts: any[] } }
+  | { type: 'EVENT'; experiment_id: string; payload: SimulationEventPayload }
+  | { type: 'STATUS_UPDATE'; experiment_id: string; status: ExecutionStatus }
+  | { type: 'ERROR'; experiment_id: string; error_code: string; message: string }
+```
+
+### 5. Gemini API Contract
+**Owner**: Ahmed
+```python
+# contracts/evaluation/intelligence_models.py
+class StructuredAssessment(ContractEnvelope):
+    assessment_summary: str = Field(..., description="Executive summary of findings")
+    confidence_score: float = Field(..., ge=0.0, le=1.0)
+    risk_factors: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+    evidence_citations: list[str] = Field(..., description="List of synthetic artifact IDs supporting this claim")
+
+# Gemini Instruction
+GEMINI_SYSTEM_PROMPT = \"\"\"
+You are an Arcturus Simulation Intelligence Agent. 
+You will be provided with VALIDATED synthetic evidence (artifacts and metrics) from a workforce simulation.
+Analyze the organizational health and risks.
+CRITICAL: You must cite specific artifact_ids from the evidence provided. Do not hallucinate data.
+\"\"\"
+```
+
+### 6. Python -> TypeScript Sync Strategy
+**Owner**: Hashim & Umair
+- Hashim will implement a `scripts/sync_types.py` script using `pydantic2ts` to convert `contracts/**/*.py` into `web/lib/generated-types.ts`.
+- This script runs as a pre-commit check.
+
+### 7. Global API Error Contract
+**Owner**: Hashim
+```python
+class APIErrorResponse(BaseModel):
+    error_code: str
+    message: str
+    platform_source: str # Matches ArcturusValidationError.platform_source
+    timestamp: datetime
+```
+
+---
+
 # DAY 1 — Foundation, Contracts & Upstream Platforms
 
 **Theme**: Lock the foundation. Hamza delivers Ontology contracts. Ajwa delivers Enterprise generation. Hashim sets up FastAPI skeleton + SQLite + governance gates. Umair scaffolds the frontend. Saba designs the information architecture.
