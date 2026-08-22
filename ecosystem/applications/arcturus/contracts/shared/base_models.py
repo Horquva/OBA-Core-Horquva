@@ -128,3 +128,19 @@ class SimulationEventPayload(BaseModel):
     event_type: str = Field(..., description="E.g., TASK_COMPLETED, POLICY_BREACH, AGENT_ESCALATION")
     affected_entities: List[float] = Field(default=[], description="List of structural IDs affected")
     observed_state_changes: str = Field(..., description="Serialized state transition log payload")
+
+
+class APIErrorResponse(BaseModel):
+    """
+    Global standardized error response format across all Arcturus FastAPI endpoints.
+    Maps to ArcturusValidationError and platform exceptions.
+    """
+    error_code: str = Field(..., description="Unique machine-readable error code")
+    message: str = Field(..., description="Human-readable error explanation")
+    platform_source: str = Field(..., description="Platform origin raising the error")
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Timestamp when the error occurred"
+    )
+    details: dict[str, Any] = Field(default_factory=dict, description="Additional context or validation metadata")
+
