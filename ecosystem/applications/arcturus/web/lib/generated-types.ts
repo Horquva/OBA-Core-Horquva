@@ -5,7 +5,7 @@
  */
 
 
-export enum ExecutionStatus {
+export enum ExperimentStatus {
   CREATED = 'CREATED',
   INITIALIZING = 'INITIALIZING',
   RUNNING = 'RUNNING',
@@ -61,7 +61,7 @@ export interface ExperimentRecord {
   name: string; // Human-readable experiment name
   seed: number; // Global deterministic seed
   config: ExperimentConfig; // Experiment configuration payload
-  status?: ExecutionStatus; // Current experiment status
+  status?: ExperimentStatus; // Current experiment status
   created_at?: string; // Experiment creation timestamp
   started_at?: any; // Timestamp when execution began
   completed_at?: any; // Timestamp when execution ended
@@ -72,7 +72,7 @@ export interface SimulationRunRecord {
   run_id?: string; // Unique run identifier
   experiment_id: string; // Parent experiment identifier
   trace_id?: string; // Traceability UUID for logs and telemetry
-  status?: ExecutionStatus; // Current run execution status
+  status?: ExperimentStatus; // Current run execution status
   started_at?: string; // Run start timestamp
   ended_at?: any; // Run completion timestamp
 }

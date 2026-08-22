@@ -16,20 +16,22 @@ import sys
 from pathlib import Path
 from typing import Any, get_args, get_origin
 
-# Add project root to sys.path
+# Arcturus project root (ecosystem/applications/arcturus/)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+# Repository root (OBA-Core-Horquva/) — needed for ecosystem.* imports
+REPO_ROOT = PROJECT_ROOT.parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT))
 
 from pydantic import BaseModel  # noqa: E402
 
-from contracts.experiment.base_models import (  # noqa: E402
-    ExecutionStatus,
+from ecosystem.applications.arcturus.contracts.experiment.base_models import (  # noqa: E402
+    ExperimentStatus,
     ExperimentConfig,
     ExperimentRecord,
     SimulationRunRecord,
 )
-from contracts.provenance.base_models import ProvenanceRecord  # noqa: E402
-from contracts.shared.base_models import (  # noqa: E402
+from ecosystem.applications.arcturus.contracts.provenance.base_models import ProvenanceRecord  # noqa: E402
+from ecosystem.applications.arcturus.contracts.shared.base_models import (  # noqa: E402
     APIErrorResponse,
     SimulationContext,
     SimulationEventPayload,
@@ -97,7 +99,7 @@ def generate_ts_interfaces() -> str:
     ]
 
     enums_to_export = [
-        ExecutionStatus,
+        ExperimentStatus,
     ]
 
     header = """/**

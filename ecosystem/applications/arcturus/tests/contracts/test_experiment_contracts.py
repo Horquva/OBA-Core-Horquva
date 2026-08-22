@@ -3,22 +3,22 @@ Tests for Experiment Contracts (Day 0 / Day 1 foundation).
 """
 import pytest
 from uuid import uuid4
-from contracts.experiment.base_models import (
-    ExecutionStatus,
+from ecosystem.applications.arcturus.contracts.experiment.base_models import (
+    ExperimentStatus,
     ExperimentConfig,
     ExperimentRecord,
     SimulationRunRecord,
 )
 
 
-def test_execution_status_enum():
-    assert ExecutionStatus.CREATED.value == "CREATED"
-    assert ExecutionStatus.INITIALIZING.value == "INITIALIZING"
-    assert ExecutionStatus.RUNNING.value == "RUNNING"
-    assert ExecutionStatus.PAUSED.value == "PAUSED"
-    assert ExecutionStatus.COMPLETED.value == "COMPLETED"
-    assert ExecutionStatus.FAILED.value == "FAILED"
-    assert ExecutionStatus.BLOCKED.value == "BLOCKED"
+def test_experiment_status_enum():
+    assert ExperimentStatus.CREATED.value == "CREATED"
+    assert ExperimentStatus.INITIALIZING.value == "INITIALIZING"
+    assert ExperimentStatus.RUNNING.value == "RUNNING"
+    assert ExperimentStatus.PAUSED.value == "PAUSED"
+    assert ExperimentStatus.COMPLETED.value == "COMPLETED"
+    assert ExperimentStatus.FAILED.value == "FAILED"
+    assert ExperimentStatus.BLOCKED.value == "BLOCKED"
 
 
 def test_experiment_config_defaults():
@@ -47,7 +47,7 @@ def test_experiment_record_creation():
         config=config,
     )
     assert record.id == "exp-001"
-    assert record.status == ExecutionStatus.CREATED
+    assert record.status == ExperimentStatus.CREATED
     assert record.started_at is None
     assert record.completed_at is None
 
@@ -59,9 +59,9 @@ def test_simulation_run_record():
         run_id=run_id,
         experiment_id="exp-001",
         trace_id=trace_id,
-        status=ExecutionStatus.RUNNING,
+        status=ExperimentStatus.RUNNING,
     )
     assert run.run_id == run_id
     assert run.experiment_id == "exp-001"
-    assert run.status == ExecutionStatus.RUNNING
+    assert run.status == ExperimentStatus.RUNNING
     assert run.ended_at is None
