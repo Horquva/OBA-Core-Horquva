@@ -1,0 +1,41 @@
+name: Engineering Operations Platform — CI
+
+on:
+  push:
+    branches:
+      - "antares/kamil-engineering-ops"
+      - "antares-team"
+    paths:
+      - "services/lifecycle-service/**"
+      - ".github/workflows/engineering-ops-ci.yml"
+  pull_request:
+    branches:
+      - "antares-team"
+    paths:
+      - "services/lifecycle-service/**"
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/lifecycle-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Lint (static checks)
+        run: node scripts/lint.js
+
+      - name: Build check (syntax check on every file)
+        run: node scripts/buildcheck.js
+
+      - name: Run tests
+        run: node --test test/*.test.js
+
+      - name: Full quality gate (lint + build + test, records CI history)
+        run: node scripts/ci.js

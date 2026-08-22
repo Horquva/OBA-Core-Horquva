@@ -40,6 +40,17 @@ const SERVICES = {
   research: `http://${HOSTS.research}/api/signals`,
 };
 
+// Platforms with a folder in services/ but no server/code behind them yet
+// (README-only scaffolds, confirmed by inspection). These are NOT fetched —
+// there is no URL to call — and are reported honestly as "not_implemented"
+// rather than being silently dropped or shown as "down" (which would imply
+// a real service that's merely unreachable). Engineering Ops does not build
+// their logic — only reports that it doesn't exist yet.
+const NOT_IMPLEMENTED_PLATFORMS = {
+  'intelligence-service': 'no code — README-only scaffold',
+  'operationalization-service': 'no code — README-only scaffold',
+};
+
 async function safeFetch(url) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
@@ -79,6 +90,12 @@ async function aggregate() {
       capability: capability.available ? 'live' : `down (${capability.error})`,
       validation: validation.available ? 'live' : `down (${validation.error})`,
       research: research.available ? 'live' : `down (${research.error})`,
+      ...Object.fromEntries(
+        Object.entries(NOT_IMPLEMENTED_PLATFORMS).map(([name, reason]) => [
+          name,
+          `not_implemented (${reason})`,
+        ])
+      ),
     },
     overview: {
       platforms_registered: platforms.length,
