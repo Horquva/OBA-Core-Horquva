@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ANTARES — Organizational Intelligence</title>
-<script src="data.js"></script>
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -135,6 +135,35 @@ body{
 .feed-item .fsub{font-size:11px; color:var(--faint); margin-top:2px}
 
 .section-title{font-size:19px; font-weight:800; margin:0 0 4px; letter-spacing:-0.01em}
+
+.section-head-row{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:4px}
+.add-btn{
+  flex-shrink:0; padding:9px 16px; border-radius:9px; border:none; background:var(--accent); color:#fff;
+  font-weight:700; font-size:12.5px; cursor:pointer; font-family:inherit; box-shadow:var(--shadow);
+}
+.add-btn:hover{background:#4C33D9}
+.add-form{
+  background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px;
+  margin:14px 0 18px; box-shadow:var(--shadow);
+}
+.form-row{margin-bottom:12px}
+.form-row:last-of-type{margin-bottom:0}
+.form-row label{display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:5px}
+.form-row input, .form-row select{
+  width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--line); font-family:inherit;
+  font-size:13px; background:#FAFAFE; color:var(--ink);
+}
+.form-row input:focus, .form-row select:focus{outline:2px solid var(--accent-soft); border-color:var(--accent)}
+.form-actions{display:flex; align-items:center; gap:12px; margin-top:14px}
+.submit-btn{
+  padding:9px 18px; border-radius:8px; border:none; background:var(--ink); color:#fff;
+  font-weight:700; font-size:12.5px; cursor:pointer; font-family:inherit;
+}
+.submit-btn:hover{background:#2B2946}
+.submit-btn:disabled{opacity:0.5; cursor:default}
+.form-status{font-size:12px; color:var(--muted)}
+.form-status.ok{color:var(--ok); font-weight:600}
+.form-status.err{color:#B3261E; font-weight:600}
 .section-sub{color:var(--muted); font-size:13px; margin:0 0 18px}
 .full-list{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:var(--shadow)}
 
@@ -206,9 +235,20 @@ body{
   <main class="main">
     <div class="topbar">
       <h1 id="topbar-title">Emerging &amp; Decentralized Organizational Intelligence</h1>
-      <span class="badge"><span class="live-dot"></span>Data merged &amp; verified</span>
+      <span class="badge" id="live-badge"><span class="live-dot"></span>Connecting to gateway…</span>
     </div>
 
+    <div id="loading-state" style="padding:60px 0; text-align:center; color:var(--muted)">
+      Loading live data from the Antares gateway (http://localhost:4000)…
+    </div>
+    <div id="error-state" style="display:none; padding:24px; background:#FDEBEA; border:1px solid #F3C9C4; border-radius:14px; color:#8A2A20; font-size:13px">
+      Couldn't reach the gateway at <span class="mono">http://localhost:4000/api/aggregate</span>.
+      Make sure all 7 windows from start-all are running.
+      <div style="margin-top:8px; font-size:12px; opacity:0.85">Error detail: <span class="mono" id="error-detail">—</span></div>
+      <button id="retry-btn" style="margin-top:14px; padding:8px 16px; border-radius:8px; border:1px solid #E3A79B; background:#fff; color:#8A2A20; font-weight:600; cursor:pointer; font-family:inherit; font-size:12.5px">Retry now</button>
+    </div>
+
+    <div id="app-sections" style="display:none">
     <!-- OVERVIEW -->
     <section class="tab-panel active" id="tab-overview">
       <div class="hero">
@@ -244,8 +284,18 @@ body{
 
     <!-- SIGNALS -->
     <section class="tab-panel" id="tab-signals">
-      <h2 class="section-title">Signals</h2>
-      <p class="section-sub">Emerging patterns detected across tracked organizations by the research pipeline.</p>
+      <div class="section-head-row">
+        <div><h2 class="section-title">Signals</h2><p class="section-sub">Emerging patterns detected across tracked organizations by the research pipeline.</p></div>
+        <button class="add-btn" data-form="add-signal-form">+ Add signal</button>
+      </div>
+      <form id="add-signal-form" class="add-form" style="display:none">
+        <div class="form-row"><label>Title</label><input type="text" id="signal-title" placeholder="e.g. Rise of quadratic voting in DAOs" required></div>
+        <div class="form-row"><label>Organizations</label><input type="text" id="signal-orgs" placeholder="comma-separated, e.g. Uniswap, Aave"></div>
+        <div class="form-row"><label>State</label>
+          <select id="signal-state"><option value="emerging">emerging</option><option value="candidate">candidate</option><option value="validated">validated</option></select>
+        </div>
+        <div class="form-actions"><button type="submit" class="submit-btn">Submit signal</button><span class="form-status" id="signal-form-status"></span></div>
+      </form>
       <div class="full-list" id="signals-list"></div>
     </section>
 
@@ -258,8 +308,18 @@ body{
 
     <!-- GOVERNANCE -->
     <section class="tab-panel" id="tab-governance">
-      <h2 class="section-title">Governance</h2>
-      <p class="section-sub">Actions evaluated against rules and trust scores, with an accountable outcome for each.</p>
+      <div class="section-head-row">
+        <div><h2 class="section-title">Governance</h2><p class="section-sub">Actions evaluated against rules and trust scores, with an accountable outcome for each.</p></div>
+        <button class="add-btn" data-form="evaluate-form">+ Evaluate an action</button>
+      </div>
+      <form id="evaluate-form" class="add-form" style="display:none">
+        <div class="form-row"><label>Actor ID</label><input type="text" id="eval-actor" placeholder="e.g. agent-1 (try agent-zeeshan-047 or agent-1 — pre-verified demo actors)" required></div>
+        <div class="form-row"><label>Action</label><input type="text" id="eval-action" placeholder="e.g. read_customer_record" required></div>
+        <div class="form-row"><label>Actor role</label><input type="text" id="eval-role" placeholder="e.g. verified_agent" value="verified_agent"></div>
+        <div class="form-row"><label>Resource type</label><input type="text" id="eval-resource" placeholder="e.g. customer_record" value="customer_record"></div>
+        <div class="form-actions"><button type="submit" class="submit-btn">Evaluate live</button><span class="form-status" id="eval-form-status"></span></div>
+      </form>
+      <div class="full-list" id="eval-result" style="display:none; margin-bottom:16px"></div>
       <div class="full-list" id="governance-list"></div>
     </section>
 
@@ -272,8 +332,14 @@ body{
 
     <!-- CAPABILITIES -->
     <section class="tab-panel" id="tab-capabilities">
-      <h2 class="section-title">Capabilities</h2>
-      <p class="section-sub">Capabilities tracked through the integration pipeline and their readiness state.</p>
+      <div class="section-head-row">
+        <div><h2 class="section-title">Capabilities</h2><p class="section-sub">Capabilities tracked through the integration pipeline and their readiness state.</p></div>
+        <button class="add-btn" data-form="add-capability-form">+ Add capability</button>
+      </div>
+      <form id="add-capability-form" class="add-form" style="display:none">
+        <div class="form-row"><label>Name</label><input type="text" id="cap-name" placeholder="e.g. Automated Onboarding Risk Check" required></div>
+        <div class="form-actions"><button type="submit" class="submit-btn">Submit capability</button><span class="form-status" id="cap-form-status"></span></div>
+      </form>
       <div class="full-list" id="capabilities-list"></div>
     </section>
 
@@ -309,12 +375,48 @@ body{
       <h2 class="section-title">Watchlist</h2><p class="section-sub">Nothing has been pinned to the watchlist yet.</p>
       <div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7z"/></svg><h4>Watchlist is empty</h4><p>Pin a signal or capability to track it here.</p></div>
     </section>
+    </div><!-- /app-sections -->
 
   </main>
 </div>
 
 <script>
-const d = window.ANTARES_DATA;
+const GATEWAY_URL = 'http://127.0.0.1:4000/api/aggregate';
+
+function renderDashboard(raw) {
+// Normalize incoming data defensively — a service that's down, still
+// starting up, or returning a slightly different shape should never
+// crash the whole dashboard. Missing fields fall back to safe empties.
+const d = {
+  overview: {
+    platforms_registered: (raw.overview && raw.overview.platforms_registered) || 0,
+    jobs_tracked: (raw.overview && raw.overview.jobs_tracked) || 0,
+    capabilities_in_registry: (raw.overview && raw.overview.capabilities_in_registry) || 0,
+    research_signals: (raw.overview && raw.overview.research_signals) || 0,
+    research_patterns: (raw.overview && raw.overview.research_patterns) || 0,
+    governance_decisions: (raw.overview && raw.overview.governance_decisions) || 0,
+  },
+  platforms: Array.isArray(raw.platforms) ? raw.platforms : [],
+  jobs: Array.isArray(raw.jobs) ? raw.jobs : [],
+  capabilities: (Array.isArray(raw.capabilities) ? raw.capabilities : []).map(c => ({
+    name: c.name || 'Untitled capability',
+    state: c.state || 'Unknown',
+  })),
+  signals: (Array.isArray(raw.signals) ? raw.signals : []).map(s => ({
+    title: s.title || 'Untitled signal',
+    state: s.state || 'unknown',
+    orgs: Array.isArray(s.organizations) ? s.organizations : (Array.isArray(s.orgs) ? s.orgs : []),
+  })),
+  governance_decisions: (Array.isArray(raw.governance_decisions) ? raw.governance_decisions : []).map(g => ({
+    actor: g.actor || 'unknown actor',
+    action: g.action || 'unknown action',
+    risk: g.risk || 'LOW',
+    outcome: g.outcome || 'UNKNOWN',
+    reason: g.reason || '',
+    evidence_id: g.evidence_id || '—',
+  })),
+  sources: raw.sources || {},
+};
 
 // ---- nav counters ----
 document.getElementById('nq-signals').textContent = d.signals.length;
@@ -358,7 +460,7 @@ document.getElementById('ov-platform-list').innerHTML = d.platforms.map(p => `
 
 // ---- live feed ----
 const feedItems = [
-  ...d.signals.slice(0,3).map(s => ({title: s.title, sub: 'Signals · ' + s.orgs[0]})),
+  ...d.signals.slice(0,3).map(s => ({title: s.title, sub: 'Signals · ' + ((s.orgs && s.orgs[0]) || 'unknown org')})),
   ...d.governance_decisions.map(g => ({title: g.action + ' → ' + g.outcome.replace(/_/g,' '), sub: 'Governance · ' + g.actor}))
 ];
 document.getElementById('live-feed').innerHTML = feedItems.map(f => `
@@ -367,7 +469,7 @@ document.getElementById('live-feed').innerHTML = feedItems.map(f => `
 
 // ---- Signals tab ----
 document.getElementById('signals-list').innerHTML = d.signals.map(s => `
-  <div class="row"><div><div class="title">${s.title}</div><div class="sub">${s.orgs.join(' · ')}</div></div><span class="pill pattern">${s.state.replace(/_/g,' ')}</span></div>
+  <div class="row"><div><div class="title">${s.title}</div><div class="sub">${(s.orgs || []).join(' · ')}</div></div><span class="pill pattern">${s.state.replace(/_/g,' ')}</span></div>
 `).join('');
 
 // ---- Evidence tab ----
@@ -399,7 +501,7 @@ document.getElementById('capabilities-list').innerHTML = d.capabilities.map(c =>
 
 // ---- Activity tab (combined feed) ----
 const allActivity = [
-  ...d.signals.map(s => ({t: s.title, sub: 'Signal detected · ' + s.orgs.join(', '), pill: s.state.replace(/_/g,' '), cls:'pattern'})),
+  ...d.signals.map(s => ({t: s.title, sub: 'Signal detected · ' + (s.orgs || []).join(', '), pill: s.state.replace(/_/g,' '), cls:'pattern'})),
   ...d.governance_decisions.map(g => ({t: g.action, sub: 'Governance · ' + g.actor, pill: g.outcome.replace(/_/g,' '), cls: g.outcome==='ALLOW'?'ready':'pending'})),
   ...d.capabilities.map(c => ({t: c.name, sub: 'Capability registry', pill: c.state, cls: c.state.includes('Ready')?'ready':'pending'}))
 ];
@@ -407,23 +509,180 @@ document.getElementById('activity-list').innerHTML = allActivity.map(a => `
   <div class="row"><div><div class="title">${a.t}</div><div class="sub">${a.sub}</div></div><span class="pill ${a.cls}">${a.pill}</span></div>
 `).join('');
 
-// ---- Tab switching ----
+// ---- Tab switching (bound once, outside renderDashboard, since it doesn't need data) ----
 const titles = {
   overview: "Emerging & Decentralized Organizational Intelligence", signals: "Signals", evidence: "Evidence",
   governance: "Governance", organizations: "Organizations", technology: "Technology", identity: "Identity",
   ecosystems: "Ecosystems", insights: "Insights", watchlist: "Watchlist", platforms: "Platforms",
   capabilities: "Capabilities", activity: "Activity"
 };
-document.querySelectorAll('.nav-item').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    const tab = btn.dataset.tab;
-    document.getElementById('tab-' + tab).classList.add('active');
-    document.getElementById('topbar-title').textContent = titles[tab];
+
+// ---- source status footer (which real services answered this fetch) ----
+if (d.sources) {
+  const down = Object.entries(d.sources).filter(([k,v]) => v !== 'live');
+  const badge = document.getElementById('live-badge');
+  if (down.length === 0) {
+    badge.innerHTML = '<span class="live-dot"></span>All 6 services live';
+  } else {
+    badge.style.background = 'var(--warn-soft)';
+    badge.style.color = 'var(--warn)';
+    badge.innerHTML = `<span class="live-dot" style="background:var(--warn)"></span>${6-down.length}/6 services live`;
+  }
+}
+
+} // end renderDashboard
+
+let navBound = false;
+function bindNavOnce() {
+  if (navBound) return;
+  navBound = true;
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.getElementById('topbar-title').textContent = titles[tab];
+    });
   });
-});
+}
+
+async function loadLive() {
+  console.log('[dashboard] fetching', GATEWAY_URL);
+  try {
+    const res = await fetch(GATEWAY_URL, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    console.log('[dashboard] gateway responded OK', data.sources);
+    renderDashboard(data);
+    bindNavOnce();
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('error-state').style.display = 'none';
+    document.getElementById('app-sections').style.display = 'block';
+  } catch (err) {
+    console.error('[dashboard] fetch failed:', err);
+    document.getElementById('loading-state').style.display = 'none';
+    if (document.getElementById('app-sections').style.display !== 'block') {
+      document.getElementById('error-state').style.display = 'block';
+      document.getElementById('error-detail').textContent = err.message || String(err);
+    }
+    const badge = document.getElementById('live-badge');
+    badge.style.background = '#FDEBEA'; badge.style.color = '#B3261E';
+    badge.innerHTML = '<span class="live-dot" style="background:#B3261E"></span>Gateway unreachable';
+  }
+}
+
+// ---- Interactive "Add" forms — toggle open/closed ----
+let formsBound = false;
+function bindFormsOnce() {
+  if (formsBound) return;
+  formsBound = true;
+
+  document.querySelectorAll('.add-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = document.getElementById(btn.dataset.form);
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+
+  const GW = GATEWAY_URL.replace('/api/aggregate', '');
+
+  // --- Add capability ---
+  document.getElementById('add-capability-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = document.getElementById('cap-form-status');
+    const name = document.getElementById('cap-name').value.trim();
+    if (!name) return;
+    status.textContent = 'Submitting…'; status.className = 'form-status';
+    try {
+      const res = await fetch(GW + '/api/capabilities', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const result = await res.json();
+      if (!res.ok || result.ok === false) throw new Error(result.error || 'HTTP ' + res.status);
+      status.textContent = `Added as ${result.capability.id}`; status.className = 'form-status ok';
+      document.getElementById('cap-name').value = '';
+      setTimeout(loadLive, 400);
+    } catch (err) {
+      status.textContent = 'Failed: ' + err.message; status.className = 'form-status err';
+    }
+  });
+
+  // --- Add signal ---
+  document.getElementById('add-signal-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = document.getElementById('signal-form-status');
+    const title = document.getElementById('signal-title').value.trim();
+    const orgsRaw = document.getElementById('signal-orgs').value.trim();
+    const state = document.getElementById('signal-state').value;
+    if (!title) return;
+    const orgs = orgsRaw ? orgsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    status.textContent = 'Submitting…'; status.className = 'form-status';
+    try {
+      const res = await fetch(GW + '/api/signals', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, orgs, state }),
+      });
+      const result = await res.json();
+      if (!res.ok || result.ok === false) throw new Error(result.error || 'HTTP ' + res.status);
+      status.textContent = `Added as ${result.signal.id}`; status.className = 'form-status ok';
+      document.getElementById('signal-title').value = '';
+      document.getElementById('signal-orgs').value = '';
+      setTimeout(loadLive, 400);
+    } catch (err) {
+      status.textContent = 'Failed: ' + err.message; status.className = 'form-status err';
+    }
+  });
+
+  // --- Evaluate governance action (live, one-off — not persisted into the demo scenario list) ---
+  document.getElementById('evaluate-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = document.getElementById('eval-form-status');
+    const actorId = document.getElementById('eval-actor').value.trim();
+    const action = document.getElementById('eval-action').value.trim();
+    const actorRole = document.getElementById('eval-role').value.trim() || 'verified_agent';
+    const resourceType = document.getElementById('eval-resource').value.trim() || 'customer_record';
+    if (!actorId || !action) return;
+    status.textContent = 'Evaluating…'; status.className = 'form-status';
+    try {
+      const res = await fetch(GW + '/api/governance/evaluate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actionRequest: { id: 'UI-' + Date.now(), action, actorId, actorRole, resourceType },
+          context: { source: 'dashboard-manual-evaluation' },
+          trustSignals: [],
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'HTTP ' + res.status);
+      status.textContent = 'Evaluated'; status.className = 'form-status ok';
+
+      const box = document.getElementById('eval-result');
+      const outcome = result.decision.outcome;
+      const cls = outcome === 'ALLOW' ? 'ready' : (outcome === 'REJECT' ? 'high' : 'pending');
+      box.style.display = 'block';
+      box.innerHTML = `
+        <div class="evidence-card">
+          <div class="evidence-top">
+            <span class="evidence-actor">Live result for ${actorId} → ${action}</span>
+            <span class="pill ${cls}">${outcome}</span>
+          </div>
+          <p class="evidence-reason">${result.decision.reason}</p>
+          <div class="evidence-id mono">${result.evidence.id} · stage reached: ${result.stageReached}</div>
+        </div>`;
+    } catch (err) {
+      status.textContent = 'Failed: ' + err.message; status.className = 'form-status err';
+    }
+  });
+}
+
+loadLive();
+bindNavOnce(); // bind nav immediately — sidebar must work even before the gateway responds
+bindFormsOnce();
+setInterval(loadLive, 15000); // refresh every 15s so the dashboard stays live
+document.getElementById('retry-btn').addEventListener('click', loadLive);
 </script>
 </body>
 </html>

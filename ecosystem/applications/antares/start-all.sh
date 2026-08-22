@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# start-all.sh — boots the whole Antares stack for real, live use.
+#
+# Starts all 6 team services + the integration gateway, then serves the
+# dashboard at http://localhost:4000 — pulling LIVE data from every
+# service, not a static file.
+#
+# Usage:  ./start-all.sh
+# Stop:   ./stop-all.sh   (or Ctrl+C if run in foreground)
+
+set -e
+cd "$(dirname "$0")"
+mkdir -p .run
+
+echo "Installing dependencies (first run only — safe to skip if already done)..."
+(cd services/capability-service && pip install -r requirements.txt --break-system-packages -q)
+(cd services/validation-service && pip install -r requirements.txt --break-system-packages -q)
+(cd services/research-service && pip install -r requirements.txt --break-system-packages -q)
+
+echo ""
+echo "Starting services..."
+
+(cd services/lifecycle-service && PORT=4001 node src/server.js < /dev/null > ../../.run/lifecycle.log 2>&1 &
+ echo $! > ../../.run/lifecycle.pid)
+
+(cd services/integration-service && PORT=4002 node src/server.js < /dev/null > ../../.run/integration.log 2>&1 &
+ echo $! > ../../.run/integration.pid)
+
+(cd governance/engine && PORT=4003 node server.js < /dev/null > ../../.run/governance.log 2>&1 &
+ echo $! > ../../.run/governance.pid)
+
+(cd services/capability-service && python -m uvicorn api:app --port 4004 < /dev/null > ../../.run/capability.log 2>&1 &
+ echo $! > ../../.run/capability.pid)
+
+(cd services/validation-service && python -m uvicorn app.api:app --port 4005 < /dev/null > ../../.run/validation.log 2>&1 &
+ echo $! > ../../.run/validation.pid)
+
+(cd services/research-service && python -m uvicorn server:app --port 4006 < /dev/null > ../../.run/research.log 2>&1 &
+ echo $! > ../../.run/research.pid)
+
+sleep 3
+
+node gateway.js < /dev/null > .run/gateway.log 2>&1 &
+echo $! > .run/gateway.pid
+
+sleep 2
+
+echo ""
+echo "Checking health..."
+for svc in lifecycle:4001 integration:4002 governance:4003 capability:4004 validation:4005 research:4006; do
+  name="${svc%%:*}"; port="${svc##*:}"
+  if curl -s -m 2 "http://localhost:$port/health" > /dev/null; then
+    echo "  ✓ $name (port $port)"
+  else
+    echo "  ✗ $name (port $port) — check .run/$name.log"
+  fi
+done
+
+echo ""
+echo "=================================================="
+echo "  Antares is live: http://localhost:4000"
+echo "  Live API:         http://localhost:4000/api/aggregate"
+echo "=================================================="
+echo "Run ./stop-all.sh to shut everything down."
