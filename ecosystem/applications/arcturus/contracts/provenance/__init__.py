@@ -1,4 +1,4 @@
-from contracts.provenance.base_models import (
+from ecosystem.applications.arcturus.contracts.provenance.base_models import (
     ProvenanceRecord,
     generate_lineage_hash,
 )

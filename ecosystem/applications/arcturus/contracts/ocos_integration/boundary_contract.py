@@ -11,7 +11,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from contracts.shared.base_models import SimulationContext
+from ecosystem.applications.arcturus.contracts.shared.base_models import SimulationContext
 
 
 class HostSystemType(str, Enum):
