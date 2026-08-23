@@ -413,30 +413,6 @@ IMPL.M09 = (rt) => {
   }
 }
 
-// M10 — Organizational Memory: what the Brain has recorded (intelligence history).
-IMPL.M10 = (rt) => {
-  // ⚠ Always [] since the runtime was removed. This read the log of Brain runs
-  // — how much the brain had been used, not what the organization did. Design
-  // open question 1: retire this analysis, or re-point it at real history
-  // (decision_history / workflow_failures / documentation_trend).
-  const history = rt.intelligenceBus ? rt.intelligenceBus.history(200) : []
-  const byType = {}
-  for (const p of history) byType[p.type] = (byType[p.type] || 0) + 1
-  const evidence = [ev('bus', 'history', `${history.length} intelligence packages recorded`)]
-  return {
-    type: 'generic',
-    payload: {
-      recordedIntelligence: history.length,
-      byType,
-      graphMemory: rt.graph.stats(),
-      lastRecorded: history.slice(-3).map((p) => ({ from: p.sourceModule, type: p.type, at: p.timestamp })),
-    },
-    confidence: A.confidence(evidence.length, 1),
-    evidence,
-    recommendations: [],
-  }
-}
-
 // M14 — Decision Intelligence: decision readiness from coverage + risk.
 IMPL.M14 = (rt, context) => {
   const g = rt.graph
@@ -845,37 +821,6 @@ IMPL.M11 = (rt, context) => {
   }
 }
 
-// M12 — Organizational Forecasting: project how the organization will evolve.
-IMPL.M12 = (rt, context) => {
-  const g = rt.graph
-  const s = g.stats()
-  // ⚠ Always [] since the runtime was removed. This read the log of Brain runs
-  // — how much the brain had been used, not what the organization did. Design
-  // open question 1: retire this analysis, or re-point it at real history
-  // (decision_history / workflow_failures / documentation_trend).
-  const history = rt.intelligenceBus ? rt.intelligenceBus.history(1000) : []
-  const activity = Math.min(0.4, history.length / 500)
-  const entityGrowth = 1.1 + activity
-  const forecast = {
-    horizon: (context && context.horizon) || '90d',
-    projectedEntities: Math.round(s.entities * entityGrowth),
-    projectedRelationships: Math.round(s.relationships * (entityGrowth + 0.05)),
-    growthRate: A.round(entityGrowth - 1),
-  }
-  const scenarios = [
-    { scenario: 'steady', projectedEntities: Math.round(s.entities * 1.1) },
-    { scenario: 'expansion', projectedEntities: Math.round(s.entities * 1.3) },
-    { scenario: 'contraction', projectedEntities: Math.round(s.entities * 0.95) },
-  ]
-  return {
-    type: 'prediction',
-    payload: { current: s, forecast, scenarios, method: 'activity-weighted growth projection' },
-    confidence: A.confidence(history.length || 1, 0.65),
-    evidence: [ev('graph', 'stats', `${s.entities} entities / ${s.relationships} relationships`), ev('bus', 'history', `${history.length} recorded intelligence events`)],
-    recommendations: forecast.growthRate > 0.25 ? ['Rapid organizational growth projected — scale ownership and governance ahead of demand.'] : [],
-  }
-}
-
 // M13 — Human-AI Collaboration: measure & optimize how people and AI work together.
 IMPL.M13 = (rt) => {
   const g = rt.graph
@@ -899,33 +844,6 @@ IMPL.M13 = (rt) => {
     confidence: A.confidence(links.length || 1, 0.75),
     evidence: links.map((r) => ev('relationship', r.id, `${A.nameOf(g, r.from)} ${r.type} ${A.nameOf(g, r.to)}`)),
     recommendations: disconnected.slice(0, 5).map((h) => `Pair "${h.name}" with an AI tool/system to raise collaboration leverage.`),
-  }
-}
-
-// M17 — Organizational Learning: is the organization improving from experience?
-IMPL.M17 = (rt) => {
-  // ⚠ Always [] since the runtime was removed. This read the log of Brain runs
-  // — how much the brain had been used, not what the organization did. Design
-  // open question 1: retire this analysis, or re-point it at real history
-  // (decision_history / workflow_failures / documentation_trend).
-  const history = rt.intelligenceBus ? rt.intelligenceBus.history(1000) : []
-  const byType = {}
-  for (const p of history) byType[p.type] = (byType[p.type] || 0) + 1
-  const learningIndex = A.round(Math.min(1, history.length / 100))
-  const recent = history.slice(-50)
-  const recentAvgConf = recent.length ? A.round(recent.reduce((sum, p) => sum + (p.confidence || 0), 0) / recent.length) : 0
-  return {
-    type: 'prediction',
-    payload: {
-      recordedIntelligence: history.length,
-      learningIndex,
-      intelligenceByType: byType,
-      recentConfidenceTrend: recentAvgConf,
-      improving: learningIndex > 0.3 && recentAvgConf >= 0.6,
-    },
-    confidence: A.confidence(history.length || 1, learningIndex || 0.5),
-    evidence: [ev('bus', 'history', `${history.length} recorded intelligence packages`)],
-    recommendations: learningIndex < 0.3 ? ['Run the Brain regularly so it accumulates outcomes and learns — learning signal is still low.'] : [],
   }
 }
 
@@ -1145,32 +1063,6 @@ IMPL.M45 = (rt) => {
     confidence: A.confidence(benchmarks.length, 1),
     evidence: benchmarks.map((b) => ev('benchmark', b.metric, `${b.value} vs ${b.target}`)),
     recommendations: benchmarks.filter((b) => !b.pass).map((b) => `Improve ${b.metric} (${b.value}) toward target ${b.target}.`),
-  }
-}
-
-// M47 — Continuous Learning: does the Brain get smarter with every run?
-IMPL.M47 = (rt) => {
-  // ⚠ Always [] since the runtime was removed. This read the log of Brain runs
-  // — how much the brain had been used, not what the organization did. Design
-  // open question 1: retire this analysis, or re-point it at real history
-  // (decision_history / workflow_failures / documentation_trend).
-  const history = rt.intelligenceBus ? rt.intelligenceBus.history(2000) : []
-  const half = Math.floor(history.length / 2)
-  const older = history.slice(0, half)
-  const newer = history.slice(half)
-  const avg = (arr) => (arr.length ? arr.reduce((sum, p) => sum + (p.confidence || 0), 0) / arr.length : 0)
-  const delta = A.round(avg(newer) - avg(older))
-  return {
-    type: 'prediction',
-    payload: {
-      learningEvents: history.length,
-      confidenceDelta: delta,
-      improving: history.length > 0 && delta >= 0,
-      trend: delta > 0.02 ? 'improving' : delta < -0.02 ? 'regressing' : 'stable',
-    },
-    confidence: A.confidence(history.length || 1, 0.6),
-    evidence: [ev('bus', 'history', `${history.length} learning events`)],
-    recommendations: delta < -0.02 ? ['Confidence is regressing across runs — review recent intelligence quality.'] : [],
   }
 }
 

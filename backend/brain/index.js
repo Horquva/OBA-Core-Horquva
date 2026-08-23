@@ -192,6 +192,8 @@ async function run(code, context = {}) {
  * the whole set would double-count the same signals.
  */
 async function runMany(codes, context = {}) {
+  const unknown = codes.filter((c) => !BY_CODE[c])
+  if (unknown.length) throw new Error(`Unknown analyses: ${unknown.join(', ')}`)
   if (!graph) throw new Error('Brain graph has not been loaded — call loadGraph() first')
   const order = resolveOrder(codes)
   const priorIntel = []

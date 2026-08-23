@@ -31,8 +31,9 @@ function check(name, condition, detail) {
 // Intelligence-side scenarios (analysis ids from the module catalog)
 const SCENARIOS = [
 	{ name: 'Predictive Risk (M11)', modules: ['M03', 'M11'], question: 'Predict upcoming risks' },
-	{ name: 'Forecasting (M12)', modules: ['M12'], question: 'Forecast next quarter' },
-	{ name: 'Org Learning (M17/M47)', modules: ['M17', 'M47'], question: 'What has the org learned?' },
+	// M12/M17/M47 retired 2026-08-24 (they measured brain runs, not the
+	// organization). Governance replaces them: a real M01 → M20 → M19 chain.
+	{ name: 'Governance (M19)', modules: ['M19'], question: 'How well governed are we?' },
 	{ name: 'What-If Simulation (M05/M54)', modules: ['M05', 'M54'], question: 'Simulate a key person leaving' },
 	{ name: 'Digital Twin (M49)', modules: ['M49'], question: 'Sync the digital twin' },
 	{ name: 'Brain Core + Orchestrator (M50/M55)', modules: ['M50', 'M55'], question: 'Full brain reasoning' },

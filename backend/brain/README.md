@@ -1,7 +1,8 @@
 # Organizational Brain — analysis library (`backend/brain/`)
 
-Builds the organizational Knowledge Graph from Supabase and runs the 55
-analyses (M01–M55) over it.
+Builds the organizational Knowledge Graph from Supabase and runs the 51
+analyses over it. (The catalog is numbered M01–M55; four were retired — see
+Known gaps.)
 
 **It is a library, not a service.** Nothing is mounted; there is no `/api/brain`.
 Routes call it directly:
@@ -30,7 +31,7 @@ its own self-description. See
 | `run(code, context)` | One analysis. Its declared dependencies run first, so `context.priorIntel` is populated. |
 | `runMany(codes, context)` | Several analyses in constitutional order, plus a fused confidence. |
 | `resolveOrder(codes)` | The execution order, dependencies included. |
-| `MODULES` | The locked M01–M55 catalog. |
+| `MODULES` | The analysis catalog — 51 entries. |
 
 ## Files
 
@@ -43,8 +44,8 @@ its own self-description. See
 | `knowledge/relationshipRegistry.js` | Relationships as first-class assets; no dangling edges |
 | `knowledge/intelligenceExchange.js` | The package shape every analysis returns, plus confidence fusion |
 | `data/ontology.js` | One constitutional meaning per entity and relationship type |
-| `data/constitutional-modules.js` | The M01–M55 catalog: names, owners, dependencies |
-| `modules/implementations.js` | All 55 analyses |
+| `data/constitutional-modules.js` | The analysis catalog: names, owners, dependencies |
+| `modules/implementations.js` | All 51 analyses |
 | `modules/analytics.js` | Shared graph algorithms — SPOF, centrality, cycles, transitive deps |
 
 ## Two things that survived the runtime, because they are behaviour
@@ -60,13 +61,18 @@ which it gates. Meta-Brain (M55) always runs last, because it fuses everything.
 
 ## Known gaps
 
-**Seven analyses used to read runtime internals, not organizational data.**
-M10, M12, M17, M47 and M46 read a log of *Brain runs* — how much the brain had
-been used, not what the organization did. M39 and M49 reported the registry's
-own size and the runtime's health. All are null-guarded and now return empty for
-those fields; M39's and M49's were deleted outright. Whether to retire the other
-four or re-point them at `decision_history` / `workflow_failures` /
-`documentation_trend` is open question 1 in the design document.
+**Four analyses were retired, taking the catalog from 55 to 51.** M10
+Organizational Memory, M12 Forecasting, M17 Organizational Learning and M47
+Continuous Learning all read a log of *Brain runs* — how much the brain had been
+used, not what the organization did. M47's own constitutional question was "How
+does the Brain improve continuously?". Every question they claimed is already
+answered from real tables by `/api/learning` (`/failures`, `/decisions`),
+`/api/forecast` and `/api/memory`. Nothing depended on them.
+
+M39's `brainConstitutionalCapabilities` (the registry's own size) and M49's
+`runtimeHealth` were self-description and were deleted with the runtime. M46
+still reads bus-derived package counts, which are now always empty — it is
+otherwise graph-derived and was kept.
 
 **The graph is a lossy projection.** `graphLoader` drops `cost`, `usage_count`,
 `adoption_pct`, `last_used` and every timestamp, and the graph has no time

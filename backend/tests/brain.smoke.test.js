@@ -8,8 +8,9 @@
  * 55 modules "discovered", 55 capabilities "registered", a graph "valid" flag.
  * The runtime is gone (see docs/superpowers/specs/2026-08-24-brain-as-library-design.md).
  * Every assertion below is the same claim re-expressed against the library —
- * all 55 analyses exist and run, ownership is unchanged, the graph is valid,
- * and the two constitutional ordering rules still hold.
+ * all 51 analyses exist and run, ownership is as the catalog declares, the
+ * graph is valid, and the two constitutional ordering rules still hold.
+ * (51, not 55: M10/M12/M17/M47 were retired — see the catalog's header.)
  */
 
 const brain = require('../brain')
@@ -36,28 +37,28 @@ function check(name, condition, detail) {
 		const { MODULES } = brain
 
 		// ─── the catalog is intact ───
-		check('55 analyses in the catalog', MODULES.length === 55, `${MODULES.length}`)
+		check('51 analyses in the catalog', MODULES.length === 51, `${MODULES.length}`)
 		const missing = MODULES.filter((m) => typeof IMPL[m.code] !== 'function')
 		check('every analysis has an implementation', missing.length === 0,
-			missing.length ? missing.map((m) => m.code).join(', ') : '55/55')
+			missing.length ? missing.map((m) => m.code).join(', ') : '51/51')
 
 		const byOwner = {}
 		for (const m of MODULES) byOwner[m.owner] = (byOwner[m.owner] || 0) + 1
 		check('Owner Huzaifa = 13', byOwner.Huzaifa === 13, String(byOwner.Huzaifa))
-		check('Owner Kamran = 21', byOwner.Kamran === 21, String(byOwner.Kamran))
-		check('Owner Tahir = 14', byOwner.Tahir === 14, String(byOwner.Tahir))
+		check('Owner Kamran = 20', byOwner.Kamran === 20, String(byOwner.Kamran))
+		check('Owner Tahir = 11', byOwner.Tahir === 11, String(byOwner.Tahir))
 		check('Owner Anusha = 7', byOwner.Anusha === 7, String(byOwner.Anusha))
 
 		// ─── constitutional ordering survives the runtime's removal ───
 		const order = brain.resolveOrder(MODULES.map((m) => m.code))
-		check('ordering covers all 55', order.length === 55, `${order.length}`)
+		check('ordering covers all 51', order.length === 51, `${order.length}`)
 		check('Constitutional: Truth (M46) before Advisor (M48)',
 			order.indexOf('M46') < order.indexOf('M48'),
 			`M46@${order.indexOf('M46')} M48@${order.indexOf('M48')}`)
 		check('Constitutional: Meta-Brain (M55) runs last', order[order.length - 1] === 'M55', order[order.length - 1])
 		const misordered = MODULES.filter((m) => m.dependsOn.some((d) => order.indexOf(d) > order.indexOf(m.code)))
 		check('every dependency precedes its dependent', misordered.length === 0,
-			misordered.length ? misordered.map((m) => m.code).join(', ') : 'all 55')
+			misordered.length ? misordered.map((m) => m.code).join(', ') : 'all 51')
 
 		// ─── every analysis actually runs over a graph ───
 		const g = buildTestGraph()
@@ -67,8 +68,8 @@ function check(name, condition, detail) {
 		for (const m of MODULES) {
 			try { await IMPL[m.code]({ graph: g }, {}) } catch (e) { errors.push(`${m.code}: ${e.message}`) }
 		}
-		check('all 55 analyses run without error', errors.length === 0,
-			errors.length ? errors.slice(0, 3).join(' | ') : '55/55')
+		check('all 51 analyses run without error', errors.length === 0,
+			errors.length ? errors.slice(0, 3).join(' | ') : '51/51')
 
 		// ─── composition still feeds priorIntel (M48 is gated by M46) ───
 		brain.setGraph(g)

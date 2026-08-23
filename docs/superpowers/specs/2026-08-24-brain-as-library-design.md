@@ -1,6 +1,6 @@
 # Collapse the Brain from a Runtime into a Library
 
-**Status:** proposed · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
+**Status:** in progress — steps 1–3 done · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
 
 Supersedes BUILD_SPEC's W9 ("wire the brain to the routes"). W9 assumed the brain
 was a service to be plugged into more routes. It is better understood as a
@@ -143,10 +143,26 @@ wiring the bus so they stopped returning zeros — but what they now report is h
 much the brain has been *used*, not what the organization has *learned*. A
 number that moves when you refresh a page is not organizational memory.
 
-**Decision required per module: retire it, or re-point it at real data.**
-`decision_history`, `workflow_failures` and `documentation_trend` are the
-candidate real sources for learning-shaped questions. This is the one part of
-the refactor that is not mechanical.
+**RESOLVED 2026-08-24 — all four retired.** The catalog is 55 → 51.
+
+The re-pointing candidates turned out to be already built, correctly, in SQL:
+`routes/learning` serves `/failures` and `/decisions` from `workflow_failures`
+and `decision_history` — the exact tables named above — and `routes/forecast`
+and `routes/memory` cover the other two questions. Re-pointing would have meant
+writing four new analyses duplicating three working routes.
+
+Nothing salvageable remained in the bodies: M17's `learningIndex` was
+`min(1, brainRuns / 100)` and its recommendation told the user to run the
+software more often; M12 projected entity growth as `1.1 + brainUsage`,
+fabricated arithmetic of the same class as M40's constants (§9). Nothing
+depended on any of the four. Verified after removal: the surviving 51 analyses
+are byte-identical.
+
+⚠ **This overrides BUILD_SPEC W5**, which planned to *extend* `IMPL.M10` to read
+a new `graph_snapshot` table "which makes it the Organizational Memory its name
+claims". That plan replaces M10's body wholesale against a table that does not
+exist yet, so nothing is lost by retiring it now — but whoever builds W5 should
+add a new, named analysis rather than look for M10.
 
 The two self-description fields (`brainConstitutionalCapabilities`,
 `runtimeHealth`) are simply deleted; `CapabilityByDeptCard` renders the former
@@ -185,9 +201,9 @@ Every step leaves the application working. There is no flag day.
 
 | Step | Work | Est. |
 |---|---|---|
-| **1** | Delete the Python layer | hours |
-| **2** | Expose the 55 module bodies as directly-callable functions; delete `executionEngine`, `eventBus`, `communicationLayer`, `brainState`, `moduleRegistry`, `capabilityRegistry`, `brainApi`, `graphSeeder`. Replace `priorIntel` wiring with explicit composition (§6.3). `prediction.js` calls functions instead of `engine.execute` | 1–2 d |
-| **3** | Resolve the six machinery-measuring modules (§6.1) | 1 d + decisions |
+| ~~**1**~~ | ~~Delete the Python layer~~ — **done**, commit `2fa9d97` | hours |
+| ~~**2**~~ | ~~Expose the module bodies as directly-callable functions; delete the runtime~~ — **done**, commit `36d872f`. 50 of 55 payloads byte-identical; the rest were the machinery-measuring fields | 1–2 d |
+| ~~**3**~~ | ~~Resolve the six machinery-measuring modules~~ — **done**. M39/M49's self-description fields deleted in step 2; M10/M12/M17/M47 retired | 1 d + decisions |
 | **4** | Carry full rows into graph metadata (§6.2) | 0.5 d |
 | **5** | Rename every analysis off the M-numbers; fix the stale `NOT MOUNTED` comments in `frontend/lib/api.ts` | 0.5 d |
 | **6** | Fix `constitutional.js` M40's two constant dimensions and its shadowed `/truth` route (see §9) | 0.5 d |
@@ -241,11 +257,11 @@ confident number. Expect more of them, and treat §6.1 as the same family.
 
 ## 11. Open questions
 
-1. **§6.1, per module** — retire M10/M12/M17/M47, or re-point them at
-   `decision_history` / `workflow_failures` / `documentation_trend`? Needs a
-   product answer about what "organizational learning" should mean.
-2. **Python layer** — delete outright, or move to `prototype/` with a README?
-   Recommendation: delete; it is in git history.
+1. ~~**§6.1, per module** — retire M10/M12/M17/M47, or re-point them?~~
+   **RESOLVED: all four retired** (§6.1). The SQL layer already answers their
+   questions from real tables.
+2. ~~**Python layer** — delete, or move to `prototype/`?~~ **RESOLVED: deleted**
+   in step 1.
 3. **`brainCore.js` / `orchestrator.js`** — they compute an "organizational
    intelligence score" from snapshot tables, independently of both other layers.
    In scope for the domain layer eventually, but not addressed here.
