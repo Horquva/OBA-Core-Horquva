@@ -266,6 +266,11 @@ body{
 
       <div class="insight-row" id="insight-row"></div>
 
+      <div class="panel" id="platform-status-panel" style="margin-bottom:18px">
+        <div class="panel-head"><h3>Platform Status</h3><span class="count" id="platform-status-count"></span></div>
+        <div class="full-list" id="platform-status-list"></div>
+      </div>
+
       <div class="grid" id="stat-grid"></div>
 
       <div class="panels">
@@ -517,16 +522,50 @@ const titles = {
   capabilities: "Capabilities", activity: "Activity"
 };
 
+// ---- Platform Status panel (every tracked service, real status, no fake numbers) ----
+if (d.sources) {
+  const OWNERS = {
+    lifecycle: 'Kamil Ejaz — Engineering Operations',
+    integration: 'Abbas Raza — Integration & Ecosystem',
+    governance: 'Kanwal Raveen — Trust & Governance',
+    capability: 'Zeeshan Farooq / Hasnain Ajmal — Future Org / AI Agents',
+    validation: 'Zara Fatima — Capability Validation',
+    research: 'Aurangzeb Malik / Hadeed Safdar — Future Signals',
+    'intelligence-service': 'Unassigned',
+    'operationalization-service': 'Ammara Nasir — Operationalization',
+  };
+  const entries = Object.entries(d.sources);
+  document.getElementById('platform-status-count').textContent = entries.length + ' tracked';
+  document.getElementById('platform-status-list').innerHTML = entries.map(([name, status]) => {
+    let cls = 'high', label = status;
+    if (status === 'live') { cls = 'ready'; label = 'Live'; }
+    else if (status.startsWith('not_implemented')) { cls = 'pending'; label = 'Not implemented'; }
+    else { cls = 'high'; label = 'Down'; }
+    return `
+      <div class="row">
+        <div><div class="title">${name}</div><div class="sub">${OWNERS[name] || ''}</div></div>
+        <span class="pill ${cls}">${label}</span>
+      </div>`;
+  }).join('');
+}
+
 // ---- source status footer (which real services answered this fetch) ----
 if (d.sources) {
-  const down = Object.entries(d.sources).filter(([k,v]) => v !== 'live');
+  const entries = Object.entries(d.sources);
+  const total = entries.length;
+  const live = entries.filter(([k, v]) => v === 'live').length;
+  const notImplemented = entries.filter(([k, v]) => v.startsWith('not_implemented')).length;
+  const down = total - live - notImplemented;
+  const trackable = total - notImplemented; // platforms that could actually be live right now
   const badge = document.getElementById('live-badge');
-  if (down.length === 0) {
-    badge.innerHTML = '<span class="live-dot"></span>All 6 services live';
+  if (down === 0 && live === trackable) {
+    badge.innerHTML = `<span class="live-dot"></span>${live}/${trackable} services live` +
+      (notImplemented ? ` <span style="color:var(--faint)">(+${notImplemented} not yet implemented)</span>` : '');
   } else {
     badge.style.background = 'var(--warn-soft)';
     badge.style.color = 'var(--warn)';
-    badge.innerHTML = `<span class="live-dot" style="background:var(--warn)"></span>${6-down.length}/6 services live`;
+    badge.innerHTML = `<span class="live-dot" style="background:var(--warn)"></span>${live}/${trackable} services live` +
+      (notImplemented ? ` <span style="color:var(--faint)">(+${notImplemented} not yet implemented)</span>` : '');
   }
 }
 
