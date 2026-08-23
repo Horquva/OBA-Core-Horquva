@@ -23,8 +23,16 @@
 //
 // The codes were dropped here rather than there: the brain's catalog is a
 // coherent registry that drives dependency ordering, while these were labels.
-// Each function is now named for what it computes. M01–M55 belongs to the
-// brain and nothing else may claim a module number.
+// Each function is now named for what it computes.
+//
+// ⚠ THIS FILE IS CLEAN; THE REPO IS NOT. Four brain codes are still claimed by
+// SQL routes that compute something different under the same number:
+//   M21 routes/avatar/index.js · M51 routes/selfHealing/index.js
+//   M52, M53 routes/automation/index.js
+// e.g. the brain's M52 returns governance coverage from the graph
+// (complianceRate, governanceGaps) while /api/automation/governance returns
+// pending approvals from `pending_decisions`. Same collision, different files,
+// not yet fixed.
 // See docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
 // ─────────────────────────────────────────────────────────────
 

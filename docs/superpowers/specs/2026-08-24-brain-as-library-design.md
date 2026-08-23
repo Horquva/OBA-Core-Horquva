@@ -141,7 +141,15 @@ the dataset analyses only wore theirs as labels. So:
 | `autonomousAdvisor` (M48) | `playbookAdvice` |
 | `simulationUniverse` (M54) | `resilienceScenarios` |
 
-**M01–M55 now belongs to the brain and nothing else claims a module number.**
+**The `constitutional.js` collision is closed.** ⚠ But a later sweep found the
+same pattern in three files this step never looked at: `routes/avatar/index.js`
+(M21), `routes/selfHealing/index.js` (M51) and `routes/automation/index.js`
+(M52, M53) emit brain codes in their responses while computing something
+different. The brain's M52 returns governance coverage from the graph
+(`complianceRate`, `governanceGaps`); `/api/automation/governance` returns
+pending approvals from `pending_decisions`. **Four codes still mean two things.**
+Same fix as here — name them for what they compute — and it is the largest piece
+of unfinished business on this design.
 
 Renaming the brain's 51 as well would touch every `IMPL.MXX` key, the
 `DEPENDENCIES` map, ten `A.prior(context, 'M46')` call sites and every test, to
