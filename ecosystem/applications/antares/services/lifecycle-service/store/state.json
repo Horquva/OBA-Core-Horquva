@@ -1,5 +1,5 @@
 {
-  "savedAt": "2026-08-23T03:33:04.812Z",
+  "savedAt": "2026-08-23T04:00:03.297Z",
   "platforms": [
     {
       "id": "tech-intel",
@@ -1250,6 +1250,81 @@
           "note": "All quality gates passed"
         }
       ]
+    },
+    {
+      "id": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "task": "Din 6 chaos testing report: 4 tests run against real system",
+      "dependsOn": [],
+      "status": "PASSED",
+      "artifact": {
+        "summary": "3/4 chaos tests genuinely pass. Test 4 (duplicate input) FAILS honestly on governance-engine: no idempotency check on actionRequestId, and GET /api/decisions has a side-effect bug (audit trail grows on every read). Flagged for Kanwal — not fixed here, outside eng-ops domain.",
+        "output": {
+          "note": "3/4 chaos tests genuinely pass. Test 4 (duplicate input) FAILS honestly on governance-engine: no idempotency check on actionRequestId, and GET /api/decisions has a side-effect bug (audit trail grows on every read). Flagged for Kanwal — not fixed here, outside eng-ops domain."
+        }
+      },
+      "evidence": [
+        {
+          "ref": "test1:platform-down=PASS(honest-down-reported), test2:invalid-contract=PASS(rejected-cleanly-but-raw-stacktrace), test3:ci-fail=PASS(stopped-at-lint-recovered-clean), test4:duplicate-input=FAIL(POST /api/evaluate creates 2 separate ALLOW decisions for same actionRequestId; GET /api/decisions is non-idempotent, appends 3 new audit entries per call — 3-then-6-then-9)",
+          "attachedAt": "2026-08-23T04:00:03.259Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "no self-tests declared (allowed, but not verified)"
+          }
+        ],
+        "evaluatedAt": "2026-08-23T04:00:03.293Z"
+      },
+      "executions": [
+        "EXEC-15"
+      ],
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-23T04:00:03.196Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-23T04:00:03.229Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-23T04:00:03.293Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-23T04:00:03.293Z",
+          "note": "All quality gates passed"
+        }
+      ]
     }
   ],
   "executions": [
@@ -1363,6 +1438,14 @@
       "triggeredBy": "kamil-ejaz",
       "startedAt": "2026-08-23T03:33:04.737Z",
       "endedAt": "2026-08-23T03:33:04.808Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-15",
+      "jobId": "J-CHAOS-DIN6",
+      "triggeredBy": "kamil-ejaz",
+      "startedAt": "2026-08-23T04:00:03.229Z",
+      "endedAt": "2026-08-23T04:00:03.293Z",
       "result": "PASSED"
     }
   ],
@@ -2213,6 +2296,48 @@
       "platformId": "eng-ops",
       "message": "VALIDATING -> PASSED (All quality gates passed)",
       "at": "2026-08-23T03:33:04.808Z"
+    },
+    {
+      "type": "JOB_CREATED",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "Job created: Din 6 chaos testing report: 4 tests run against real system",
+      "at": "2026-08-23T04:00:03.197Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "QUEUED -> RUNNING (Execution started)",
+      "at": "2026-08-23T04:00:03.229Z"
+    },
+    {
+      "type": "EXECUTION_STARTED",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "EXEC-15 started by kamil-ejaz",
+      "at": "2026-08-23T04:00:03.229Z"
+    },
+    {
+      "type": "EVIDENCE_ATTACHED",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "Evidence attached: test1:platform-down=PASS(honest-down-reported), test2:invalid-contract=PASS(rejected-cleanly-but-raw-stacktrace), test3:ci-fail=PASS(stopped-at-lint-recovered-clean), test4:duplicate-input=FAIL(POST /api/evaluate creates 2 separate ALLOW decisions for same actionRequestId; GET /api/decisions is non-idempotent, appends 3 new audit entries per call — 3-then-6-then-9)",
+      "at": "2026-08-23T04:00:03.259Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "RUNNING -> VALIDATING (Quality gates running)",
+      "at": "2026-08-23T04:00:03.293Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "VALIDATING -> PASSED (All quality gates passed)",
+      "at": "2026-08-23T04:00:03.293Z"
     }
   ]
 }
