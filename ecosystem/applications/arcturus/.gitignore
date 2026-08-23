@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # 🌌 Arcturus Platform .gitignore (Local Team Override)
 # Prevents Python caching, system clutter, and environment variables
 # ==============================================================================
@@ -33,3 +33,11 @@ env/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Database & Data
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
