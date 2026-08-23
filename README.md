@@ -696,7 +696,7 @@ The layer that lets a Voice Agent understand *which* entity a person means (enti
 ---
 ## Executive, Network & Prediction Intelligence (Modules 21–35)
 
-These modules extend the 20 core modules into executive-facing, network-science, and prediction territory. Every module is documented **in strict sequence** — 21 through 35 here, then 36 through 55 in the next section — so nothing is missing. They run on the extended organizational dataset (history, incidents, decisions, external entities, and knowledge areas) and are exposed through the backend API. Each module names its lead engineer; the modules that ship inside the pure-Python package `horquva_modules_py/` (Tahir, M32–M49) are marked accordingly.
+These modules extend the 20 core modules into executive-facing, network-science, and prediction territory. Every module is documented **in strict sequence** — 21 through 35 here, then 36 through 55 in the next section — so nothing is missing. They run on the extended organizational dataset (history, incidents, decisions, external entities, and knowledge areas) and are exposed through the backend API. Each module names its lead engineer.
 
 ### Module 21 — Executive Avatar Intelligence
 
@@ -891,7 +891,7 @@ Maps the full ecosystem — internal tools plus external vendors and platforms �
 ---
 
 ### Module 32 — Dependency Impact Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Simulates a failure at any node and walks the dependency graph (breadth-first, with impact decay) to reveal the full cascade blast radius, then ranks the organization's true single points of failure.
 
@@ -904,7 +904,7 @@ Simulates a failure at any node and walks the dependency graph (breadth-first, w
 ---
 
 ### Module 33 — Dependency Evolution Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Diffs dependency snapshots over time to show how coupling is growing or shrinking, and tracks whether the organization is getting more or less fragile.
 
@@ -949,7 +949,7 @@ Applies network science to reveal who actually holds the organization together a
 ---
 ## Constitutional Intelligence, Automation & Meta-Brain (Modules 36–55)
 
-From here the engine moves from analysis into **constitutional intelligence, deeper prediction, organizational science, and governed automation**. The sequence continues unbroken — 36 through 55, nothing skipped. Modules marked *ships in `horquva_modules_py/`* run as a self-contained, pure-Python package (`python3 horquva_modules_py/demo.py`, no external dependencies); the constitutional modules (Kamran) run via `uv run main.py` and are exposed under `/api/intelligence/*`; the automation modules (Anusha) run through the backend API. **Two constitutional rules are enforced here: Truth (M46) gates the Advisor (M48), and the Meta-Brain Orchestrator (M55) always runs last.**
+From here the engine moves from analysis into **constitutional intelligence, deeper prediction, organizational science, and governed automation**. The sequence continues unbroken — 36 through 55, nothing skipped. All of these run inside the Node brain (`backend/brain/`) and are reached through the backend API; M37, M39–M45, M47 and M49 are served under `/api/intelligence/*`. **Two constitutional rules are enforced here: Truth (M46) gates the Advisor (M48), and the Meta-Brain Orchestrator (M55) always runs last.**
 
 ### Module 36 — Signal Intelligence
 **Engineer:** Kamran · `GET /api/intelligence/signals`
@@ -963,7 +963,7 @@ An early-warning system that fuses ownership, dependency, incident, and metric s
 - Feeds the constitutional layer with a verified early-warning feed
 
 ### Module 37 — Pattern Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Detects recurring patterns across incidents and behavior, and classifies how regular each pattern is using the coefficient of variation (regular vs. sporadic).
 
@@ -1007,7 +1007,7 @@ Measures how well day-to-day operations line up with stated priorities, computes
 - Gives leadership a clear "are we working on the right things?" read
 
 ### Module 41 — Organizational DNA Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Builds the organization's "DNA profile" across six dimensions (e.g. autonomy, documentation, resilience) — a fingerprint of how the organization actually operates.
 
@@ -1018,7 +1018,7 @@ Builds the organization's "DNA profile" across six dimensions (e.g. autonomy, do
 - Gives leadership a baseline to track cultural and structural change over time
 
 ### Module 42 — Culture Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Scores organizational culture signals (documentation discipline, ownership behavior, collaboration) into a single culture-health read.
 
@@ -1029,7 +1029,7 @@ Scores organizational culture signals (documentation discipline, ownership behav
 - Turns "culture" from a vague feeling into a measured, trackable number
 
 ### Module 43 — Organizational Maturity Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Assesses overall organizational maturity across process, governance, and knowledge dimensions and places the org on a maturity curve.
 
@@ -1040,7 +1040,7 @@ Assesses overall organizational maturity across process, governance, and knowled
 - Gives leadership a roadmap for structured improvement
 
 ### Module 44 — Organizational Behavior Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Profiles how each actor behaves (ownership load, resolution activity, documentation habits) to surface behavioral risk and strengths.
 
@@ -1051,7 +1051,7 @@ Profiles how each actor behaves (ownership load, resolution activity, documentat
 - Helps leadership reward the right behavior and coach the risky patterns
 
 ### Module 45 — Benchmark Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Compares the organization's key metrics against industry baselines to show where it leads and where it lags.
 
@@ -1073,7 +1073,7 @@ The constitutional truth layer: verifies every claimed fact against the underlyi
 - Acts as the gate that Module 48 must pass through
 
 ### Module 47 — Continuous Learning Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Evaluates how accurate past predictions turned out to be and validates whether recorded lessons are actually being applied — the system's self-check loop.
 
@@ -1095,7 +1095,7 @@ Generates leadership recommendations **only from truths verified by Module 46** 
 - Refuses to recommend anything that Truth Intelligence has not verified
 
 ### Module 49 — Digital Twin Intelligence
-**Engineer:** Tahir · ships in `horquva_modules_py/`
+**Engineer:** Tahir
 
 Builds a live digital-twin snapshot of the organization, computes a twin health index, simulates scenarios against the twin, and checks that the twin stays synchronized with reality.
 
@@ -1171,7 +1171,7 @@ The Meta-Brain. **Runs last.** It fuses every module's output into one Organizat
 - Enforces the constitutional rule that the Meta-Brain speaks only on verified intelligence
 - Delivers leadership the single top-level answer: how intelligent and resilient the organization really is
 
-> **Constitutional layer (Kamran):** Modules 36, 38, 39, 40, 46, 48, 50, 54, 55 form Phase 6 — served under `/api/intelligence/*` and printed at the end of `uv run main.py`. **Truth (46) gates Advisor (48); Orchestrator (55) runs last.**
+> **Constitutional layer (Kamran):** Modules 36, 38, 39, 40, 46, 48, 50, 54, 55 form Phase 6 — served under `/api/intelligence/*`. **Truth (46) gates Advisor (48); Orchestrator (55) runs last.**
 >
 > **Automation layer (Anusha):** Modules 51, 52, 53 each *detect → emit intent → Module 16 executes* under the active governance mode. *Automation follows intelligence — never automate an action that was not first verified.* Modules 15, 16, 21, and 23 (also Anusha) are documented in sequence above.
 
@@ -1356,24 +1356,7 @@ Full details: see [`backend/brain/README.md`](backend/brain/README.md).
 ---
 ## How to Run
 
-### 1 — Python Intelligence Engine
-
-Runs all constitutional modules (M01–M55) in sequence and prints full analysis to the terminal. Phase 6 (M36–M55) prints at the end.
-
-```bash
-# Install dependencies (requires uv)
-uv sync
-
-# Run all constitutional modules M01–M55
-uv run main.py
-```
-
-> This project uses [uv](https://github.com/astral-sh/uv) as the Python package manager.
-> All dependencies are declared in `pyproject.toml` and locked in `uv.lock`.
-
----
-
-### 2 — Backend API (Node.js + Express + Supabase)
+### 1 — Backend API (Node.js + Express + Supabase)
 
 ```bash
 cd backend
@@ -1523,7 +1506,7 @@ PORT=3000
 
 ---
 
-### 3 — Executive Frontend Dashboard
+### 2 — Executive Frontend Dashboard
 
 ```bash
 cd frontend
@@ -1547,61 +1530,7 @@ Also accessible on your local network at **`http://<your-ip>:3001`**
 OBA-Core-Horquva/
 │
 ├── data/
-│   └── sunrise_care.json                      # Demo dataset (120 employees, 15 agents)
-│
-├── modules/
-│   ├── __init__.py
-│   ├── ownership_intelligence.py              # Module 01 — Ownership Intelligence
-│   ├── dependency_intelligence.py             # Module 02 — Dependency Intelligence
-│   ├── risk_intelligence.py                   # Module 03 — Risk Intelligence
-│   ├── recommendation_engine.py               # Module 04 — Recommendation Engine
-│   ├── whatif_simulation.py                   # Module 05 — What-If Simulation
-│   ├── human_agent_map.py                     # Module 06 — Human-Agent Map
-│   ├── ai_tool_intelligence.py                # Module 07 — AI Tool Intelligence
-│   ├── workflow_intelligence.py               # Module 08 — Workflow Intelligence
-│   ├── knowledge_risk_intelligence.py         # Module 09 — Knowledge Risk Intelligence
-│   ├── organizational_memory_intelligence.py  # Module 10 — Organizational Memory
-│   ├── predictive_risk_intelligence.py        # Module 11 — Predictive Risk Intelligence
-│   ├── organizational_forecasting_intelligence.py # Module 12 — Organizational Forecasting
-│   ├── human_ai_collaboration_intelligence.py # Module 13 — Human-AI Collaboration
-│   ├── decision_intelligence.py               # Module 14 — Decision Intelligence
-│   ├── verification_intelligence.py           # Module 15 — Verification Intelligence
-│   ├── workflow_orchestration_intelligence.py # Module 16 — Workflow Orchestration
-│   ├── organizational_learning_intelligence.py # Module 17 — Organizational Learning
-│   ├── organizational_continuity_intelligence.py # Module 18 — Organizational Continuity
-│   ├── governance_intelligence.py             # Module 19 — Governance Intelligence
-│   ├── accountability_intelligence.py         # Module 20 — Accountability Intelligence
-│   ├── data_models.py                         # Phase 2 — Platform Foundation: data models
-│   ├── intelligence_pipeline.py               # Phase 2 — Platform Foundation: pipeline
-│   ├── governance_data_framework.py           # Phase 2 — Platform Foundation: governance framework
-│   ├── storage_layer.py                       # Phase 2 — Platform Foundation: storage layer
-│   ├── organizational_intelligence_engine.py  # Phase 2 — Organizational Intelligence Engine
-│   │
-│   │   # Phase 6 — Constitutional Intelligence & Meta-Brain (M36–M55, Kamran)
-│   ├── signal_intelligence.py                 # Module 36 — Signal Intelligence
-│   ├── opportunity_intelligence.py            # Module 38 — Opportunity Intelligence
-│   ├── capability_intelligence.py             # Module 39 — Capability Intelligence
-│   ├── strategic_alignment_intelligence.py    # Module 40 — Strategic Alignment Intelligence
-│   ├── truth_intelligence.py                  # Module 46 — Truth Intelligence (gates M48)
-│   ├── autonomous_advisor.py                  # Module 48 — Autonomous Advisor (only verified truths)
-│   ├── brain_core_logic.py                    # Module 50 — Organizational Brain Core Logic
-│   ├── simulation_universe.py                 # Module 54 — Simulation Universe
-│   └── intelligence_orchestrator.py           # Module 55 — Intelligence Orchestrator (Meta-Brain, runs last)
-│
-├── horquva_modules_py/                        # Prediction · Learning · Org-Science package (Tahir, M32–M49)
-│   ├── __init__.py
-���   ├── m32_dependency_impact_intelligence.py       # Module 32 — Dependency Impact Intelligence
-│   ├── m33_dependency_evolution_intelligence.py    # Module 33 — Dependency Evolution Intelligence
-│   ├── m37_pattern_intelligence.py                 # Module 37 — Pattern Intelligence
-│   ├── m41_organizational_dna.py                   # Module 41 — Organizational DNA Intelligence
-│   ├── m42_culture_intelligence.py                 # Module 42 — Culture Intelligence
-│   ├── m43_organizational_maturity_intelligence.py # Module 43 — Organizational Maturity Intelligence
-│   ├── m44_organizational_behavior_intelligence.py # Module 44 — Organizational Behavior Intelligence
-│   ├── m45_benchmark_intelligence.py               # Module 45 — Benchmark Intelligence
-│   ├── m47_continuous_learning_intelligence.py     # Module 47 — Continuous Learning Intelligence
-│   ├── m49_digital_twin_intelligence.py            # Module 49 — Digital Twin Intelligence
-│   ├── demo.py                                 # Runs all 10 modules on the dataset
-│   └── README.md                               # Package usage guide
+│   └── company.json                           # The one company dataset (40 employees, 15 agents, 12 tools)
 │
 ├── backend/
 │   ├── index.js                               # Express server — all routes registered here
@@ -1762,10 +1691,8 @@ OBA-Core-Horquva/
 │       └── index.ts                           # TypeScript type definitions
 │
 ├── Images/                                    # All module output screenshots
-├── main.py                                    # Runs all constitutional modules (M01–M55) in sequence
 ├── HOWTO_RUN_AND_CHECK.md                     # How to run the engine, start the backend, and verify every route
 ├── INTEGRATION_STATUS.md                      # Team ownership, integration decisions, and verification results
-├── pyproject.toml                             # Python project dependencies
 └── uv.lock                                    # Locked Python dependency versions
 ```
 
@@ -1893,12 +1820,9 @@ Phase 6 completes Kamran's constitutional modules. These build on the truth-befo
 | Muhammad Tahir | M11, M12, M13, M17, M32, M33, M37, M41, M42, M43, M44, M45, M47, M49 | 14 |
 | Anusha | M15, M16, M21, M23, M51, M52, M53 | 7 |
 
-### Run the Phase 6 modules (CLI)
+### Running the Phase 6 modules
 
-```bash
-# from repo root
-uv run main.py        # runs all modules M01–M55, Phase 6 prints at the end
-```
+All 55 modules run inside the Node backend — see **How to Run** above. There is no separate CLI.
 
 ### Phase 6 backend endpoints
 
