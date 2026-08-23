@@ -108,18 +108,3 @@ class OntologyRuntime:
             )
             
         return entity
-
-    # --------------------------------------
-    # GRAPH TRAVERSAL METHODS
-    # --------------------------------------
-    
-    def get_children_by_relationship(self, source_id: int, relationship_type: Optional[str] = None) -> List[int]:
-        """Traverses the explicit relationship edges defined in the snapshot graph."""
-        if not self.current_state:
-            return []
-            
-        return [
-            rel.target_entity_id for rel in self.current_state.relationships 
-            if rel.source_entity_id == source_id 
-            and (relationship_type is None or rel.relationship_type == relationship_type)
-        ]

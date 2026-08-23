@@ -75,8 +75,8 @@ async def get_entity_children(parent_id: int, relationship_type: Optional[str] =
         )
     
     try:
-        children_ids = ontology_controller.runtime.get_children_by_relationship(
-            source_id=parent_id, 
+        children_ids = ontology_controller.runtime.relationship_engine.get_children(
+            parent_id=parent_id, 
             relationship_type=relationship_type
         )
         return children_ids
