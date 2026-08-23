@@ -1011,24 +1011,55 @@ IMPL.M41 = (rt) => {
 }
 
 // M42 — Culture Intelligence: collaboration behaviour as a culture signal.
+//
+// ⚠ A missing `collaborates_with` edge means "no shared-work record", NOT
+// "this person works alone". graphLoader derives the edges from RACI links and
+// workflow steps; anyone outside those two sources is simply unobserved. On the
+// live dataset that is 16 of 40 people. BUILD_SPEC Part 0: "That may be a real
+// finding or a coverage gap, and the data cannot tell you which." So this
+// module reports its coverage and withholds the verdict, rather than naming the
+// unobserved as siloed — which is what it used to do, and which rendered as a
+// confident "all 40 people are siloed" on the Org Science page.
 IMPL.M42 = (rt) => {
   const g = rt.graph
   const collab = A.edgesOfType(g, 'collaborates_with').length
-  const people = A.humans(g).length
+  const humans = A.humans(g)
+  const people = humans.length
+  // Links PER PERSON — unbounded, not a fraction. Do not render as a percentage.
   const density = people ? A.round(collab / people) : 0
-  const siloed = A.humans(g).filter((h) => g.relationships.neighbors(h.id).filter((r) => r.type === 'collaborates_with').length === 0)
+
+  const hasRecord = (h) => g.relationships.neighbors(h.id).some((r) => r.type === 'collaborates_with')
+  const observed = humans.filter(hasRecord)
+  const unobserved = humans.filter((h) => !hasRecord(h))
+  const coverage = people ? A.round(observed.length / people) : 0
+
+  // 'siloed' is deliberately unreachable. Earning it would mean observing
+  // someone across a complete source and finding no partner; no source we have
+  // supports that claim. No edges at all is NO_SIGNAL, not a finding.
+  const cultureSignal =
+    collab === 0 ? 'no_signal'
+      : density > 0.5 ? 'collaborative'
+        : 'transitional'
+
   return {
     type: 'generic',
     payload: {
       collaborationLinks: collab,
       people,
       collaborationDensity: density,
-      cultureSignal: density > 0.5 ? 'collaborative' : density > 0 ? 'transitional' : 'siloed',
-      siloedPeople: siloed.map((h) => h.name),
+      peopleWithCollaborationRecord: observed.length,
+      peopleWithoutRecord: unobserved.map((h) => h.name),
+      collaborationCoverage: coverage,
+      cultureSignal,
     },
-    confidence: A.confidence(collab || 1, 0.7),
+    // Confidence is a coverage proxy (D2), so it has to fall when the sources
+    // observe fewer people. The previous `A.confidence(collab || 1, 0.7)`
+    // returned 0.87 for a graph holding no collaboration data whatsoever.
+    confidence: A.confidence(collab, coverage),
     evidence: [ev('graph', 'collaborates_with', String(collab))],
-    recommendations: siloed.slice(0, 5).map((h) => `"${h.name}" has no collaboration links — integrate into cross-team work.`),
+    recommendations: unobserved.length
+      ? [`${unobserved.length} of ${people} people appear in no shared-work record (RACI or workflow steps) — their collaboration is unknown, not absent. Extend coverage before drawing a conclusion.`]
+      : [],
   }
 }
 

@@ -13,6 +13,23 @@
  * else as `employee`. Both `agents` and `ai_platforms` map to the ontology's
  * `ai_agent` type (its own definition is "an AI tool or agent"); metadata.kind
  * distinguishes which table an entity came from.
+ *
+ * ─── What this loader deliberately does NOT emit ───
+ * The ontology defines `system`, `team`, `customer`, `process` and `project`,
+ * and modules query them. No Supabase table sources any of the five, so they
+ * are absent rather than approximated. `data/company.json` carries hand-authored
+ * `systems` (4) and `external_entities` (10) which would fill `system` and
+ * `vendor`/`customer` — wiring that file in is BUILD_SPEC's W2, not this file's
+ * job. Until then M39's `systemCapabilities` and M31's `externalActors` are
+ * legitimately empty, and must not be read as "this organization has none".
+ *
+ * `collaborates_with` IS derived here (never invented — R-1, metadata.source =
+ * 'derived'), because BUILD_SPEC Part 0 records that its absence makes M42
+ * report all 40 people as siloed: "a wrong answer, not a missing one". The two
+ * sources below reproduce export-company.js's derivation exactly, so the graph
+ * and data/company.json agree on 51 pairs covering 24 of 40 people. ⚠ The other
+ * 16 appear in no shared-work record — that is NO_SIGNAL, not a finding, and
+ * W6 still has to stop M42 rendering it as a flat "siloed" verdict.
  */
 
 const supabase = require('../../supabase')
@@ -37,6 +54,9 @@ async function loadFromSupabase(graph) {
     { data: toolUsers, error: e8 },
     { data: toolPolicies, error: e9 },
     { data: knowledgeAssets, error: e10 },
+    { data: acctLinks, error: e11 },
+    { data: acctEntities, error: e12 },
+    { data: workflowSteps, error: e13 },
   ] = await Promise.all([
     supabase.from('employees').select('*'),
     supabase.from('agents').select('*'),
@@ -48,8 +68,11 @@ async function loadFromSupabase(graph) {
     supabase.from('tool_users').select('*'),
     supabase.from('tool_policies').select('*'),
     supabase.from('knowledge_assets').select('*'),
+    supabase.from('accountability_links').select('*'),
+    supabase.from('accountability_entities').select('*'),
+    supabase.from('workflow_steps').select('*'),
   ])
-  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10
+  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13
   if (firstError) throw new Error(`graphLoader: ${firstError.message}`)
 
   // ─── Organization + departments ───
@@ -59,6 +82,11 @@ async function loadFromSupabase(graph) {
   const departments = {}
   for (const dept of new Set(employees.map((e) => e.department).filter(Boolean))) {
     departments[dept] = E({ type: 'department', name: dept })
+    // Departments compose the organization. Without this every department and
+    // the organization itself sat at degree 0, and M37/M29/M45 duly reported
+    // all seven as "isolated-entity" anomalies — an artifact of this loader,
+    // not a finding about the company.
+    R(departments[dept], 'supports', org, { metadata: { source: 'employees.department' } })
   }
 
   // ─── People ───
@@ -72,6 +100,19 @@ async function loadFromSupabase(graph) {
     })
   }
   const employeeByName = Object.fromEntries(employees.map((e) => [e.name, employeeEntities[e.id]]))
+
+  // Each department's head — the one person in it with no manager — is its
+  // accountable owner. `department` is not in analytics.js's ASSET_TYPES, so
+  // these edges do not touch ownership-coverage or unowned-asset math; they
+  // exist so the department is reachable and has a name against it. A
+  // department with zero or several headless members is left unowned rather
+  // than guessed at.
+  for (const [dept, deptEntity] of Object.entries(departments)) {
+    const heads = employees.filter((e) => e.department === dept && !e.manager)
+    if (heads.length !== 1) continue
+    R(employeeEntities[heads[0].id], 'owns', deptEntity, { metadata: { source: 'employees.department' } })
+  }
+
   for (const emp of employees) {
     if (emp.manager && employeeByName[emp.manager]) {
       R(employeeEntities[emp.id], 'reports_to', employeeByName[emp.manager])
@@ -87,7 +128,7 @@ async function loadFromSupabase(graph) {
       metadata: { kind: 'automation-agent', agentType: a.type, status: a.status, risk: a.risk },
     })
     if (a.owner_id && employeeEntities[a.owner_id]) {
-      R(employeeEntities[a.owner_id], 'owns', agentEntities[a.id], { criticality: a.risk || 'medium' })
+      R(employeeEntities[a.owner_id], 'owns', agentEntities[a.id], { criticality: a.risk || 'medium', metadata: { source: 'agents.owner_id' } })
     }
   }
 
@@ -101,7 +142,7 @@ async function loadFromSupabase(graph) {
   }
   for (const own of toolOwnership) {
     if (employeeEntities[own.employee_id] && platformEntities[own.platform_id]) {
-      R(employeeEntities[own.employee_id], 'owns', platformEntities[own.platform_id])
+      R(employeeEntities[own.employee_id], 'owns', platformEntities[own.platform_id], { metadata: { source: 'tool_ownership' } })
     }
   }
   for (const use of toolUsers) {
@@ -121,7 +162,7 @@ async function loadFromSupabase(graph) {
     })
     const rb = runbookByWorkflow[w.id]
     if (rb && employeeEntities[rb.owner_id]) {
-      R(employeeEntities[rb.owner_id], 'owns', workflowEntities[w.id], { criticality: w.risk || 'medium' })
+      R(employeeEntities[rb.owner_id], 'owns', workflowEntities[w.id], { criticality: w.risk || 'medium', metadata: { source: 'workflow_runbooks' } })
     }
   }
 
@@ -160,7 +201,56 @@ async function loadFromSupabase(graph) {
     })
     const subject = subjectFor(k.asset_type, k.asset_id)
     if (subject) R(knowledge, 'supports', subject)
-    if (k.owner_id && employeeEntities[k.owner_id]) R(employeeEntities[k.owner_id], 'owns', knowledge)
+    if (k.owner_id && employeeEntities[k.owner_id]) R(employeeEntities[k.owner_id], 'owns', knowledge, { metadata: { source: 'knowledge_assets' } })
+  }
+
+  // ─── Collaboration (derived — no source table; see the header note) ───
+  // Two people collaborate if they share an entity's RACI in
+  // `accountability_links`, or both act as `human` in the same workflow's
+  // steps. Identical to backend/tools/export-company.js's derivation, so this
+  // graph and data/company.json's `collaborations` section cannot drift apart.
+  // RACI runs first so the stronger basis wins when a pair appears in both.
+  const collabPairs = new Map() // 'A|B' (sorted) -> { basis, on }
+  const addPair = (a, b, basis, on) => {
+    if (!a || !b || a === b) return
+    const key = [a, b].sort().join('|')
+    if (!collabPairs.has(key)) collabPairs.set(key, { basis, on })
+  }
+
+  const acctEntityById = Object.fromEntries(acctEntities.map((e) => [e.id, e]))
+  const peopleByAcctEntity = {}
+  for (const link of acctLinks) {
+    (peopleByAcctEntity[link.entity_id] ||= new Set()).add(link.person_name)
+  }
+  for (const [entityId, people] of Object.entries(peopleByAcctEntity)) {
+    const names = [...people]
+    const on = (acctEntityById[entityId] || {}).entity_name || null
+    for (let i = 0; i < names.length; i++) {
+      for (let j = i + 1; j < names.length; j++) addPair(names[i], names[j], 'raci', on)
+    }
+  }
+
+  const humansByWorkflow = {}
+  for (const step of workflowSteps) {
+    if (step.actor_type !== 'human' || !step.actor_name) continue
+    (humansByWorkflow[step.workflow_id] ||= new Set()).add(step.actor_name)
+  }
+  for (const [workflowId, people] of Object.entries(humansByWorkflow)) {
+    const names = [...people]
+    const on = (workflows.find((w) => String(w.id) === String(workflowId)) || {}).name || null
+    for (let i = 0; i < names.length; i++) {
+      for (let j = i + 1; j < names.length; j++) addPair(names[i], names[j], 'workflow_step', on)
+    }
+  }
+
+  // One edge per pair: M42 and M29 read `neighbors()`, which is direction-blind,
+  // so a second reciprocal edge would double the count without adding meaning.
+  // A name that resolves to no employee is skipped rather than invented.
+  for (const [key, { basis, on }] of collabPairs) {
+    const [a, b] = key.split('|')
+    R(employeeByName[a], 'collaborates_with', employeeByName[b], {
+      metadata: { source: 'derived', basis, on },
+    })
   }
 
   return graph.stats()

@@ -630,9 +630,18 @@ export interface DNAPayload {
 export interface CulturePayload {
   collaborationLinks: number;
   people: number;
+  /** Links PER PERSON — unbounded, not a fraction. Never render as a percentage. */
   collaborationDensity: number;
-  cultureSignal: string;
-  siloedPeople: string[];
+  peopleWithCollaborationRecord: number;
+  /**
+   * People appearing in no shared-work record at all. This is UNKNOWN, not a
+   * finding that they work alone — M42 no longer emits a `siloedPeople` verdict
+   * because no available source can distinguish the two.
+   */
+  peopleWithoutRecord: string[];
+  /** Share of people the collaboration sources actually observe (0–1). */
+  collaborationCoverage: number;
+  cultureSignal: 'no_signal' | 'transitional' | 'collaborative';
 }
 
 export interface MaturityPayload {
