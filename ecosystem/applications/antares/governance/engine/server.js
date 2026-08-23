@@ -16,7 +16,7 @@ const http = require('http');
 const { handleActionRequest } = require('./runtimeEnforcement');
 const { createTrustSignal } = require('./models');
 const { RULES } = require('./rules');
-const { queryAuditTrail } = require('./governanceApi');
+const { queryAuditTrail, requestGovernanceDecision } = require('./governanceApi');
 
 const PORT = process.env.PORT || 4003;
 
@@ -67,6 +67,15 @@ function runScenarios() {
 const server = http.createServer((req, res) => {
   cors(res);
 
+  if (req.method === 'GET' && req.url === '/api/rules') {
+    // Din 3: exposes the engine's REAL active rule set read-only, so an external
+    // platform (Zeeshan's agent_engine) can sync real governance rules instead of
+    // hand-typing a rule and mislabeling it as coming from this engine.
+    res.writeHead(200);
+    res.end(JSON.stringify({ service: 'governance-engine', rules: RULES }));
+    return;
+  }
+
   if (req.method === 'GET' && (req.url === '/api/decisions' || req.url === '/')) {
     try {
       const decisions = runScenarios();
@@ -86,12 +95,17 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const input = JSON.parse(body || '{}');
-        const result = handleActionRequest(
-          input.actionRequest,
-          input.context || {},
-          RULES,
-          input.trustSignals || []
-        );
+        // Din 2 fix: go through governanceApi.js (the Din 7 public contract), not
+        // handleActionRequest directly. Calling handleActionRequest here skipped the
+        // AT-5 fix (dropping trust signals from an untrusted `source`) — an external
+        // HTTP caller could previously self-report a fake ORG_TRUST_SCORE and buy an
+        // ALLOW. requestGovernanceDecision() applies the same validated-signal path
+        // that direct JS importers already get.
+        const result = requestGovernanceDecision({
+          actionRequest: input.actionRequest,
+          context: input.context || {},
+          trustSignals: input.trustSignals || []
+        });
         res.writeHead(200);
         res.end(JSON.stringify(result));
       } catch (err) {
