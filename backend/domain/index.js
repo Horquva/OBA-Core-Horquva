@@ -21,15 +21,11 @@
  * thing through the dataset, and there was no way to tell which a page had
  * called. See docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
  *
- * ⚠ WHAT IS NOT DONE YET. This establishes the surface; it does not yet remove
- * the second loader. `dataset.js` still reads fourteen tables of its own, eight
- * of which the graph also reads, so two loaders still build a whole-organization
- * view and could drift. Collapsing them is step 8, and it is a contained change
- * now because only this directory has to move: extend graphLoader with `owners`,
- * `tool_backups`, `agent_platform` and `workflow_tool_dependencies`, attach
- * per-asset `documented` / `backup_owner`, then derive dataset.js's shape from
- * the graph, keeping SQL only for `decision_history`, `documentation_trend` and
- * `snapshots` — the temporal tables the graph legitimately cannot hold.
+ * ONE LOADER. `dataset.js` does not query the organization for itself — it
+ * derives its shape from the graph graphLoader already built, and queries SQL
+ * only for `decision_history`, `documentation_trend` and `snapshots`. The two
+ * used to read 27 tables between them with eight in common. There is now no
+ * overlap at all.
  */
 
 const brain = require('../brain')

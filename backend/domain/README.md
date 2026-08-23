@@ -48,22 +48,32 @@ data existed, and alignment scored a company with no data at all as
 agreed on all 40 employees, but two strategies for one concept is the drift this
 layer exists to prevent.
 
-## ⚠ What is not done yet
+## One loader
 
-**This establishes the surface; it does not yet remove the second loader.**
-`dataset.js` reads thirteen tables of its own, eight of which `graphLoader` also
-reads, so two loaders still build a whole-organization view and could drift.
+`dataset.js` does **not** query the organization for itself. It derives its shape
+from the graph `graphLoader` already built, and queries SQL only for the three
+tables the graph legitimately cannot hold — `decision_history`,
+`documentation_trend`, `snapshots`.
 
-Collapsing them is **step 8**, and it is contained now because only this directory
-has to change:
+| | Tables read | Overlap |
+|---|---|---|
+| `../brain/knowledge/graphLoader.js` | 16 + `owners` via the shared helper | — |
+| `dataset.js` | 3 (all temporal) | **none** |
 
-1. Extend `graphLoader` with `owners`, `tool_backups`, `agent_platform` and
-   `workflow_tool_dependencies`.
-2. Attach per-asset `documented` and `backup_owner` to asset entities — today
-   those come from joins only `dataset.js` performs.
-3. Derive `dataset.js`'s shape from the graph, keeping SQL only for
-   `decision_history`, `documentation_trend` and `snapshots` — the temporal
-   tables the graph legitimately cannot hold.
+Before this, the two read 27 tables between them with **eight in common** — two
+loaders building a whole-organization view from one database, free to drift. The
+derivation was verified byte-identical against the previous implementation, and
+all 51 graph analyses are unchanged.
 
-Until then the pipeline count is **three**, not two: direct SQL in 49 route
-files, the graph, and this dataset loader.
+## Known gap: two real dependency relationships are not edges
+
+`agent_platform` (which agents use which platform) and
+`workflow_tool_dependencies` (which workflows depend on which tool) are loaded
+and attached to entities as **metadata**, not as `depends_on` edges.
+
+Modelling them as edges would be more correct — they are literally dependency
+data, and the dependency graph does not have them — but it would move every
+cascade, single-point-of-failure and centrality number the analyses produce.
+That is a change to what the graph *means*, not to where data is loaded from, so
+it was kept out of the consolidation. It is the highest-value remaining
+improvement to the graph's accuracy.

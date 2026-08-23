@@ -33,6 +33,7 @@
  */
 
 const supabase = require('../../supabase')
+const { loadOwnerBackupByEmployee } = require('../../lib/ownerBackups')
 
 const EXEC_TITLE = /^(VP|COO|CFO|CEO|CTO|Head of|Chief|President|Director)/i
 
@@ -83,6 +84,9 @@ async function loadFromSupabase(graph) {
     { data: acctLinks, error: e11 },
     { data: acctEntities, error: e12 },
     { data: workflowSteps, error: e13 },
+    { data: toolBackups, error: e15 },
+    { data: agentPlatform, error: e16 },
+    { data: workflowToolDeps, error: e17 },
   ] = await Promise.all([
     supabase.from('employees').select('*'),
     supabase.from('agents').select('*'),
@@ -97,9 +101,50 @@ async function loadFromSupabase(graph) {
     supabase.from('accountability_links').select('*'),
     supabase.from('accountability_entities').select('*'),
     supabase.from('workflow_steps').select('*'),
+    supabase.from('tool_backups').select('*'),
+    supabase.from('agent_platform').select('*, agents ( name )'),
+    supabase.from('workflow_tool_dependencies').select('*, workflows ( name )'),
   ])
-  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13
+  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e15 || e16 || e17
   if (firstError) throw new Error(`graphLoader: ${firstError.message}`)
+
+  // ─── Cross-cutting lookups ───
+  // These carry facts that live on OTHER tables but describe an asset, and
+  // that domain/dataset.js used to re-query for itself. Attaching them here is
+  // what lets the dataset be derived from this graph instead of from a second
+  // pass over Supabase.
+  //
+  // ⚠ They are attached as METADATA, not as edges, deliberately. `agent_platform`
+  // and `workflow_tool_dependencies` are genuine dependency relationships the
+  // graph does not model — turning them into `depends_on` edges would be more
+  // correct and would move every cascade, SPOF and centrality number the
+  // analyses produce. That is a real gap, but it is a change to what the graph
+  // MEANS, not to where data is loaded from, so it is left as a follow-up rather
+  // than smuggled into a consolidation commit.
+  // One join per concept: backup coverage is lib/ownerBackups.js's job, and
+  // agents.js, dependencies.js and decisionIntelligence.js already use it.
+  const backupByEmployee = await loadOwnerBackupByEmployee()
+
+  const kaByAgent = {}, kaByWorkflow = {}, kaByPlatform = {}
+  for (const k of knowledgeAssets || []) {
+    if (k.asset_type === 'agent') kaByAgent[k.asset_id] = k
+    else if (k.asset_type === 'workflow') kaByWorkflow[k.asset_id] = k
+    else if (k.asset_type === 'platform') kaByPlatform[k.asset_id] = k
+  }
+
+  const platformNameById = Object.fromEntries((platforms || []).map((p) => [p.id, p.name]))
+  const backupToolByPlatform = {}
+  for (const b of toolBackups || []) backupToolByPlatform[b.primary_platform] = platformNameById[b.backup_platform] || null
+  const agentsUsingByPlatform = {}
+  for (const l of agentPlatform || []) {
+    if (!l.agents?.name) continue
+    ;(agentsUsingByPlatform[l.platform_id] ||= []).push(l.agents.name)
+  }
+  const workflowsUsingByPlatform = {}
+  for (const l of workflowToolDeps || []) {
+    if (!l.workflows?.name) continue
+    ;(workflowsUsingByPlatform[l.platform_id] ||= []).push(l.workflows.name)
+  }
 
   // ─── Organization + departments ───
   // No table stores the company's display name (data/company.json's is a
@@ -122,7 +167,7 @@ async function loadFromSupabase(graph) {
     employeeEntities[emp.id] = E({
       type: isExec ? 'executive' : 'employee',
       name: emp.name,
-      metadata: rowMeta('employees', emp),
+      metadata: rowMeta('employees', emp, { backup_owner: backupByEmployee[emp.id] ?? null }),
     })
   }
   const employeeByName = Object.fromEntries(employees.map((e) => [e.name, employeeEntities[e.id]]))
@@ -153,7 +198,10 @@ async function loadFromSupabase(graph) {
       name: a.name,
       // `type` is omitted and re-exposed as `agentType`: the row's type is
       // 'automation'/'analysis', which would read as the entity's own type.
-      metadata: rowMeta('agents', a, { omit: ['type'], kind: 'automation-agent', agentType: a.type }),
+      metadata: rowMeta('agents', a, {
+        omit: ['type'], kind: 'automation-agent', agentType: a.type,
+        documented: kaByAgent[a.id] ? kaByAgent[a.id].is_documented : null,
+      }),
     })
     if (a.owner_id && employeeEntities[a.owner_id]) {
       R(employeeEntities[a.owner_id], 'owns', agentEntities[a.id], { criticality: a.risk || 'medium', metadata: { source: 'agents.owner_id' } })
@@ -165,7 +213,14 @@ async function loadFromSupabase(graph) {
     platformEntities[p.id] = E({
       type: 'ai_agent',
       name: p.name,
-      metadata: rowMeta('ai_platforms', p, { omit: ['type'], kind: 'ai-platform', agentType: p.type }),
+      metadata: rowMeta('ai_platforms', p, {
+        omit: ['type'], kind: 'ai-platform', agentType: p.type,
+        documented: kaByPlatform[p.id] ? kaByPlatform[p.id].is_documented : null,
+        assetCriticality: kaByPlatform[p.id] ? kaByPlatform[p.id].criticality : null,
+        backupTool: backupToolByPlatform[p.id] || null,
+        agentsUsing: agentsUsingByPlatform[p.id] || [],
+        workflowsUsing: workflowsUsingByPlatform[p.id] || [],
+      }),
     })
   }
   for (const own of toolOwnership) {
@@ -183,10 +238,17 @@ async function loadFromSupabase(graph) {
   const workflowEntities = {} // workflows.id -> entity
   const runbookByWorkflow = Object.fromEntries(workflowRunbooks.map((r) => [r.workflow_id, r]))
   for (const w of workflows) {
+    const rbForMeta = runbookByWorkflow[w.id]
     workflowEntities[w.id] = E({
       type: 'workflow',
       name: w.name,
-      metadata: rowMeta('workflows', w),
+      metadata: rowMeta('workflows', w, {
+        // A workflow's runbook is the authority on whether it is documented;
+        // a knowledge_asset entry is the fallback. Same precedence
+        // domain/dataset.js has always used.
+        documented: rbForMeta ? rbForMeta.is_documented
+          : (kaByWorkflow[w.id] ? kaByWorkflow[w.id].is_documented : null),
+      }),
     })
     const rb = runbookByWorkflow[w.id]
     if (rb && employeeEntities[rb.owner_id]) {

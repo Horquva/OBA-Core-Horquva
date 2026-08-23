@@ -1,6 +1,6 @@
 # Collapse the Brain from a Runtime into a Library
 
-**Status:** in progress — steps 1–7 done; step 8 (collapse the second loader) remains · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
+**Status:** all eight steps done · migrating the remaining routes to the domain layer is the long tail · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
 
 Supersedes BUILD_SPEC's W9 ("wire the brain to the routes"). W9 assumed the brain
 was a service to be plugged into more routes. It is better understood as a
@@ -254,7 +254,7 @@ Every step leaves the application working. There is no flag day.
 | ~~**5**~~ | ~~Rename every analysis off the M-numbers~~ — **done**. The collision in §1 no longer exists | 0.5 d |
 | ~~**6**~~ | ~~Fix M40's constant dimensions and the shadowed `/truth` route~~ — **done**, see §9 | 0.5 d |
 | ~~**7**~~ | ~~Create `backend/domain/`; fold in the dataset and its analyses; rewire `voice.js`~~ — **done**, but see the note below: the surface exists, the second loader does not yet | 2–4 d |
-| **8** | **Collapse the second loader** (below), then migrate routes to the domain layer page by page | long tail |
+| ~~**8**~~ | ~~Collapse the second loader~~ — **done**. Migrating the remaining routes to the domain layer is the long tail | long tail |
 
 ### Step 7 landed the surface, not the consolidation
 
@@ -270,16 +270,31 @@ keyed on `owners.employee_id`, two strategies for one concept. They agreed on al
 40 employees, so the switch is provably output-identical, and the table read went
 14 → 13.
 
-⚠ **The pipeline count is still three, not two.** `dataset.js` reads thirteen
-tables of its own, eight of which `graphLoader` also reads. Collapsing them is
-step 8 and is now contained to one directory:
+### Step 8 closed it (2026-08-24)
 
-1. Extend `graphLoader` with `owners`, `tool_backups`, `agent_platform`,
-   `workflow_tool_dependencies`.
-2. Attach per-asset `documented` and `backup_owner` to asset entities — today
-   those come from joins only `dataset.js` performs.
-3. Derive `dataset.js`'s shape from the graph, keeping SQL only for
-   `decision_history`, `documentation_trend` and `snapshots`.
+`graphLoader` took over `owners` (via the shared `lib/ownerBackups.js` helper),
+`tool_backups`, `agent_platform` and `workflow_tool_dependencies`, and now
+attaches per-asset `documented`, `backup_owner`, `backupTool`, `agentsUsing` and
+`workflowsUsing` to the entities themselves. `dataset.js` derives its whole shape
+from that graph and queries only `decision_history`, `documentation_trend` and
+`snapshots`.
+
+| | Tables read | Overlap |
+|---|---|---|
+| `graphLoader` | 16 + `owners` via the helper | — |
+| `dataset.js` | 3, all temporal | **none** |
+
+Previously 27 reads with eight tables in common. Verified: the dataset output is
+byte-identical to the previous implementation, and all 51 graph analyses are
+unchanged.
+
+⚠ **`agent_platform` and `workflow_tool_dependencies` are attached as metadata,
+not as `depends_on` edges.** Modelling them as edges would be more correct — they
+are dependency data and the dependency graph lacks them — but it would move every
+cascade, SPOF and centrality number the analyses produce. That is a change to
+what the graph *means*, not to where data is loaded from, so it was kept out of a
+consolidation commit. It is now the highest-value improvement to the graph's
+accuracy, and it is recorded in `domain/README.md`.
 
 **Steps 1–6 are ~4 days and deliver most of the value.** Steps 7–8 are the
 consolidation proper.
