@@ -1,30 +1,64 @@
 "use client";
 
-import { cn } from "../../lib/utils";
-import { ButtonHTMLAttributes, forwardRef } from "react";
+import { forwardRef, ButtonHTMLAttributes } from 'react';
+import { cn } from '../../lib/utils';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline" | "danger" | "ghost";
-  size?: "sm" | "md" | "lg";
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'success';
+  size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "primary", size = "md", isLoading = false, children, disabled, ...props }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
+  ({ className, variant = 'primary', size = 'md', isLoading = false, children, disabled, ...props }, ref) => {
+    const baseStyles = `
+      inline-flex items-center justify-center 
+      font-medium transition-all duration-200
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 
+      disabled:opacity-50 disabled:pointer-events-none
+      min-h-[44px] sm:min-h-[36px]
+      cursor-pointer
+    `;
 
     const variants = {
-      primary: "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500",
-      secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-400",
-      outline: "border border-gray-300 bg-transparent hover:bg-gray-50 focus-visible:ring-gray-400",
-      danger: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500",
-      ghost: "hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-400",
+      primary: `
+        bg-primary-600 text-on-primary 
+        hover:bg-primary-700 
+        focus-visible:ring-primary-400
+        shadow-md shadow-primary-600/20
+      `,
+      secondary: `
+        bg-neutral-100 text-neutral-700 
+        hover:bg-neutral-200
+        focus-visible:ring-neutral-400
+      `,
+      outline: `
+        border border-neutral-300 bg-surface 
+        hover:bg-neutral-50 hover:border-neutral-400
+        focus-visible:ring-neutral-400
+      `,
+      danger: `
+        bg-error text-on-primary 
+        hover:bg-error/80
+        focus-visible:ring-error
+        shadow-md shadow-error/20
+      `,
+      ghost: `
+        hover:bg-neutral-50 hover:text-neutral-900
+        focus-visible:ring-neutral-400
+      `,
+      success: `
+        bg-success text-on-primary 
+        hover:bg-success/80
+        focus-visible:ring-success
+        shadow-md shadow-success/20
+      `,
     };
 
     const sizes = {
-      sm: "px-3 py-1.5 text-sm",
-      md: "px-4 py-2 text-sm",
-      lg: "px-6 py-3 text-base",
+      sm: 'px-3 py-1.5 text-xs rounded-lg',
+      md: 'px-4 py-2 text-sm rounded-xl',
+      lg: 'px-6 py-3 text-base rounded-xl',
     };
 
     return (
@@ -45,5 +79,5 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     );
   }
 );
-Button.displayName = "Button";
+Button.displayName = 'Button';
 export { Button };

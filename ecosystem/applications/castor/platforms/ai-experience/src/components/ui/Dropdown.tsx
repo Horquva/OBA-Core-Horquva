@@ -1,7 +1,8 @@
 "use client";
 
-import { cn } from "../../lib/utils";
-import { useState, useRef, useEffect, ReactNode } from "react";
+import { useState, useRef, useEffect, ReactNode } from 'react';
+import { cn } from '../../lib/utils';
+import { tokens } from '../../lib/tokens';
 
 interface DropdownProps { trigger: ReactNode; children: ReactNode; className?: string; }
 
@@ -15,15 +16,24 @@ export function Dropdown({ trigger, children, className }: DropdownProps) {
         setIsOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   return (
     <div className="relative inline-block" ref={dropdownRef}>
       <div onClick={() => setIsOpen(!isOpen)}>{trigger}</div>
       {isOpen && (
-        <div className={cn("absolute right-0 mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black/5 z-10 py-1", className)}>
+        <div
+          className={cn(
+            `absolute right-0 mt-[${tokens.spacing.sm.value}px] 
+            w-48 rounded-[${tokens.radius.md.value}px] 
+            bg-[${tokens.component.dialog.background.value}] 
+            shadow-[${tokens.component.dialog.elevation.value}] 
+            ring-1 ring-black/5 z-10 py-[${tokens.spacing.xs.value}px]`,
+            className
+          )}
+        >
           {children}
         </div>
       )}
@@ -34,7 +44,15 @@ export function Dropdown({ trigger, children, className }: DropdownProps) {
 export function DropdownItem({ children, onClick, className }: { children: ReactNode; onClick?: () => void; className?: string }) {
   return (
     <button
-      className={cn("block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors", className)}
+      className={cn(
+        `block w-full text-left 
+        px-[${tokens.spacing.md.value}px] py-[${tokens.spacing.sm.value}px] 
+        text-[${tokens.typography.bodySmall.size.value}px] 
+        text-[${tokens.color.text.default.value}] 
+        hover:bg-[${tokens.color.neutral[50].value}] 
+        transition-colors`,
+        className
+      )}
       onClick={onClick}
     >
       {children}

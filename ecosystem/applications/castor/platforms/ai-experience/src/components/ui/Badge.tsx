@@ -1,19 +1,30 @@
-import { cn } from "../../lib/utils";
-import { HTMLAttributes } from "react";
+import { cn } from '../../lib/utils';
+import { tokens } from '../../lib/tokens';
+import { HTMLAttributes } from 'react';
 
 export interface BadgeProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: "default" | "success" | "warning" | "danger" | "info";
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
 }
 
-export function Badge({ className, variant = "default", ...props }: BadgeProps) {
+export function Badge({ className, variant = 'default', ...props }: BadgeProps) {
   const variants = {
-    default: "bg-gray-100 text-gray-800",
-    success: "bg-green-100 text-green-800",
-    warning: "bg-yellow-100 text-yellow-800",
-    danger: "bg-red-100 text-red-800",
-    info: "bg-blue-100 text-blue-800",
+    default: `bg-[${tokens.color.neutral[100].value}] text-[${tokens.color.neutral[700].value}]`,
+    success: `bg-[${tokens.component.badge.background.success.value}] text-[${tokens.color.semantic.success.value}]`,
+    warning: `bg-[${tokens.component.badge.background.warning.value}] text-[${tokens.color.semantic.warning.value}]`,
+    danger: `bg-[${tokens.component.badge.background.error.value}] text-[${tokens.color.semantic.error.value}]`,
+    info: `bg-[${tokens.component.badge.background.info.value}] text-[${tokens.color.primary[700].value}]`,
   };
+
   return (
-    <div className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", variants[variant], className)} {...props} />
+    <div
+      className={cn(
+        `inline-flex items-center rounded-[${tokens.radius.full.value}px] 
+        px-[${tokens.spacing.sm.value}px] py-[${tokens.spacing.xs.value}px] 
+        text-[${tokens.typography.caption.size.value}px] font-medium`,
+        variants[variant],
+        className
+      )}
+      {...props}
+    />
   );
 }

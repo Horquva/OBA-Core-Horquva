@@ -1,1 +1,100 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   MARKDOWN STYLES
+   ============================================ */
+@layer components {
+  .prose {
+    @apply text-gray-800 text-sm leading-relaxed;
+  }
+  .prose h1 {
+    @apply text-2xl font-bold mt-4 mb-2;
+  }
+  .prose h2 {
+    @apply text-xl font-bold mt-4 mb-2;
+  }
+  .prose h3 {
+    @apply text-lg font-semibold mt-4 mb-2;
+  }
+  .prose h4 {
+    @apply text-base font-semibold mt-4 mb-2;
+  }
+  .prose p {
+    @apply mb-2;
+  }
+  .prose ul {
+    @apply list-disc pl-5 my-2;
+  }
+  .prose ol {
+    @apply list-decimal pl-5 my-2;
+  }
+  .prose li {
+    @apply mb-1;
+  }
+  .prose code {
+    @apply bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono;
+  }
+  .prose pre {
+    @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-3;
+  }
+  .prose pre code {
+    @apply bg-transparent text-inherit p-0;
+  }
+  .prose blockquote {
+    @apply border-l-4 border-indigo-500 pl-4 my-3 text-gray-600 italic;
+  }
+  .prose strong {
+    @apply font-bold;
+  }
+  .prose em {
+    @apply italic;
+  }
+  .prose a {
+    @apply text-indigo-600 underline font-medium;
+  }
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+}
+
+/* ============================================
+   TOUCH TARGETS
+   ============================================ */
+@layer base {
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+  @media (min-width: 640px) {
+    button,
+    [role="button"],
+    input,
+    select,
+    textarea {
+      min-height: 36px;
+    }
+  }
+}
