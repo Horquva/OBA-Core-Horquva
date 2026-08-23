@@ -1,6 +1,6 @@
 # Collapse the Brain from a Runtime into a Library
 
-**Status:** in progress — steps 1–6 done; only 7 and 8 (the domain layer) remain · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
+**Status:** in progress — steps 1–7 done; step 8 (collapse the second loader) remains · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
 
 Supersedes BUILD_SPEC's W9 ("wire the brain to the routes"). W9 assumed the brain
 was a service to be plugged into more routes. It is better understood as a
@@ -253,8 +253,33 @@ Every step leaves the application working. There is no flag day.
 | ~~**4**~~ | ~~Carry full rows into graph metadata~~ — **done**, 51/51 analyses unchanged | 0.5 d |
 | ~~**5**~~ | ~~Rename every analysis off the M-numbers~~ — **done**. The collision in §1 no longer exists | 0.5 d |
 | ~~**6**~~ | ~~Fix M40's constant dimensions and the shadowed `/truth` route~~ — **done**, see §9 | 0.5 d |
-| **7** | Create `backend/domain/`; fold in `orgDataset.js` and `constitutional.js`'s analyses; rewire `voice.js` | 2–4 d |
-| **8** | Migrate routes to the domain layer, page by page | long tail |
+| ~~**7**~~ | ~~Create `backend/domain/`; fold in the dataset and its analyses; rewire `voice.js`~~ — **done**, but see the note below: the surface exists, the second loader does not yet | 2–4 d |
+| **8** | **Collapse the second loader** (below), then migrate routes to the domain layer page by page | long tail |
+
+### Step 7 landed the surface, not the consolidation
+
+`backend/domain/` now exists and is the single import for organizational
+intelligence: `loadDataset()`, the seven dataset analyses, and `graph.run()`
+re-exported from the brain. `constitutional.js`, `voice.js` and the tests go
+through it. `domain/README.md` states the boundary rule.
+
+Two real reductions came with it: `dataset.js` dropped its own `owners` read and
+now uses the shared `lib/ownerBackups.js` helper — it had been keying on
+`owners.name` while `agents.js`, `dependencies.js` and `decisionIntelligence.js`
+keyed on `owners.employee_id`, two strategies for one concept. They agreed on all
+40 employees, so the switch is provably output-identical, and the table read went
+14 → 13.
+
+⚠ **The pipeline count is still three, not two.** `dataset.js` reads thirteen
+tables of its own, eight of which `graphLoader` also reads. Collapsing them is
+step 8 and is now contained to one directory:
+
+1. Extend `graphLoader` with `owners`, `tool_backups`, `agent_platform`,
+   `workflow_tool_dependencies`.
+2. Attach per-asset `documented` and `backup_owner` to asset entities — today
+   those come from joins only `dataset.js` performs.
+3. Derive `dataset.js`'s shape from the graph, keeping SQL only for
+   `decision_history`, `documentation_trend` and `snapshots`.
 
 **Steps 1–6 are ~4 days and deliver most of the value.** Steps 7–8 are the
 consolidation proper.

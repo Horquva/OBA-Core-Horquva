@@ -26,7 +26,7 @@ const brain = require('../../brain')
 // Analyses are named, not numbered. brain.run() accepts either the catalog code
 // ('M42') or its readable slug ('culture'); the slug is used here because a
 // route file is exactly where the name matters. See the design document — the
-// dataset analyses in lib/orgAnalyses.js dropped their M-numbers entirely, so
+// dataset analyses in domain/analyses.js dropped their M-numbers entirely, so
 // nothing outside this catalog claims one any more.
 //
 // Run one analysis and return its intelligence fragment. brain.run() executes

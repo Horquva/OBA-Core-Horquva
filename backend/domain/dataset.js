@@ -10,12 +10,12 @@
 // `incidents` is always [] rather than fabricated.
 
 const supabase = require('../supabase')
+const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 
 async function loadOrgDataset() {
   const [
     { data: agents, error: e1 },
     { data: employees, error: e2 },
-    { data: owners, error: e3 },
     { data: workflows, error: e4 },
     { data: workflowRunbooks, error: e5 },
     { data: knowledgeAssets, error: e6 },
@@ -30,7 +30,6 @@ async function loadOrgDataset() {
   ] = await Promise.all([
     supabase.from('agents').select('*'),
     supabase.from('employees').select('id, name, department'),
-    supabase.from('owners').select('*'),
     supabase.from('workflows').select('*'),
     supabase.from('workflow_runbooks').select('*, employees ( name )'),
     supabase.from('knowledge_assets').select('*'),
@@ -43,7 +42,7 @@ async function loadOrgDataset() {
     supabase.from('agent_platform').select('*, agents ( name )'),
     supabase.from('workflow_tool_dependencies').select('*, workflows ( name )'),
   ])
-  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e14
+  const firstError = e1 || e2 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e14
   if (firstError) throw new Error(firstError.message)
 
   const empById = Object.fromEntries((employees || []).map((e) => [e.id, e]))
@@ -52,7 +51,13 @@ async function loadOrgDataset() {
   // "DeployBot -> Yuki Tanaka" ownership fact. `owners` is a separate, smaller
   // reference list (10 rows) keyed by name that only exists to carry
   // `backup_owner`, so it's looked up by name, not id.
-  const ownerByName = Object.fromEntries((owners || []).map((o) => [o.name, o]))
+  // Backup coverage comes from the shared helper, which keys on
+  // owners.employee_id — the same join agents.js, dependencies.js and
+  // decisionIntelligence.js use. This file used to key on owners.name instead.
+  // The two agree on all 40 employees today (verified 2026-08-24), but two
+  // join strategies for one concept is exactly the drift this layer exists to
+  // prevent, so there is now one.
+  const backupByEmployee = await loadOwnerBackupByEmployee()
 
   const kaByAgent = {}, kaByWorkflow = {}, kaByPlatform = {}
   ;(knowledgeAssets || []).forEach((k) => {
@@ -63,14 +68,13 @@ async function loadOrgDataset() {
 
   const dAgents = (agents || []).map((a) => {
     const owner = empById[a.owner_id]
-    const ownerRow = owner ? ownerByName[owner.name] : null
     const ka = kaByAgent[a.id]
     return {
       id: a.id,
       name: a.name,
       status: a.status,
       owner: owner ? owner.name : null,
-      backup_owner: ownerRow ? ownerRow.backup_owner : null,
+      backup_owner: owner ? backupByEmployee[a.owner_id] ?? null : null,
       criticality: a.risk,
       department: owner ? owner.department : null,
       documented: ka ? ka.is_documented : null,
@@ -81,14 +85,13 @@ async function loadOrgDataset() {
   const dWorkflows = (workflows || []).map((w) => {
     const rb = runbookByWorkflow[w.id]
     const ownerName = rb?.employees?.name || null
-    const ownerRow = ownerName ? ownerByName[ownerName] : null
     const ka = kaByWorkflow[w.id]
     return {
       id: w.id,
       name: w.name,
       status: w.status,
       owner: ownerName,
-      backup_owner: ownerRow ? ownerRow.backup_owner : null,
+      backup_owner: rb ? backupByEmployee[rb.owner_id] ?? null : null,
       criticality: w.risk,
       department: w.department,
       documented: rb ? rb.is_documented : (ka ? ka.is_documented : null),

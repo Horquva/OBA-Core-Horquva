@@ -20,7 +20,7 @@ Analyses are addressable by a readable slug derived from the catalog name
 it — but route files read better with the name.
 
 **M01–M55 belongs to this catalog and nothing else.** The dataset analyses in
-`lib/orgAnalyses.js` used to claim M36/M38/M39/M40/M46/M48/M54 as well, so
+`domain/analyses.js` used to claim M36/M38/M39/M40/M46/M48/M54 as well, so
 "fix M39" had two possible meanings; they were renamed for what they compute.
 
 This replaced a 1,154-line constitutional runtime — execution engine, event bus,

@@ -2,13 +2,13 @@
 // Organizational analyses over the company dataset
 // Owner: Kamran
 //
-// Thin routing over lib/orgAnalyses.js. The analyses are pure functions of one
+// Thin routing over the domain layer. The analyses are pure functions of one
 // shared shape (agents, workflows, ai_tools, knowledge_areas, incidents,
-// decisions_log, history) assembled by lib/orgDataset.js — shared with
+// decisions_log, history) assembled by domain/dataset.js — shared with
 // voice/voice.js so the same real joins aren't duplicated.
 //
 // Two data gaps here are real, not bugs: no per-agent/workflow "documented" or
-// "backup_owner" column exists without a join (see orgDataset.js), and no
+// "backup_owner" column exists without a join (see domain/dataset.js), and no
 // incidents table with resolution/lesson tracking exists at all — `incidents`
 // is always [] rather than fabricated. Analyses must report that as unknown,
 // never score it; see alignmentChecklist().
@@ -30,12 +30,11 @@
 
 const express = require('express')
 const router = express.Router()
-const { loadOrgDataset: loadData } = require('../../lib/orgDataset')
-
 const {
+  loadDataset: loadData,
   trendSignals, improvementOpportunities, departmentCapability,
   alignmentChecklist, standardClaimChecks, playbookAdvice, resilienceScenarios,
-} = require('../../lib/orgAnalyses')
+} = require('../../domain')
 
 // ─────────────────────────────────────────────────────────────
 // ROUTES
@@ -63,7 +62,7 @@ router.get('/simulation-universe', wrap(resilienceScenarios))
 // Index of the endpoints this router serves.
 router.get('/', (req, res) => {
   res.json({
-    source: 'company dataset (lib/orgDataset.js)',
+    source: 'company dataset (domain/dataset.js)',
     note: 'Graph-derived analyses are served separately under /api/intelligence/{pattern,dna,culture,maturity,behavior,benchmark,strategic-alignment,capability-by-dept}.',
     owner: 'Kamran',
     endpoints: {

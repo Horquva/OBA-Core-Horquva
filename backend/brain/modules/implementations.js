@@ -18,7 +18,7 @@
  *
  * NOTE - module-code overlap: M39, M40, M46, M48 and M54 below are ALSO
  * independently implemented in backend/routes/intelligence/constitutional.js
- * (via lib/orgDataset.js's Supabase joins, not this file's knowledge graph).
+ * (via domain/dataset.js's Supabase joins, not this file's knowledge graph).
  * See that file's header comment for why the split exists. Both are real,
  * neither is a stub, and they can disagree — if you're changing scoring logic
  * for any of these five codes, check both files.

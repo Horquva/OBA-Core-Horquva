@@ -116,7 +116,7 @@ endpoint (no audio handling of any kind); the actual surface is:
 | GET | `/api/voice/daily-summary` | Today's spoken executive briefing |
 
 ## Constitutional Intelligence & Meta-Brain (Kamran, Phase 6) - `/api/intelligence`
-These read live from Supabase via `lib/orgDataset.js` (shared with voice.js) —
+These read live from Supabase via `domain/dataset.js` (shared with voice.js) —
 **not** from `data/company.json`, which nothing reads at runtime. They do not
 survive a Supabase outage.
 

@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
-const { loadOrgDataset } = require('../../lib/orgDataset')
+const { loadDataset: loadOrgDataset } = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────

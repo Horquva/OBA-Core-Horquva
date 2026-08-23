@@ -1,10 +1,9 @@
 /**
  * ORGANIZATIONAL ANALYSES OVER THE COMPANY DATASET
  * ------------------------------------------------
- * Pure functions of `lib/orgDataset.js`'s shape. Extracted from
- * routes/intelligence/constitutional.js so they can be tested directly and,
- * per the brain-as-library design step 7, eventually folded into one domain
- * layer alongside the graph analyses.
+ * Pure functions of `domain/dataset.js`'s shape. Reached through `domain/`,
+ * alongside the graph analyses — callers ask the domain layer a question and do
+ * not choose which technique answers it. See domain/index.js for the boundary.
  *
  * ⚠ These are NOT the brain's M39/M40/M46/M48/M54. Those compute different
  * things from the Knowledge Graph and are reached through

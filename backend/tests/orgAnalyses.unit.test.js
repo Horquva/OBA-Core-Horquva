@@ -17,7 +17,7 @@
  * excluded from the average — never scored.
  */
 
-const { alignmentChecklist } = require('../lib/orgAnalyses')
+const { alignmentChecklist } = require('../domain/analyses')
 
 let passed = 0
 let failed = 0
