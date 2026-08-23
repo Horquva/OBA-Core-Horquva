@@ -1,6 +1,6 @@
 # Collapse the Brain from a Runtime into a Library
 
-**Status:** in progress — steps 1–3 and 6 done · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
+**Status:** in progress — steps 1–4 and 6 done; only 5, 7 and 8 remain · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
 
 Supersedes BUILD_SPEC's W9 ("wire the brain to the routes"). W9 assumed the brain
 was a service to be plugged into more routes. It is better understood as a
@@ -179,6 +179,23 @@ question is structurally excluded from the graph, and the ai-tools page stops
 being un-servable by it. Time series stay in SQL — that is a real boundary, not
 an accident.
 
+**DONE 2026-08-24.** A `rowMeta()` helper carries every column, omitting only
+`id` and `name` (the entity already carries its identity) and keeping the primary
+key as `sourceId` — which BUILD_SPEC W3 will need for stable ids across graph and
+database. Agents now carry `cost`, `usage_count`, `adoption_pct` and `last_used`;
+platforms carry `cost_monthly` and `vendor`; employees carry `tenure`, `skills`,
+`workload`, `manager` and `hire_date`.
+
+Purely additive: all 51 analyses are byte-identical afterwards. Only
+`metadata.role` was ever read by any analysis, so this fixes nothing today — it
+removes the structural reason steps 7–8 could not serve cost and adoption
+questions from the graph. `searchContext()` stringifies metadata, so it does get
+immediately better: "Engineering" now matches 14 entities instead of name and
+type alone.
+
+⚠ **Carrying timestamps as fields is not a time dimension.** The graph is still a
+snapshot of now. Recording what *changed* is W5, untouched.
+
 ### 6.3 `priorIntel` is composition, and does not need a scheduler
 
 Roughly ten modules read `context.priorIntel` — M48 is gated by M46, M55 fuses
@@ -204,7 +221,7 @@ Every step leaves the application working. There is no flag day.
 | ~~**1**~~ | ~~Delete the Python layer~~ — **done**, commit `2fa9d97` | hours |
 | ~~**2**~~ | ~~Expose the module bodies as directly-callable functions; delete the runtime~~ — **done**, commit `36d872f`. 50 of 55 payloads byte-identical; the rest were the machinery-measuring fields | 1–2 d |
 | ~~**3**~~ | ~~Resolve the six machinery-measuring modules~~ — **done**. M39/M49's self-description fields deleted in step 2; M10/M12/M17/M47 retired | 1 d + decisions |
-| **4** | Carry full rows into graph metadata (§6.2) | 0.5 d |
+| ~~**4**~~ | ~~Carry full rows into graph metadata~~ — **done**, 51/51 analyses unchanged | 0.5 d |
 | **5** | Rename every analysis off the M-numbers; fix the stale `NOT MOUNTED` comments in `frontend/lib/api.ts` | 0.5 d |
 | ~~**6**~~ | ~~Fix M40's constant dimensions and the shadowed `/truth` route~~ — **done**, see §9 | 0.5 d |
 | **7** | Create `backend/domain/`; fold in `orgDataset.js` and `constitutional.js`'s analyses; rewire `voice.js` | 2–4 d |

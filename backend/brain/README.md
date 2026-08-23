@@ -74,11 +74,10 @@ M39's `brainConstitutionalCapabilities` (the registry's own size) and M49's
 still reads bus-derived package counts, which are now always empty — it is
 otherwise graph-derived and was kept.
 
-**The graph is a lossy projection.** `graphLoader` drops `cost`, `usage_count`,
-`adoption_pct`, `last_used` and every timestamp, and the graph has no time
-dimension. Cost, adoption and trend questions belong in SQL — that boundary is
-deliberate — but the dropped fields are not, and carrying full rows through is
-step 4 of the design.
+**The graph has no time dimension.** Entities carry their full source row now,
+including timestamps like `last_used` and `hire_date` — but a timestamp field is
+not a temporal model. The graph is a snapshot of *now*; nothing records what
+changed. Trend questions belong in SQL, and recording change is BUILD_SPEC W5.
 
 **Five ontology types have no source.** `system`, `team`, `customer`, `process`
 and `project` are defined and queried but no Supabase table supplies them, so

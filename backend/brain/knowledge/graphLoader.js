@@ -43,6 +43,32 @@ async function loadFromSupabase(graph) {
     return graph.addRelationship({ from: from.id, to: to.id, type, ...extra })
   }
 
+  /**
+   * Carry the WHOLE source row into entity metadata.
+   *
+   * This loader used to keep a hand-picked four or five columns per entity and
+   * silently drop the rest — `cost`, `usage_count`, `adoption_pct`, `last_used`,
+   * `tenure`, `skills`, `workload` and every timestamp. That loss is why cost and
+   * adoption questions could not be asked of the graph at all, and it is the
+   * reason those pages are served by SQL instead. Nothing is dropped now.
+   *
+   * `id` and `name` are omitted because the entity already carries its own
+   * identity and a second copy only invites drift; the row's primary key is kept
+   * explicitly as `sourceId`, which is also what BUILD_SPEC W3 (stable ids across
+   * graph and database) will need.
+   *
+   * ⚠ Carrying timestamps as fields is NOT a time dimension. The graph is still a
+   * snapshot of now; recording what CHANGED is W5.
+   */
+  const rowMeta = (sourceTable, row, { omit = [], ...extra } = {}) => {
+    const meta = { sourceTable, sourceId: row.id }
+    for (const [k, v] of Object.entries(row)) {
+      if (k === 'id' || k === 'name' || omit.includes(k)) continue
+      meta[k] = v
+    }
+    return { ...meta, ...extra }
+  }
+
   const [
     { data: employees, error: e1 },
     { data: agents, error: e2 },
@@ -96,7 +122,7 @@ async function loadFromSupabase(graph) {
     employeeEntities[emp.id] = E({
       type: isExec ? 'executive' : 'employee',
       name: emp.name,
-      metadata: { role: emp.role, department: emp.department, risk: emp.risk },
+      metadata: rowMeta('employees', emp),
     })
   }
   const employeeByName = Object.fromEntries(employees.map((e) => [e.name, employeeEntities[e.id]]))
@@ -125,7 +151,9 @@ async function loadFromSupabase(graph) {
     agentEntities[a.id] = E({
       type: 'ai_agent',
       name: a.name,
-      metadata: { kind: 'automation-agent', agentType: a.type, status: a.status, risk: a.risk },
+      // `type` is omitted and re-exposed as `agentType`: the row's type is
+      // 'automation'/'analysis', which would read as the entity's own type.
+      metadata: rowMeta('agents', a, { omit: ['type'], kind: 'automation-agent', agentType: a.type }),
     })
     if (a.owner_id && employeeEntities[a.owner_id]) {
       R(employeeEntities[a.owner_id], 'owns', agentEntities[a.id], { criticality: a.risk || 'medium', metadata: { source: 'agents.owner_id' } })
@@ -137,7 +165,7 @@ async function loadFromSupabase(graph) {
     platformEntities[p.id] = E({
       type: 'ai_agent',
       name: p.name,
-      metadata: { kind: 'ai-platform', agentType: p.type, status: p.status, vendor: p.vendor },
+      metadata: rowMeta('ai_platforms', p, { omit: ['type'], kind: 'ai-platform', agentType: p.type }),
     })
   }
   for (const own of toolOwnership) {
@@ -158,7 +186,7 @@ async function loadFromSupabase(graph) {
     workflowEntities[w.id] = E({
       type: 'workflow',
       name: w.name,
-      metadata: { department: w.department, status: w.status, risk: w.risk, frequency: w.frequency },
+      metadata: rowMeta('workflows', w),
     })
     const rb = runbookByWorkflow[w.id]
     if (rb && employeeEntities[rb.owner_id]) {
@@ -181,7 +209,11 @@ async function loadFromSupabase(graph) {
   for (const pol of toolPolicies) {
     if (!platformEntities[pol.platform_id]) continue
     if (!policyEntities[pol.policy_name]) {
-      policyEntities[pol.policy_name] = E({ type: 'policy', name: pol.policy_name, metadata: { status: pol.status } })
+      policyEntities[pol.policy_name] = E({
+        type: 'policy',
+        name: pol.policy_name,
+        metadata: rowMeta('tool_policies', pol, { omit: ['policy_name'] }),
+      })
     }
     R(policyEntities[pol.policy_name], 'governs', platformEntities[pol.platform_id])
   }
@@ -197,7 +229,9 @@ async function loadFromSupabase(graph) {
     const knowledge = E({
       type: 'knowledge',
       name: k.topic,
-      metadata: { documented: k.is_documented, criticality: k.criticality },
+      // `documented` is kept as an alias for is_documented — it is the name the
+      // rest of the codebase uses for this concept.
+      metadata: rowMeta('knowledge_assets', k, { omit: ['topic'], documented: k.is_documented }),
     })
     const subject = subjectFor(k.asset_type, k.asset_id)
     if (subject) R(knowledge, 'supports', subject)

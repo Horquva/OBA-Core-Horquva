@@ -71,6 +71,35 @@ function check(name, condition) {
 		const withSource = owns.filter((r) => r.metadata && r.metadata.source)
 		check('every owns edge carries metadata.source', owns.length > 0 && withSource.length === owns.length)
 
+		// ─── 4. the projection is not lossy (design step 4) ───
+		// graphLoader used to keep a hand-picked four or five columns per entity and
+		// drop the rest, which is why cost and adoption questions could not be asked
+		// of the graph at all. The whole source row is now carried.
+		const anyAgent = g.entities.list('ai_agent').find((e) => e.metadata.kind === 'automation-agent')
+		const anyPlatform = g.entities.list('ai_agent').find((e) => e.metadata.kind === 'ai-platform')
+		const anyEmployee = g.entities.list('employee')[0]
+
+		check('agents carry cost and usage', !!anyAgent &&
+			'cost' in anyAgent.metadata && 'usage_count' in anyAgent.metadata && 'adoption_pct' in anyAgent.metadata,
+			anyAgent ? Object.keys(anyAgent.metadata).join(',') : 'no agent')
+		check('platforms carry monthly cost and vendor', !!anyPlatform &&
+			'cost_monthly' in anyPlatform.metadata && 'vendor' in anyPlatform.metadata,
+			anyPlatform ? Object.keys(anyPlatform.metadata).join(',') : 'no platform')
+		check('employees carry tenure, skills and workload', !!anyEmployee &&
+			'tenure' in anyEmployee.metadata && 'skills' in anyEmployee.metadata && 'workload' in anyEmployee.metadata,
+			anyEmployee ? Object.keys(anyEmployee.metadata).join(',') : 'no employee')
+		check('timestamps survive the projection', !!anyAgent && 'last_used' in anyAgent.metadata)
+		check('every entity records where it came from',
+			g.entities.list().filter((e) => e.type !== 'organization' && e.type !== 'department')
+				.every((e) => !!e.metadata.sourceTable && e.metadata.sourceId != null))
+		check('metadata does not shadow entity identity',
+			g.entities.list().every((e) => !('id' in e.metadata) && !('name' in e.metadata)))
+		check('metadata.role still readable (the one field analyses use)',
+			typeof anyEmployee.metadata.role === 'string', anyEmployee.metadata.role)
+		// searchContext stringifies metadata, so richer rows make it find more
+		check('search finds a platform by its vendor', g.searchContext('OpenAI').length > 0,
+			`${g.searchContext('OpenAI').length} hits`)
+
 		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department'])
 		const actual = new Set(owns.map((r) => r.metadata.source))
 		check('owns provenance names only real source tables',
