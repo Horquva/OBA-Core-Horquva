@@ -37,9 +37,9 @@ function printDashboard(engine) {
 
   console.log(`\nSYSTEM HEALTH        \u25cf ${sh.healthLabel}`);
   console.log(`PLATFORMS ${sh.totalPlatforms}   |   JOBS ${sh.totalJobs}   |   BLOCKED ${sh.blocked}   |   FAILED ${sh.failed}`);
-  console.log(`INTEGRATED ${sh.integrated}   |   RELEASE READY ${sh.releaseReady}   |   GATE PASS RATE ${sh.gatePassRatePct}%`);
+  console.log(`INTEGRATED ${sh.integrated}   |   RELEASE READY ${sh.releaseReady}   |   JOB QUALITY-GATE PASS RATE ${sh.gatePassRatePct}% (jobs meeting their own gates — separate from CI pipeline health below)`);
 
-  console.log('\n--- ENGINEERING HEALTH (last ' + eh.runsTracked + ' CI runs) ---');
+  console.log('\n--- CI PIPELINE HEALTH (last ' + eh.runsTracked + ' CI runs — lint/build/test on this repo) ---');
   if (eh.runsTracked === 0) {
     console.log('  No CI history found yet. Run "node scripts/ci.js" first.');
   } else {

@@ -1,0 +1,7 @@
+{
+  "id": "COP-0001",
+  "name": "Automated Compliance Risk Scoring",
+  "version": "0.1",
+  "readinessState": "Conditionally Ready",
+  "dependencies": []
+}
