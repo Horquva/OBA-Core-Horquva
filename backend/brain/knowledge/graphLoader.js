@@ -1,12 +1,12 @@
 /**
  * GRAPH LOADER — real organizational reality, from Supabase
  * -----------------------------------------------------------
- * The production replacement for graphSeeder.js's synthetic "Horquva Pilot
- * Org" demo data, named in that file's own comment: "In production this is
- * replaced by live discovery / Supabase import; the structure of entities +
- * relationships stays identical." Builds the same Unified Knowledge Graph
- * shape (see ontology.js for the valid entity/relationship vocabulary) from
- * the real relational schema in backend/sql/.
+ * The one place organizational data enters the graph. Builds the Unified
+ * Knowledge Graph (see ontology.js for the valid entity/relationship
+ * vocabulary) from the real relational schema in backend/sql/. It replaced
+ * graphSeeder.js's synthetic 16-entity demo organization, which was deleted
+ * with the runtime — there is no stand-in data any more, and a failed load
+ * means the analyses answer 503 rather than serving fiction.
  *
  * Executives vs employees: anyone with no `manager` (the 6 department heads)
  * or a VP/C-level/Head-of/Director title is modeled as `executive`; everyone

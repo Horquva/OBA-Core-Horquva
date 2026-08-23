@@ -13,7 +13,8 @@ const sql = fs.readFileSync(path.join(ROOT, 'backend/sql/02_seed_data.sql'), 'ut
 // Edit these in place — regenerating the file preserves them.
 
 const AUTHORED = {
-  // The last entity type graphSeeder.js held alone. Once these exist it is deletable.
+  // The last entity type graphSeeder.js held alone. graphSeeder is now deleted;
+  // these authored rows are the only source for the type.
   systems: [
     {
       name: 'Core Platform', owner: 'Omar Hassan', department: 'Engineering',
@@ -370,8 +371,8 @@ for (const k of knowledge) {
 const outKnowledge = [...byTopic.values()]
 
 // ── organization / departments / policies / processes ───────────────────────
-// These four entity types exist only in graphSeeder.js today. Sourcing them here
-// is what lets graphSeeder be deleted instead of kept as a second company.
+// These four entity types had no table and lived only in graphSeeder.js.
+// graphSeeder is deleted; these authored rows are now their only source.
 
 const raciFor = (entityId, role) =>
   acctLinks.find((l) => l.entity_id === entityId && l.raci_role === role)?.person_name ?? null

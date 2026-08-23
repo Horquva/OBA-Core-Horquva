@@ -3,7 +3,7 @@
  * ---------------------------------------
  * Exposes constitutional prediction/reasoning modules (Tahir + Kamran) as
  * simple REST endpoints for the frontend dashboard cards. Each endpoint runs
- * the corresponding Brain module through the runtime Execution Engine and
+ * the corresponding analysis over the organizational Knowledge Graph and
  * returns its intelligence payload.
  *
  * Card  -> Module mapping:
@@ -21,30 +21,30 @@
 
 const express = require('express')
 const router = express.Router()
-const { getBrain } = require('../../brain')
+const brain = require('../../brain')
 
-// Run a single constitutional module through the Brain runtime and return its
-// computed intelligence fragment.
+// Run one analysis and return its intelligence fragment. brain.run() executes
+// the analysis's declared dependencies first, so anything reading priorIntel
+// still receives it — the same behaviour the retired execution engine gave.
 async function runModule(code) {
-  const brain = getBrain()
-  if (!brain || !brain.state || !brain.state.isReady()) {
-    const err = new Error('Brain not ready')
+  if (!brain.isReady()) {
+    const err = new Error('Brain graph not loaded')
     err.status = 503
     throw err
   }
-  const result = await brain.engine.execute({ modules: [code] })
-  const hit = result.results.find((r) => r.module === code && !r.error && !r.skipped)
-  if (!hit) {
+  const intel = await brain.run(code)
+  if (!intel) {
     const err = new Error(`Module ${code} produced no intelligence`)
     err.status = 502
     throw err
   }
   return {
     module: code,
-    type: hit.type,
-    confidence: hit.confidence,
-    payload: hit.payload,
-    recommendations: hit.recommendations || [],
+    type: intel.type,
+    confidence: intel.confidence,
+    payload: intel.payload,
+    recommendations: intel.recommendations || [],
+    dataSource: brain.graphSource(),
     generatedAt: new Date().toISOString(),
   }
 }

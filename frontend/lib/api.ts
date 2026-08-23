@@ -608,9 +608,12 @@ export interface PatternPayload {
 }
 
 export interface CapabilityPayload {
+  /**
+   * Empty because no Supabase table sources the `system` entity type — that is
+   * "not modelled", not "this organization has none". See graphLoader's header.
+   */
   systemCapabilities: string[];
   workflowCapabilities: string[];
-  brainConstitutionalCapabilities: number;
 }
 
 export interface StrategicAlignmentPayload {

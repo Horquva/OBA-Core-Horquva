@@ -93,35 +93,21 @@ app.use('/api/avatar', require('./routes/avatar'))
 app.use('/api/self-healing', require('./routes/selfHealing'))
 app.use('/api/automation', require('./routes/automation'))
 
-// ─── Organizational Brain: constitutional runtime for M01–M55 (mounted at /api/brain) ───
-// Boots synchronously on graphSeeder's demo data (fast, non-blocking startup),
-// then swaps in the real Supabase-backed graph once loaded. If Supabase is
-// unreachable the process stays up on demo data rather than failing to boot.
-try {
-  const { mountBrain } = require('./brain')
-  const { report, runtime } = mountBrain(app)
-  console.log(
-    `Organizational Brain: ${report.accepted ? 'READY' : 'DEGRADED'} — ` +
-    `${report.modules.discovered}/${report.modules.expected} modules, ` +
-    `${report.capabilities.registered} capabilities`
-  )
-  // Fire-and-forget by design — the server must not block on Supabase. But a
-  // failure here means every answer the brain gives comes from the synthetic
-  // demo graph, so it is logged as the loud, unambiguous failure it is and
-  // recorded on runtime state (see GET /api/brain/status -> dataSource).
-  runtime.reloadGraph()
-    .then((stats) => console.log('Organizational Brain: graph reloaded from Supabase —', JSON.stringify(stats)))
-    .catch((err) => {
-      console.error('='.repeat(78))
-      console.error('Organizational Brain: SUPABASE GRAPH LOAD FAILED —', err.message)
-      console.error('The brain is serving the SYNTHETIC DEMO GRAPH. Every number it')
-      console.error('produces is fiction until this succeeds. Check GET /api/brain/status')
-      console.error('-> dataSource, and retry with POST /api/brain/reload-graph.')
-      console.error('='.repeat(78))
-    })
-} catch (e) {
-  console.error('Organizational Brain failed to boot:', e.message)
-}
+// ─── Organizational Brain: the M01–M55 analyses over the Knowledge Graph ───
+// The brain is a library, not a service — nothing is mounted. Routes call
+// brain.run(code) directly (see routes/intelligence/prediction.js). The graph
+// loads asynchronously so the server does not block on Supabase; until it
+// lands, brain.isReady() is false and those routes answer 503 rather than
+// serving a synthetic stand-in.
+require('./brain').loadGraph()
+  .then((stats) => console.log('Organizational Brain: graph loaded from Supabase —', JSON.stringify(stats)))
+  .catch((err) => {
+    console.error('='.repeat(78))
+    console.error('Organizational Brain: SUPABASE GRAPH LOAD FAILED —', err.message)
+    console.error('Every /api/intelligence analysis endpoint will answer 503 until this')
+    console.error('succeeds. Nothing is served from stand-in data.')
+    console.error('='.repeat(78))
+  })
 
 app.use(errorHandler)
 

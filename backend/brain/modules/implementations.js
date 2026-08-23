@@ -415,6 +415,10 @@ IMPL.M09 = (rt) => {
 
 // M10 — Organizational Memory: what the Brain has recorded (intelligence history).
 IMPL.M10 = (rt) => {
+  // ⚠ Always [] since the runtime was removed. This read the log of Brain runs
+  // — how much the brain had been used, not what the organization did. Design
+  // open question 1: retire this analysis, or re-point it at real history
+  // (decision_history / workflow_failures / documentation_trend).
   const history = rt.intelligenceBus ? rt.intelligenceBus.history(200) : []
   const byType = {}
   for (const p of history) byType[p.type] = (byType[p.type] || 0) + 1
@@ -620,18 +624,21 @@ IMPL.M38 = (rt) => {
 }
 
 // M39 — Capability Intelligence: inventory of organizational capabilities.
+// ⚠ `systemCapabilities` is empty because no Supabase table sources the `system`
+// entity type — see graphLoader's header. That is "not modelled", not "none exist".
+// A third field, brainConstitutionalCapabilities, used to report the capability
+// registry's own size (always 55). It measured the machinery, not the
+// organization, and went with the registry.
 IMPL.M39 = (rt) => {
   const g = rt.graph
   const systems = A.byType(g, 'system')
   const workflows = A.byType(g, 'workflow')
-  const brainCaps = rt.capabilityRegistry ? rt.capabilityRegistry.count() : 0
   const evidence = [...systems, ...workflows].map((e) => ev('entity', e.id, e.name))
   return {
     type: 'generic',
     payload: {
       systemCapabilities: systems.map((s) => s.name),
       workflowCapabilities: workflows.map((w) => w.name),
-      brainConstitutionalCapabilities: brainCaps,
     },
     confidence: A.confidence(evidence.length, 1),
     evidence,
@@ -842,6 +849,10 @@ IMPL.M11 = (rt, context) => {
 IMPL.M12 = (rt, context) => {
   const g = rt.graph
   const s = g.stats()
+  // ⚠ Always [] since the runtime was removed. This read the log of Brain runs
+  // — how much the brain had been used, not what the organization did. Design
+  // open question 1: retire this analysis, or re-point it at real history
+  // (decision_history / workflow_failures / documentation_trend).
   const history = rt.intelligenceBus ? rt.intelligenceBus.history(1000) : []
   const activity = Math.min(0.4, history.length / 500)
   const entityGrowth = 1.1 + activity
@@ -893,6 +904,10 @@ IMPL.M13 = (rt) => {
 
 // M17 — Organizational Learning: is the organization improving from experience?
 IMPL.M17 = (rt) => {
+  // ⚠ Always [] since the runtime was removed. This read the log of Brain runs
+  // — how much the brain had been used, not what the organization did. Design
+  // open question 1: retire this analysis, or re-point it at real history
+  // (decision_history / workflow_failures / documentation_trend).
   const history = rt.intelligenceBus ? rt.intelligenceBus.history(1000) : []
   const byType = {}
   for (const p of history) byType[p.type] = (byType[p.type] || 0) + 1
@@ -1135,6 +1150,10 @@ IMPL.M45 = (rt) => {
 
 // M47 — Continuous Learning: does the Brain get smarter with every run?
 IMPL.M47 = (rt) => {
+  // ⚠ Always [] since the runtime was removed. This read the log of Brain runs
+  // — how much the brain had been used, not what the organization did. Design
+  // open question 1: retire this analysis, or re-point it at real history
+  // (decision_history / workflow_failures / documentation_trend).
   const history = rt.intelligenceBus ? rt.intelligenceBus.history(2000) : []
   const half = Math.floor(history.length / 2)
   const older = history.slice(0, half)
@@ -1159,7 +1178,6 @@ IMPL.M47 = (rt) => {
 IMPL.M49 = (rt, context) => {
   const g = rt.graph
   const stats = g.stats()
-  const health = (rt.state && rt.state.health) || null
   const twin = {
     syncedAt: new Date().toISOString(),
     entities: g.entities.list().map((e) => ({ id: e.id, type: e.type, name: e.name, status: e.status || 'active' })),
@@ -1178,7 +1196,6 @@ IMPL.M49 = (rt, context) => {
       digitalTwin: twin,
       synchronized: true,
       simulationReady: stats.entities > 0,
-      runtimeHealth: health,
     },
     confidence: A.confidence(twin.entities.length || 1, 1),
     evidence: [ev('graph', 'snapshot', `${twin.entities.length} entities / ${twin.relationships.length} relationships mirrored`)],
