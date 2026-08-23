@@ -1,77 +1,59 @@
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any, List, Optional
 import logging
+from typing import Dict, Any, Optional
 
-from ecosystem.applications.arcturus.contracts.shared.base_models import ArcturusValidationError
 from ecosystem.applications.arcturus.src.control_plane.ontology.ontology_runtime import OntologyRuntime
+from ecosystem.applications.arcturus.contracts.shared.base_models import ArcturusValidationError
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/ontology", tags=["Enterprise Ontology"])
+class OntologyController:
+    """
+    Day 1 Deliverable 3: API Controller & Entity Lifecycle Versioning.
+    Manages the runtime and provides safe state mutation methods to track entity evolution.
+    """
+    def __init__(self):
+        self.runtime = OntologyRuntime()
+        # Tracks individual entity versions: {entity_type: {entity_id: version_string}}
+        self._entity_versions: Dict[str, Dict[int, str]] = {}
 
-# Instantiate your core engine to maintain state during the simulation
-ontology_service = OntologyRuntime()
+    def bootstrap_domain(self, payload: Dict[str, Any]) -> str:
+        """Ingests the initial snapshot payload, boots the runtime, and sets baseline versions."""
+        self.runtime.load_snapshot(payload)
+        self._initialize_versions()
+        logger.info("Ontology Controller successfully bootstrapped domain state.")
+        return str(self.runtime.current_state.run_id)
 
-@router.post("/bootstrap")
-async def bootstrap_ontology(payload: Dict[str, Any]):
-    """
-    Ingests the OntologySnapshotContract.
-    Unblocks the Enterprise Template Generator by accepting the base structural state.
-    """
-    try:
-        ontology_service.load_snapshot(payload)
-        return {
-            "status": "success", 
-            "message": "Ontology initialized and DAG constraints verified.",
-            "run_id": str(ontology_service.current_state.context.run_id)
-        }
-    except ArcturusValidationError as e:
-        logger.error(f"Bootstrap failed: {e.message}")
-        # Route the shared taxonomy error safely to the HTTP client
-        raise HTTPException(
-            status_code=422, 
-            detail={"error": e.message, "source": e.platform_source}
-        )
-
-@router.get("/resolve/{entity_type}/{entity_id}")
-async def resolve_structural_entity(entity_type: str, entity_id: int):
-    """
-    Exposes the entity resolution logic.
-    Unblocks the Scenario Engine (Maryam) to verify target existence.
-    """
-    if not ontology_service.current_state:
-        raise HTTPException(
-            status_code=400, 
-            detail={"error": "Ontology state not initialized. Cannot resolve entities.", "source": "Enterprise Ontology"}
-        )
+    def _initialize_versions(self) -> None:
+        """Sets baseline version 1.0 for all loaded entities."""
+        if not self.runtime.current_state:
+            return
         
-    # Ask the runtime to resolve the entity
-    entity_reference = ontology_service.resolve_entity(entity_type, entity_id)
-    
-    return entity_reference.model_dump()
+        for entity_type, entity_dict in self.runtime._entity_indices.items():
+            self._entity_versions[entity_type] = {
+                entity_id: "1.0" for entity_id in entity_dict.keys()
+            }
 
-@router.get("/graph/children/{parent_id}")
-async def get_entity_children(parent_id: int, relationship_type: Optional[str] = None) -> List[int]:
-    """
-    Traverses the acyclic graph to find downstream entities.
-    Unblocks the Runtime Engine (Maaz) for structural queries during simulation ticks.
-    """
-    if not ontology_service.current_state:
-        raise HTTPException(
-            status_code=400, 
-            detail={"error": "Ontology state not initialized.", "source": "Enterprise Ontology"}
-        )
-    
-    try:
-        # Query the relationship engine for downstream connections
-        children_ids = ontology_service.relationship_engine.get_children(
-            parent_id=parent_id, 
-            relationship_type=relationship_type
-        )
-        return children_ids
-    except Exception as e:
-        logger.error(f"Graph traversal failed for node {parent_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail={"error": "Internal graph traversal error", "source": "Enterprise Ontology"}
-        )
+    def evolve_entity_state(self, entity_type: str, entity_id: int, new_state_data: Dict[str, Any]) -> str:
+        """Bumps the semantic version of an entity when a state transition occurs."""
+        entity = self.runtime.resolve_entity(entity_type, entity_id)
+        
+        if entity_type not in self._entity_versions or entity_id not in self._entity_versions[entity_type]:
+            raise ArcturusValidationError(
+                message=f"Cannot evolve state: {entity_type} [{entity_id}] has no tracked lifecycle.",
+                platform_source="Enterprise Ontology"
+            )
+
+        current_version = self._entity_versions[entity_type][entity_id]
+        major, minor = current_version.split(".")
+        new_version = f"{major}.{int(minor) + 1}"
+        
+        self._entity_versions[entity_type][entity_id] = new_version
+        
+        logger.info(f"🔄 Lifecycle Evolution: {entity_type} [{entity_id}] transitioned to v{new_version}")
+        return new_version
+
+    def get_entity_version(self, entity_type: str, entity_id: int) -> str:
+        """Retrieves the current lifecycle version of a tracked entity."""
+        if entity_type in self._entity_versions and entity_id in self._entity_versions[entity_type]:
+            return self._entity_versions[entity_type][entity_id]
+        return "1.0"
