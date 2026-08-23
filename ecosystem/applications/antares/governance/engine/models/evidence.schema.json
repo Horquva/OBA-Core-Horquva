@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "evidence.schema.json",
+  "title": "Evidence",
+  "description": "Immutable, machine-readable record packaging a decision and everything that led to it. Written once, never edited (feeds the append-only audit log).",
+  "type": "object",
+  "required": ["id", "decisionId", "inputsSnapshot", "createdAt"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^EV-[0-9\\-]+$" },
+    "decisionId": { "type": "string", "description": "Links to the GovernanceDecision this evidence supports" },
+    "inputsSnapshot": {
+      "type": "object",
+      "description": "Frozen copy of everything the decision was based on",
+      "required": ["event", "context", "policyCheck", "analysis"],
+      "properties": {
+        "event": { "type": "object" },
+        "context": { "type": "object" },
+        "policyCheck": { "type": "object" },
+        "analysis": { "type": "object" }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

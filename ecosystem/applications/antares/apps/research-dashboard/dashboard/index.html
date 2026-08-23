@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Future-Signal Intelligence</title>
+<script src="data.js"></script>
+<style>
+:root{
+  --paper:#F6F5F9;
+  --card:#FFFFFF;
+  --ink:#15141B;
+  --muted:#6C6879;
+  --line:#E4E2EC;
+  --accent:#5B3FF0;
+  --accent-soft:#EEEAFF;
+  --warn:#A4490B;
+  --warn-soft:#FBEEE2;
+  --ok:#146B52;
+  --f1:#5B3FF0; --f2:#7C6BF5; --f3:#9B93F2; --f4:#B9B6EE; --f5:#D5D3F3;
+  --penalty:#C0532B;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:15px; line-height:1.55;
+}
+.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px 96px}
+
+/* ---------- masthead ---------- */
+header.mast{border-bottom:1px solid var(--line);background:var(--card)}
+.mast-in{max-width:1080px;margin:0 auto;padding:26px 24px 22px}
+.eyebrow{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+}
+h1{
+  margin:8px 0 4px;font-size:30px;line-height:1.1;font-weight:640;letter-spacing:-.022em;
+}
+h1 em{font-style:normal;color:var(--accent)}
+.sub{margin:0;color:var(--muted);font-size:14px;max-width:60ch}
+
+.counts{display:flex;flex-wrap:wrap;gap:0;margin-top:22px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.count{flex:1 1 150px;padding:13px 16px;background:var(--card);border-right:1px solid var(--line)}
+.count:last-child{border-right:0}
+.count b{display:block;font-size:24px;font-weight:640;letter-spacing:-.02em;line-height:1.2}
+.count span{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);
+  font-family:ui-monospace,Menlo,monospace}
+
+/* ---------- section ---------- */
+section{margin-top:44px}
+.sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:4px}
+h2{font-size:13px;font-weight:640;letter-spacing:.1em;text-transform:uppercase;margin:0}
+.sec-note{color:var(--muted);font-size:13px;margin:0 0 18px}
+
+/* ---------- pattern card ---------- */
+.pattern{
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 22px;margin-bottom:16px;
+}
+.p-top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:baseline;justify-content:space-between}
+.p-name{font-size:19px;font-weight:620;letter-spacing:-.015em;margin:0}
+.p-id{font-size:11px;color:var(--muted)}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pill{
+  font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.06em;
+  text-transform:uppercase;padding:3px 8px;border-radius:4px;
+  background:var(--paper);border:1px solid var(--line);color:var(--muted);
+}
+.pill.state{background:var(--accent-soft);border-color:#DAD2FF;color:var(--accent)}
+.pill.ok{background:#E7F3EE;border-color:#C8E3D8;color:var(--ok)}
+.pill.warn{background:var(--warn-soft);border-color:#F0DCC8;color:var(--warn)}
+
+/* ---------- signature: decomposed confidence ledger ---------- */
+.ledger{margin-top:18px}
+.ledger-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px}
+.score{font-size:26px;font-weight:640;letter-spacing:-.03em;line-height:1}
+.score small{font-size:12px;font-weight:500;color:var(--muted);margin-left:7px;letter-spacing:0}
+.ledger-label{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted)}
+.bar{display:flex;height:26px;border-radius:5px;overflow:hidden;background:var(--paper);
+  border:1px solid var(--line)}
+.seg{position:relative;transition:filter .15s}
+.seg:hover{filter:brightness(1.12)}
+.seg.pen{background:repeating-linear-gradient(-45deg,var(--penalty),var(--penalty) 3px,#D9714B 3px,#D9714B 6px)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:9px}
+.leg{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.swatch{width:9px;height:9px;border-radius:2px;flex:none}
+.leg b{color:var(--ink);font-weight:560;font-family:ui-monospace,Menlo,monospace;font-size:11px}
+
+/* ---------- reasoning ---------- */
+.why{margin:18px 0 0;padding-left:13px;border-left:2px solid var(--accent);
+  color:var(--ink);font-size:14px}
+.block{margin-top:16px}
+.block-label{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+ul.tight{margin:0;padding-left:17px}
+ul.tight li{margin-bottom:4px;font-size:13.5px}
+.ev{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--line);
+  font-size:13.5px;flex-wrap:wrap}
+.ev:last-child{border-bottom:0}
+.ev-w{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--muted);
+  min-width:34px;text-align:right}
+.ev-src{color:var(--muted);font-size:12px}
+.finding{display:flex;gap:9px;padding:7px 0;font-size:13.5px;border-bottom:1px dashed var(--line)}
+.finding:last-child{border-bottom:0}
+.sev{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.08em;
+  padding:2px 6px;border-radius:3px;height:fit-content;flex:none}
+.sev.HIGH{background:var(--warn-soft);color:var(--warn)}
+.sev.MEDIUM{background:#F5F1E6;color:#7A6420}
+.sev.LOW{background:var(--paper);color:var(--muted)}
+.blocked{margin-top:16px;padding:10px 13px;background:var(--warn-soft);
+  border:1px solid #F0DCC8;border-radius:7px;font-size:13.5px;color:var(--warn)}
+
+/* ---------- signals table ---------- */
+.tbl{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.row{display:grid;grid-template-columns:1fr 108px 96px 66px;gap:14px;
+  padding:14px 18px;border-bottom:1px solid var(--line);align-items:center}
+.row:last-child{border-bottom:0}
+.row.head{background:var(--paper);font-family:ui-monospace,Menlo,monospace;font-size:10px;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.s-title{font-size:14px;font-weight:530;line-height:1.4}
+.s-meta{font-size:11.5px;color:var(--muted);margin-top:3px}
+.spark{display:flex;align-items:flex-end;gap:2px;height:22px}
+.spark i{width:6px;background:var(--accent);border-radius:1px;opacity:.72;display:block}
+.num{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;text-align:right}
+
+footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:11.5px}
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:12px;
+  padding:26px;color:var(--muted);font-size:14px}
+
+@media (max-width:720px){
+  .row{grid-template-columns:1fr 70px;gap:8px}
+  .row .hide-sm{display:none}
+  h1{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="mast-in">
+    <div class="eyebrow">Antares · Organizational Futures Engineering</div>
+    <h1>Future-Signal <em>Intelligence</em></h1>
+    <p class="sub">Emerging organizational signals, the evidence behind them, and the
+       future patterns that evidence will and will not support.</p>
+    <div class="counts" id="counts"></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <div class="sec-head"><h2>Future pattern candidates</h2></div>
+    <p class="sec-note">Each score is shown decomposed into the factors that produced it.
+       The hatched segment is confidence removed by unresolved contradictions.</p>
+    <div id="patterns"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Pattern convergence</h2></div>
+    <p class="sec-note">Separate patterns that may describe one organizational transformation.</p>
+    <div id="convergence"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Emerging signals</h2></div>
+    <p class="sec-note">Evidence strength is the mean effective weight of supporting items,
+       after source reliability and verification status are applied.</p>
+    <div class="tbl" id="signals"></div>
+  </section>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+const FACTOR_COLORS = {
+  evidence_strength:'var(--f1)', recurrence:'var(--f2)', source_diversity:'var(--f3)',
+  organizational_breadth:'var(--f4)', temporal_persistence:'var(--f5)'
+};
+const WEIGHTS = {
+  evidence_strength:.25, recurrence:.20, source_diversity:.20,
+  organizational_breadth:.15, temporal_persistence:.20
+};
+const LABELS = {
+  evidence_strength:'Evidence strength', recurrence:'Recurrence',
+  source_diversity:'Source diversity', organizational_breadth:'Org breadth',
+  temporal_persistence:'Temporal persistence'
+};
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function ledger(p){
+  const f = p.factors || {};
+  const parts = Object.keys(WEIGHTS).map(k => ({
+    key:k, contrib:(f[k] ?? 0) * WEIGHTS[k]
+  }));
+  const raw = parts.reduce((a,b)=>a+b.contrib,0);
+  const penalty = (f.contradiction_penalty ?? 0) * raw;
+  const total = Math.max(raw, 0.0001);
+
+  const segs = parts.filter(x=>x.contrib>0).map(x=>{
+    const kept = x.contrib * (1 - (f.contradiction_penalty ?? 0));
+    return `<div class="seg" style="flex:${kept};background:${FACTOR_COLORS[x.key]}"
+              title="${LABELS[x.key]}: ${(x.contrib).toFixed(3)} of score"></div>`;
+  }).join('');
+  const pen = penalty > 0
+    ? `<div class="seg pen" style="flex:${penalty}"
+         title="Removed by contradictions: -${penalty.toFixed(3)}"></div>` : '';
+  const rest = Math.max(1 - raw, 0);
+  const gap = rest > 0 ? `<div class="seg" style="flex:${rest};background:transparent"></div>` : '';
+
+  const legend = parts.filter(x=>x.contrib>0).map(x=>
+    `<span class="leg"><i class="swatch" style="background:${FACTOR_COLORS[x.key]}"></i>
+      ${LABELS[x.key]} <b>${x.contrib.toFixed(3)}</b></span>`).join('') +
+    (penalty>0 ? `<span class="leg"><i class="swatch"
+      style="background:var(--penalty)"></i>Contradiction penalty <b>-${penalty.toFixed(3)}</b></span>` : '');
+
+  return `<div class="ledger">
+    <div class="ledger-head">
+      <div class="score">${(p.confidence ?? 0).toFixed(3)}<small>${esc(p.band)} confidence</small></div>
+      <div class="ledger-label">Score composition</div>
+    </div>
+    <div class="bar">${segs}${pen}${gap}</div>
+    <div class="legend">${legend}</div>
+  </div>`;
+}
+
+function patternCard(p){
+  const ex = p.explanation || {};
+  const high = (p.contradictions||[]).filter(c=>c.severity==='HIGH');
+  const evidence = (ex.supporting_evidence||[]);
+  const seen = new Set();
+  const uniqueEv = evidence.filter(e => !seen.has(e.id) && seen.add(e.id));
+
+  return `<article class="pattern">
+    <div class="p-top">
+      <h3 class="p-name">${esc(p.name)}</h3>
+      <span class="p-id mono">${esc(p.id)}</span>
+    </div>
+    <div class="pills">
+      <span class="pill state">${esc(p.state)}</span>
+      <span class="pill">${esc(p.trajectory)}</span>
+      <span class="pill ${high.length ? 'warn' : 'ok'}">
+        ${(p.contradictions||[]).length} contradiction${(p.contradictions||[]).length===1?'':'s'}</span>
+      ${(p.dimensions||[]).map(d=>`<span class="pill">${esc(d)}</span>`).join('')}
+    </div>
+
+    ${ledger(p)}
+
+    ${ex.why_detected ? `<p class="why">${esc(ex.why_detected)}</p>` : ''}
+
+    ${uniqueEv.length ? `<div class="block">
+      <div class="block-label">Supporting evidence</div>
+      ${uniqueEv.map(e=>`<div class="ev">
+        <span class="ev-w">${(e.weight ?? 0).toFixed(2)}</span>
+        <span>${esc(e.title)}<span class="ev-src"> · ${esc(e.source)} · ${esc(e.source_type)} · ${esc(e.status)}</span></span>
+      </div>`).join('')}
+    </div>` : ''}
+
+    ${(p.contradictions||[]).length ? `<div class="block">
+      <div class="block-label">What argues against this</div>
+      ${p.contradictions.map(c=>`<div class="finding">
+        <span class="sev ${esc(c.severity)}">${esc(c.severity)}</span>
+        <span><b>${esc(c.type)}</b> — ${esc(c.detail)}</span>
+      </div>`).join('')}
+    </div>` : ''}
+
+    ${(ex.open_questions||[]).length ? `<div class="block">
+      <div class="block-label">Open questions</div>
+      <ul class="tight">${ex.open_questions.map(q=>`<li>${esc(q)}</li>`).join('')}</ul>
+    </div>` : ''}
+
+    ${high.length ? `<div class="blocked">Validation blocked — ${high.length}
+      unresolved high-severity contradiction${high.length===1?'':'s'}.
+      Resolve the evidence before this pattern can enter the Antares capability lifecycle.</div>` : ''}
+  </article>`;
+}
+
+function signalRow(s){
+  const series = s.trajectory_series || [];
+  const max = Math.max(1, ...series.map(x=>x.evidence_count));
+  const spark = series.length
+    ? `<span class="spark">${series.map(x=>
+        `<i style="height:${Math.round((x.evidence_count/max)*22)}px" title="${esc(x.month)}: ${x.evidence_count}"></i>`).join('')}</span>`
+    : `<span class="ev-src">no series</span>`;
+  return `<div class="row">
+    <div>
+      <div class="s-title">${esc(s.title)}</div>
+      <div class="s-meta">${esc(s.state)} · ${(s.themes||[]).join(', ') || 'unclassified'}
+        · ${s.evidence_count} evidence · ${(s.impact?.breadth ?? 0)} dimensions</div>
+    </div>
+    <div class="hide-sm">${spark}</div>
+    <div class="hide-sm mono ev-src">${esc(s.trajectory)}</div>
+    <div class="num">${(s.evidence_strength ?? 0).toFixed(2)}</div>
+  </div>`;
+}
+
+function render(data){
+  const c = data.counts || {};
+  document.getElementById('counts').innerHTML = [
+    ['Emerging signals', c.signals], ['Pattern candidates', c.patterns],
+    ['Validated artifacts', c.artifacts], ['Contradictions logged', c.contradictions],
+  ].map(([label,val])=>`<div class="count"><b>${val ?? 0}</b><span>${label}</span></div>`).join('');
+
+  const patterns = data.patterns || [];
+  document.getElementById('patterns').innerHTML = patterns.length
+    ? patterns.map(patternCard).join('')
+    : `<div class="empty">No pattern has cleared the recurrence threshold yet.
+        A pattern needs at least two independent signals and two independent sources.
+        Add evidence, then run the intelligence cycle.</div>`;
+
+  const conv = data.convergence || [];
+  document.getElementById('convergence').innerHTML = conv.length
+    ? conv.map(k=>`<article class="pattern">
+        <div class="p-top"><h3 class="p-name" style="font-size:16px">
+          ${esc(k.patterns.map(p=>p.name).join('  ×  '))}</h3>
+          <span class="p-id mono">strength ${k.convergence_strength}</span></div>
+        <div class="pills">${k.shared_dimensions.map(d=>`<span class="pill">${esc(d)}</span>`).join('')}</div>
+        <p class="why">${esc(k.interpretation)}</p></article>`).join('')
+    : `<div class="empty">No convergence detected. The current patterns touch different
+        organizational dimensions, so nothing suggests a single larger transformation yet.</div>`;
+
+  const signals = data.signals || [];
+  document.getElementById('signals').innerHTML =
+    `<div class="row head"><div>Signal</div><div class="hide-sm">Evidence over time</div>
+      <div class="hide-sm">Trajectory</div><div style="text-align:right">Strength</div></div>` +
+    (signals.length ? signals.map(signalRow).join('')
+      : `<div class="row"><div class="ev-src">No signals ingested.</div></div>`);
+
+  document.getElementById('footer').textContent =
+    `Snapshot generated ${data.generated_at || 'unknown'} · fsi.intelligence.v1 · ` +
+    `Every score on this page is decomposable into the evidence that produced it.`;
+}
+
+(function boot(){
+  if (window.FSI_DATA) return render(window.FSI_DATA);
+  fetch('data.json').then(r=>r.json()).then(render).catch(()=>{
+    document.getElementById('patterns').innerHTML =
+      `<div class="empty">No snapshot found. Run <span class="mono">python run_demo.py</span>
+       from the project root, then reload this page.</div>`;
+  });
+})();
+</script>
+</body>
+</html>

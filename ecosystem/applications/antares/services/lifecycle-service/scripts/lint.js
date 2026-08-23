@@ -15,14 +15,14 @@ const path = require('path');
  *   3) no leftover TODO / FIXME comment
  *   4) core logic files (models/engine/persistence/qualityGates/seed)
  *      must not contain "debug" console.log — only the entrypoint
- *      files (demo, board, cli) are allowed to print
+ *      files (demo, board, cli, dashboard, server) are allowed to print
  *
  * If any rule fails, the whole lint FAILS — exit code 1, so CI can
  * catch it and stop the pipeline from continuing.
  */
 
 const SRC_DIR = path.join(__dirname, '..', 'src');
-const PRINT_ALLOWED_FILES = new Set(['demo.js', 'board.js', 'cli.js', 'dashboard.js']);
+const PRINT_ALLOWED_FILES = new Set(['demo.js', 'board.js', 'cli.js', 'dashboard.js', 'server.js']);
 
 function listJsFiles(dir) {
   return fs.readdirSync(dir).filter((f) => f.endsWith('.js'));
@@ -43,7 +43,7 @@ function checkFile(filename) {
     problems.push('contains a leftover TODO/FIXME marker');
   }
   if (!PRINT_ALLOWED_FILES.has(filename) && /console\.log\(/.test(content)) {
-    problems.push('contains console.log in core logic (only demo.js/board.js/cli.js may print)');
+    problems.push('contains console.log in core logic (only demo.js/board.js/cli.js/dashboard.js/server.js may print)');
   }
 
   return problems;

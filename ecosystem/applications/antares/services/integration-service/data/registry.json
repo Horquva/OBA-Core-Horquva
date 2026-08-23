@@ -1,0 +1,17 @@
+{
+  "nextSeq": 1,
+  "capabilities": {
+    "COP-0001": {
+      "name": "Automated Compliance Risk Scoring",
+      "readinessState": "Conditionally Ready",
+      "version": "0.1",
+      "dependencies": []
+    },
+    "COP-TEST-07": {
+      "name": "Test Capability",
+      "readinessState": "Validation Reference Missing",
+      "version": "0.1",
+      "dependencies": []
+    }
+  }
+}

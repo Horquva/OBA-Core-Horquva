@@ -1,0 +1,39 @@
+{
+  "id": "COP-TEST-07",
+  "name": "Test Capability",
+  "description": "",
+  "owner": null,
+  "capabilityType": null,
+  "version": "0.1",
+  "changeHistory": [],
+  "purpose": "Does something useful for testing.",
+  "inputs": [
+    "some input"
+  ],
+  "outputs": [
+    "some output"
+  ],
+  "constraints": [],
+  "governanceRequirements": [],
+  "dependencies": [],
+  "fullyTested": false,
+  "requiresRevision": false,
+  "readinessNotes": "",
+  "futureIntegrationConsiderations": "",
+  "additionalEngineeringConsiderations": "",
+  "lifecycleTransitions": [
+    {
+      "date": "2026-08-19T04:47:48.822Z",
+      "from": null,
+      "to": "Intake",
+      "note": "Received from zara-capability-validation (no report id)"
+    },
+    {
+      "date": "2026-08-19T04:47:48.822Z",
+      "from": "Intake",
+      "to": "Validation Reference Missing",
+      "note": "Validation reference incomplete at intake."
+    }
+  ],
+  "readinessState": "Validation Reference Missing"
+}

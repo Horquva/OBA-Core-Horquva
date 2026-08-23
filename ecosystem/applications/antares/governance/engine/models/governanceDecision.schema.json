@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "governanceDecision.schema.json",
+  "title": "GovernanceDecision",
+  "description": "The final ruling on one proposed action, combining Policy Check + Trust/Risk Analysis. Always carries a reason and an accountable owner.",
+  "type": "object",
+  "required": ["id", "actionRequestId", "outcome", "reason", "accountableOwner", "riskLevel", "decidedAt"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^D-[0-9\\-]+$" },
+    "actionRequestId": { "type": "string", "description": "Links back to the originating Event" },
+    "outcome": { "type": "string", "enum": ["ALLOW", "REJECT", "ESCALATE", "HUMAN_REVIEW"] },
+    "reason": { "type": "string", "description": "Human-readable explanation of why this outcome was reached" },
+    "rulesApplied": { "type": "array", "items": { "type": "string" }, "description": "GovernanceRule ids that were evaluated" },
+    "trustSignalsConsidered": { "type": "array", "items": { "type": "string" }, "description": "TrustSignal ids that fed into this decision" },
+    "accountableOwner": { "type": "string", "description": "Person or role answerable for this decision" },
+    "riskLevel": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "decidedAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Antares Technology Signal Contract",
+  "type": "object",
+  "properties": {
+    "signal_id": { "type": "string", "format": "uuid" },
+    "raw_text": { "type": "string", "description": "The raw text content of the technology signal." },
+    "source_url": { "type": "string", "format": "uri" },
+    "ingested_at": { "type": "string", "format": "date-time" },
+    "domain": { "type": "string" },
+    "confidence_metadata": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "variance": { "type": "number", "minimum": 0 }
+      }
+    }
+  },
+  "required": ["raw_text", "source_url"]
+}
