@@ -304,7 +304,13 @@ def _resolve_own_prefixes(file_posix: str) -> set[str]:
     for key, prefix in _PLATFORM_SRC_PATHS.items():
         path_fragment_src = prefix.replace(".", "/")
         path_fragment_test = f"tests/{key}"
-        if path_fragment_src in file_posix or path_fragment_test in file_posix:
+        # Some platform keys have slashes (e.g. control/enterprise), we only want the basename for the router
+        router_name = key.split("/")[-1]
+        path_fragment_api = f"api/routers/{router_name}"
+        
+        if (path_fragment_src in file_posix or 
+            path_fragment_test in file_posix or 
+            path_fragment_api in file_posix):
             own.add(prefix)
             
     for router, prefix in _ROUTER_TO_PLATFORM_PREFIX.items():

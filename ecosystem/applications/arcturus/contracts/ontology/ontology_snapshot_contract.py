@@ -1,11 +1,24 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from ecosystem.applications.arcturus.contracts.shared.base_models import (
     SimulationContext, 
     ContractEnvelope
 )
+
+# ---------------------------------------------------------
+#  CROSS-PLATFORM ENTITY REFERENCE
+# ---------------------------------------------------------
+
+class EntityReference(BaseModel):
+    """
+    Standardized entity resolution reference for downstream platforms.
+    """
+    entity_id: int = Field(..., description="The unique integer ID of the entity")
+    entity_type: str = Field(..., description="E.g., 'Department', 'Employee', 'Capability'")
+    version: str = Field(default="1.0", description="Entity state versioning tracking")
+
 # --------------------------------
-# 1. CORE CONSTITUTIONAL ENTITIES
+#  CORE CONSTITUTIONAL ENTITIES
 # --------------------------------
 
 class OrganizationState(BaseModel):
@@ -28,7 +41,7 @@ class DivisionState(BaseModel):
 class TeamState(BaseModel):
     team_id: int = Field(..., description="Unique identifier for the team")
     dept_id: int = Field(..., description="Which department this team is under")
-    total_employees: float = Field(..., description="Max number of employees in the team")
+    total_employees: int = Field(..., description="Max number of employees in the team") # Changed to int
 
 class EmployeeState(BaseModel):
     employee_id: int = Field(..., description="Unique identifier for the employee")
@@ -44,7 +57,7 @@ class RoleState(BaseModel):
 class PolicyState(BaseModel):
     policy_id: int = Field(..., description="Unique identifier for the policy")
     logic: str = Field(..., description="The rule that needs to be checked (boolean evaluation)")
-    severity_level: float = Field(..., description="low, critical, medium")
+    severity_level: str = Field(..., description="low, medium, critical") # Changed to str
 
 class CapabilityState(BaseModel):
     cap_id: int = Field(..., description="Unique identifier for the capability")
@@ -97,13 +110,12 @@ class ResourceState(BaseModel):
     depletion_rate: float = Field(..., description="The speed at which it is consumed")
 
 class RelationshipState(BaseModel):
-    # Mapping the relational graph as an entity to prevent infinite loops
     source_entity_id: int = Field(..., description="ID of the parent/origin entity")
     target_entity_id: int = Field(..., description="ID of the child/destination entity")
     relationship_type: str = Field(..., description="Directionality (e.g., Parent-to-Child, Peer-to-Peer)")
 
 # ---------------------------------------------------------
-# 2. THE BOOTSTRAP CONTRACT
+#  THE BOOTSTRAP CONTRACT
 # ---------------------------------------------------------
 class OntologySnapshotContract(ContractEnvelope):
     """
@@ -115,7 +127,7 @@ class OntologySnapshotContract(ContractEnvelope):
         description="Ontology schema version for provenance tracking"
     )
     
-# Core Structural Graph
+    # Core Structural Graph
     organizations: List[OrganizationState] = Field(default_factory=list)
     divisions: List[DivisionState] = Field(default_factory=list)
     departments: List[DepartmentState] = Field(default_factory=list)
@@ -142,3 +154,6 @@ class OntologySnapshotContract(ContractEnvelope):
     
     # Relational Edges
     relationships: List[RelationshipState] = Field(default_factory=list)
+
+    # Immutability Enforcement
+    model_config = ConfigDict(frozen=True)
