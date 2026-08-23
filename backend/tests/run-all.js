@@ -11,6 +11,7 @@ const tests = [
 	'brain.smoke.test.js',
 	'graph.unit.test.js',
 	'culture.unit.test.js',
+	'orgAnalyses.unit.test.js',
 	'graphLoader.live.test.js', // self-skips when SUPABASE_URL is unset
 	'intelligence.verify.test.js',
 	'auth.unit.test.js',

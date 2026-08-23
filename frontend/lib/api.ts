@@ -545,46 +545,51 @@ export const selfHealing = {
     }),
 };
 
-// ─── Constitutional / Intelligence  — NOT ALL MOUNTED ────────────────────────
-// Only /api/intelligence/truth, /api/intelligence/brain-core, and
-// /api/intelligence/orchestrator are mounted.  The rest (signals, opportunities,
-// capability, alignment, advisor, simulation-universe) are in API_REFERENCE.md
-// but have no mount in index.js.
+// ─── Dataset-derived organizational analyses ─────────────────────────────────
+// All seven ARE mounted — index.js mounts routes/intelligence/constitutional.js
+// at /api/intelligence. The previous "NOT MOUNTED" comments on signals,
+// opportunities, capability, alignment, advisor and simulation-universe were
+// stale and wrong.
+//
+// ⚠ These come from lib/orgAnalyses.js (the company dataset), NOT from the
+// brain. `capability` and `alignment` here are different analyses from
+// orgScience.capabilityByDept and orgScience.strategicAlignment below, which
+// compute different things from the Knowledge Graph despite sharing the module
+// numbers M39 and M40. See docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
+//
+// Nothing currently imports this object.
 
 export const intelligence = {
-  /** MOUNTED — /api/intelligence/truth */
+  /** Served by routes/truth/truth.js, not constitutional.js */
   truth: () =>
     request<Record<string, unknown>>('/api/intelligence/truth'),
 
-  /** MOUNTED — /api/intelligence/brain-core */
   brainCore: () =>
     request<Record<string, unknown>>('/api/intelligence/brain-core'),
 
-  /** MOUNTED — /api/intelligence/orchestrator */
   orchestrator: () =>
     request<Record<string, unknown>>('/api/intelligence/orchestrator'),
 
-  /** NOT MOUNTED — /api/intelligence/signals */
   signals: () =>
     request<Record<string, unknown>>('/api/intelligence/signals'),
 
-  /** NOT MOUNTED — /api/intelligence/opportunities */
   opportunities: () =>
     request<Record<string, unknown>>('/api/intelligence/opportunities'),
 
-  /** NOT MOUNTED — /api/intelligence/capability */
+  /** Per-department capability scores — not the brain's M39 capability counts */
   capability: () =>
     request<Record<string, unknown>>('/api/intelligence/capability'),
 
-  /** NOT MOUNTED — /api/intelligence/alignment */
+  /**
+   * Alignment across three dimensions. `alignment` is null and `state` is
+   * 'NO_SIGNAL' when no dimension has data — it is not scored 100.
+   */
   alignment: () =>
     request<Record<string, unknown>>('/api/intelligence/alignment'),
 
-  /** NOT MOUNTED — /api/intelligence/advisor */
   advisor: () =>
     request<Record<string, unknown>>('/api/intelligence/advisor'),
 
-  /** NOT MOUNTED — /api/intelligence/simulation-universe */
   simulationUniverse: () =>
     request<Record<string, unknown>>('/api/intelligence/simulation-universe'),
 };

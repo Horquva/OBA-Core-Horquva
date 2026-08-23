@@ -1,6 +1,6 @@
 # Collapse the Brain from a Runtime into a Library
 
-**Status:** in progress — steps 1–3 done · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
+**Status:** in progress — steps 1–3 and 6 done · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
 
 Supersedes BUILD_SPEC's W9 ("wire the brain to the routes"). W9 assumed the brain
 was a service to be plugged into more routes. It is better understood as a
@@ -206,7 +206,7 @@ Every step leaves the application working. There is no flag day.
 | ~~**3**~~ | ~~Resolve the six machinery-measuring modules~~ — **done**. M39/M49's self-description fields deleted in step 2; M10/M12/M17/M47 retired | 1 d + decisions |
 | **4** | Carry full rows into graph metadata (§6.2) | 0.5 d |
 | **5** | Rename every analysis off the M-numbers; fix the stale `NOT MOUNTED` comments in `frontend/lib/api.ts` | 0.5 d |
-| **6** | Fix `constitutional.js` M40's two constant dimensions and its shadowed `/truth` route (see §9) | 0.5 d |
+| ~~**6**~~ | ~~Fix M40's constant dimensions and the shadowed `/truth` route~~ — **done**, see §9 | 0.5 d |
 | **7** | Create `backend/domain/`; fold in `orgDataset.js` and `constitutional.js`'s analyses; rewire `voice.js` | 2–4 d |
 | **8** | Migrate routes to the domain layer, page by page | long tail |
 
@@ -227,7 +227,7 @@ consolidation proper.
 
 ## 9. Known defects to fix in passing
 
-Both verified against live data on 2026-08-24:
+**All three RESOLVED 2026-08-24** (step 6). Originally recorded as:
 
 1. `constitutional.js` M40 has two constant dimensions — "Decision reversibility"
    is permanently `0` (`orgDataset`'s `decisions_log` has no `reversible` field)
@@ -241,6 +241,25 @@ Both verified against live data on 2026-08-24:
 
 Defect 1 is the same bug class as the M42 fix in `ab0524c`: absence rendered as a
 confident number. Expect more of them, and treat §6.1 as the same family.
+
+**Fixes.** "Decision reversibility" was removed — no source exists or is planned.
+Every remaining dimension now scores `null` when its source is empty and is
+excluded from the average rather than folded in at 100; with no data at all the
+result is `alignment: null, state: 'NO_SIGNAL'`. Previously an organization with
+zero workflows, zero decisions and zero incidents scored **100/ALIGNED**.
+
+⚠ **On live data the score moved 67/PARTIAL → 84/ALIGNED.** It rose because the
+permanent 0 was dragging it down, not because anything improved. The 67 was the
+mean of two real dimensions and two fabrications; 84 is the mean of the two that
+carry data, with the third reported as unknown.
+
+The shadowed `/truth` route was deleted (`truthIntelligence()` itself is kept —
+`autonomousAdvisor()` gates on it), and `api.ts`'s stale `NOT MOUNTED` comments
+were corrected.
+
+To make the fix testable the pure analyses moved out of the route file into
+`lib/orgAnalyses.js` — a down payment on step 7, which folds them into the domain
+layer.
 
 ## 10. Verification
 
