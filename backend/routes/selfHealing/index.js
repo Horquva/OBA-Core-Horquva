@@ -68,13 +68,20 @@ async function detectIssues() {
   return issues
 }
 
+// ⚠ This endpoint does NOT implement the brain's M51 (Self-Healing Intelligence). It used to
+// report `module: 'M51'` and carry that analysis's catalog name while computing
+// something entirely different from Supabase — the same collision the dataset
+// analyses had before they were renamed. It is now named for what it does.
+// M01–M55 is the brain catalog's namespace; see
+// docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
+//
 // GET /api/self-healing/detect — detect organizational issues (advisory, read-only)
 router.get('/detect', async (req, res) => {
   try {
     const issues = await detectIssues()
     res.json({
-      module: 'M51',
-      name: 'Self-Healing Organization',
+      service: 'self-healing',
+      name: 'Self-Healing Detection',
       status: 'active',
       mounted: true,
       mode: 'advisory',
@@ -94,7 +101,7 @@ router.post('/run', async (req, res) => {
     const issues = await detectIssues()
     const target = issues.find((i) => i.id === issueId) || issues[0]
     res.json({
-      module: 'M51',
+      service: 'self-healing',
       mode: 'advisory',
       issueId: target ? target.id : null,
       action: 'cross_train_backup_and_document',
@@ -109,7 +116,7 @@ router.post('/run', async (req, res) => {
 
 // GET /api/self-healing — module status
 router.get('/', (req, res) => {
-  res.json({ module: 'M51', name: 'Self-Healing Organization', status: 'active', mounted: true, mode: 'advisory' })
+  res.json({ service: 'self-healing', name: 'Self-Healing Detection', status: 'active', mounted: true, mode: 'advisory' })
 })
 
 module.exports = router

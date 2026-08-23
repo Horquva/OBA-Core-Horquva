@@ -141,15 +141,26 @@ the dataset analyses only wore theirs as labels. So:
 | `autonomousAdvisor` (M48) | `playbookAdvice` |
 | `simulationUniverse` (M54) | `resilienceScenarios` |
 
-**The `constitutional.js` collision is closed.** ⚠ But a later sweep found the
-same pattern in three files this step never looked at: `routes/avatar/index.js`
-(M21), `routes/selfHealing/index.js` (M51) and `routes/automation/index.js`
-(M52, M53) emit brain codes in their responses while computing something
-different. The brain's M52 returns governance coverage from the graph
-(`complianceRate`, `governanceGaps`); `/api/automation/governance` returns
-pending approvals from `pending_decisions`. **Four codes still mean two things.**
-Same fix as here — name them for what they compute — and it is the largest piece
-of unfinished business on this design.
+**M01–M55 now belongs to the brain catalog and nothing else claims a code.**
+
+This was true of `constitutional.js` first; a later sweep found the same pattern
+in three files the rename step never looked at — `routes/avatar/index.js` (M21),
+`routes/selfHealing/index.js` (M51) and `routes/automation/index.js` (M52, M53)
+answered with a brain code while computing something different. The brain's M52
+returns governance coverage from the graph (`complianceRate`, `governanceGaps`);
+`/api/automation/governance` returns pending approvals from `pending_decisions`.
+All four were renamed to a `service` identifier describing what they do.
+
+`EndpointHealthGrid.tsx` carried a third copy: 27 hardcoded module badges, of
+which only 8 named the analysis actually serving the request. Five had gone stale
+when the dataset analyses were renamed, and several were never right —
+`/api/forecast` was labelled M20, which is Accountability Intelligence. The 19
+wrong badges are gone; the 8 brain-served ones stay.
+
+**Guarded against regression**: `brain.smoke.test.js` now walks every route file
+and fails if any answers with a brain module code. The collision had been
+reintroduced by accident once already, which is why the check exists rather than
+a comment.
 
 Renaming the brain's 51 as well would touch every `IMPL.MXX` key, the
 `DEPENDENCIES` map, ten `A.prior(context, 'M46')` call sites and every test, to

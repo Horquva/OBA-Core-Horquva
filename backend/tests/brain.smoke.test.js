@@ -13,6 +13,8 @@
  * (51, not 55: M10/M12/M17/M47 were retired — see the catalog's header.)
  */
 
+const fs = require('fs')
+const path = require('path')
 const brain = require('../brain')
 const { buildTestGraph } = require('./fixtures/graph')
 const IMPL = require('../brain/modules/implementations')
@@ -60,6 +62,34 @@ function check(name, condition, detail) {
 		check('slug and code resolve to the same analysis',
 			MODULES.every((m) => brain.toCode(m.slug) === m.code && brain.toCode(m.code) === m.code))
 		check('an unknown name resolves to null', brain.toCode('not-an-analysis') === null)
+
+		// ─── nobody outside the catalog claims a module code ───
+		// Three route files used to answer with `module: 'M21'` / 'M51' / 'M52' /
+		// 'M53' while computing something different from Supabase under the same
+		// number — the brain's M52 returns governance coverage from the graph,
+		// /api/automation/governance returns pending approvals. Two answers, one
+		// code, no way to tell which a caller got. This guard is here because that
+		// collision was reintroduced by accident once already.
+		const routeFiles = []
+		;(function walk(dir) {
+			for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+				const full = path.join(dir, entry.name)
+				if (entry.isDirectory()) walk(full)
+				else if (entry.name.endsWith('.js')) routeFiles.push(full)
+			}
+		})(path.join(__dirname, '..', 'routes'))
+
+		const squatters = []
+		for (const file of routeFiles) {
+			const src = fs.readFileSync(file, 'utf8')
+			for (const line of src.split('\n')) {
+				if (line.trim().startsWith('//') || line.trim().startsWith('*')) continue
+				const hit = line.match(/\bmodules?: *\[?'M\d\d'/)
+				if (hit) squatters.push(`${path.relative(path.join(__dirname, '..'), file)}: ${hit[0]}`)
+			}
+		}
+		check('no route answers with a brain module code', squatters.length === 0,
+			squatters.length ? squatters.join(' | ') : `${routeFiles.length} route files clean`)
 
 		// ─── constitutional ordering survives the runtime's removal ───
 		const order = brain.resolveOrder(MODULES.map((m) => m.code))

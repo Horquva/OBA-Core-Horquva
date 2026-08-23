@@ -4,7 +4,14 @@ const supabase = require('../../supabase')
 const { checkGate } = require('./gateCheck')
 const { escalate } = require('./escalate')
 
-// GET /api/avatar — demo-safe module status ping (M21 Executive Avatar).
+// ⚠ This endpoint does NOT implement the brain's M21 (Executive Avatar Intelligence). It used to
+// report `module: 'M21'` and carry that analysis's catalog name while computing
+// something entirely different from Supabase — the same collision the dataset
+// analyses had before they were renamed. It is now named for what it does.
+// M01–M55 is the brain catalog's namespace; see
+// docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
+//
+// GET /api/avatar — demo-safe status ping for the executive avatar surface.
 // `mounted` reflects that this route is registered, not that Supabase is
 // reachable — a DB error still returns 200 with criticalRisksTracked: null
 // rather than failing the Admin Console's health check.
@@ -19,8 +26,8 @@ router.get('/', async (req, res) => {
   } catch (_) {}
 
   res.json({
-    module: 'M21',
-    name: 'Executive Avatar Intelligence',
+    service: 'executive-avatar',
+    name: 'Executive Avatar',
     status: 'active',
     mounted: true,
     description: 'Conversational executive interface to the Organizational Brain.',
