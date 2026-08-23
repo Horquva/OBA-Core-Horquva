@@ -1,5 +1,5 @@
 {
-  "savedAt": "2026-08-22T11:58:33.776Z",
+  "savedAt": "2026-08-23T04:00:03.297Z",
   "platforms": [
     {
       "id": "tech-intel",
@@ -1100,6 +1100,231 @@
           "note": "Consumed by downstream platform"
         }
       ]
+    },
+    {
+      "id": "J-ENGOPS-03",
+      "platformId": "eng-ops",
+      "task": "Route governance decision D-1787455881395-1 (HUMAN_REVIEW: read_ci_pipeline_status) to engineering-ops review queue",
+      "dependsOn": [],
+      "status": "PASSED",
+      "artifact": {
+        "summary": "Governance decision received and logged for human review — outcome HUMAN_REVIEW, riskLevel MEDIUM",
+        "output": {
+          "note": "Governance decision received and logged for human review — outcome HUMAN_REVIEW, riskLevel MEDIUM"
+        }
+      },
+      "evidence": [
+        {
+          "ref": "governance-decision:D-1787455881395-1,evidence:EV-1787455881395-1,audit:AUD-1787455881395-1,source-platform:trust-gov",
+          "attachedAt": "2026-08-23T03:31:32.308Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "no self-tests declared (allowed, but not verified)"
+          }
+        ],
+        "evaluatedAt": "2026-08-23T03:31:32.337Z"
+      },
+      "executions": [
+        "EXEC-13"
+      ],
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-23T03:31:32.242Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-23T03:31:32.278Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-23T03:31:32.336Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-23T03:31:32.337Z",
+          "note": "All quality gates passed"
+        }
+      ]
+    },
+    {
+      "id": "J-ENGOPS-04",
+      "platformId": "eng-ops",
+      "task": "Verify capability-service (port 4004) end-to-end path: real domain layer confirmed persisted (10 orgs in SQLite), but /api/summary endpoint does not read from DB — reseeds a fixed duplicate demo record every startup",
+      "dependsOn": [],
+      "status": "PASSED",
+      "artifact": {
+        "summary": "GAP CONFIRMED: capability-service HTTP layer disconnected from its own real DB — flagged for Hasnain/Zeeshan, not fixed here (domain boundary)",
+        "output": {
+          "note": "GAP CONFIRMED: capability-service HTTP layer disconnected from its own real DB — flagged for Hasnain/Zeeshan, not fixed here (domain boundary)"
+        }
+      },
+      "evidence": [
+        {
+          "ref": "db-query:future_org_engine.db(orgs=10, kamil.ejaz-owned=1), api-response:api/summary(static-reseed, org-id-differs-from-real-latest)",
+          "attachedAt": "2026-08-23T03:33:04.769Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "no self-tests declared (allowed, but not verified)"
+          }
+        ],
+        "evaluatedAt": "2026-08-23T03:33:04.808Z"
+      },
+      "executions": [
+        "EXEC-14"
+      ],
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-23T03:33:04.701Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-23T03:33:04.736Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-23T03:33:04.807Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-23T03:33:04.808Z",
+          "note": "All quality gates passed"
+        }
+      ]
+    },
+    {
+      "id": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "task": "Din 6 chaos testing report: 4 tests run against real system",
+      "dependsOn": [],
+      "status": "PASSED",
+      "artifact": {
+        "summary": "3/4 chaos tests genuinely pass. Test 4 (duplicate input) FAILS honestly on governance-engine: no idempotency check on actionRequestId, and GET /api/decisions has a side-effect bug (audit trail grows on every read). Flagged for Kanwal — not fixed here, outside eng-ops domain.",
+        "output": {
+          "note": "3/4 chaos tests genuinely pass. Test 4 (duplicate input) FAILS honestly on governance-engine: no idempotency check on actionRequestId, and GET /api/decisions has a side-effect bug (audit trail grows on every read). Flagged for Kanwal — not fixed here, outside eng-ops domain."
+        }
+      },
+      "evidence": [
+        {
+          "ref": "test1:platform-down=PASS(honest-down-reported), test2:invalid-contract=PASS(rejected-cleanly-but-raw-stacktrace), test3:ci-fail=PASS(stopped-at-lint-recovered-clean), test4:duplicate-input=FAIL(POST /api/evaluate creates 2 separate ALLOW decisions for same actionRequestId; GET /api/decisions is non-idempotent, appends 3 new audit entries per call — 3-then-6-then-9)",
+          "attachedAt": "2026-08-23T04:00:03.259Z"
+        }
+      ],
+      "qualityGateResult": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "dependency-integrity",
+            "passed": true,
+            "message": "all declared dependencies satisfied"
+          },
+          {
+            "name": "required-fields",
+            "passed": true,
+            "message": "summary + output present"
+          },
+          {
+            "name": "no-mock-or-placeholder-content",
+            "passed": true,
+            "message": "clean — no mock/placeholder markers"
+          },
+          {
+            "name": "evidence-attached",
+            "passed": true,
+            "message": "1 evidence reference(s) attached"
+          },
+          {
+            "name": "self-tests",
+            "passed": true,
+            "message": "no self-tests declared (allowed, but not verified)"
+          }
+        ],
+        "evaluatedAt": "2026-08-23T04:00:03.293Z"
+      },
+      "executions": [
+        "EXEC-15"
+      ],
+      "history": [
+        {
+          "status": "QUEUED",
+          "at": "2026-08-23T04:00:03.196Z",
+          "note": "Job created"
+        },
+        {
+          "status": "RUNNING",
+          "at": "2026-08-23T04:00:03.229Z",
+          "note": "Execution started"
+        },
+        {
+          "status": "VALIDATING",
+          "at": "2026-08-23T04:00:03.293Z",
+          "note": "Quality gates running"
+        },
+        {
+          "status": "PASSED",
+          "at": "2026-08-23T04:00:03.293Z",
+          "note": "All quality gates passed"
+        }
+      ]
     }
   ],
   "executions": [
@@ -1197,6 +1422,30 @@
       "triggeredBy": "kamil-ejaz",
       "startedAt": "2026-08-22T11:58:28.879Z",
       "endedAt": "2026-08-22T11:58:28.958Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-13",
+      "jobId": "J-ENGOPS-03",
+      "triggeredBy": "kamil-ejaz",
+      "startedAt": "2026-08-23T03:31:32.278Z",
+      "endedAt": "2026-08-23T03:31:32.337Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-14",
+      "jobId": "J-ENGOPS-04",
+      "triggeredBy": "kamil-ejaz",
+      "startedAt": "2026-08-23T03:33:04.737Z",
+      "endedAt": "2026-08-23T03:33:04.808Z",
+      "result": "PASSED"
+    },
+    {
+      "id": "EXEC-15",
+      "jobId": "J-CHAOS-DIN6",
+      "triggeredBy": "kamil-ejaz",
+      "startedAt": "2026-08-23T04:00:03.229Z",
+      "endedAt": "2026-08-23T04:00:03.293Z",
       "result": "PASSED"
     }
   ],
@@ -1963,6 +2212,132 @@
       "platformId": "eng-ops",
       "message": "Integrated downstream",
       "at": "2026-08-22T11:58:33.771Z"
+    },
+    {
+      "type": "JOB_CREATED",
+      "jobId": "J-ENGOPS-03",
+      "platformId": "eng-ops",
+      "message": "Job created: Route governance decision D-1787455881395-1 (HUMAN_REVIEW: read_ci_pipeline_status) to engineering-ops review queue",
+      "at": "2026-08-23T03:31:32.242Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-ENGOPS-03",
+      "platformId": "eng-ops",
+      "message": "QUEUED -> RUNNING (Execution started)",
+      "at": "2026-08-23T03:31:32.278Z"
+    },
+    {
+      "type": "EXECUTION_STARTED",
+      "jobId": "J-ENGOPS-03",
+      "platformId": "eng-ops",
+      "message": "EXEC-13 started by kamil-ejaz",
+      "at": "2026-08-23T03:31:32.278Z"
+    },
+    {
+      "type": "EVIDENCE_ATTACHED",
+      "jobId": "J-ENGOPS-03",
+      "platformId": "eng-ops",
+      "message": "Evidence attached: governance-decision:D-1787455881395-1,evidence:EV-1787455881395-1,audit:AUD-1787455881395-1,source-platform:trust-gov",
+      "at": "2026-08-23T03:31:32.308Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-ENGOPS-03",
+      "platformId": "eng-ops",
+      "message": "RUNNING -> VALIDATING (Quality gates running)",
+      "at": "2026-08-23T03:31:32.336Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-ENGOPS-03",
+      "platformId": "eng-ops",
+      "message": "VALIDATING -> PASSED (All quality gates passed)",
+      "at": "2026-08-23T03:31:32.337Z"
+    },
+    {
+      "type": "JOB_CREATED",
+      "jobId": "J-ENGOPS-04",
+      "platformId": "eng-ops",
+      "message": "Job created: Verify capability-service (port 4004) end-to-end path: real domain layer confirmed persisted (10 orgs in SQLite), but /api/summary endpoint does not read from DB — reseeds a fixed duplicate demo record every startup",
+      "at": "2026-08-23T03:33:04.701Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-ENGOPS-04",
+      "platformId": "eng-ops",
+      "message": "QUEUED -> RUNNING (Execution started)",
+      "at": "2026-08-23T03:33:04.737Z"
+    },
+    {
+      "type": "EXECUTION_STARTED",
+      "jobId": "J-ENGOPS-04",
+      "platformId": "eng-ops",
+      "message": "EXEC-14 started by kamil-ejaz",
+      "at": "2026-08-23T03:33:04.737Z"
+    },
+    {
+      "type": "EVIDENCE_ATTACHED",
+      "jobId": "J-ENGOPS-04",
+      "platformId": "eng-ops",
+      "message": "Evidence attached: db-query:future_org_engine.db(orgs=10, kamil.ejaz-owned=1), api-response:api/summary(static-reseed, org-id-differs-from-real-latest)",
+      "at": "2026-08-23T03:33:04.770Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-ENGOPS-04",
+      "platformId": "eng-ops",
+      "message": "RUNNING -> VALIDATING (Quality gates running)",
+      "at": "2026-08-23T03:33:04.807Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-ENGOPS-04",
+      "platformId": "eng-ops",
+      "message": "VALIDATING -> PASSED (All quality gates passed)",
+      "at": "2026-08-23T03:33:04.808Z"
+    },
+    {
+      "type": "JOB_CREATED",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "Job created: Din 6 chaos testing report: 4 tests run against real system",
+      "at": "2026-08-23T04:00:03.197Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "QUEUED -> RUNNING (Execution started)",
+      "at": "2026-08-23T04:00:03.229Z"
+    },
+    {
+      "type": "EXECUTION_STARTED",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "EXEC-15 started by kamil-ejaz",
+      "at": "2026-08-23T04:00:03.229Z"
+    },
+    {
+      "type": "EVIDENCE_ATTACHED",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "Evidence attached: test1:platform-down=PASS(honest-down-reported), test2:invalid-contract=PASS(rejected-cleanly-but-raw-stacktrace), test3:ci-fail=PASS(stopped-at-lint-recovered-clean), test4:duplicate-input=FAIL(POST /api/evaluate creates 2 separate ALLOW decisions for same actionRequestId; GET /api/decisions is non-idempotent, appends 3 new audit entries per call — 3-then-6-then-9)",
+      "at": "2026-08-23T04:00:03.259Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "RUNNING -> VALIDATING (Quality gates running)",
+      "at": "2026-08-23T04:00:03.293Z"
+    },
+    {
+      "type": "STATUS_CHANGE",
+      "jobId": "J-CHAOS-DIN6",
+      "platformId": "eng-ops",
+      "message": "VALIDATING -> PASSED (All quality gates passed)",
+      "at": "2026-08-23T04:00:03.293Z"
     }
   ]
 }
