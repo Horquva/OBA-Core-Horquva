@@ -1,12 +1,12 @@
-from contracts.experiment.base_models import (
-    ExecutionStatus,
+from ecosystem.applications.arcturus.contracts.experiment.base_models import (
+    ExperimentStatus,
     ExperimentConfig,
     ExperimentRecord,
     SimulationRunRecord,
 )
 
 __all__ = [
-    "ExecutionStatus",
+    "ExperimentStatus",
     "ExperimentConfig",
     "ExperimentRecord",
     "SimulationRunRecord",

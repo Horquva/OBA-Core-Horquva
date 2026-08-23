@@ -7,11 +7,10 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from contracts.shared.base_models import SimulationContext
 
 
-class ExecutionStatus(str, Enum):
-    """Execution lifecycle status across the Arcturus platform."""
+class ExperimentStatus(str, Enum):
+    """Experiment orchestrator lifecycle status (macro pipeline level)."""
     CREATED = "CREATED"
     INITIALIZING = "INITIALIZING"
     RUNNING = "RUNNING"
@@ -40,7 +39,7 @@ class ExperimentRecord(BaseModel):
     name: str = Field(..., min_length=1, description="Human-readable experiment name")
     seed: int = Field(..., ge=0, description="Global deterministic seed")
     config: ExperimentConfig = Field(..., description="Experiment configuration payload")
-    status: ExecutionStatus = Field(default=ExecutionStatus.CREATED, description="Current experiment status")
+    status: ExperimentStatus = Field(default=ExperimentStatus.CREATED, description="Current experiment status")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="Experiment creation timestamp"
@@ -56,7 +55,7 @@ class SimulationRunRecord(BaseModel):
     run_id: UUID = Field(default_factory=uuid4, description="Unique run identifier")
     experiment_id: str = Field(..., description="Parent experiment identifier")
     trace_id: UUID = Field(default_factory=uuid4, description="Traceability UUID for logs and telemetry")
-    status: ExecutionStatus = Field(default=ExecutionStatus.CREATED, description="Current run execution status")
+    status: ExperimentStatus = Field(default=ExperimentStatus.CREATED, description="Current run execution status")
     started_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="Run start timestamp"
