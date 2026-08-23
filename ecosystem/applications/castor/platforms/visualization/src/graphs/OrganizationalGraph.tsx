@@ -63,9 +63,12 @@ export function OrganizationalGraph({
     );
   }
 
-  const visibleNodes = nodes.filter((node) =>
-    node.label.toLowerCase().includes(query.toLowerCase()),
-  );
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleNodes = nodes;
+
+  const isSearchMatch = (node: GraphNode) =>
+    normalizedQuery.length > 0 &&
+    node.label.toLowerCase().includes(normalizedQuery);
 
   const chartWidth = 800;
   const centerX = chartWidth / 2;
@@ -118,7 +121,13 @@ export function OrganizationalGraph({
         }}
       >
         {title && (
-          <h3 style={{ margin: 0, color: "#101828", fontSize: 16 }}>
+          <h3
+            style={{
+              margin: 0,
+              color: "#101828",
+              fontSize: 16,
+            }}
+          >
             {title}
           </h3>
         )}
@@ -150,7 +159,9 @@ export function OrganizationalGraph({
         <button
           type="button"
           style={controlStyle}
-          onClick={() => setZoom((value) => Math.min(value + 0.2, 2))}
+          onClick={() =>
+            setZoom((currentZoom) => Math.min(currentZoom + 0.2, 2))
+          }
         >
           Zoom in
         </button>
@@ -158,7 +169,9 @@ export function OrganizationalGraph({
         <button
           type="button"
           style={controlStyle}
-          onClick={() => setZoom((value) => Math.max(value - 0.2, 0.5))}
+          onClick={() =>
+            setZoom((currentZoom) => Math.max(currentZoom - 0.2, 0.5))
+          }
         >
           Zoom out
         </button>
@@ -166,7 +179,12 @@ export function OrganizationalGraph({
         <button
           type="button"
           style={controlStyle}
-          onClick={() => setPan((value) => ({ ...value, x: value.x - 30 }))}
+          onClick={() =>
+            setPan((currentPan) => ({
+              ...currentPan,
+              x: currentPan.x - 30,
+            }))
+          }
         >
           Pan left
         </button>
@@ -174,7 +192,12 @@ export function OrganizationalGraph({
         <button
           type="button"
           style={controlStyle}
-          onClick={() => setPan((value) => ({ ...value, x: value.x + 30 }))}
+          onClick={() =>
+            setPan((currentPan) => ({
+              ...currentPan,
+              x: currentPan.x + 30,
+            }))
+          }
         >
           Pan right
         </button>
@@ -182,7 +205,12 @@ export function OrganizationalGraph({
         <button
           type="button"
           style={controlStyle}
-          onClick={() => setPan((value) => ({ ...value, y: value.y - 30 }))}
+          onClick={() =>
+            setPan((currentPan) => ({
+              ...currentPan,
+              y: currentPan.y - 30,
+            }))
+          }
         >
           Pan up
         </button>
@@ -190,7 +218,12 @@ export function OrganizationalGraph({
         <button
           type="button"
           style={controlStyle}
-          onClick={() => setPan((value) => ({ ...value, y: value.y + 30 }))}
+          onClick={() =>
+            setPan((currentPan) => ({
+              ...currentPan,
+              y: currentPan.y + 30,
+            }))
+          }
         >
           Pan down
         </button>
@@ -240,7 +273,9 @@ export function OrganizationalGraph({
                 stroke="#98a2b3"
                 strokeWidth={edge.weight ?? 2}
               >
-                <title>{edge.label ?? "Organizational relationship"}</title>
+                <title>
+                  {edge.label ?? "Organizational relationship"}
+                </title>
               </line>
             );
           })}
@@ -253,6 +288,7 @@ export function OrganizationalGraph({
             }
 
             const selected = node.id === selectedNodeId;
+            const searchMatch = isSearchMatch(node);
 
             return (
               <g
@@ -260,20 +296,35 @@ export function OrganizationalGraph({
                 role="button"
                 tabIndex={0}
                 aria-label={`${node.type}: ${node.label}`}
+                aria-pressed={selected}
                 transform={`translate(${position.x} ${position.y})`}
                 onClick={() => handleNodeSelect(node)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
                     handleNodeSelect(node);
                   }
                 }}
-                style={{ cursor: "pointer" }}
+                style={{
+                  cursor: "pointer",
+                  opacity:
+                    normalizedQuery.length === 0 || searchMatch
+                      ? 1
+                      : 0.22,
+                  transition: "opacity 160ms ease",
+                }}
               >
                 <circle
-                  r={selected ? 31 : 26}
+                  r={selected || searchMatch ? 31 : 26}
                   fill={nodeColors[node.type]}
-                  stroke={selected ? "#101828" : "#ffffff"}
-                  strokeWidth={selected ? 4 : 3}
+                  stroke={
+                    searchMatch
+                      ? "#f59e0b"
+                      : selected
+                        ? "#101828"
+                        : "#ffffff"
+                  }
+                  strokeWidth={selected || searchMatch ? 4 : 3}
                 />
 
                 <text

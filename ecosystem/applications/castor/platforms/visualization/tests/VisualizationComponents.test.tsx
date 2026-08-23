@@ -1,4 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LineChart } from "../src/charts/LineChart";
@@ -67,6 +71,63 @@ describe("Visualization component library", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Ayesha")).toBeInTheDocument();
     expect(screen.getByText("Finance")).toBeInTheDocument();
+  });
+
+  it("highlights matching organizational graph nodes during search", () => {
+    render(
+      <OrganizationalGraph
+        accessibleLabel="Searchable organizational graph"
+        title="Organization Search"
+        nodes={[
+          {
+            id: "person-1",
+            label: "Ayesha",
+            type: "person",
+          },
+          {
+            id: "team-1",
+            label: "Finance",
+            type: "team",
+          },
+        ]}
+        edges={[
+          {
+            id: "edge-1",
+            source: "person-1",
+            target: "team-1",
+            label: "Member",
+          },
+        ]}
+      />,
+    );
+
+    const searchInput = screen.getByLabelText(
+      "Search organizational graph",
+    );
+    const ayeshaNode = screen.getByLabelText("person: Ayesha");
+    const financeNode = screen.getByLabelText("team: Finance");
+
+    expect(ayeshaNode).toHaveStyle({ opacity: "1" });
+    expect(financeNode).toHaveStyle({ opacity: "1" });
+
+    fireEvent.change(searchInput, {
+      target: { value: "Ayesha" },
+    });
+
+    expect(searchInput).toHaveValue("Ayesha");
+    expect(ayeshaNode).toHaveStyle({ opacity: "1" });
+    expect(financeNode).toHaveStyle({ opacity: "0.22" });
+
+    const ayeshaCircle = ayeshaNode.querySelector("circle");
+
+    expect(ayeshaCircle).not.toBeNull();
+    expect(ayeshaCircle).toHaveAttribute("stroke", "#f59e0b");
+
+    fireEvent.change(searchInput, {
+      target: { value: "" },
+    });
+
+    expect(financeNode).toHaveStyle({ opacity: "1" });
   });
 
   it("renders memory timeline events and filter controls", () => {
