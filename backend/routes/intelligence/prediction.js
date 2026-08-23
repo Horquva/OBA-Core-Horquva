@@ -23,23 +23,30 @@ const express = require('express')
 const router = express.Router()
 const brain = require('../../brain')
 
+// Analyses are named, not numbered. brain.run() accepts either the catalog code
+// ('M42') or its readable slug ('culture'); the slug is used here because a
+// route file is exactly where the name matters. See the design document — the
+// dataset analyses in lib/orgAnalyses.js dropped their M-numbers entirely, so
+// nothing outside this catalog claims one any more.
+//
 // Run one analysis and return its intelligence fragment. brain.run() executes
 // the analysis's declared dependencies first, so anything reading priorIntel
 // still receives it — the same behaviour the retired execution engine gave.
-async function runModule(code) {
+async function runModule(analysis) {
   if (!brain.isReady()) {
     const err = new Error('Brain graph not loaded')
     err.status = 503
     throw err
   }
-  const intel = await brain.run(code)
+  const intel = await brain.run(analysis)
   if (!intel) {
-    const err = new Error(`Module ${code} produced no intelligence`)
+    const err = new Error(`Analysis ${analysis} produced no intelligence`)
     err.status = 502
     throw err
   }
   return {
-    module: code,
+    module: brain.toCode(analysis),
+    analysis,
     type: intel.type,
     confidence: intel.confidence,
     payload: intel.payload,
@@ -50,25 +57,25 @@ async function runModule(code) {
 }
 
 // Factory that builds a GET handler for a given module code.
-function moduleEndpoint(code) {
+function moduleEndpoint(analysis) {
   return async (req, res) => {
     try {
-      res.json(await runModule(code))
+      res.json(await runModule(analysis))
     } catch (e) {
-      res.status(e.status || 500).json({ error: e.message, module: code })
+      res.status(e.status || 500).json({ error: e.message, analysis })
     }
   }
 }
 
 // ── Card endpoints ───────────────────────────────────────────────
-router.get('/pattern', moduleEndpoint('M37')) // PatternRegularityCard
-router.get('/dna', moduleEndpoint('M41')) // DNAFingerprintCard
-router.get('/culture', moduleEndpoint('M42')) // CultureHealthCard
-router.get('/maturity', moduleEndpoint('M43')) // MaturityCurveCard
-router.get('/behavior', moduleEndpoint('M44')) // BehavioralProfileCard
-router.get('/benchmark', moduleEndpoint('M45')) // IndustryBenchmarkCard
-router.get('/strategic-alignment', moduleEndpoint('M40')) // StrategicAlignmentCard
-router.get('/capability-by-dept', moduleEndpoint('M39')) // CapabilityByDeptCard
+router.get('/pattern', moduleEndpoint('pattern')) // PatternRegularityCard
+router.get('/dna', moduleEndpoint('organizational-dna')) // DNAFingerprintCard
+router.get('/culture', moduleEndpoint('culture')) // CultureHealthCard
+router.get('/maturity', moduleEndpoint('organizational-maturity')) // MaturityCurveCard
+router.get('/behavior', moduleEndpoint('organizational-behavior')) // BehavioralProfileCard
+router.get('/benchmark', moduleEndpoint('benchmark')) // IndustryBenchmarkCard
+router.get('/strategic-alignment', moduleEndpoint('strategic-alignment')) // StrategicAlignmentCard
+router.get('/capability-by-dept', moduleEndpoint('capability')) // CapabilityByDeptCard
 
 // Convenience index: list all prediction-layer endpoints in one call.
 router.get('/prediction', (req, res) => {

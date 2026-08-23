@@ -3,7 +3,7 @@
  * No external test framework. No Supabase/DB needed (feeds synthetic datasets).
  * Run from the backend/ folder:  node tests/orgAnalyses.unit.test.js
  *
- * strategicAlignment averaged four dimensions, two of which could never carry
+ * alignmentChecklist (formerly strategicAlignment, M40) averaged four dimensions, two of which could never carry
  * data on the live dataset:
  *   - "Decision reversibility" read `x.reversible`, a field orgDataset has never
  *     emitted — permanently 0%.
@@ -17,7 +17,7 @@
  * excluded from the average — never scored.
  */
 
-const { strategicAlignment } = require('../lib/orgAnalyses')
+const { alignmentChecklist } = require('../lib/orgAnalyses')
 
 let passed = 0
 let failed = 0
@@ -39,7 +39,7 @@ console.log('\n=== OBA Core — Organizational Analyses Unit Test ===\n')
 
 // ─── 1. The live shape: workflows and decisions present, incidents absent ───
 {
-	const r = strategicAlignment({
+	const r = alignmentChecklist({
 		workflows: [
 			{ name: 'A', criticality: 'critical', documented: true },
 			{ name: 'B', criticality: 'critical', documented: false },
@@ -60,7 +60,7 @@ console.log('\n=== OBA Core — Organizational Analyses Unit Test ===\n')
 
 // ─── 2. No data at all: NO_SIGNAL, never a perfect score ───
 {
-	const r = strategicAlignment({ workflows: [], decisions_log: [], incidents: [] })
+	const r = alignmentChecklist({ workflows: [], decisions_log: [], incidents: [] })
 	check('empty dataset does not score 100', r.alignment !== 100, `got ${r.alignment}`)
 	check('empty dataset reports null alignment', r.alignment === null, `got ${r.alignment}`)
 	check('empty dataset state is NO_SIGNAL', r.state === 'NO_SIGNAL', r.state)
@@ -69,7 +69,7 @@ console.log('\n=== OBA Core — Organizational Analyses Unit Test ===\n')
 
 // ─── 3. Full data still produces a real verdict ───
 {
-	const r = strategicAlignment({
+	const r = alignmentChecklist({
 		workflows: [{ name: 'A', criticality: 'critical', documented: true }],
 		decisions_log: [{ outcome: 'shipped' }],
 		incidents: [{ lesson: 'do not do that again' }],
@@ -81,7 +81,7 @@ console.log('\n=== OBA Core — Organizational Analyses Unit Test ===\n')
 
 // ─── 4. A genuinely poor score is still reported as poor ───
 {
-	const r = strategicAlignment({
+	const r = alignmentChecklist({
 		workflows: [{ name: 'A', criticality: 'critical', documented: false }],
 		decisions_log: [{ outcome: null }],
 		incidents: [{ lesson: null }],

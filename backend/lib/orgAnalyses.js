@@ -20,8 +20,8 @@ function pct(n, dd) {
   return dd ? Math.round((100 * n) / dd) : 0
 }
 
-// ── M36 — Signal Intelligence ──
-function signalIntelligence(d) {
+// ── Trend signals: which monthly series are moving the wrong way ──
+function trendSignals(d) {
   const hist = d.history || []
   const incidents = d.incidents || []
   const signals = []
@@ -42,8 +42,8 @@ function signalIntelligence(d) {
   return { stabilityScore: score, activeSignals: signals.length, signals }
 }
 
-// ── M38 — Opportunity Intelligence ──
-function opportunityIntelligence(d) {
+// ── Improvement opportunities, ranked by impact against effort ──
+function improvementOpportunities(d) {
   const assets = assetsOf(d)
   const opps = []
   const undoc = assets.filter(a => !a.documented && ['critical', 'high'].includes((a.criticality || '').toLowerCase()))
@@ -56,8 +56,8 @@ function opportunityIntelligence(d) {
   return { total: opps.length, quickWins, opportunities: opps }
 }
 
-// ── M39 — Capability Intelligence ──
-function capabilityIntelligence(d) {
+// ── Per-department capability score (documentation, continuity, ownership depth) ──
+function departmentCapability(d) {
   const assets = assetsOf(d)
   const byDept = {}
   assets.forEach(a => { (byDept[a.department || 'Unassigned'] = byDept[a.department || 'Unassigned'] || []).push(a) })
@@ -74,7 +74,7 @@ function capabilityIntelligence(d) {
   return { orgCapability, strengths: rows.filter(r => r.band === 'STRONG').map(r => r.dept), gaps: rows.filter(r => r.band === 'AT RISK').map(r => r.dept), rows }
 }
 
-// ── M40 — Strategic Alignment Intelligence ──
+// ── Alignment checklist across three dimensions ──
 // ⚠ A dimension with no data is UNKNOWN, never perfect. Each check scores null
 // when its source is empty, and null dimensions are excluded from the average
 // instead of being folded in as 100 — which is what the previous
@@ -89,7 +89,7 @@ function capabilityIntelligence(d) {
 //
 // Same defect class as the M42 culture fix: an absence rendered as a confident
 // verdict. Expect more of these.
-function strategicAlignment(d) {
+function alignmentChecklist(d) {
   const checks = []
   const dim = (dimension, rows, predicate) =>
     checks.push({ dimension, score: rows.length ? pct(rows.filter(predicate).length, rows.length) : null })
@@ -119,8 +119,8 @@ function strategicAlignment(d) {
   }
 }
 
-// ── M46 — Truth Intelligence (gates M48) ──
-function truthIntelligence(d) {
+// ── Four standard claims, each verified against the dataset ──
+function standardClaimChecks(d) {
   const assets = assetsOf(d)
   const knowledge = d.knowledge_areas || []
   const truths = []
@@ -140,9 +140,9 @@ function truthIntelligence(d) {
   return { verifiedCount: truths.filter(t => t.verified).length, trustScore, truths }
 }
 
-// ── M48 — Autonomous Advisor (only verified truths) ──
-function autonomousAdvisor(d) {
-  const truth = truthIntelligence(d)
+// ── Playbook advice — only for claims that verified ──
+function playbookAdvice(d) {
+  const truth = standardClaimChecks(d)
   const playbook = {
     'Single points of failure exist': ['Assign and train backup owners for every critical asset', 'CRITICAL'],
     'Critical knowledge is undocumented': ['Launch a documentation sprint for critical knowledge', 'HIGH'],
@@ -163,8 +163,8 @@ function autonomousAdvisor(d) {
   return { recommendedActions: advice.length, heldBack, trustScore: truth.trustScore, advice }
 }
 
-// ── M54 — Simulation Universe ──
-function simulationUniverse(d) {
+// ── Resilience scenarios: what each shock costs ──
+function resilienceScenarios(d) {
   const assets = assetsOf(d)
   const total = assets.length || 1
   const baseline = Math.round((100 * (0.5 * assets.filter(a => a.documented).length + 0.5 * assets.filter(a => a.backup_owner).length)) / total)
@@ -190,6 +190,6 @@ function simulationUniverse(d) {
 
 module.exports = {
   assetsOf, pct,
-  signalIntelligence, opportunityIntelligence, capabilityIntelligence,
-  strategicAlignment, truthIntelligence, autonomousAdvisor, simulationUniverse,
+  trendSignals, improvementOpportunities, departmentCapability,
+  alignmentChecklist, standardClaimChecks, playbookAdvice, resilienceScenarios,
 }

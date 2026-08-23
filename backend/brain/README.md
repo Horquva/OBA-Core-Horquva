@@ -10,9 +10,18 @@ Routes call it directly:
 ```js
 const brain = require('../../brain')
 
-await brain.loadGraph()              // build from Supabase, swap in atomically
-const intel = await brain.run('M42') // one analysis + its dependencies
+await brain.loadGraph()                   // build from Supabase, swap in atomically
+const intel = await brain.run('culture')  // one analysis + its dependencies
 ```
+
+Analyses are addressable by a readable slug derived from the catalog name
+(`'culture'`, `'strategic-alignment'`, `'ownership'`) or by their catalog code
+(`'M42'`). The code stays canonical — `dependsOn` and the ordering rules key on
+it — but route files read better with the name.
+
+**M01–M55 belongs to this catalog and nothing else.** The dataset analyses in
+`lib/orgAnalyses.js` used to claim M36/M38/M39/M40/M46/M48/M54 as well, so
+"fix M39" had two possible meanings; they were renamed for what they compute.
 
 This replaced a 1,154-line constitutional runtime — execution engine, event bus,
 communication layer, module and capability registries, brain state manager,
@@ -28,9 +37,10 @@ its own self-description. See
 | `setGraph(g)` | Use an already-built graph (tests, fixtures). `graphSource().live` stays `false`. |
 | `getGraph()` / `isReady()` | The current graph, and whether one is loaded. |
 | `graphSource()` | Provenance — `{ live, stats, loadedAt, error }`. **Check this before trusting an answer.** |
-| `run(code, context)` | One analysis. Its declared dependencies run first, so `context.priorIntel` is populated. |
-| `runMany(codes, context)` | Several analyses in constitutional order, plus a fused confidence. |
-| `resolveOrder(codes)` | The execution order, dependencies included. |
+| `run(id, context)` | One analysis, by slug (`'culture'`) or code (`'M42'`). Its declared dependencies run first, so `context.priorIntel` is populated. |
+| `runMany(ids, context)` | Several analyses in constitutional order, plus a fused confidence. |
+| `resolveOrder(ids)` | The execution order (always codes), dependencies included. |
+| `toCode(idOrSlug)` | Resolve a slug or code to the canonical code; `null` if unknown. |
 | `MODULES` | The analysis catalog — 51 entries. |
 
 ## Files

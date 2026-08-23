@@ -1,6 +1,6 @@
 # Collapse the Brain from a Runtime into a Library
 
-**Status:** in progress — steps 1–4 and 6 done; only 5, 7 and 8 remain · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
+**Status:** in progress — steps 1–6 done; only 7 and 8 (the domain layer) remain · **Date:** 2026-08-24 · **Branch:** `ocos/develop`
 
 Supersedes BUILD_SPEC's W9 ("wire the brain to the routes"). W9 assumed the brain
 was a service to be plugged into more routes. It is better understood as a
@@ -120,7 +120,36 @@ parallel system with its own boot sequence and confidence model.
 | `lib/orgDataset.js` | **Fold into domain** | |
 | `routes/intelligence/brainCore.js`, `orchestrator.js` | **Keep, relabel** | Snapshot cache, not intelligence |
 | `modules/`, `horquva_modules_py/`, `main.py` | **Delete** | 71 files, zero references, recoverable from git |
-| The `M01`–`M55` identifiers | **Drop** | Functions get names: `culture(graph)`, `departmentCapability(data)` |
+| The `M01`–`M55` identifiers | **Dropped outside the brain** | See the note below |
+
+### On the M-numbers (done 2026-08-24, and narrower than first written)
+
+This document originally said to drop the identifiers everywhere. In the event
+they were dropped **only from `lib/orgAnalyses.js`**, and that is enough: the
+collision was two files claiming the same code, and only one of them can be
+right about what `M39` means. The brain's catalog is a coherent registry — it
+carries owners, dependencies and the ordering rules key on the codes — whereas
+the dataset analyses only wore theirs as labels. So:
+
+| Was | Now |
+|---|---|
+| `signalIntelligence` (M36) | `trendSignals` |
+| `opportunityIntelligence` (M38) | `improvementOpportunities` |
+| `capabilityIntelligence` (M39) | `departmentCapability` |
+| `strategicAlignment` (M40) | `alignmentChecklist` |
+| `truthIntelligence` (M46) | `standardClaimChecks` |
+| `autonomousAdvisor` (M48) | `playbookAdvice` |
+| `simulationUniverse` (M54) | `resilienceScenarios` |
+
+**M01–M55 now belongs to the brain and nothing else claims a module number.**
+
+Renaming the brain's 51 as well would touch every `IMPL.MXX` key, the
+`DEPENDENCIES` map, ten `A.prior(context, 'M46')` call sites and every test, to
+buy readability rather than correctness. Instead each analysis gained a `slug`
+derived from its catalog name, and `run` / `runMany` / `resolveOrder` accept
+either form — so `prediction.js` reads `moduleEndpoint('culture')` while the
+code stays canonical. Slug uniqueness is asserted in `brain.smoke.test.js`,
+since a future rename could silently collide two analyses onto one alias.
 
 ## 6. The three problems that need real decisions
 
@@ -222,7 +251,7 @@ Every step leaves the application working. There is no flag day.
 | ~~**2**~~ | ~~Expose the module bodies as directly-callable functions; delete the runtime~~ — **done**, commit `36d872f`. 50 of 55 payloads byte-identical; the rest were the machinery-measuring fields | 1–2 d |
 | ~~**3**~~ | ~~Resolve the six machinery-measuring modules~~ — **done**. M39/M49's self-description fields deleted in step 2; M10/M12/M17/M47 retired | 1 d + decisions |
 | ~~**4**~~ | ~~Carry full rows into graph metadata~~ — **done**, 51/51 analyses unchanged | 0.5 d |
-| **5** | Rename every analysis off the M-numbers; fix the stale `NOT MOUNTED` comments in `frontend/lib/api.ts` | 0.5 d |
+| ~~**5**~~ | ~~Rename every analysis off the M-numbers~~ — **done**. The collision in §1 no longer exists | 0.5 d |
 | ~~**6**~~ | ~~Fix M40's constant dimensions and the shadowed `/truth` route~~ — **done**, see §9 | 0.5 d |
 | **7** | Create `backend/domain/`; fold in `orgDataset.js` and `constitutional.js`'s analyses; rewire `voice.js` | 2–4 d |
 | **8** | Migrate routes to the domain layer, page by page | long tail |

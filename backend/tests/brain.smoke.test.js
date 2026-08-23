@@ -49,6 +49,18 @@ function check(name, condition, detail) {
 		check('Owner Tahir = 11', byOwner.Tahir === 11, String(byOwner.Tahir))
 		check('Owner Anusha = 7', byOwner.Anusha === 7, String(byOwner.Anusha))
 
+		// ─── every analysis has a unique, resolvable name ───
+		// Slugs are derived from catalog names, so a rename could silently collide
+		// two analyses onto one alias. Guard it.
+		const slugs = MODULES.map((m) => m.slug)
+		check('every analysis has a slug', slugs.every(Boolean))
+		check('slugs are unique', new Set(slugs).size === slugs.length,
+			`${new Set(slugs).size} unique of ${slugs.length}`)
+		check('slugs never collide with codes', !slugs.some((sl) => /^M\d\d$/.test(sl)))
+		check('slug and code resolve to the same analysis',
+			MODULES.every((m) => brain.toCode(m.slug) === m.code && brain.toCode(m.code) === m.code))
+		check('an unknown name resolves to null', brain.toCode('not-an-analysis') === null)
+
 		// ─── constitutional ordering survives the runtime's removal ───
 		const order = brain.resolveOrder(MODULES.map((m) => m.code))
 		check('ordering covers all 51', order.length === 51, `${order.length}`)

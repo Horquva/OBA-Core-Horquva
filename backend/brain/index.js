@@ -36,6 +36,19 @@ const { MODULES } = require('./data/constitutional-modules')
 const IMPL = require('./modules/implementations')
 
 const BY_CODE = Object.fromEntries(MODULES.map((m) => [m.code, m]))
+const BY_SLUG = Object.fromEntries(MODULES.map((m) => [m.slug, m]))
+
+/**
+ * Accept either the catalog code ('M42') or its readable slug ('culture').
+ * The code remains canonical — dependsOn and the ordering rules key on it, and
+ * resolveOrder() returns codes — but callers reading a route file get to write
+ * the name. Returns null for anything unknown.
+ */
+function toCode(idOrSlug) {
+  if (BY_CODE[idOrSlug]) return idOrSlug
+  if (BY_SLUG[idOrSlug]) return BY_SLUG[idOrSlug].code
+  return null
+}
 
 let graph = null
 let source = { live: false, stats: null, loadedAt: null, error: null }
@@ -96,7 +109,10 @@ function graphSource() {
  * Kahn's algorithm with a sorted queue, matching the retired execution engine
  * exactly so results do not shift under the refactor.
  */
-function resolveOrder(codes) {
+function resolveOrder(ids) {
+  const codes = ids.map(toCode)
+  const unknown = ids.filter((_, i) => !codes[i])
+  if (unknown.length) throw new Error(`Unknown analyses: ${unknown.join(', ')}`)
   const set = new Set(codes)
   let changed = true
   while (changed) {
@@ -170,8 +186,9 @@ async function invoke(code, context) {
  * Run one analysis, having first run everything it depends on so that
  * `context.priorIntel` is populated. Returns the requested analysis's package.
  */
-async function run(code, context = {}) {
-  if (!BY_CODE[code]) throw new Error(`Unknown analysis: ${code}`)
+async function run(id, context = {}) {
+  const code = toCode(id)
+  if (!code) throw new Error(`Unknown analysis: ${id}`)
   if (!graph) throw new Error('Brain graph has not been loaded — call loadGraph() first')
 
   const order = resolveOrder([code])
@@ -191,11 +208,11 @@ async function run(code, context = {}) {
  * is constitutionally the analysis that fuses everything — so re-fusing over
  * the whole set would double-count the same signals.
  */
-async function runMany(codes, context = {}) {
-  const unknown = codes.filter((c) => !BY_CODE[c])
+async function runMany(ids, context = {}) {
+  const unknown = ids.filter((c) => !toCode(c))
   if (unknown.length) throw new Error(`Unknown analyses: ${unknown.join(', ')}`)
   if (!graph) throw new Error('Brain graph has not been loaded — call loadGraph() first')
-  const order = resolveOrder(codes)
+  const order = resolveOrder(ids)
   const priorIntel = []
   const results = []
   for (const c of order) {
@@ -216,6 +233,6 @@ async function runMany(codes, context = {}) {
 
 module.exports = {
   loadGraph, getGraph, setGraph, isReady, graphSource,
-  run, runMany, resolveOrder,
+  run, runMany, resolveOrder, toCode,
   MODULES,
 }

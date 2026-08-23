@@ -137,6 +137,16 @@ const MODULES = RAW.map(([code, name, owner, layer, question]) => {
   return {
     code,
     name,
+    // A readable alias derived from the name, so callers can say
+    // brain.run('culture') instead of brain.run('M42'). The code stays the
+    // canonical id — it is what dependsOn and the ordering rules key on — but
+    // route files read far better with the slug. Verified collision-free.
+    slug: name
+      .replace(/\s*Intelligence\s*/g, ' ')
+      .replace(/\(.*?\)/g, '')
+      .trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, ''),
     owner,
     layer,
     question,

@@ -1,26 +1,31 @@
 // ─────────────────────────────────────────────────────────────
-// Phase 6 — Constitutional Intelligence & Meta-Brain (M36–M55)
+// Organizational analyses over the company dataset
 // Owner: Kamran
 //
-// These endpoints expose the constitutional intelligence modules over HTTP,
-// reading live from Supabase like the other 54 route files. The nine scoring
-// functions below are pure functions of one shared shape (agents, workflows,
-// ai_tools, knowledge_areas, incidents, decisions_log, history) assembled by
-// lib/orgDataset.js's loadOrgDataset() — shared with voice/voice.js, so the
-// same real joins aren't duplicated. Two gaps are real, not bugs: no
-// per-agent/workflow "documented" or "backup_owner" column exists without a
-// join (see orgDataset.js), and no incidents table with resolution/lesson
-// tracking exists at all — `incidents` is always [] rather than fabricated.
+// Thin routing over lib/orgAnalyses.js. The analyses are pure functions of one
+// shared shape (agents, workflows, ai_tools, knowledge_areas, incidents,
+// decisions_log, history) assembled by lib/orgDataset.js — shared with
+// voice/voice.js so the same real joins aren't duplicated.
 //
-// NOTE - module-code overlap: M39, M40, M46, M48 and M54 are ALSO implemented
-// in backend/brain/modules/implementations.js and reachable via
-// intelligence/prediction.js, which computes them from the brain's knowledge
-// graph instead of this file's orgDataset.js pipeline. That's a deliberate
-// two-pipeline architecture (this file predates the brain runtime and was kept
-// because voice.js shares its dataset loader), but it means these five module
-// codes can return two different answers depending on which route you call.
-// Neither implementation is "the bug" - the duplication itself is the risk.
-// If you're touching M39/M40/M46/M48/M54 logic, check both files.
+// Two data gaps here are real, not bugs: no per-agent/workflow "documented" or
+// "backup_owner" column exists without a join (see orgDataset.js), and no
+// incidents table with resolution/lesson tracking exists at all — `incidents`
+// is always [] rather than fabricated. Analyses must report that as unknown,
+// never score it; see alignmentChecklist().
+//
+// ─── These are NOT the brain's analyses ───
+// Until 2026-08-24 the seven functions below were labelled M36/M38/M39/M40/
+// M46/M48/M54, and five of those codes were ALSO implemented in
+// backend/brain/modules/implementations.js over the Knowledge Graph. They
+// compute different things — the brain's M39 returns capability *counts*, this
+// file's returned per-department capability *scores* — so "fix M39" had two
+// possible meanings and no way to tell which reached a screen.
+//
+// The codes were dropped here rather than there: the brain's catalog is a
+// coherent registry that drives dependency ordering, while these were labels.
+// Each function is now named for what it computes. M01–M55 belongs to the
+// brain and nothing else may claim a module number.
+// See docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
 // ─────────────────────────────────────────────────────────────
 
 const express = require('express')
@@ -28,8 +33,8 @@ const router = express.Router()
 const { loadOrgDataset: loadData } = require('../../lib/orgDataset')
 
 const {
-  signalIntelligence, opportunityIntelligence, capabilityIntelligence,
-  strategicAlignment, truthIntelligence, autonomousAdvisor, simulationUniverse,
+  trendSignals, improvementOpportunities, departmentCapability,
+  alignmentChecklist, standardClaimChecks, playbookAdvice, resilienceScenarios,
 } = require('../../lib/orgAnalyses')
 
 // ─────────────────────────────────────────────────────────────
@@ -39,36 +44,40 @@ const wrap = (fn) => async (req, res) => {
   try { res.json(fn(await loadData())) } catch (err) { res.status(500).json({ error: err.message }) }
 }
 
-router.get('/signals', wrap(signalIntelligence))            // M36
-router.get('/opportunities', wrap(opportunityIntelligence)) // M38
-router.get('/capability', wrap(capabilityIntelligence))     // M39
-router.get('/alignment', wrap(strategicAlignment))          // M40
+router.get('/signals', wrap(trendSignals))
+router.get('/opportunities', wrap(improvementOpportunities))
+router.get('/capability', wrap(departmentCapability))
+router.get('/alignment', wrap(alignmentChecklist))
+router.get('/advisor', wrap(playbookAdvice))
+router.get('/simulation-universe', wrap(resilienceScenarios))
+
 // ⚠ No '/truth' route here. index.js mounts routes/truth/truth.js at the more
 // specific /api/intelligence/truth, which is registered first and therefore
 // wins. A handler used to sit here and was silently unreachable. The
-// truthIntelligence() analysis is still used — autonomousAdvisor() gates on it.
-router.get('/advisor', wrap(autonomousAdvisor))             // M48
-router.get('/simulation-universe', wrap(simulationUniverse))// M54
-// M50 and M55 are NOT served here. index.js mounts brainCore.js and
-// orchestrator.js at the more specific /api/intelligence/brain-core and
-// /api/intelligence/orchestrator prefixes, so this router never sees those
-// paths. Duplicate handlers used to sit here and were silently unreachable.
+// standardClaimChecks() analysis is still used — playbookAdvice() gates on it.
+//
+// Nothing for brain-core or orchestrator either: index.js mounts brainCore.js
+// and orchestrator.js at their own more specific prefixes, so this router never
+// sees those paths. Duplicate handlers used to sit here, also unreachable.
 
-// Index of all Phase 6 constitutional intelligence endpoints
+// Index of the endpoints this router serves.
 router.get('/', (req, res) => {
   res.json({
-    phase: 'Phase 6 — Constitutional Intelligence & Meta-Brain (M36–M55)',
+    source: 'company dataset (lib/orgDataset.js)',
+    note: 'Graph-derived analyses are served separately under /api/intelligence/{pattern,dna,culture,maturity,behavior,benchmark,strategic-alignment,capability-by-dept}.',
     owner: 'Kamran',
     endpoints: {
-      'M36 Signal Intelligence': 'GET /api/intelligence/signals',
-      'M38 Opportunity Intelligence': 'GET /api/intelligence/opportunities',
-      'M39 Capability Intelligence': 'GET /api/intelligence/capability',
-      'M40 Strategic Alignment': 'GET /api/intelligence/alignment',
-      'M46 Truth Intelligence': 'GET /api/intelligence/truth (served by routes/truth/truth.js)',
-      'M48 Autonomous Advisor': 'GET /api/intelligence/advisor',
-      'M54 Simulation Universe': 'GET /api/intelligence/simulation-universe',
-      'M50 Brain Core Logic': 'GET /api/intelligence/brain-core (served by brainCore.js)',
-      'M55 Intelligence Orchestrator': 'GET /api/intelligence/orchestrator (served by orchestrator.js)',
+      'Trend signals': 'GET /api/intelligence/signals',
+      'Improvement opportunities': 'GET /api/intelligence/opportunities',
+      'Department capability': 'GET /api/intelligence/capability',
+      'Alignment checklist': 'GET /api/intelligence/alignment',
+      'Playbook advice': 'GET /api/intelligence/advisor',
+      'Resilience scenarios': 'GET /api/intelligence/simulation-universe',
+    },
+    servedElsewhere: {
+      'Claim verification': 'GET /api/intelligence/truth (routes/truth/truth.js)',
+      'Brain core index': 'GET /api/intelligence/brain-core (routes/intelligence/brainCore.js)',
+      'Orchestrator score': 'GET /api/intelligence/orchestrator (routes/intelligence/orchestrator.js)',
     },
   })
 })
