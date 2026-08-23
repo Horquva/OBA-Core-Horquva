@@ -98,6 +98,7 @@ _FORBIDDEN_CROSS_PLATFORM_PREFIXES: list[str] = [
     "ecosystem.applications.arcturus.src.simulation",
     "ecosystem.applications.arcturus.src.synthetic_data",
     "ecosystem.applications.arcturus.src.evaluation_plane",
+    "ecosystem.applications.arcturus.api",
 ]
 
 # Each platform's own src path is allowed; we only flag cross-platform imports.
@@ -113,6 +114,8 @@ _PLATFORM_SRC_PATHS: dict[str, str] = {
     "simulation": "ecosystem.applications.arcturus.src.simulation",
     "synthetic_data": "ecosystem.applications.arcturus.src.synthetic_data",
     "evaluation_plane": "ecosystem.applications.arcturus.src.evaluation_plane",
+    "api": "ecosystem.applications.arcturus.api",
+    "web": "ecosystem.applications.arcturus.web",
 }
 
 
