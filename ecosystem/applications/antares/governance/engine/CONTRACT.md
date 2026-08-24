@@ -126,18 +126,49 @@ store/DB replaces this hardcoded list.
   found `governanceApi.js` has zero real callers outside
   `governance/engine/` itself — the "3 integrated platforms" claim in
   `FINAL_DEMO.md` describes test-file simulations, not real traffic.
-  Zeeshan's `capability-service/app/services/governance_service.py` has an
-  unwired stub (`receive_governance_rules(..., source="kanwal")`) that is
-  the natural real entry point — this is Din 3's job.
-- **`GET /api/decisions` does not return real decision history.** It
-  re-runs 3 canned demo scenarios on every call and appends the real audit
-  trail underneath. Any dashboard consuming this (the gateway does) is
-  showing demo output, not live governance activity, until Din 3+
-  produces real traffic to audit.
+  Zeeshan's `capability-service/app/services/governance_service.py` had an
+  unwired stub (`receive_governance_rules(..., source="kanwal")`) — **Din 3
+  wired this for real** via `GET /api/rules` + `kanwal_governance_sync.py`,
+  proven live end-to-end. `REJECT_IF_MATCH` rules (e.g. R-13) still have
+  no enforcement path on Zeeshan's side — his Policy model has no REJECT
+  concept, only a `requires_approval` boolean — flagged, unresolved.
+- ~~`GET /api/decisions` does not return real decision history~~ **Fixed
+  Din 5:** `decisions` is now the real audit trail, mapped from
+  `queryAuditTrail()`. The illustrative 3-scenario walkthrough moved to
+  its own `sampleScenarios` key so it can never again be mistaken for
+  real governance activity by a dashboard consuming this endpoint.
+- **Audit trail is in-memory only — does not survive a server restart.**
+  `governance/audit/auditLog.js` says this explicitly: it's "a stand-in
+  for a real audit store... that will replace it before production use."
+  This means "actual governance state" as exposed today is only accurate
+  *while this process has been running continuously* — a restart silently
+  zeroes it. The unified product's owner needs to know this before
+  treating `GET /api/decisions` as a durable history source. Not a Din 5
+  fix (replacing the store is new architecture, out of this contract's
+  scope) — flagged for whoever owns moving this to a real DB/log store.
 - **Rules are hardcoded**, not loaded from a shared store — flagged
   above, tracked as a pre-production item, not a Din 2 blocker.
 
-## 7. Status
+## 8. `GET /api/decisions` response shape (Din 5)
+
+```json
+{
+  "service": "governance-engine",
+  "decisions": [
+    { "decisionId": "D-...", "auditEntryId": "AUD-...", "evidenceId": "EV-...",
+      "outcome": "ALLOW", "accountableOwner": "...", "recordedAt": "2026-08-24T..." }
+  ],
+  "auditTrail": [ /* same real entries, kept for backward compatibility */ ],
+  "sampleScenarios": [ /* 3 illustrative demo cases — NOT real activity, docs/demo use only */ ]
+}
+```
+
+`decisions` is what the unified product should treat as real governance
+state. `sampleScenarios` exists only so `governance/engine/README.md` and
+manual walkthroughs still have something to point at — a dashboard should
+never surface it as if it were live.
+
+## 9. Status
 
 - [x] Core decision chain implemented and unit-tested (48/48, Din 1-6)
 - [x] Public contract (`governanceApi.js`) implemented (Din 7 code) and now
@@ -145,7 +176,14 @@ store/DB replaces this hardcoded list.
 - [x] HTTP path brought into line with the documented contract (Din 2 fix:
       `/api/evaluate` now enforces the same trust-signal-source validation
       as the direct import)
-- [ ] Verified against Zeeshan's real `capability-service` calling in (Din 3)
-- [ ] Verified against Zara's or Abbas's real services calling in (Din 3/4)
-- [ ] `GET /api/decisions` replaced with real decision history instead of
-      re-run demo scenarios
+- [x] Verified against Zeeshan's real `capability-service` calling in (Din 3
+      — `kanwal_governance_sync.py`, real HTTP sync, real task genuinely
+      blocked by a synced rule)
+- [x] One legitimate end-to-end scenario proven via the public contract
+      alone, with independently-retrieved audit confirmation (Din 4)
+- [x] `GET /api/decisions` now returns real decision history instead of
+      re-run demo scenarios (Din 5)
+- [ ] Verified against Zara's or Abbas's real services calling in
+- [ ] Adversarial/invalid-condition coverage re-verified against the live
+      HTTP contract, not just unit tests (Din 6)
+- [ ] Audit store moved off in-memory to something that survives a restart
