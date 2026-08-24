@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { atOrAbove } = require('../../domain/definitions')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -129,7 +130,7 @@ router.get('/must-protect', async (req, res) => {
     const assessments = await fetchAllAssessments()
 
     const mustProtect = assessments.filter(a =>
-      (a.criticality === 'critical' || a.criticality === 'high') &&
+      atOrAbove(a.criticality, 'high') &&
       (a.continuity_status === 'FAILS' || a.continuity_status === 'LOST')
     )
 

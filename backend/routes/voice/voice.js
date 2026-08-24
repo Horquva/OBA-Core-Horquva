@@ -3,6 +3,7 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const domain = require('../../domain')
 const { loadDataset: loadOrgDataset } = domain
+const { atOrAbove } = require('../../domain/definitions')
 const { must } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
@@ -88,7 +89,7 @@ async function buildBrain() {
   // criticalAgents owned per person, for the people list below
   const ownedCritCount = {}
   ;[...d.agents, ...d.workflows].forEach((a) => {
-    if (a.owner && ['critical', 'high'].includes(a.criticality)) {
+    if (a.owner && atOrAbove(a.criticality, 'high')) {
       ownedCritCount[a.owner] = (ownedCritCount[a.owner] || 0) + 1
     }
   })

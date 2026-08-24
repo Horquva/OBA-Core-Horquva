@@ -12,6 +12,8 @@
  * off the M-numbers. Until then, check which file you are in.
  */
 
+const { atOrAbove } = require('./definitions')
+
 function assetsOf(d) {
   return [...(d.agents || []), ...(d.workflows || [])]
 }
@@ -45,9 +47,9 @@ function trendSignals(d) {
 function improvementOpportunities(d) {
   const assets = assetsOf(d)
   const opps = []
-  const undoc = assets.filter(a => !a.documented && ['critical', 'high'].includes((a.criticality || '').toLowerCase()))
+  const undoc = assets.filter(a => !a.documented && atOrAbove(a.criticality, 'high'))
   if (undoc.length) opps.push({ opportunity: 'Document critical assets', impact: 'HIGH', effort: 'LOW', count: undoc.length })
-  const single = (d.knowledge_areas || []).filter(k => ['critical', 'high'].includes(k.criticality) && (k.holders || []).length === 1)
+  const single = (d.knowledge_areas || []).filter(k => atOrAbove(k.criticality, 'high') && (k.holders || []).length === 1)
   single.forEach(k => opps.push({ opportunity: `Cross-train on '${k.area}'`, impact: 'HIGH', effort: 'MEDIUM', count: 1 }))
   const noBackup = assets.filter(a => !a.backup_owner && (a.criticality || '').toLowerCase() === 'critical')
   if (noBackup.length) opps.push({ opportunity: 'Assign backup owners to critical assets', impact: 'HIGH', effort: 'LOW', count: noBackup.length })
@@ -125,8 +127,8 @@ function standardClaimChecks(d) {
   const truths = []
   const spof = assets.filter(a => (a.criticality || '').toLowerCase() === 'critical' && !a.backup_owner)
   truths.push({ claim: 'Single points of failure exist', verified: spof.length > 0, confidence: 'HIGH', evidence: `${spof.length} critical assets without a backup owner` })
-  const undocAssets = assets.filter(a => !a.documented && ['critical', 'high'].includes((a.criticality || '').toLowerCase()))
-  const undocKa = knowledge.filter(k => !k.documented && ['critical', 'high'].includes(k.criticality))
+  const undocAssets = assets.filter(a => !a.documented && atOrAbove(a.criticality, 'high'))
+  const undocKa = knowledge.filter(k => !k.documented && atOrAbove(k.criticality, 'high'))
   truths.push({ claim: 'Critical knowledge is undocumented', verified: undocAssets.length > 0 || undocKa.length > 0, confidence: undocAssets.length && undocKa.length ? 'HIGH' : 'MEDIUM', evidence: `${undocAssets.length} assets + ${undocKa.length} knowledge areas undocumented` })
   const owners = {}
   assets.forEach(a => { if (a.owner) owners[a.owner] = (owners[a.owner] || 0) + 1 })
@@ -180,7 +182,7 @@ function resilienceScenarios(d) {
       scenarios.push({ scenario: `Critical tool outage: ${t.name}`, assetsHit: dep, unrecoverable: dep, resilienceDrop: Math.min(100, dep * 8) })
     }
   })
-  const undocCrit = assets.filter(a => !a.documented && ['critical', 'high'].includes((a.criticality || '').toLowerCase()))
+  const undocCrit = assets.filter(a => !a.documented && atOrAbove(a.criticality, 'high'))
   scenarios.push({ scenario: 'Documentation loss shock', assetsHit: undocCrit.length, unrecoverable: undocCrit.length, resilienceDrop: Math.min(100, undocCrit.length * 10) })
   scenarios.sort((a, b) => b.resilienceDrop - a.resilienceDrop)
   const worst = scenarios[0] || null

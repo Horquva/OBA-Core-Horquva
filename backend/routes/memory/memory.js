@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
 const { must, optional } = require('../../lib/supabaseQuery')
+const { atOrAbove } = require('../../domain/definitions')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -9,7 +10,7 @@ const { must, optional } = require('../../lib/supabaseQuery')
 
 function computeMemoryStatus(asset) {
   const documented = asset.is_documented === true
-  const hasCriticality = asset.criticality === 'critical' || asset.criticality === 'high'
+  const hasCriticality = atOrAbove(asset.criticality, 'high')
   const hasOwner = !!asset.owner_id
 
   if (!hasOwner) return 'LOST'
