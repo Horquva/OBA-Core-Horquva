@@ -194,13 +194,6 @@ const MODULE_READERS = {
 // SCORING HELPERS
 // ─────────────────────────────────────────────
 
-function classifyRating(score) {
-  if (score >= 80) return 'HIGHLY INTELLIGENT'
-  if (score >= 60) return 'MODERATELY INTELLIGENT'
-  if (score >= 40) return 'DEVELOPING'
-  return 'AT RISK'
-}
-
 function generateVerdict(score, rating, modules) {
   const sorted    = [...modules].sort((a, b) => a.score - b.score)
   const weakest   = sorted.slice(0, 3).map(m => m.label.toLowerCase())
@@ -320,16 +313,12 @@ async function orchestrate() {
     readModule('brainCore', readBrainCore, intel)
   ])
 
-  // Only verified modules contribute to the score
-  const verified = results.filter(m => m.verified)
-  const totalWeight = verified.reduce((s, m) => s + m.weight, 0)
-
-  const rawScore = totalWeight > 0
-    ? verified.reduce((s, m) => s + (m.score * m.weight), 0) / totalWeight
-    : 0
-
-  const score   = Math.round(rawScore)
-  const rating  = classifyRating(score)
+  // The headline score is intel.pillars.orgScore — the one OIS (D-02, D-17).
+  // The 13-module registry above no longer votes on it; it still explains it,
+  // via generateVerdict/generateRecommendations/computeTrustScore below, which
+  // all still take the full `results` list.
+  const score   = intel.pillars.orgScore.score
+  const rating  = intel.pillars.orgScore.rating
   const verdict = generateVerdict(score, rating, results)
   const recs    = generateRecommendations(results)
   const trust   = computeTrustScore(results)
@@ -339,7 +328,7 @@ async function orchestrate() {
   const dataIntegrity = {
     degraded: unavailable.length > 0,
     modulesRead: results.length,
-    modulesVerified: verified.length,
+    modulesVerified: results.filter(m => m.verified).length,
     modulesUnavailable: unavailable.length,
     unavailableModules: unavailable.map(m => ({ key: m.key, label: m.label, error: m.error })),
     warning: unavailable.length
