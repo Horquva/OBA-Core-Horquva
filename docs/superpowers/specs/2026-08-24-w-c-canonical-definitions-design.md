@@ -1,7 +1,7 @@
 # W-C — Canonical Definitions Layer
 
 Workstream: **W-C** (keystone)
-Decisions implemented: **D-03, D-06, D-10**; fixes **F-B, F-G**
+Decisions implemented: **D-03, D-06, D-10**; fixes **F-B, F-G′, F-K**
 Blocks: W-D, W-E, W-G
 Status: **design — awaiting owner approval. No code written.**
 
@@ -21,10 +21,16 @@ Three concepts are currently redefined in every file that needs them:
 - **Is this a single point of failure?** Reimplemented across ~16 files with no shared rule.
 
 The result is not just duplication, it is disagreement. `brain/modules/implementations.js:72,86`
-treat `'high'` as *the* critical set, excluding `'critical'`. Twenty other files treat
-`['critical','high']` as one set. And `routes/decisionIntelligence.js` reads a `criticality`
-property off agents, workflows and tools that **none of them carry**, so those comparisons have
-always evaluated to `false` (F-G).
+treat `'high'` as *the* critical set, excluding `'critical'` entirely. Twenty other files treat
+`['critical','high']` as one set.
+
+Route files normalize each table's column into a uniform `criticality` property on a view model,
+which is reasonable — but they do it by **fabricating a value when the column is empty**
+(`criticality: a.risk || 'low'` at `decisionIntelligence.js:45,326,334`, F-G′) and by **picking
+arbitrarily when several values exist** (`tools.js:63` assigns inside a loop, so a platform takes
+whichever `knowledge_assets` row the database returned last, F-K). An unmeasured asset presented as
+low-criticality is the safest-looking possible lie, and it means the critical-tool penalties never
+fire for exactly the tools nobody has assessed.
 
 ## 2. What gets built
 
@@ -63,12 +69,17 @@ A field map, per entity type, is the whole trick:
 | `platform` | **derived** — see below |
 | anything else | `unknown` |
 
-`ai_platforms` carries no criticality signal. Rather than default it (which fabricates) or drop
-platforms from every analysis (which silently narrows scope), criticality for a platform is taken
-as **the maximum criticality across its `knowledge_assets` rows** where
+`ai_platforms` carries no criticality signal. Criticality for a platform is therefore taken as
+**the maximum criticality across its `knowledge_assets` rows** where
 `asset_type = 'platform' AND asset_id = platform.id`. Those rows exist and carry criticality —
 `backend/sql/10_ai_platforms_knowledge_gaps.sql` populates them. A platform with no such rows
 resolves to `unknown`, not `normal`.
+
+**This derivation already exists** at `backend/routes/tools.js:60-65` — W-C is not introducing it.
+What W-C changes is the selection rule: that loop assigns `byPlatform[k.asset_id]` on every
+iteration, so a platform with several knowledge assets silently keeps whichever row came last (F-K).
+Taking the maximum is a correction to an arbitrary pick, not new machinery. The canonical resolver
+becomes the single implementation and `tools.js` consumes it.
 
 **Consequence the owner should know:** platforms lacking knowledge-asset coverage cannot be
 evaluated for SPOF at all under D-06, because D-06 requires criticality ≥ high and `unknown` never
@@ -118,10 +129,15 @@ classified before it is touched:
 |---|---|---|
 | **Threshold** | expresses "at or above high" | retype to `atOrAbove(x, 'high')`. Behavior unchanged. |
 | **Conflation** | treats `critical` and `high` as the same label | genuine bug. Fix, note in the commit. |
-| **Phantom** (F-G) | reads a field the table lacks | genuine bug. Point at the real column. |
+| **Fabrication** (F-G′) | defaults absent criticality to a level | genuine bug. Resolve to `unknown` instead. |
+| **Arbitrary pick** (F-K) | collapses several values by overwriting | genuine bug. Use `maxLevel`. |
 
 `brain/modules/implementations.js:72,86` are Conflation — they exclude `critical` entirely.
-`routes/decisionIntelligence.js:78,162,233` are Phantom.
+`routes/decisionIntelligence.js:45,326,334` are Fabrication. `routes/tools.js:63` is Arbitrary pick.
+
+**Before classifying any site as a bug, read the loader that populates the property.** A route
+reading `row.criticality` against a table with no such column is usually consuming a normalized view
+model, not making an error. Checking the schema alone produced one wrong finding already.
 
 Order of work: build the module and its tests → migrate `derived.js` (already correct, so this
 proves the module is behavior-preserving) → migrate the brain → migrate route files in dependency
@@ -146,8 +162,10 @@ dependents with low criticality (**must not** be).
 
 **Coverage gate:** 0% coverage; 49%; 50% (boundary — inclusive); 51%; 100%; empty population.
 
-**Regression, one per finding:** F-B (brain must now include `critical`), F-G (each of the three
-phantom reads must resolve to a real column, and the tool narrative must never render `undefined`).
+**Regression, one per finding:** F-B (brain must now include `critical`); F-G′ (absent criticality
+must resolve to `unknown`, never to `'low'`, and an uncovered tool must not be scored as
+low-criticality); F-K (a platform with several knowledge assets must take the maximum, and the
+result must not depend on row order).
 
 ## 5. Explicitly out of scope for W-C
 

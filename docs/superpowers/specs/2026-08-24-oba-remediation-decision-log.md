@@ -42,7 +42,9 @@ Verified against the repository, not the teardown.
 | F-D | ~16 independent SPOF implementations | SPOF logic appears across 17 files with no shared module |
 | F-E | No write loop | Of 176 endpoints only 4 non-auth writes exist (`avatar/check`, `selfHealing/run`, `voice/ask`, `voice/command`); **none** mutate root organizational data |
 | F-F | Tenancy asserted, not enforced | `backend/lib/orgGuard.js` — no business table has an org column; 4 org values in `app_users` |
-| F-G | **Phantom criticality reads (NEW — not in the teardown)** | `backend/routes/decisionIntelligence.js:30` selects `risk` from `workflows`, but `scoreWorkflowDecision` reads `wf.criticality` — a column that does not exist. `isCritical`/`isHigh` are permanently `false`, so every criticality penalty in Decision Intelligence is dead code. Same phantom read at lines 78 (agents) and 162 (tools). The tool narrative renders "adopted as a **undefined** tool". |
+| ~~F-G~~ | **WITHDRAWN — claim was wrong.** Originally recorded as "phantom criticality reads". | The scoring functions read `.criticality` on view-model objects, and the loaders populate it correctly: `decisionIntelligence.js:45` maps `criticality: w.risk \|\| 'low'`, `:326` maps `criticality: a.risk \|\| 'low'`, and `tools.js:117` derives it from `knowledge_assets`. The original finding checked the symptom against the database schema without reading the loader. **No phantom reads exist.** Replaced by F-G′ and F-K below. |
+| F-G′ | **Fabricated criticality defaults (NEW)** | `backend/routes/decisionIntelligence.js:45,326,334` coerce absent criticality to `'low'` via `\|\| 'low'`. An unmeasured asset is presented as the *safest-looking* value, so `PENALTY_CRITICAL_NO_FALLBACK` never fires for a tool with no knowledge-asset coverage. This is a direct D-07 violation and the exact failure mode the `unknown` sentinel exists to prevent. |
+| F-K | **Platform criticality is last-row-wins (NEW)** | `backend/routes/tools.js:63` assigns `byPlatform[k.asset_id] = {...}` inside a loop, so a platform with several `knowledge_assets` rows takes whichever row the database happened to return last. Arbitrary and order-dependent. |
 | F-H | Graph never refreshes | `loadGraph()` called once at `backend/index.js:128`. No reload path, no `loadedAt` exposed. |
 | F-I | Duplicate edge representation | `dependencies` carries both `source_id/target_id` and `agent_source/agent_target` |
 | F-J | Two aggregate tables already orphaned | `collaboration_scores` and `predictive_risk_scores` have **zero** consumers after W-B |
@@ -60,7 +62,15 @@ Verified against `backend/sql/01_schema_migration.sql`:
 | `ai_platforms` | **none** — no criticality signal exists at all |
 
 `derived.js` reads these correctly (`['critical','high'].includes(a.risk)` at lines 312, 514, 658).
-Route files largely do not.
+
+Route files mostly resolve them correctly too, via loader functions that normalize each table's
+column into a uniform `criticality` property on a view model. The problem is not *which column* they
+read — it is that they **fabricate a value when the column is empty** (F-G′) and **pick arbitrarily
+when several values exist** (F-K). Both are D-07 violations dressed as convenience.
+
+The lesson, recorded because it cost a wrong finding: when a route reads `row.criticality` and the
+table has no such column, **read the loader before concluding it is a bug**. The view model is
+frequently not the table.
 
 Entity criticality ("how critical is this thing") and edge `dependency_type` ("how critical is this
 link") are **different concepts sharing a vocabulary**. `backend/routes/risks.js:41` filtering
@@ -209,7 +219,7 @@ it closes, written before the fix.
 | W-A | Auth hardening | — | **DONE** |
 | W-B | Frozen intelligence → live | — | **DONE** |
 | **W-F** | Tenancy & auth cleanup | D-01, D-05, D-13 | not started (independent, cheap) |
-| **W-C** | Canonical definitions layer | D-03, D-06, D-10, F-G | **NEXT — keystone** |
+| **W-C** | Canonical definitions layer | D-03, D-06, D-10, F-G′, F-K | **NEXT — keystone** |
 | **W-D** | Truth layer consolidation | D-02, D-09a, D-11, D-12 | blocked by W-C |
 | **W-E** | Provenance & evidence semantics | D-07, D-10b | blocked by W-C, W-D |
 | **W-G** | Graph lifecycle & narrative honesty | D-14 | blocked by W-D |
