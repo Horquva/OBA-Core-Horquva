@@ -1,7 +1,10 @@
+const BASE_URL = 'http://localhost:8000/api/v1';
+
 export const apiClient = {
-  get: async (url: string) => {
+  get: async (endpoint: string) => {
+    const url = `${BASE_URL}${endpoint}`;
     console.log(`Fetching from ${url}...`);
-    // Implementation will connect to actual backend routes
+    // Real implementation will go here
     return { data: "API Client Ready" };
   }
 };
