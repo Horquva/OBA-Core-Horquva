@@ -1,8 +1,8 @@
 # OBA Core Remediation — Decision Log
 
 Date opened: 2026-08-24
-Status: decisions D-01…D-16 approved by owner. **No code changed yet.**
-Follows workstreams W-A (auth hardening) and W-B (frozen intelligence rebuilt), both landed.
+Status: decisions D-01…D-16 approved by owner 2026-08-24; D-17…D-21/F-L decided and closed during
+W-D's brainstorming phase 2026-08-25. W-A, W-B, W-C, W-D landed. W-E is next.
 
 This file is the source of truth for the remediation. Session memory is a pointer to it, not a
 substitute. If memory and this file disagree, **this file wins**.
@@ -207,6 +207,40 @@ link") are **different concepts sharing a vocabulary**. `backend/routes/risks.js
 - **Mitigation applied anyway:** each commit message names the decision (D-nn) responsible, so the
   trail exists in git even without a table.
 
+### D-17…D-21, F-L — decided during W-D's brainstorming phase (2026-08-25)
+
+D-02/D-09a/D-11/D-12 above did not fully resolve W-D's scope; these five close the gaps found
+while tracing every route each of the four originals named. Full detail, including the
+verification performed before each one, is in
+[the W-D design doc](2026-08-25-w-d-truth-layer-consolidation-design.md).
+
+- **D-17 · `orchestrator.js` and `brainCore.js`'s own weighted composites collapse onto
+  `pillars.orgScore`.** Both computed an independently-weighted "Organizational Intelligence
+  Score" / "Brain Index" from the same `domain.intelligence.all()` inputs D-02 already
+  consolidated everything else onto — a restatement of F-C the original D-02 pass missed for two
+  files. The pre-existing `brain-as-library-design.md` (§11, open question 3) had already flagged
+  this pair as unresolved.
+- **D-18 · The 8 Org Science cards route through `domain.graph`, not `brain/` directly.** None of
+  the 8 (`pattern`/`dna`/`culture`/`maturity`/`behavior`/`benchmark`/`strategic-alignment`/
+  `capability-by-dept`) has a `derived.js` equivalent — they're graph-structural, not root-table
+  aggregates — so D-12's "brain stops being reached into directly" is satisfied by an
+  import-path swap (`domain.graph.run` already re-exports `brain.run`), not a reimplementation.
+- **D-19 · Pre-existing uncommitted WIP is reviewed and selectively absorbed.** `health.js` and
+  `executive.js` already implemented D-02/D-12's shape correctly at session start, uncommitted;
+  redoing them from HEAD would have produced a second, divergent fix. Files confirmed unrelated
+  by diff review are left untouched.
+- **D-20 · Historical provenance stamping on the 4 genuinely-frozen KEEP-list tables.** Verified
+  individually — zero writers anywhere in `backend/` for `org_health_snapshots`,
+  `documentation_trend`, `learning_snapshots`, `organizational_forecasts`. `executive_briefings`
+  looked like a fifth by association (`briefing.js` reads it constantly) but is written daily by
+  `/today`; deliberately excluded.
+- **D-21 / F-L · `dept_health_scores` (D-09 DROP list) and two uncatalogued frozen tables
+  (`department_exposure`, `failure_patterns`) get live `derived.js` equivalents.** Two new
+  functions, kept deliberately separate: `orgHealthByDepartment` reuses `orgHealth()`'s exact
+  formula partitioned by department; `departmentExposure` is a distinct, authored
+  incident-exposure metric — not `continuityScore` under a new name, despite sharing input
+  tables.
+
 ---
 
 ## 3. Workstream map
@@ -220,9 +254,9 @@ it closes, written before the fix.
 | W-B | Frozen intelligence → live | — | **DONE** |
 | **W-C** | Canonical definitions layer | D-03, D-06, D-10, F-G′, F-K | **DONE** — 11 commits, `387bd42`…`687a659` on `ocos/develop` |
 | **W-F** | Tenancy & auth cleanup | D-01, D-05, D-13 | not started (independent, cheap) |
-| **W-D** | Truth layer consolidation | D-02, D-09a, D-11, D-12 | **NEXT — unblocked** |
-| **W-E** | Provenance & evidence semantics | D-07, D-10b | blocked by W-D |
-| **W-G** | Graph lifecycle & narrative honesty | D-14 | blocked by W-D |
+| **W-D** | Truth layer consolidation | D-02, D-09a, D-11, D-12, D-17, D-18, D-19, D-20, D-21, F-L | **DONE** — 16 commits, `c66d871`…`9c15daf` on `ocos/develop` |
+| **W-E** | Provenance & evidence semantics | D-07, D-10b | **NEXT — unblocked** |
+| **W-G** | Graph lifecycle & narrative honesty | D-14 | unblocked |
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I | last |
 
 W-C is done: every downstream workstream now has one module to consume
@@ -246,18 +280,26 @@ W-F remains genuinely independent and may run whenever, in any order relative to
 
 ---
 
-## 5. Process notes for the next workstream (read this before starting W-D)
+## 5. Process notes for the next workstream (read this before starting W-E)
 
 Each workstream from here on runs in its **own fresh session** — no shared conversation memory with
-W-C. This section is what carried W-C's rigor into a session with nothing but this file. Match it;
-don't skip steps because "the decisions are already made."
+W-C or W-D. This section is what carried W-C's rigor into W-D with nothing but this file, and W-D
+repeated it successfully — two data points now, not one. Match it; don't skip steps because "the
+decisions are already made."
 
-**The sequence that produced W-C, in order:**
+**The sequence that produced W-C and W-D, in order:**
 
 1. **Brainstorming skill, architectural path.** Repo exploration first — actual file reads and greps,
    not assumptions from the teardown or from this log. Then batched questions to the owner (4 at a
    time), each answer restated as a Decision with Reason/Affected/Migration/Consequence before moving
-   on. This is where D-01…D-16 came from and why they're trustworthy.
+   on. This is where D-01…D-16 (W-C) and D-17…D-21/F-L (W-D) came from and why they're trustworthy.
+   **W-D's addition:** even when the prior workstream's decisions name the affected files, trace
+   every one individually before trusting the list — D-02/D-09a/D-12 named files and tables that
+   turned out incomplete (a 4th OIS in `brainCore.js` D-02 never mentioned; `dept_health_scores` and
+   `department_exposure`, two frozen tables D-09's DROP/KEEP lists never catalogued;
+   `executive_briefings`, which looked like a 5th KEEP-list table by association but is written
+   daily). None of these were wrong reasoning, just unverified generalization — checking each item
+   individually instead of extrapolating from a pattern is what caught them.
 2. **Design doc** (`docs/superpowers/specs/YYYY-MM-DD-w-x-*-design.md`), committed before any plan
    exists.
 3. **writing-plans skill** against that design. Every task gets the actual test code and
@@ -265,22 +307,44 @@ don't skip steps because "the decisions are already made."
    execution be mechanical instead of another round of judgment calls.
 4. **Inline execution, task by task:** red (verify the test fails for the right reason) → green →
    full-suite check (`node tests/run-all.js`) → commit. Never batch multiple tasks into one commit.
+   **W-D's addition:** for changes only observable through a running server (a route reading
+   `domain.intelligence.all()` instead of computing its own value), the full-suite check alone does
+   not prove the wiring is correct — this codebase has no automated HTTP-level test in the default
+   suite. Start a local server on a scratch port, log in via the `ADMIN_EMAIL`/`ADMIN_PASSWORD` env
+   fallback, and `curl` the changed endpoint against a value read directly from the same domain
+   function in a `node -e` snippet. **Restart the server after every code change you're about to
+   verify** — Node does not hot-reload, and a stale process will silently serve the old computation
+   (caught twice during W-D: once each for `brainCore.js` and `prediction.js`).
 
-**Two mistakes made and corrected during W-C — don't repeat them:**
+**Mistakes made and corrected — don't repeat them:**
 
-- **A finding (F-G) was wrong** because it checked a route's `row.criticality` read against the
+- **A finding (F-G, W-C) was wrong** because it checked a route's `row.criticality` read against the
   database schema without reading the *loader* that populates that property. The loader normalized
   it correctly; the schema check alone produced a false bug report. **Before calling any
   `row.<field>` read a bug, trace it to the function that builds that row.** This cost a withdrawal
   and a corrected pair of findings (F-G′, F-K) — cheaper to just check first.
-- **`git add <file>` is not safe in this repo right now.** Several files (`governance.js`, `memory.js`,
-  `voice.js` at minimum, likely others) carry substantial *pre-existing uncommitted work* unrelated
-  to any workstream — visible in `git status` before you touch anything. A directory-wide or
-  whole-file `git add` will bundle that unrelated work into your commit. Before staging a file that
-  was already modified at session start: `git diff <file>` first. If it's larger than your own edit,
-  isolate your change against `git show HEAD:<file>` (reconstruct a clean version containing only
-  your edit, stage that, commit, then restore the working tree to the full pre-existing-plus-your-edit
-  content) rather than committing the mixture. `git status --short` before every commit, always.
+- **`git add <file>` is not safe in this repo right now.** Several files carry substantial
+  *pre-existing uncommitted work* unrelated to any workstream — visible in `git status` before you
+  touch anything. As of the end of W-D, that's `governance.js`, `memory.js`, `orchestration.js`,
+  `gateCheck.js`, `knowledge/gaps.js`, `knowledge/impact.js`, `index.js`, `middleware/auth.js`,
+  `auth/auth.js`, `.env.example`, `schema.sql`, `.claude/launch.json`, `constitutional-modules.js`,
+  `employeeLeaves.js`, `platformDown.js`, and every frontend file under active WIP — check
+  `git status --short` fresh each session, this list will have moved. (`voice.js`, `health.js`,
+  `learning.js`, `forecast.js`, `briefing.js` carried WIP through W-C but were fully absorbed or
+  finished during W-D — they're clean now.) A directory-wide or whole-file `git add` will bundle
+  unrelated work into your commit. Before staging a file that was already modified at session start:
+  `git diff <file>` first. If it's larger than your own edit, isolate your change against
+  `git show HEAD:<file>` (reconstruct a clean version containing only your edit, stage that, commit,
+  then restore the working tree to the full pre-existing-plus-your-edit content) rather than
+  committing the mixture — or, simpler and what W-D actually did: commit the unrelated WIP alone
+  first (its own commit, naming it as pre-existing and unrelated), *then* make your own edit on top
+  and commit that separately. `git status --short` before every commit, always.
+- **A destructive action on live data will be blocked, and should be.** W-D's own automation tried to
+  `DELETE` a stale cached row in `orchestrator_snapshots` to make a manual verification check read
+  cleanly *right now* instead of after the next cache miss. The permission classifier correctly
+  refused it — a routine verification step is not grounds for mutating a live table. If a live-server
+  checkpoint would read stale for a reason the design already anticipated (a daily cache, in this
+  case), find another route that bypasses the cache rather than clearing it.
 
 **Standing constraints that don't change per workstream:**
 
@@ -288,13 +352,16 @@ don't skip steps because "the decisions are already made."
   `backend/tests/definitions.unit.test.js` as the template.
 - `backend/domain/definitions.js` is pure (no I/O) and is now the dependency every score-producing
   file should route through — don't reintroduce a parallel definition of criticality, SPOF, or
-  coverage anywhere.
+  coverage anywhere. As of W-D, `backend/domain/derived.js`'s `pillars.orgScore` is the same for
+  "the one Organizational Intelligence Score" — don't reintroduce a second weighted composite either.
 - Commit messages name the responsible decision (`D-nn`, `F-nn`) — this is the compensating control
   for D-16 (no before/after reconciliation table).
 - Threshold-class retyping (behavior-preserving) and bug fixes (behavior-changing) never share a
   commit — otherwise a real regression hides in a wall of no-op renames.
 
 **Quality bar, concretely:** the finished [W-C plan](../plans/2026-08-24-w-c-canonical-definitions.md)
-and its 11 commits (`387bd42` through `687a659` on `ocos/develop`) are the reference. If a future
-workstream's design doc, plan, or commit history looks thinner than that — fewer regression tests,
-vaguer task steps, batched commits — that's the signal quality slipped, not that the work was faster.
+(11 commits, `387bd42`…`687a659`) and [W-D plan](../plans/2026-08-25-w-d-truth-layer-consolidation.md)
+(16 commits, `c66d871`…`9c15daf`), both on `ocos/develop`, are the reference. If a future workstream's
+design doc, plan, or commit history looks thinner than these — fewer regression tests, vaguer task
+steps, batched commits, no live-server verification for route-wiring changes — that's the signal
+quality slipped, not that the work was faster.
