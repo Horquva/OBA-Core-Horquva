@@ -855,6 +855,11 @@ function pillars(roots, accountabilityResult) {
 
   const DI = round(mean([documentationCoverage, verificationRate, contradictionScore]))
 
+  const diEvidence = combineEvidence({
+    knowledgeAssets: evidenceGate(roots.knowledge_assets, () => true),
+    truthClaims: evidenceGate(roots.truth_claims, () => true),
+  })
+
   const orgScore = round(GI * PILLAR_WEIGHTS.GI + MI * PILLAR_WEIGHTS.MI + DI * PILLAR_WEIGHTS.DI)
 
   const shape = (key, score, components, evidence) => ({
@@ -880,7 +885,7 @@ function pillars(roots, accountabilityResult) {
         backupCoverage,
         ownershipCoverage,
       }, miEvidence),
-      shape('DI', DI, { documentationCoverage, verificationRate, contradictionScore }, placeholderEvidence),
+      shape('DI', DI, { documentationCoverage, verificationRate, contradictionScore }, diEvidence),
     ],
     orgScore: {
       resultType: 'overall',

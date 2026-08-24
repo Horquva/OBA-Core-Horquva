@@ -405,6 +405,15 @@ console.log('\nPillars — evidence gate:')
 	const mi2 = d.pillars(insufficientAccountability, d.accountability(insufficientAccountability)).pillars.find((x) => x.resultKey === 'MI')
 	check('MI inherits an insufficient accountability sub-score rather than recomputing around it',
 		mi2.evidence.sufficient === false, mi2.evidence)
+
+	const noAssetsOrClaims = roots({
+		workflows: [{ id: 1, name: 'W1', risk: 'low' }],
+		workflow_runbooks: [{ workflow_id: 1, is_documented: true }],
+		ai_platforms: [{ id: 1, name: 'P1' }],
+		tool_policies: [{ platform_id: 1, policy_name: 'pol', status: 'active' }],
+	})
+	const di = d.pillars(noAssetsOrClaims, d.accountability(noAssetsOrClaims)).pillars.find((x) => x.resultKey === 'DI')
+	check('DI is insufficient with zero knowledge_assets and zero truth_claims', di.evidence.sufficient === false, di.evidence)
 }
 
 // ── Decision quality ─────────────────────────────────────────────────────────
