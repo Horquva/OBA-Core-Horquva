@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { API_BASE } from '@/lib/api';
+import { API_BASE, authApi } from '@/lib/api';
 
 export interface AuthUser {
   id: string;
@@ -17,8 +17,8 @@ interface AuthContextValue {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (payload: { email: string; password: string; name?: string; role?: string; org?: string }) => Promise<void>;
-  resetPassword: (email: string, password: string) => Promise<string>;
+  register: (payload: { email: string; password: string; name?: string }) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<string>;
   logout: () => void;
 }
 
@@ -63,7 +63,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     persist(data.token, data.user);
   }, [persist]);
 
-  const register = useCallback(async (payload: { email: string; password: string; name?: string; role?: string; org?: string }) => {
+  // `role` and `org` are intentionally absent. The server ignores them now —
+  // it always creates a plain member of the single tenant — so accepting them
+  // here would only advertise a choice the caller does not have.
+  const register = useCallback(async (payload: { email: string; password: string; name?: string }) => {
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,14 +77,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     persist(data.token, data.user);
   }, [persist]);
 
-  const resetPassword = useCallback(async (email: string, password: string) => {
-    const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || 'Password reset failed');
+  // Replaces the old resetPassword(email, password), which posted an arbitrary
+  // email to an unauthenticated endpoint and could overwrite anyone's password.
+  // This changes only the signed-in user's own, and the server retires the
+  // current token on success — callers must send the user back to /login.
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const data = await authApi.changePassword(currentPassword, newPassword);
     return data?.message || 'Password updated.';
   }, []);
 
@@ -105,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router, token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, resetPassword, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, changePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,17 +7,25 @@ import { useAuth } from '@/lib/AuthContext';
 import { AuthLayout, authInputStyle, authLabelStyle, authButtonStyle } from '@/components/auth/AuthLayout';
 import { Eye, EyeOff } from 'lucide-react';
 
-const ROLES = ['CEO', 'CTO', 'COO', 'Manager', 'Employee'];
+/*
+ * This form used to collect an "Executive role" and an "Organization", and send
+ * both to the server, which stored them verbatim on the new account. The role
+ * became the token's role claim, which Sidebar.tsx reads to decide which
+ * sections of the product to show — so choosing "CEO" here granted the
+ * executive experience to anyone who asked for it.
+ *
+ * Both fields are gone rather than merely ignored. The server now sets role
+ * from DEFAULT_USER_ROLE and org from ORG_SLUG, and a form that collects input
+ * the server discards is worse than one that never asked.
+ */
 
 export default function SignupPage() {
   const router = useRouter();
   const { register } = useAuth();
   const [name, setName] = useState('');
-  const [org, setOrg] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState('Employee');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -26,7 +34,7 @@ export default function SignupPage() {
     setError('');
     setBusy(true);
     try {
-      await register({ email, password, name, org, role: role.toLowerCase() });
+      await register({ email, password, name });
       router.push('/onboarding');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
@@ -37,24 +45,14 @@ export default function SignupPage() {
 
   return (
     <AuthLayout
-      title="Create your organization"
-      subtitle="Register your organization and executive profile"
+      title="Create your account"
+      subtitle="Join your organization's OBA Core workspace"
       footer={<>Already have an account? <Link href="/login" style={{ color: 'var(--accent)' }}>Sign in</Link></>}
     >
       <form onSubmit={onSubmit}>
         <div style={{ marginBottom: '12px' }}>
           <label style={authLabelStyle}>Full name</label>
           <input style={authInputStyle} value={name} onChange={(e) => setName(e.target.value)} required placeholder="Jane Doe" />
-        </div>
-        <div style={{ marginBottom: '12px' }}>
-          <label style={authLabelStyle}>Organization</label>
-          <input style={authInputStyle} value={org} onChange={(e) => setOrg(e.target.value)} required placeholder="Acme Inc." />
-        </div>
-        <div style={{ marginBottom: '12px' }}>
-          <label style={authLabelStyle}>Executive role</label>
-          <select style={authInputStyle} value={role} onChange={(e) => setRole(e.target.value)}>
-            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
         </div>
         <div style={{ marginBottom: '12px' }}>
           <label style={authLabelStyle}>Email</label>

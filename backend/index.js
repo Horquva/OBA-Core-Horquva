@@ -37,9 +37,16 @@ app.use(requestLogger)
 
 const { requireAuth } = require('./middleware/auth')
 
-// Auth endpoints stay reachable without a token — register/login/reset-password
-// have to be, and GET /api/auth/me already gates itself with requireAuth.
+// Auth endpoints stay reachable without a token — register and login have to
+// be. Everything else in that router gates itself per-route (GET /me, POST
+// /logout, POST /change-password all name requireAuth), because mounting here
+// puts the whole router above the global gate below.
 app.use('/api/auth', require('./routes/auth/auth'))
+
+// OBA Core is single-tenant and no business table carries an org column, so a
+// second organization in app_users would silently share one dataset. Report it
+// loudly at boot; see lib/orgGuard.js for why this warns rather than exits.
+require('./lib/orgGuard').assertSingleTenant().catch(() => {})
 
 // Everything else under /api touches real org data — require a valid bearer token.
 app.use('/api', requireAuth)

@@ -1,10 +1,16 @@
 /*
  * OBA Core — Authentication routes (Identity Gateway, MVP).
  * Endpoints:
- *   POST /api/auth/register   { email, password, name?, role?, org? }
- *   POST /api/auth/login      { email, password }   -> { token, user }
- *   GET  /api/auth/me         (Bearer token)         -> { user }
- *   POST /api/auth/logout     (Bearer token)         -> { ok: true }
+ *   POST /api/auth/register        { email, password, name? }
+ *   POST /api/auth/login           { email, password }   -> { token, user }
+ *   GET  /api/auth/me              (Bearer token)         -> { user }
+ *   POST /api/auth/logout          (Bearer token)         -> { ok: true }
+ *   POST /api/auth/change-password (Bearer token)         -> { ok: true }
+ *
+ * This router is mounted ABOVE the global `app.use('/api', requireAuth)` gate
+ * in index.js, because login and register must be reachable without a token.
+ * That makes it the one router where protection has to be applied per-route.
+ * Any endpoint added here is PUBLIC unless it names requireAuth itself.
  *
  * Storage: Supabase table `app_users` (create it with sql/auth_schema.sql).
  * If the table is unavailable, the ADMIN_EMAIL/ADMIN_PASSWORD env fallback keeps
@@ -24,6 +30,16 @@ const { revoke } = require('../../lib/tokenBlocklist')
 // locked out by an attacker guessing their email).
 const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, keyField: 'email' })
 
+// /change-password has no email in its body by design, so it keys on the
+// authenticated subject instead. Without keyFn every caller would share one
+// `ip:unknown` bucket and a single user could lock out everyone behind the
+// same proxy IP.
+const changePasswordRateLimit = rateLimit({
+	windowMs: 15 * 60 * 1000,
+	max: 10,
+	keyFn: (req) => (req.user && (req.user.sub || req.user.email)) || null,
+})
+
 let supabase = null
 try {
 	supabase = require('../../supabase')
@@ -33,6 +49,27 @@ try {
 
 const SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
 const TTL = parseInt(process.env.TOKEN_TTL || '3600', 10)
+
+// OBA Core is single-tenant. Every account created through this router belongs
+// to this one organization; `org` is not accepted from callers. See
+// lib/orgGuard.js for the startup check that reports drift.
+const ORG_SLUG = process.env.ORG_SLUG || process.env.ADMIN_ORG || 'horquva'
+
+// Shortest password we will store. Deliberately modest — the threat this closes
+// is "password is empty or one character", not offline cracking (scrypt handles
+// that). Raising it would silently lock out anyone who already registered.
+const MIN_PASSWORD_LENGTH = 8
+
+// The role every self-registered account gets. Read from the environment, NOT
+// from the request — that distinction is the entire point. The signup form used
+// to offer an "Executive role" dropdown whose value became the token's role
+// claim, which the sidebar reads to decide which sections to show, so anyone
+// could hand themselves the executive experience by picking CEO.
+//
+// It stays configurable because a demo deployment needs new sign-ups to land
+// somewhere useful, and a shared operator-set default is not a privilege
+// escalation: the person choosing it already controls the deployment.
+const DEFAULT_USER_ROLE = process.env.DEFAULT_USER_ROLE || 'member'
 
 async function findUserByEmail(email) {
 	if (!supabase) return null
@@ -55,9 +92,17 @@ function publicUser(u) {
 }
 
 // -- REGISTER --------------------------------------------------
+// `role` and `org` are NOT read from the request. They used to be, which meant
+// POST /register {..., role:'admin'} minted an administrator on demand and made
+// any future requireRole() check decorative. Registration now creates an account
+// at the operator-configured DEFAULT_USER_ROLE in the single tenant; the sole
+// path to `admin` is the ADMIN_EMAIL/ADMIN_PASSWORD env fallback below.
 router.post('/register', async (req, res) => {
-	const { email, password: pass, name, role, org } = req.body || {}
+	const { email, password: pass, name } = req.body || {}
 	if (!email || !pass) return res.status(400).json({ error: 'email and password are required' })
+	if (String(pass).length < MIN_PASSWORD_LENGTH) {
+		return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` })
+	}
 	if (!supabase) return res.status(503).json({ error: 'User store not configured. Set up the Supabase app_users table.' })
 
 	try {
@@ -66,7 +111,7 @@ router.post('/register', async (req, res) => {
 
 		const { data, error } = await supabase
 			.from('app_users')
-			.insert([{ email, name: name || null, role: role || 'member', org: org || null, password_hash: password.hash(pass) }])
+			.insert([{ email, name: name || null, role: DEFAULT_USER_ROLE, org: ORG_SLUG, password_hash: password.hash(pass) }])
 			.select('*')
 			.single()
 		if (error) throw new Error(error.message)
@@ -117,30 +162,58 @@ router.post('/logout', requireAuth, (req, res) => {
 	res.json({ ok: true })
 })
 
-// -- RESET PASSWORD (MVP) --------------------------------------
-// KNOWN GAP: this takes only email + new password — no token/OTP proving the
-// caller actually owns the mailbox, so anyone who knows a user's email can
-// take over their account. Closing that needs a real email-delivery flow
-// (issue a signed reset token, email it, verify it here) which this repo has
-// no infrastructure for yet (no mail service configured anywhere). Rate
-// limiting below reduces the blast radius in the meantime but does not close
-// the gap — do not treat this endpoint as secured.
-router.post('/reset-password', authRateLimit, async (req, res) => {
-	const { email, password: newPass } = req.body || {}
-	if (!email || !newPass) return res.status(400).json({ error: 'email and password are required' })
+// -- CHANGE PASSWORD -------------------------------------------
+// Replaces the former POST /reset-password, which took { email, password } and
+// overwrote that account's hash with no proof the caller owned the mailbox —
+// knowing any registered address was enough to take the account over.
+//
+// The fix is not "also check the old password". It is that the request no
+// longer names a subject at all: the account changed is req.user.sub, read
+// from the verified token, so there is no victim-selection parameter left to
+// abuse. Supplying the current password on top defends the remaining case, an
+// attacker holding a token they stole from an unattended session.
+//
+// This does NOT restore forgotten-password recovery, which needs a real
+// email-delivery flow (signed token -> mailbox -> verify). Until that exists an
+// admin resets a locked-out user directly in Supabase. Offering nothing is
+// honest; offering the old endpoint was not.
+router.post('/change-password', requireAuth, changePasswordRateLimit, async (req, res) => {
+	const { currentPassword, newPassword } = req.body || {}
+	if (!currentPassword || !newPassword) {
+		return res.status(400).json({ error: 'currentPassword and newPassword are required' })
+	}
+	if (String(newPassword).length < MIN_PASSWORD_LENGTH) {
+		return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` })
+	}
+	if (String(newPassword) === String(currentPassword)) {
+		return res.status(400).json({ error: 'New password must be different from the current one' })
+	}
 	if (!supabase) return res.status(503).json({ error: 'User store not configured. Set up the Supabase app_users table.' })
 
 	try {
-		const user = await findUserByEmail(email)
-		if (!user) return res.status(404).json({ error: 'No account found for that email' })
+		// Identity comes from the token, never from the body.
+		const user = await findUserByEmail(req.user.email)
+		if (!user) {
+			// A valid token for an account that no longer exists — e.g. the
+			// env-admin fallback, which has no app_users row to update.
+			return res.status(404).json({ error: 'This account has no stored password to change' })
+		}
+
+		if (!password.verify(currentPassword, user.password_hash)) {
+			return res.status(401).json({ error: 'Current password is incorrect' })
+		}
 
 		const { error } = await supabase
 			.from('app_users')
-			.update({ password_hash: password.hash(newPass) })
-			.eq('email', email)
+			.update({ password_hash: password.hash(newPassword) })
+			.eq('id', user.id)
 		if (error) throw new Error(error.message)
 
-		return res.json({ ok: true, message: 'Password updated. You can now sign in with your new password.' })
+		// Retire the token that authorised the change. If it was stolen, the
+		// thief loses it the moment the real owner rotates their password.
+		revoke(req.user.jti, req.user.exp)
+
+		return res.json({ ok: true, message: 'Password updated. Please sign in again.' })
 	} catch (err) {
 		return res.status(500).json({ error: err.message })
 	}

@@ -982,6 +982,30 @@ export const signalApi = {
   drilldown: (entityName: string) => request<SignalDrilldownResponse>(`/api/signals/drilldown/${entityName}`),
 };
 
+// ─── Auth  (/api/auth)  — LIVE ───────────────────────────────────────────────
+// Login and register stay in AuthContext, because they run before a token
+// exists and their whole job is to produce one. Everything here is an
+// authenticated call and belongs on the shared client like any other.
+
+export interface ChangePasswordResponse {
+  ok: boolean;
+  message: string;
+}
+
+export const authApi = {
+  /**
+   * Changes the signed-in user's own password. Takes no email: the account is
+   * whichever one the bearer token identifies, so there is no way to aim this
+   * at somebody else. The server revokes the current token on success, so the
+   * caller must send the user back to /login afterwards.
+   */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<ChangePasswordResponse>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+};
+
 // ─── Health Check Utility ────────────────────────────────────────────────────
 
 export const API_BASE = BASE;

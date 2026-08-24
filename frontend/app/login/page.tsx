@@ -50,9 +50,13 @@ export default function LoginPage() {
             </button>
           </div>
         </div>
-        <div style={{ textAlign: 'right', marginBottom: '10px' }}>
-          <Link href="/forgot-password" style={{ fontSize: '12.5px', color: 'var(--text-tertiary)' }}>Forgot password?</Link>
-        </div>
+        {/* No "Forgot password?" link. Self-service recovery needs a mailbox
+            round-trip this deployment has no mail service for; the endpoint
+            that used to sit behind this link let anyone overwrite any account's
+            password from the email address alone. A locked-out user is reset by
+            an admin until a real flow exists. Signed-in users change their own
+            password at /account. */}
+        <div style={{ marginBottom: '10px' }} />
         {error && <p style={{ color: '#ef4444', fontSize: '13px', margin: '0 0 10px' }}>{error}</p>}
         <button style={{ ...authButtonStyle, opacity: busy ? 0.7 : 1 }} type="submit" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
       </form>

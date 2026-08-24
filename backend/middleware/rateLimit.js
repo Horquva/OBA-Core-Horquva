@@ -5,15 +5,22 @@
  * spamming requests that share only the IP, and can't dodge the limit by
  * rotating the email on a fixed IP either — both must match to count.
  *
+ * `keyField` reads the identifier out of the request BODY, which only works
+ * for endpoints that name their subject there (login, register). Authenticated
+ * endpoints deliberately don't — /auth/change-password takes its identity from
+ * the token precisely so the body can't name a victim — so those pass `keyFn`
+ * instead and key on req.user. Without it every authenticated caller would
+ * collapse into a single shared `ip:unknown` bucket.
+ *
  * Not durable across restarts and not shared across processes — acceptable
  * for a single-instance MVP; swap for a real store (Redis) before scaling out.
  */
 
 const buckets = new Map() // key -> { count, resetAt }
 
-function rateLimit({ windowMs = 15 * 60 * 1000, max = 10, keyField = 'email' } = {}) {
+function rateLimit({ windowMs = 15 * 60 * 1000, max = 10, keyField = 'email', keyFn = null } = {}) {
   return (req, res, next) => {
-    const identifier = (req.body && req.body[keyField]) || 'unknown'
+    const identifier = keyFn ? (keyFn(req) || 'unknown') : ((req.body && req.body[keyField]) || 'unknown')
     const key = `${req.ip}:${identifier}`
     const now = Date.now()
 

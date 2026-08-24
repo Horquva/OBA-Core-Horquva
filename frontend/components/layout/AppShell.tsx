@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/AuthContext';
 import GlobalNotificationPanel from '@/components/global/GlobalNotificationPanel';
 import GlobalSearchOverlay from '@/components/global/GlobalSearchOverlay';
 
-const AUTH_ROUTES = ['/login', '/signup', '/forgot-password'];
+const AUTH_ROUTES = ['/login', '/signup'];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

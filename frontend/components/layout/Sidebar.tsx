@@ -24,6 +24,7 @@ import {
   Bell,
   Search,
   LogOut,
+  KeyRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
@@ -397,6 +398,28 @@ export function Sidebar() {
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
+
+          {/* Account — change your own password. Ungated: every signed-in user
+              has one, whatever their role. */}
+          <Link
+            href="/account"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              backgroundColor: pathname === '/account' ? 'var(--bg-hover)' : 'transparent',
+              border: '1px solid transparent',
+              color: pathname === '/account' ? 'var(--accent)' : 'var(--text-secondary)',
+              transition: 'all 0.2s ease',
+              flexShrink: 0,
+            }}
+            aria-label="Account settings"
+          >
+            <KeyRound size={16} />
+          </Link>
 
           {/* Logout Button */}
           <button

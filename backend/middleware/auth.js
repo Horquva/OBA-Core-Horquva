@@ -13,10 +13,13 @@ const { isRevoked } = require('../lib/tokenBlocklist')
 
 const SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
 
+// Authorization header ONLY. A `?token=` query fallback used to be accepted
+// here; it was removed because query strings land in access logs, proxy logs
+// and Referer headers, which turns every logged request into a credential
+// leak. Nothing in the frontend ever used it.
 function extractToken(req) {
 	const h = req.headers.authorization || ''
 	if (h.startsWith('Bearer ')) return h.slice(7)
-	if (req.query && req.query.token) return String(req.query.token)
 	return null
 }
 
