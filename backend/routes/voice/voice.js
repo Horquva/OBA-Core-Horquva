@@ -58,13 +58,13 @@ async function buildBrain() {
       type: 'agent',
       status: a.status,
       risk: a.criticality,
-      riskScore: pred ? pred.predicted_score : RISK_SCORE[a.criticality] || 40,
-      threatLevel: pred ? pred.threat_level : String(a.criticality || 'medium').toUpperCase(),
+      riskScore: pred ? pred.predictedScore : RISK_SCORE[a.criticality] || 40,
+      threatLevel: pred ? pred.threatLevel : String(a.criticality || 'medium').toUpperCase(),
       owner: a.owner,
       department: a.department,
       backup: a.backup_owner,
       documented: !!a.documented,
-      emerging: pred ? !!pred.is_emerging_threat : false,
+      emerging: pred ? !!pred.isEmergingThreat : false,
       reasons: pred ? pred.reasons : reasonsFor({ backup: a.backup_owner, documented: a.documented, status: a.status }),
       onlyRestorer: a.status === 'failed' && !a.backup_owner ? a.owner : null,
     }
@@ -101,7 +101,6 @@ async function buildBrain() {
       name: h.entityName,
       department: null,
       role: null,
-      resolutionCount: null,
       riskLevel: h.severity,
       description: h.description,
       criticalAgents: ownedCritCount[h.entityName] || 0,
@@ -201,7 +200,7 @@ function topRiskAgent(brain) {
 }
 
 function mostLoadedPerson(brain) {
-  return [...brain.people].sort((a, b) => b.resolutionCount - a.resolutionCount)[0] || null
+  return [...brain.people].sort((a, b) => b.criticalAgents - a.criticalAgents)[0] || null
 }
 
 // ─────────────────────────────────────────────
@@ -257,7 +256,7 @@ function orgBiggestRisk(brain) {
 function orgOverloaded(brain) {
   const p = mostLoadedPerson(brain)
   if (!p) return "I don't have enough data to identify who's most overloaded right now."
-  return `${p.name}${p.department ? ` (${p.department})` : ''} carries the most key-person risk — they've personally resolved ${p.resolutionCount} critical incidents, with ${p.criticalAgents} critical asset(s) under their ownership. ${p.description || ''}`.trim()
+  return `${p.name}${p.department ? ` (${p.department})` : ''} carries the most key-person risk — they own ${p.criticalAgents} critical asset(s) with no backup coverage. ${p.description || ''}`.trim()
 }
 
 function orgStatus(brain) {
@@ -304,7 +303,7 @@ function orgRestore(brain) {
 
 function orgPeople(brain) {
   if (!brain.people.length) return "I don't have hero-dependency data on record right now."
-  const list = brain.people.slice(0, 3).map((p) => `${p.name} (${p.resolutionCount} resolved incidents)`).join(', ')
+  const list = brain.people.slice(0, 3).map((p) => `${p.name} (${p.criticalAgents} critical asset(s))`).join(', ')
   const top = mostLoadedPerson(brain)
   return `The people carrying the most key-person risk are: ${list}.${top ? ` ${top.name} carries the most load overall.` : ''}`
 }
@@ -321,7 +320,7 @@ function dailySummary(brain) {
   const parts = []
   if (brain.org.spof) parts.push(`${brain.org.spof} has no backup owner (CRITICAL SPOF).`)
   const top = mostLoadedPerson(brain)
-  if (top) parts.push(`${top.name} carries the most key-person risk, with ${top.resolutionCount} critical incidents personally resolved.`)
+  if (top) parts.push(`${top.name} carries the most key-person risk, owning ${top.criticalAgents} critical asset(s) with no backup.`)
   if (brain.org.failing) {
     const f = brain.agents.find((a) => a.name === brain.org.failing)
     parts.push(`${brain.org.failing} remains in a FAILED state${f?.onlyRestorer ? ` — ${f.onlyRestorer} is the only person who can restore it` : ''}.`)
@@ -357,7 +356,7 @@ function answerQuery(rawQuery, brain) {
   const person = findPerson(brain, q)
   if (person) {
     const top = mostLoadedPerson(brain)
-    const ans = `${person.name}${person.department ? ` is from ${person.department}` : ''}. They've personally resolved ${person.resolutionCount} critical incidents and own ${person.criticalAgents} critical asset(s).${top && person.name === top.name ? ' They currently carry the most key-person risk in the organization.' : ''}`
+    const ans = `${person.name}${person.department ? ` is from ${person.department}` : ''}. They own ${person.criticalAgents} critical asset(s) with no backup coverage.${top && person.name === top.name ? ' They currently carry the most key-person risk in the organization.' : ''}`
     return { intent: 'person', entity: null, entityType: 'person', answer: ans, confidence: 'HIGH' }
   }
 
