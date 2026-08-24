@@ -3,7 +3,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { LineChart } from "../src/charts/LineChart";
 import { OrganizationalGraph } from "../src/graphs/OrganizationalGraph";
@@ -159,5 +159,141 @@ describe("Visualization component library", () => {
     expect(screen.getByText("Quarterly review")).toBeInTheDocument();
     expect(screen.getByText("Actor: Hazam")).toBeInTheDocument();
     expect(screen.getByText("Confidence: 95%")).toBeInTheDocument();
+  });
+
+  it("sorts memory events chronologically and filters them", () => {
+    render(
+      <MemoryTimeline
+        accessibleLabel="Filterable memory timeline"
+        events={[
+          {
+            id: "event-3",
+            timestamp: "2026-08-20T10:00:00Z",
+            title: "Release approved",
+            category: "release",
+            source: "GitHub",
+          },
+          {
+            id: "event-1",
+            timestamp: "2026-08-05T10:00:00Z",
+            title: "Planning meeting",
+            category: "meeting",
+            source: "Calendar",
+          },
+          {
+            id: "event-2",
+            timestamp: "2026-08-12T10:00:00Z",
+            title: "Design review",
+            category: "review",
+            source: "WOBA",
+          },
+        ]}
+      />,
+    );
+
+    const timeline = screen.getByRole("list", {
+      name: "Chronological memory events",
+    });
+
+    expect(timeline).toHaveTextContent(
+      /Planning meeting.*Design review.*Release approved/,
+    );
+
+    fireEvent.change(screen.getByLabelText("Search memory timeline"), {
+      target: { value: "WOBA" },
+    });
+
+    expect(screen.getByText("Design review")).toBeInTheDocument();
+    expect(screen.queryByText("Planning meeting")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    fireEvent.change(
+      screen.getByLabelText("Filter timeline by category"),
+      { target: { value: "release" } },
+    );
+
+    expect(screen.getByText("Release approved")).toBeInTheDocument();
+    expect(screen.queryByText("Design review")).not.toBeInTheDocument();
+  });
+
+  it("filters memory events by date range and scrubber position", () => {
+    render(
+      <MemoryTimeline
+        accessibleLabel="Temporal memory timeline"
+        events={[
+          {
+            id: "event-1",
+            timestamp: "2026-08-01T12:00:00Z",
+            title: "August started",
+          },
+          {
+            id: "event-2",
+            timestamp: "2026-08-15T12:00:00Z",
+            title: "Mid-month review",
+          },
+          {
+            id: "event-3",
+            timestamp: "2026-08-30T12:00:00Z",
+            title: "Month completed",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Filter timeline from date"), {
+      target: { value: "2026-08-10" },
+    });
+    fireEvent.change(screen.getByLabelText("Filter timeline until date"), {
+      target: { value: "2026-08-30" },
+    });
+
+    expect(screen.queryByText("August started")).not.toBeInTheDocument();
+    expect(screen.getByText("Mid-month review")).toBeInTheDocument();
+    expect(screen.getByText("Month completed")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Scrub through timeline events"), {
+      target: { value: "50" },
+    });
+
+    expect(screen.getByText("Mid-month review")).toBeInTheDocument();
+    expect(screen.queryByText("Month completed")).not.toBeInTheDocument();
+  });
+
+  it("exposes confidence, provenance, and event selection accessibly", () => {
+    const onEventSelect = vi.fn();
+
+    render(
+      <MemoryTimeline
+        accessibleLabel="Accessible memory timeline"
+        onEventSelect={onEventSelect}
+        events={[
+          {
+            id: "event-1",
+            timestamp: "2026-08-09T10:00:00Z",
+            title: "Verified decision",
+            source: "Decision log",
+            confidence: 0.82,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTitle("Event provenance or source")).toHaveTextContent(
+      "Source: Decision log",
+    );
+    expect(
+      screen.getByRole("progressbar", {
+        name: "Verified decision confidence",
+      }),
+    ).toHaveAttribute("aria-valuenow", "82");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Verified decision/ }),
+    );
+
+    expect(onEventSelect).toHaveBeenCalledTimes(1);
+    expect(onEventSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "event-1" }),
+    );
   });
 });
