@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { fetchApi } from '../../services/api';
 import { SimulationDashboard } from '../../components/simulation/SimulationDashboard';
 import { SimulationUniverseRanking } from '../../components/simulation/SimulationUniverseRanking';
 import { TwinHealthIndex } from '../../components/simulation/TwinHealthIndex';
@@ -16,21 +17,10 @@ export default function SimulationPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => {
-        if (!r.ok) throw new Error('Failed to load agents');
-        return r.json();
-      }),
-      fetch(`${base}/api/dependencies`).then(r => {
-        if (!r.ok) throw new Error('Failed to load dependencies');
-        return r.json();
-      }),
-      fetch(`${base}/api/tools`).then(r => {
-        if (!r.ok) throw new Error('Failed to load tools');
-        return r.json();
-      })
+      fetchApi<any[]>('/api/agents'),
+      fetchApi<{ dependencies: any[] }>('/api/dependencies'),
+      fetchApi<any[]>('/api/tools')
     ])
     .then(([agentsData, depsData, toolsData]) => {
       const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
@@ -43,7 +33,7 @@ export default function SimulationPage() {
         documented: true,
       })) : [];
 
-      const mappedDeps: Dependency[] = Array.isArray(depsData.dependencies) 
+      const mappedDeps: Dependency[] = Array.isArray(depsData?.dependencies) 
         ? depsData.dependencies
           .filter((d: any) => d.source_type === 'agent' && d.target_type === 'agent')
           .map((d: any) => ({
@@ -72,6 +62,7 @@ export default function SimulationPage() {
     });
   }, []);
 
+  // Visual Guard 1: LOADING
   if (loading) {
     return (
       <div className="flex flex-col gap-8 pb-12 animate-pulse mt-8 px-6 md:px-10 max-w-7xl w-full mx-auto">
@@ -81,19 +72,31 @@ export default function SimulationPage() {
           <div className="h-48 bg-[var(--border-subtle)] rounded-xl"></div>
           <div className="h-48 bg-[var(--border-subtle)] rounded-xl"></div>
         </div>
-        <div className="h-[400px] w-full bg-[var(--border-subtle)] rounded-xl"></div>
       </div>
     );
   }
 
+  // Visual Guard 2: FAILED / UNAVAILABLE
   if (error) {
     return (
       <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 max-w-7xl mx-auto">
-        Failed to load simulation environment: {error || 'Unknown error'}
+        <h3 className="font-semibold text-lg mb-2">Backend Connection Unavailable</h3>
+        <p className="text-sm opacity-80">{error}</p>
       </div>
     );
   }
 
+  // Visual Guard 3: EMPTY DATASET
+  if (agents.length === 0) {
+    return (
+      <div className="p-12 text-center bg-zinc-900/50 border border-zinc-800 rounded-xl mt-10 max-w-7xl mx-auto">
+        <h3 className="text-zinc-300 font-medium text-lg mb-1">No Simulation Data Available</h3>
+        <p className="text-zinc-500 text-sm">Backend returned an empty dataset. No active agents found.</p>
+      </div>
+    );
+  }
+
+  // Visual Guard 4: DATA READY
   return (
     <div className="flex flex-col gap-8 pb-12 animate-in fade-in duration-500">
       <div style={{ height: 'calc(100vh - 2rem)' }}>
@@ -104,14 +107,12 @@ export default function SimulationPage() {
         />
       </div>
 
-      {/* Twin Controls */}
       <div className="px-6 md:px-10 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
         <TwinHealthIndex agents={agents} />
         <TwinSyncStatus agents={agents} tools={tools} />
         <ScenarioSandbox agents={agents} dependencies={dependencies} tools={tools} />
       </div>
 
-      {/* Full universe ranking — every entity ranked by survivability */}
       <div className="px-6 md:px-10 max-w-7xl w-full mx-auto">
         <SimulationUniverseRanking
           agents={agents}
