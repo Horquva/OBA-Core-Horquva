@@ -467,8 +467,21 @@ console.log('\nDecision quality and org health:')
 	})
 	const q = d.decisionQuality(r)
 	check('undecided decisions are excluded, not counted as wins', q.decisionsWithOutcome === 2 && q.score === 50, q)
-	check('an empty log is not scored as perfect', d.decisionQuality(roots()).score === 50)
-	check('...and says it has no evidence', d.decisionQuality(roots()).hasEvidence === false)
+	check('2 of 3 decisions have an outcome (67%) — evidence is sufficient', q.evidence.sufficient === true, q.evidence)
+
+	const empty = d.decisionQuality(roots())
+	check('an empty log is insufficient evidence, not a fabricated WEAK/50', empty.evidence.sufficient === false && empty.score === null && empty.rating === null, empty)
+	check('...hasEvidence is gone, replaced by evidence', !('hasEvidence' in empty), empty)
+
+	const mostlyPending = roots({
+		decision_history: [
+			{ id: 1, outcome: 'positive', should_revisit: false },
+			{ id: 2, outcome: null, should_revisit: false },
+			{ id: 3, outcome: null, should_revisit: false },
+		],
+	})
+	const under = d.decisionQuality(mostlyPending)
+	check('1 of 3 decided (33%) is below the 50% threshold', under.evidence.sufficient === false, under.evidence)
 }
 
 // ── Org health ───────────────────────────────────────────────────────────────

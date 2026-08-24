@@ -926,16 +926,17 @@ function pillars(roots, accountabilityResult) {
 function decisionQuality(roots) {
   const decided = roots.decision_history.filter((d) => d.outcome)
   const negative = decided.filter((d) => d.outcome === 'negative').length
+  const evidence = evidenceGate(roots.decision_history, (d) => d.outcome != null)
   const score = decided.length ? clamp(round(pct(decided.length - negative, decided.length))) : 50
 
   return {
-    score,
-    rating: band(score),
+    score: evidence.sufficient ? score : null,
+    rating: evidence.sufficient ? band(score) : null,
     decisionsRecorded: roots.decision_history.length,
     decisionsWithOutcome: decided.length,
     negativeOutcomes: negative,
     flaggedForRevisit: roots.decision_history.filter((d) => d.should_revisit).length,
-    hasEvidence: decided.length > 0,
+    evidence,
     ...provenance({ decision_history: roots._counts.decision_history }),
   }
 }
