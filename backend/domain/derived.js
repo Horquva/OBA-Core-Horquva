@@ -1005,10 +1005,27 @@ function orgHealth(roots, { accountability: acc, predictiveRisk: risk }) {
     : 0
   const incidentLoadScore = clamp(round(100 - failuresPerWorkflow * INCIDENT_LOAD_PENALTY_PER_FAILURE))
 
-  const healthIndex = round(mean([
+  const documentationEvidence = evidenceGate(roots.knowledge_assets, () => true)
+  const continuityEvidence = combineEvidence({
+    workflows: evidenceGate(roots.workflows, () => true),
+    owners: evidenceGate(roots.owners, () => true),
+  })
+  const ownershipSpreadEvidence = evidenceGate(roots.agents, (a) => a.owner_id != null)
+  const criticalSafetyEvidence = evidenceGate(roots.agents, () => true)
+  const incidentLoadEvidence = evidenceGate(roots.workflows, () => true)
+
+  const evidence = combineEvidence({
+    documentation: documentationEvidence,
+    continuity: continuityEvidence,
+    ownershipSpread: ownershipSpreadEvidence,
+    criticalSafety: criticalSafetyEvidence,
+    incidentLoad: incidentLoadEvidence,
+  })
+
+  const healthIndex = evidence.sufficient ? round(mean([
     documentationScore, continuityScore, ownershipSpreadScore,
     criticalSafetyScore, incidentLoadScore,
-  ]))
+  ])) : null
 
   const now = new Date()
   const snapshotMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
@@ -1016,13 +1033,14 @@ function orgHealth(roots, { accountability: acc, predictiveRisk: risk }) {
   return {
     snapshotMonth,
     healthIndex,
-    healthStatus: healthIndex >= 70 ? 'STABLE' : healthIndex >= 45 ? 'WARNING' : 'CRITICAL',
-    documentationScore,
-    continuityScore,
-    ownershipSpreadScore,
-    criticalSafetyScore,
-    incidentLoadScore,
+    healthStatus: !evidence.sufficient ? null : (healthIndex >= 70 ? 'STABLE' : healthIndex >= 45 ? 'WARNING' : 'CRITICAL'),
+    documentationScore: documentationEvidence.sufficient ? documentationScore : null,
+    continuityScore: continuityEvidence.sufficient ? continuityScore : null,
+    ownershipSpreadScore: ownershipSpreadEvidence.sufficient ? ownershipSpreadScore : null,
+    criticalSafetyScore: criticalSafetyEvidence.sufficient ? criticalSafetyScore : null,
+    incidentLoadScore: incidentLoadEvidence.sufficient ? incidentLoadScore : null,
     accountabilityScore: acc.accountabilityScore,
+    evidence,
     ...provenance({
       knowledge_assets: roots._counts.knowledge_assets,
       workflow_runbooks: roots._counts.workflow_runbooks,

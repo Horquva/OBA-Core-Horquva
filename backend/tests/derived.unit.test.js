@@ -513,6 +513,44 @@ console.log('\nDecision quality and org health:')
 	check('one failure per workflow does not pin incident load to zero', h.incidentLoadScore > 0 && h.incidentLoadScore < 100, h.incidentLoadScore)
 }
 
+// ── Org health evidence gate (D-07, D-10, D-24) ─────────────────────────────
+console.log('\nOrg health — evidence gate:')
+{
+	const empty = d.orgHealth(roots(), { accountability: d.accountability(roots()), predictiveRisk: d.predictiveRisk(roots()) })
+	check('fully empty roots is insufficient evidence on every dimension',
+		empty.evidence.sufficient === false &&
+		empty.healthIndex === null && empty.healthStatus === null &&
+		empty.documentationScore === null && empty.continuityScore === null &&
+		empty.ownershipSpreadScore === null && empty.criticalSafetyScore === null &&
+		empty.incidentLoadScore === null, empty)
+
+	// D-24: zero agents-with-owners used to fabricate a perfect ownershipSpreadScore of 100.
+	const noOwnedAgents = roots({
+		agents: [{ id: 1, name: 'A1', risk: 'low', status: 'active', owner_id: null }],
+	})
+	const h = d.orgHealth(noOwnedAgents, { accountability: d.accountability(noOwnedAgents), predictiveRisk: d.predictiveRisk(noOwnedAgents) })
+	check('an agent exists but nobody owns anything — ownershipSpreadScore is insufficient, not a fabricated 100',
+		h.evidence.ownershipSpread.sufficient === false && h.ownershipSpreadScore === null, h)
+
+	// One dimension insufficient (no owners at all -> continuity fails) does not null out
+	// a sibling dimension whose own population (agents) is fine.
+	const r = roots({
+		workflows: [{ id: 1, name: 'W', risk: 'low' }],
+		workflow_runbooks: [{ workflow_id: 1, is_documented: true }],
+		workflow_failures: [],
+		agents: [{ id: 1, name: 'A1', risk: 'low', status: 'active', owner_id: 10 }],
+		knowledge_assets: [{ asset_type: 'agent', asset_id: 1, is_documented: true, owner_id: 1 }],
+		owners: [],
+	})
+	const h2 = d.orgHealth(r, { accountability: d.accountability(r), predictiveRisk: d.predictiveRisk(r) })
+	check('continuity is insufficient (zero owners) while documentation and criticalSafety stay evidenced',
+		h2.evidence.continuity.sufficient === false &&
+		h2.evidence.documentation.sufficient === true &&
+		h2.evidence.criticalSafety.sufficient === true, h2.evidence)
+	check('...but healthIndex/healthStatus are still null overall, since one dimension failed',
+		h2.healthIndex === null && h2.healthStatus === null, h2)
+}
+
 // ── Org health by department ─────────────────────────────────────────────────
 console.log('\nOrg health by department — same formula, narrower population (D-21):')
 {
