@@ -12,7 +12,7 @@ class SignalCarousel extends StatefulWidget {
   const SignalCarousel({
     super.key,
     required this.cards,
-    this.height = 310,
+    this.height = 280,
   });
 
   /// The cards to swipe through.

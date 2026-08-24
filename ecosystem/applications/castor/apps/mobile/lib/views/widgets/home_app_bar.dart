@@ -58,8 +58,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
               // icon if the asset is missing.
               Image.asset(
                 'assets/images/castor_mark.png',
-                width: 44,
-                height: 44,
+                width: 34,
+                height: 34,
                 errorBuilder: (context, error, stackTrace) => const Icon(
                   AppIcons.castor,
                   color: AppColors.primary,
@@ -144,14 +144,16 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     final Widget picture = avatarImage != null
         // The user's profile picture.
-        ? Image(image: avatarImage!, width: size, height: size, fit: BoxFit.cover)
+        ? Image(
+            image: avatarImage!, width: size, height: size, fit: BoxFit.cover)
         // No DP set — show the default image (falls back to initials).
         : Image.asset(
             'assets/images/default_avatar.png',
             width: size,
             height: size,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => _initialsFallback(size),
+            errorBuilder: (context, error, stackTrace) =>
+                _initialsFallback(size),
           );
 
     return AdaptiveTap(

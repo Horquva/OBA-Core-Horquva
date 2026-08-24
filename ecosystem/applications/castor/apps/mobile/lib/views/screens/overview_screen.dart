@@ -8,7 +8,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../viewmodels/overview_view_model.dart';
-import '../widgets/app_text_field.dart';
+import '../widgets/ask_castor_card.dart';
 import '../widgets/briefing_card.dart';
 import '../widgets/home_app_bar.dart';
 import '../widgets/signal_carousel.dart';
@@ -90,56 +90,68 @@ class _OverviewView extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
+            // const SizedBox(width: AppSpacing.sm),
             // Transparent-background art floats directly on the app cream, so
             // there is no box and no background colour to match. Raised a little
             // so its top sits just above the greeting line.
+            // The art paints 200 tall but only reserves ~120 in layout (it
+            // overflows downward beside the stats), so there is no dead space
+            // under the greeting. Raised a little so its top is above the line.
             Transform.translate(
-              offset: const Offset(0, -28),
-              child: Image.asset(
-                'assets/images/greeting_art.png',
+              offset: const Offset(0, -20),
+              child: SizedBox(
                 width: 170,
-                height: 200,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox.shrink(),
+                height: 120,
+                child: OverflowBox(
+                  minWidth: 170,
+                  maxWidth: 170,
+                  minHeight: 200,
+                  maxHeight: 200,
+                  alignment: Alignment.topCenter,
+                  child: Image.asset(
+                    'assets/images/greeting_art.png',
+                    width: 170,
+                    height: 200,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox.shrink(),
+                  ),
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
 
-        // KPI stats — pulled up a little into the space beside the art, and
-        // compact/left-aligned so they end before the right edge.
-        Transform.translate(
-          offset: const Offset(0, -28),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: 0.8,
-            child: Row(
-              children: [
-                for (int i = 0; i < vm.stats.length; i++) ...[
-                  if (i > 0)
-                    Container(
-                      width: 1,
-                      height: 36,
-                      color: AppColors.border,
-                    ),
-                  Expanded(
-                    child: StatItem(
-                      icon: vm.stats[i].icon,
-                      iconColor: vm.stats[i].iconColor,
-                      value: vm.stats[i].value,
-                      label: vm.stats[i].label,
-                      valueStyle: AppTypography.headingMedium,
-                    ),
+        // KPI stats — compact and left-aligned so they end before the right
+        // edge. They sit high beside the art because the art reserves little
+        // vertical space (see the OverflowBox above).
+        FractionallySizedBox(
+          alignment: Alignment.centerLeft,
+          widthFactor: 0.8,
+          child: Row(
+            children: [
+              for (int i = 0; i < vm.stats.length; i++) ...[
+                if (i > 0)
+                  Container(
+                    width: 1,
+                    height: 36,
+                    color: AppColors.border,
                   ),
-                ],
+                Expanded(
+                  child: StatItem(
+                    icon: vm.stats[i].icon,
+                    iconColor: vm.stats[i].iconColor,
+                    value: vm.stats[i].value,
+                    label: vm.stats[i].label,
+                    valueStyle: AppTypography.headingMedium,
+                  ),
+                ),
               ],
-            ),
+            ],
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
 
         // Status pills — side by side in one row. Smaller text so they fit;
         // if a label is still too long it ellipsises instead of overflowing.
@@ -198,12 +210,10 @@ class _OverviewView extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xl),
 
-        // Ask Castor input.
-        Text('Ask Castor', style: AppTypography.titleMedium),
-        const SizedBox(height: AppSpacing.sm),
-        const AppTextField(
-          hintText: 'Ask anything about your organization...',
-          type: AppTextFieldType.ask,
+        // Ask Castor card (AI prompt).
+        AskCastorCard(
+          onSend: () {},
+          onMic: () {},
         ),
       ],
     );

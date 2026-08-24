@@ -52,9 +52,14 @@ class SignalHighlightCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        // A light tint of the severity colour (critical = light red,
+        // important = light amber, etc.) over the surface.
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.07),
+          AppColors.surface,
+        ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Stack(
         children: [
@@ -65,14 +70,28 @@ class SignalHighlightCard extends StatelessWidget {
             bottom: 0,
             child: Center(
               child: Container(
-                width: 108,
-                height: 108,
+                width: 104,
+                height: 104,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.08),
+                  color: AppColors.surface,
                   shape: BoxShape.circle,
+                  // Raised medallion: a soft severity-tinted glow plus a
+                  // neutral shadow so the icon reads as a floating card.
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.22),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10),
+                    ),
+                    const BoxShadow(
+                      color: AppColors.shadow,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Icon(logo, color: color, size: 84),
+                child: Icon(logo, color: color, size: 58),
               ),
             ),
           ),
