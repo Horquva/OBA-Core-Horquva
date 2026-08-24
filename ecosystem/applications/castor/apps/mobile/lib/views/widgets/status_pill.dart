@@ -18,6 +18,7 @@ class StatusPill extends StatelessWidget {
     this.icon,
     this.dotColor = AppColors.success,
     this.showChevron = false,
+    this.labelStyle,
     this.onTap,
   });
 
@@ -32,6 +33,10 @@ class StatusPill extends StatelessWidget {
 
   /// Whether to show a dropdown arrow on the right.
   final bool showChevron;
+
+  /// Optional text style for the label (default: label). Use a smaller style
+  /// to fit two pills side by side.
+  final TextStyle? labelStyle;
 
   /// Optional tap callback (e.g. to open a menu or refresh). Null = not tappable.
   final VoidCallback? onTap;
@@ -64,7 +69,7 @@ class StatusPill extends StatelessWidget {
         customBorder: shape,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
+            horizontal: AppSpacing.md,
             vertical: AppSpacing.md,
           ),
           child: Row(
@@ -73,10 +78,16 @@ class StatusPill extends StatelessWidget {
             children: [
               leading,
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                label,
-                style:
-                    AppTypography.label.copyWith(color: AppColors.textPrimary),
+              // Flexible + ellipsis so the pill shrinks gracefully when its
+              // width is constrained (e.g. two pills side by side in a Row).
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: (labelStyle ?? AppTypography.label)
+                      .copyWith(color: AppColors.textPrimary),
+                ),
               ),
               if (showChevron) ...[
                 const SizedBox(width: AppSpacing.xs),

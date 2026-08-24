@@ -15,7 +15,9 @@ class StatItem extends StatelessWidget {
     required this.value,
     required this.label,
     this.icon,
+    this.iconColor,
     this.valueColor,
+    this.valueStyle,
   });
 
   /// The big number or text, e.g. "12,481".
@@ -27,9 +29,16 @@ class StatItem extends StatelessWidget {
   /// Optional small icon shown before the value.
   final IconData? icon;
 
+  /// Optional colour for the icon (default: muted grey).
+  final Color? iconColor;
+
   /// Optional colour for the value text. When null, the default text colour
   /// from the typography style is used.
   final Color? valueColor;
+
+  /// Optional text style for the value (default: headingLarge). Use a smaller
+  /// style for a more compact stat.
+  final TextStyle? valueStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -48,14 +57,19 @@ class StatItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: iconSize, color: AppColors.textSecondary),
+              Icon(
+                icon,
+                size: iconSize,
+                color: iconColor ?? AppColors.textSecondary,
+              ),
               const SizedBox(width: AppSpacing.xs),
             ],
             // copyWith(color: null) keeps the style's default colour, so a null
             // valueColor simply falls back to the default.
             Text(
               value,
-              style: AppTypography.headingLarge.copyWith(color: valueColor),
+              style: (valueStyle ?? AppTypography.headingLarge)
+                  .copyWith(color: valueColor),
             ),
           ],
         ),

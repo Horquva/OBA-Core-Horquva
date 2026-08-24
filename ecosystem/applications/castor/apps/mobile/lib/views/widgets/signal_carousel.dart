@@ -12,7 +12,7 @@ class SignalCarousel extends StatefulWidget {
   const SignalCarousel({
     super.key,
     required this.cards,
-    this.height = 300,
+    this.height = 310,
   });
 
   /// The cards to swipe through.
@@ -37,25 +37,25 @@ class _SignalCarouselState extends State<SignalCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          height: widget.height,
-          child: PageView.builder(
+    return SizedBox(
+      height: widget.height,
+      child: Stack(
+        children: [
+          PageView.builder(
             controller: _controller,
             itemCount: widget.cards.length,
             onPageChanged: (i) => setState(() => _page = i),
-            // Top-align so a card only takes the height it needs (no stretch,
-            // and no overflow if it is shorter than the slot).
-            itemBuilder: (context, i) => Align(
-              alignment: Alignment.topCenter,
-              child: widget.cards[i],
-            ),
+            itemBuilder: (context, i) => widget.cards[i],
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _dots(),
-      ],
+          // Dots overlaid near the bottom, so they sit ON the card.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: AppSpacing.lg,
+            child: _dots(),
+          ),
+        ],
+      ),
     );
   }
 

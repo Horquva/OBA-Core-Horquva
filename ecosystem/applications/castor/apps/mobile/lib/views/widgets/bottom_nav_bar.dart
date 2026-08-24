@@ -36,12 +36,26 @@ class BottomNavBar extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        // Rounded top corners for a softer, more attractive bar.
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.xl),
+          topRight: Radius.circular(AppRadius.xl),
+        ),
+        // Soft upward shadow separates the bar from the content above.
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 12,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        // Fixed height so the bar does not expand to fill the whole screen
+        // (the Scaffold gives the bottom bar loose height constraints).
+        child: SizedBox(
+          height: 64,
           child: Row(
             children: [
               _item(icon: AppIcons.overview, label: 'Overview', index: 0),

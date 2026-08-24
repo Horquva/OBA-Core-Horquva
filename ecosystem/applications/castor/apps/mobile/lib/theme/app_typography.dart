@@ -16,7 +16,7 @@ abstract final class AppTypography {
 
   // ─── Display: the large greeting text, e.g. "Good morning, Guido." ───────
   static TextStyle get displayLarge => GoogleFonts.fraunces(
-        fontSize: 32,
+        fontSize: 25,
         fontWeight: FontWeight.w700,
         height: 1.15, // line height as a multiple of font size
         color: AppColors.textPrimary,
