@@ -59,7 +59,7 @@
  * anything about this file.
  */
 
-const { atOrAbove } = require('./definitions')
+const { atOrAbove, evidenceGate } = require('./definitions')
 
 const ROOT_TABLES = [
   'employees', 'agents', 'owners', 'workflows', 'workflow_failures',
@@ -239,14 +239,17 @@ function accountability(roots) {
   const accountabilityScore = round(mean(perEntity.map((e) => e.score)))
   const uniquePeople = new Set(roots.accountability_links.map((l) => l.person_name))
 
+  const evidence = evidenceGate(roots.accountability_entities, (e) => (linksByEntity.get(e.id) || []).length > 0)
+
   return {
-    accountabilityScore,
-    status: band(accountabilityScore),
+    accountabilityScore: evidence.sufficient ? accountabilityScore : null,
+    status: evidence.sufficient ? band(accountabilityScore) : null,
     totalEntities: roots.accountability_entities.length,
     entitiesWithLinks,
     sameRandACount: sameRandA,
     uniquePeopleCount: uniquePeople.size,
     perEntity,
+    evidence,
     ...provenance({
       accountability_entities: roots._counts.accountability_entities,
       accountability_links: roots._counts.accountability_links,

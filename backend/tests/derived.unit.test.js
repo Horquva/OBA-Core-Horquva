@@ -72,6 +72,52 @@ console.log('Accountability — RACI scoring:')
 	check('provenance names its inputs', a.source === 'live' && a.inputs.accountability_links === 7, a.inputs)
 }
 
+// ── Accountability evidence gate (D-07, D-10) ──────────────────────────────
+console.log('\nAccountability — evidence gate:')
+{
+	const empty = d.accountability(roots())
+	check('zero entities is insufficient evidence, not a CRITICAL score',
+		empty.evidence.sufficient === false && empty.accountabilityScore === null && empty.status === null,
+		empty)
+	check('...but provenance is still reported', empty.source === 'live' && typeof empty.computedAt === 'string', empty)
+
+	const mostlyUnlinked = roots({
+		accountability_entities: [
+			{ id: 1, entity_name: 'Linked', entity_type: 'workflow', department: 'Eng' },
+			{ id: 2, entity_name: 'Bare2', entity_type: 'workflow', department: 'Eng' },
+			{ id: 3, entity_name: 'Bare3', entity_type: 'agent', department: 'Ops' },
+		],
+		accountability_links: [
+			{ entity_id: 1, person_name: 'Ana', raci_role: 'Responsible' },
+		],
+	})
+	const under = d.accountability(mostlyUnlinked)
+	check('1 of 3 entities linked (33%) is below the 50% threshold', under.evidence.coverage < 0.5, under.evidence)
+	check('...so it is insufficient too', under.evidence.sufficient === false && under.accountabilityScore === null, under)
+
+	const r = roots({
+		accountability_entities: [
+			{ id: 1, entity_name: 'Separated', entity_type: 'workflow', department: 'Eng' },
+			{ id: 2, entity_name: 'SamePerson', entity_type: 'workflow', department: 'Eng' },
+			{ id: 3, entity_name: 'OnlyResponsible', entity_type: 'agent', department: 'Ops' },
+			{ id: 4, entity_name: 'Nobody', entity_type: 'agent', department: 'Ops' },
+		],
+		accountability_links: [
+			{ entity_id: 1, person_name: 'Ana', raci_role: 'Responsible' },
+			{ entity_id: 1, person_name: 'Ben', raci_role: 'Accountable' },
+			{ entity_id: 2, person_name: 'Cal', raci_role: 'Responsible' },
+			{ entity_id: 2, person_name: 'Cal', raci_role: 'Accountable' },
+			{ entity_id: 3, person_name: 'Dee', raci_role: 'Responsible' },
+			{ entity_id: 4, person_name: 'Eve', raci_role: 'Consulted' },
+			{ entity_id: 4, person_name: 'Fay', raci_role: 'Informed' },
+		],
+	})
+	const full = d.accountability(r)
+	check('all 4 entities carry a link (even Consulted/Informed-only) — evidence is sufficient',
+		full.evidence.sufficient === true && full.accountabilityScore === 50, full.evidence)
+	check('a real, evidenced score is still allowed through, not gated away', full.status === 'WEAK', full.status)
+}
+
 // ── Collaboration ────────────────────────────────────────────────────────────
 console.log('\nCollaboration — adoption, dependency, concentration:')
 {
