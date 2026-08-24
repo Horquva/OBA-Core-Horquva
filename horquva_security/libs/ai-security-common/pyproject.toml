@@ -1,0 +1,9 @@
+[project]
+name = "ai-security-common"
+version = "0.1.0"
+description = "Shared Security Contracts for Horquva AI Security Platform"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.8"]
+
+[tool.setuptools.packages.find]
+where = ["."]
