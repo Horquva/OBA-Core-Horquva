@@ -155,6 +155,19 @@ console.log("\nCoverage gate — 50% inclusive (D-10):")
 	check('coverage reports the ratio', c.ratio === 0.25, c.ratio)
 	check('coverage of empty is ratio 0', D.coverage([], has).ratio === 0)
 }
+
+console.log("\nRegression F-B — a critical dependency must not be filtered out:")
+{
+	const edges = [
+		{ id: 1, criticality: 'critical' },
+		{ id: 2, criticality: 'high' },
+		{ id: 3, criticality: 'normal' },
+		{ id: 4, criticality: 'low' },
+	]
+	const kept = edges.filter((r) => D.atOrAbove(r.criticality, 'high')).map((r) => r.id)
+	check('keeps both critical and high', JSON.stringify(kept) === JSON.stringify([1, 2]), kept)
+	check('the old comparison would have dropped critical', edges.filter((r) => r.criticality === 'high').length === 1)
+}
 console.log('\n----------------------------------------')
 console.log('passed: ' + passed + '   failed: ' + failed)
 console.log(failed === 0 ? 'CANONICAL DEFINITIONS TESTS PASSED ✅' : 'CANONICAL DEFINITIONS TESTS FAILED ❌')

@@ -25,6 +25,7 @@
  */
 
 const A = require('./analytics')
+const { atOrAbove } = require('../../domain/definitions')
 const { propagateConfidence } = require('../knowledge/intelligenceExchange')
 const ev = (source, ref, note) => ({ source, ref, note })
 
@@ -69,7 +70,7 @@ IMPL.M02 = (rt) => {
     payload: {
       dependencyCount: deps.length,
       mostDependedUpon: ranking.slice(0, 5),
-      criticalDependencies: deps.filter((r) => r.criticality === 'high').map((r) => ({
+      criticalDependencies: deps.filter((r) => atOrAbove(r.criticality, 'high')).map((r) => ({
         from: A.nameOf(g, r.from), to: A.nameOf(g, r.to), failureImpact: r.failureImpact,
       })),
     },
@@ -83,7 +84,7 @@ IMPL.M02 = (rt) => {
 IMPL.M03 = (rt) => {
   const g = rt.graph
   const spofs = A.singlePointsOfFailure(g)
-  const criticalDeps = A.edgesOfType(g, 'depends_on').filter((r) => r.criticality === 'high')
+  const criticalDeps = A.edgesOfType(g, 'depends_on').filter((r) => atOrAbove(r.criticality, 'high'))
   const assets = A.assets(g)
   const riskScore = A.round(Math.min(1, (spofs.length * 0.5 + criticalDeps.length * 0.3) / Math.max(1, assets.length)))
   const evidence = [
@@ -421,7 +422,10 @@ IMPL.M14 = (rt, context) => {
   const ownershipCoverage = own ? own.payload.ownershipCoverage : (A.assets(g).length ? 1 : 0)
   const riskScore = risk ? risk.payload.riskScore : A.round(A.singlePointsOfFailure(g).length / Math.max(1, A.assets(g).length))
   const readiness = A.round(Math.max(0, Math.min(1, ownershipCoverage * 0.6 + (1 - riskScore) * 0.4)))
-  const evidence = [ev('module', 'M01', 'ownership coverage'), ev('module', 'M03', 'risk score')]
+  const evidence = [
+    own ? ev('module', 'M01', 'ownership coverage') : ev('graph', 'assets', 'ownership coverage (direct)'),
+    risk ? ev('module', 'M03', 'risk score') : ev('graph', 'spof', 'risk score (direct)'),
+  ]
   return {
     type: 'decision',
     payload: {
