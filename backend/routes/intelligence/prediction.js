@@ -21,37 +21,42 @@
 
 const express = require('express')
 const router = express.Router()
-const brain = require('../../brain')
+const domain = require('../../domain')
 
-// Analyses are named, not numbered. brain.run() accepts either the catalog code
-// ('M42') or its readable slug ('culture'); the slug is used here because a
-// route file is exactly where the name matters. See the design document — the
-// dataset analyses in domain/analyses.js dropped their M-numbers entirely, so
-// nothing outside this catalog claims one any more.
+// Analyses are named, not numbered. domain.graph.run() accepts either the
+// catalog code ('M42') or its readable slug ('culture'); the slug is used
+// here because a route file is exactly where the name matters. See the
+// design document — the dataset analyses in domain/analyses.js dropped their
+// M-numbers entirely, so nothing outside this catalog claims one any more.
 //
-// Run one analysis and return its intelligence fragment. brain.run() executes
-// the analysis's declared dependencies first, so anything reading priorIntel
-// still receives it — the same behaviour the retired execution engine gave.
+// Routes through domain.graph, not brain/ directly (D-12, D-18) — the brain
+// stops being an independent surface routes reach into; domain/index.js
+// already re-exports this exact call path from brain.run/isReady/toCode/
+// graphSource, so this is an import-path change with an identical call path
+// underneath. Run one analysis and return its intelligence fragment.
+// domain.graph.run() executes the analysis's declared dependencies first, so
+// anything reading priorIntel still receives it — the same behaviour the
+// retired execution engine gave.
 async function runModule(analysis) {
-  if (!brain.isReady()) {
+  if (!domain.graph.isReady()) {
     const err = new Error('Brain graph not loaded')
     err.status = 503
     throw err
   }
-  const intel = await brain.run(analysis)
+  const intel = await domain.graph.run(analysis)
   if (!intel) {
     const err = new Error(`Analysis ${analysis} produced no intelligence`)
     err.status = 502
     throw err
   }
   return {
-    module: brain.toCode(analysis),
+    module: domain.graph.toCode(analysis),
     analysis,
     type: intel.type,
     confidence: intel.confidence,
     payload: intel.payload,
     recommendations: intel.recommendations || [],
-    dataSource: brain.graphSource(),
+    dataSource: domain.graph.source(),
     generatedAt: new Date().toISOString(),
   }
 }
