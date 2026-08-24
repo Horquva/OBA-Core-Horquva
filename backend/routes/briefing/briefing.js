@@ -245,7 +245,11 @@ router.get('/documentation-trend', async (req, res) => {
         coveragePct: d.coverage_pct,
         totalAssets: d.total_assets,
         documented: d.documented
-      }))
+      })),
+      // documentation_trend is a genuine, never-rewritten time series (D-09
+      // KEEP list). Unlike executive_briefings elsewhere in this file (which
+      // IS written daily by /today below), this can never be recomputed.
+      provenance: { source: 'historical', table: 'documentation_trend' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
