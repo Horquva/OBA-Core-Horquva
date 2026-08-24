@@ -89,6 +89,16 @@ console.log("\nPlatform criticality — derived from knowledge assets (authored)
 	check('platform without ctx is unknown, not a throw', D.entityCriticality('platform', { id: 1 }) === D.UNKNOWN, D.entityCriticality('platform', { id: 1 }))
 	check('other asset types do not leak in', D.entityCriticality('platform', { id: 1 }, { knowledgeAssets: [{ asset_type: 'workflow', asset_id: 1, criticality: 'critical' }] }) === D.UNKNOWN)
 }
+
+console.log("\nEdge criticality — dependency_type, a separate concept:")
+{
+	check('reads dependency_type', D.edgeCriticality({ dependency_type: 'critical' }) === 'critical', D.edgeCriticality({ dependency_type: 'critical' }))
+	check('normalizes casing', D.edgeCriticality({ dependency_type: 'HIGH' }) === 'high', D.edgeCriticality({ dependency_type: 'HIGH' }))
+	check('absent dependency_type is unknown', D.edgeCriticality({}) === D.UNKNOWN, D.edgeCriticality({}))
+	check('null row is unknown, not a throw', D.edgeCriticality(null) === D.UNKNOWN, D.edgeCriticality(null))
+	check('does not read a stray .criticality', D.edgeCriticality({ criticality: 'critical' }) === D.UNKNOWN, D.edgeCriticality({ criticality: 'critical' }))
+	check('edge threshold comparison works', D.atOrAbove(D.edgeCriticality({ dependency_type: 'critical' }), 'high') === true)
+}
 console.log('\n----------------------------------------')
 console.log('passed: ' + passed + '   failed: ' + failed)
 console.log(failed === 0 ? 'CANONICAL DEFINITIONS TESTS PASSED ✅' : 'CANONICAL DEFINITIONS TESTS FAILED ❌')

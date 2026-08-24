@@ -121,6 +121,19 @@ function entityCriticality(entityType, row, ctx = {}) {
 	if (!field) return UNKNOWN
 	return normalizeLevel(row[field])
 }
+
+/**
+ * Criticality of a DEPENDENCY EDGE, from dependencies.dependency_type.
+ *
+ * Deliberately a separate function from entityCriticality. "This link is
+ * critical" and "this thing is critical" are different claims that happen to
+ * share four words, and collapsing them is how a route ends up filtering the
+ * wrong column. The dependencies table has no criticality column.
+ */
+function edgeCriticality(depRow) {
+	if (!depRow) return UNKNOWN
+	return normalizeLevel(depRow.dependency_type)
+}
 module.exports = {
 	LEVELS,
 	RANK,
@@ -130,4 +143,5 @@ module.exports = {
 	maxLevel,
 	ENTITY_CRITICALITY_FIELD,
 	entityCriticality,
+	edgeCriticality,
 }
