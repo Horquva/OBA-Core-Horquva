@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { fetchApi } from '../../services/api';
 import { computeDecisionIntelligence } from '../../lib/decisionIntelligence';
 import { Agent, Workflow, AITool } from '../../types';
 import { DecisionHeader } from '../../components/decision/DecisionHeader';
@@ -8,19 +9,17 @@ import { CriticalDecisionsPanel } from '../../components/decision/CriticalDecisi
 import { DecisionTrailTable } from '../../components/decision/DecisionTrailTable';
 
 export default function DecisionPage() {
-  const [agents, setAgents]     = useState<Agent[]>([]);
+  const [agents, setAgents]       = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [tools, setTools]       = useState<AITool[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
+  const [tools, setTools]         = useState<AITool[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] }),
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
+      fetchApi<any[]>('/api/agents').catch(() => []),
+      fetchApi<{ workflows: any[] }>('/api/workflows/intelligence').catch(() => ({ workflows: [] })),
+      fetchApi<any[]>('/api/tools').catch(() => []),
     ])
     .then(([agentsData, wData, toolsData]) => {
       // Normalize agents
@@ -35,7 +34,7 @@ export default function DecisionPage() {
       }));
 
       // Normalize workflows
-      const rawWorkflows = Array.isArray(wData.workflows) ? wData.workflows : [];
+      const rawWorkflows = Array.isArray(wData?.workflows) ? wData.workflows : [];
       const normalizedWorkflows: Workflow[] = rawWorkflows.map((w: any) => ({
         id: w.id?.toString() || '',
         name: w.name || 'Unknown Workflow',
@@ -73,11 +72,12 @@ export default function DecisionPage() {
   }, []);
 
   const report = useMemo(() => {
-    if (loading) return null;
+    if (loading || (agents.length === 0 && workflows.length === 0 && tools.length === 0)) return null;
     return computeDecisionIntelligence(agents, workflows, tools);
   }, [agents, workflows, tools, loading]);
 
-  if (loading || !report) {
+  // Visual Guard 1: LOADING
+  if (loading) {
     return (
       <div className="space-y-8 pb-12 animate-pulse mt-8 px-6">
         <div className="h-48 w-full bg-[var(--border-subtle)] rounded-xl" />
@@ -87,23 +87,31 @@ export default function DecisionPage() {
     );
   }
 
+  // Visual Guard 2: FAILED / UNAVAILABLE
   if (error) {
     return (
       <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 mx-6">
-        Failed to load Decision Intelligence pipeline: {error}
+        <h3 className="font-semibold text-lg mb-2">Decision Intelligence Unavailable</h3>
+        <p className="text-sm opacity-80">{error}</p>
       </div>
     );
   }
 
+  // Visual Guard 3: EMPTY DATASET
+  if (!report || (agents.length === 0 && workflows.length === 0)) {
+    return (
+      <div className="p-12 text-center bg-zinc-900/50 border border-zinc-800 rounded-xl mt-10 max-w-7xl mx-auto">
+        <h3 className="text-zinc-300 font-medium text-lg mb-1">No Decision Data Found</h3>
+        <p className="text-zinc-500 text-sm">Backend returned an empty dataset. No active decision entities detected.</p>
+      </div>
+    );
+  }
+
+  // Visual Guard 4: DATA READY
   return (
     <div className="space-y-8 pb-12 animate-in fade-in duration-500">
-      {/* Module header: DQI gauge + KPI strip */}
       <DecisionHeader report={report} />
-
-      {/* HARMFUL + POOR decisions side-by-side */}
       <CriticalDecisionsPanel harmful={report.harmful} poor={report.poor} />
-
-      {/* Full decision trail audit table */}
       <DecisionTrailTable decisions={report.decisions} />
     </div>
   );
