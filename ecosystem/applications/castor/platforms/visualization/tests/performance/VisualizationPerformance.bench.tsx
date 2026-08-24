@@ -54,7 +54,16 @@ describe("60fps interaction target (at least 60 operations per second)", () => {
     <MemoryTimeline
       accessibleLabel="Performance timeline"
       events={timelineEvents}
-    />,
+      />,
+  );
+  const zoomInButton = graphView.getByLabelText(
+    "Zoom in organizational graph",
+  );
+  const zoomOutButton = graphView.getByLabelText(
+    "Zoom out organizational graph",
+  );
+  const timelineScrubber = timelineView.getByLabelText(
+    "Scrub through timeline events",
   );
   let graphZoomedIn = false;
   let scrubbedForward = false;
@@ -66,22 +75,13 @@ describe("60fps interaction target (at least 60 operations per second)", () => {
 
   bench("zooms an already-mounted 100-node, 150-edge graph", () => {
     graphZoomedIn = !graphZoomedIn;
-    fireEvent.click(
-      graphView.getByLabelText(
-        graphZoomedIn
-          ? "Zoom in organizational graph"
-          : "Zoom out organizational graph",
-      ),
-    );
+    fireEvent.click(graphZoomedIn ? zoomInButton : zoomOutButton);
   });
 
   bench("scrubs an already-mounted 250-event memory timeline", () => {
     scrubbedForward = !scrubbedForward;
-    fireEvent.change(
-      timelineView.getByLabelText("Scrub through timeline events"),
-      {
-      target: { value: scrubbedForward ? "100" : "99" },
-      },
-    );
+    fireEvent.change(timelineScrubber, {
+      target: { value: scrubbedForward ? "100" : "99.9" },
+    });
   });
 });
