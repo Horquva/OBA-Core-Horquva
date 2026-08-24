@@ -51,6 +51,7 @@ function formatForecast(f) {
 router.get('/summary', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
+    if (!forecasts.length) return res.status(404).json({ error: 'No forecast data available' })
     const latest = forecasts[forecasts.length - 1] // 90-day = headline
 
     res.json({
@@ -96,6 +97,7 @@ router.get('/health', async (req, res) => {
 router.get('/memory', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
+    if (!forecasts.length) return res.status(404).json({ error: 'No forecast data available' })
     const headline = forecasts[forecasts.length - 1]
 
     const criticalCarriers = await fetchFindings(headline.id, 'critical_memory_carrier')
@@ -128,6 +130,7 @@ router.get('/memory', async (req, res) => {
 router.get('/continuity', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
+    if (!forecasts.length) return res.status(404).json({ error: 'No forecast data available' })
     const headline = forecasts[forecasts.length - 1]
 
     const fragileWorkflows = await fetchFindings(headline.id, 'fragile_workflow')
@@ -160,6 +163,7 @@ router.get('/continuity', async (req, res) => {
 router.get('/outlook', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
+    if (!forecasts.length) return res.status(404).json({ error: 'No forecast data available' })
     const headline = forecasts[forecasts.length - 1]
 
     const allFindings = await fetchFindings(headline.id)
