@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
 const { optional } = require('../lib/supabaseQuery')
+const { maxLevel } = require('../domain/definitions')
 
 /*
  * GET /api/tools
@@ -59,8 +60,21 @@ async function loadPlatformBackups(platforms) {
 /** platform_id -> { documented, criticality }, via knowledge_assets where asset_type='platform' */
 async function loadPlatformKnowledge() {
   const data = await optional('knowledge_assets(platform)', supabase.from('knowledge_assets').select('*').eq('asset_type', 'platform'), [])
+
+  // A platform can have several knowledge assets. The previous version assigned
+  // on every iteration, so it kept whichever row the database returned last --
+  // an arbitrary, order-dependent answer (F-K). Take the highest criticality
+  // instead: one critical piece of knowledge about a tool makes the tool
+  // critical. Documented stays a conjunction -- one undocumented asset means
+  // the platform is not fully documented.
   const byPlatform = {}
-  for (const k of data) byPlatform[k.asset_id] = { documented: k.is_documented, criticality: k.criticality }
+  for (const k of data) {
+    const prev = byPlatform[k.asset_id]
+    byPlatform[k.asset_id] = {
+      documented: prev ? Boolean(prev.documented) && Boolean(k.is_documented) : Boolean(k.is_documented),
+      criticality: maxLevel([prev?.criticality, k.criticality]),
+    }
+  }
   return byPlatform
 }
 

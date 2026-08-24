@@ -168,6 +168,29 @@ console.log("\nRegression F-B — a critical dependency must not be filtered out
 	check('keeps both critical and high', JSON.stringify(kept) === JSON.stringify([1, 2]), kept)
 	check('the old comparison would have dropped critical', edges.filter((r) => r.criticality === 'high').length === 1)
 }
+
+console.log("\nRegression F-G' — absent criticality must not become 'low':")
+{
+	check('absent agent risk is unknown, not low', D.entityCriticality('agent', { id: 1 }) === D.UNKNOWN, D.entityCriticality('agent', { id: 1 }))
+	check('absent workflow risk is unknown, not low', D.entityCriticality('workflow', { id: 1 }) === D.UNKNOWN, D.entityCriticality('workflow', { id: 1 }))
+	check('null risk is unknown, not low', D.entityCriticality('agent', { risk: null }) === D.UNKNOWN, D.entityCriticality('agent', { risk: null }))
+	check('unknown is distinguishable from a real low', D.UNKNOWN !== 'low')
+	check('a real low is still low', D.entityCriticality('agent', { risk: 'low' }) === 'low')
+}
+
+console.log("\nRegression F-K — platform criticality must not depend on row order:")
+{
+	const forward = [
+		{ asset_type: 'platform', asset_id: 5, criticality: 'critical' },
+		{ asset_type: 'platform', asset_id: 5, criticality: 'low' },
+	]
+	const reversed = [...forward].reverse()
+
+	check('takes the max, not the last row', D.entityCriticality('platform', { id: 5 }, { knowledgeAssets: forward }) === 'critical', D.entityCriticality('platform', { id: 5 }, { knowledgeAssets: forward }))
+	check('order does not change the answer',
+		D.entityCriticality('platform', { id: 5 }, { knowledgeAssets: forward }) === D.entityCriticality('platform', { id: 5 }, { knowledgeAssets: reversed }))
+	check('the old last-row-wins rule would have disagreed', forward[forward.length - 1].criticality !== reversed[reversed.length - 1].criticality)
+}
 console.log('\n----------------------------------------')
 console.log('passed: ' + passed + '   failed: ' + failed)
 console.log(failed === 0 ? 'CANONICAL DEFINITIONS TESTS PASSED ✅' : 'CANONICAL DEFINITIONS TESTS FAILED ❌')

@@ -4,6 +4,7 @@ const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { loadEnrichedAgents } = require('./agents')
 const { loadEnrichedTools } = require('./tools')
+const { normalizeLevel } = require('../domain/definitions')
 
 /*
  * GET /api/decision-intelligence — Module 14, Decision Intelligence.
@@ -42,7 +43,9 @@ async function loadWorkflowsForDecisions() {
       id: w.id,
       name: w.name,
       department: w.department || 'Operations',
-      criticality: w.risk || 'low',
+      // Not `|| 'low'`. An unmeasured workflow is not a low-criticality one,
+      // and presenting it as such is the safest-looking possible lie (F-G').
+      criticality: normalizeLevel(w.risk),
       owner: rb?.employees?.name ?? null,
       backup_owner: rb?.owner_id != null ? (backupByEmployee[rb.owner_id] ?? null) : null,
       documented: !!rb?.is_documented,
@@ -222,7 +225,8 @@ function buildToolTrail(tool, dept, toolMap) {
   const owner = tool.access_owner ? `Access was granted by ${tool.access_owner}` : 'No access owner was assigned'
   const fallback = tool.backup_tool ? `${toolMap[tool.backup_tool] ?? tool.backup_tool} was chosen as the fallback` : 'No fallback tool was selected'
   const docs = tool.documented ? 'Documentation was created' : 'No documentation was produced'
-  return `"${tool.name}" was adopted as a ${tool.criticality} tool across ${dept}. ${owner}. ${fallback}. ${docs}.`
+  const criticalityPhrase = tool.criticality === 'unknown' ? 'an unassessed' : `a ${tool.criticality}`
+  return `"${tool.name}" was adopted as ${criticalityPhrase} tool across ${dept}. ${owner}. ${fallback}. ${docs}.`
 }
 
 // ─── Workflow decision scoring ──────────────────────────────────────────────
@@ -323,7 +327,7 @@ router.get('/', async (req, res) => {
       name: a.name,
       owner: a.owner?.name ?? null,
       backup_owner: a.backup_owner,
-      criticality: a.risk || 'low',
+      criticality: normalizeLevel(a.risk),
       department: a.owner?.department || 'Operations',
       documented: !!a.documented,
     }))
@@ -331,7 +335,7 @@ router.get('/', async (req, res) => {
     const workflows = rawWorkflows
     const tools = rawTools.map((t) => ({
       ...t,
-      criticality: t.criticality || 'low',
+      criticality: normalizeLevel(t.criticality),
       documented: !!t.documented,
     }))
 
