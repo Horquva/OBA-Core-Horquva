@@ -77,11 +77,27 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'GET' && (req.url === '/api/decisions' || req.url === '/')) {
+    // Din 5: make ACTUAL governance state available to the unified product.
+    // Previously this endpoint's `decisions` field re-ran runScenarios() (3 canned
+    // demo cases) on every single call — so the dashboard was displaying fake replayed
+    // demo data as if it were live governance activity, and `governance_decisions`
+    // count in the aggregate dashboard never reflected anything real (Din 1 finding).
+    // Fixed: `decisions` is now the REAL audit trail. The demo walkthrough still exists
+    // for illustration/docs, but under its own `sampleScenarios` key so it can never be
+    // mistaken for real state again.
     try {
-      const decisions = runScenarios();
       const audit = queryAuditTrail();
+      const decisions = audit.map((entry) => ({
+        decisionId: entry.decisionId,
+        auditEntryId: entry.auditEntryId,
+        evidenceId: entry.evidenceId,
+        outcome: entry.outcome,
+        accountableOwner: entry.accountableOwner,
+        recordedAt: entry.recordedAt,
+      }));
+      const sampleScenarios = runScenarios();
       res.writeHead(200);
-      res.end(JSON.stringify({ service: 'governance-engine', decisions, auditTrail: audit }));
+      res.end(JSON.stringify({ service: 'governance-engine', decisions, auditTrail: audit, sampleScenarios }));
     } catch (err) {
       res.writeHead(500);
       res.end(JSON.stringify({ error: err.message }));
