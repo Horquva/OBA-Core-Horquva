@@ -4,7 +4,7 @@ const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { loadEnrichedAgents } = require('./agents')
 const { loadEnrichedTools } = require('./tools')
-const { normalizeLevel } = require('../domain/definitions')
+const { normalizeLevel, evidenceGate } = require('../domain/definitions')
 
 /*
  * GET /api/decision-intelligence — Module 14, Decision Intelligence.
@@ -308,10 +308,21 @@ function buildWorkflowTrail(wf) {
 
 // ─── DQI + orchestration ─────────────────────────────────────────────────────
 
-function calcDQI(decisions) {
-  if (decisions.length === 0) return 100
+/**
+ * Decides whether there's enough evidence to publish a Decision Quality Index
+ * at all, and computes it if so. Zero decisions used to return dqi: 100,
+ * banding to 'STRONG' — the optimistic mirror of band()'s CRITICAL-on-absence
+ * bug: absence read as the *best* possible verdict instead of "unmeasured"
+ * (D-07, D-10, D-24).
+ */
+function dqiVerdictFor(decisions) {
+  const evidence = evidenceGate(decisions, () => true)
+  if (!evidence.sufficient) return { dqi: null, dqiVerdict: null, evidence }
+
   const avg = decisions.reduce((s, d) => s + d.score, 0) / decisions.length
-  return Math.round(avg)
+  const dqi = Math.round(avg)
+  const dqiVerdict = dqi >= 80 ? 'STRONG' : dqi >= 55 ? 'MIXED' : dqi >= 30 ? 'WEAK' : 'CRITICAL'
+  return { dqi, dqiVerdict, evidence }
 }
 
 router.get('/', async (req, res) => {
@@ -354,8 +365,7 @@ router.get('/', async (req, res) => {
     const decisions = [...agentDecisions, ...workflowDecisions, ...toolDecisions]
     decisions.sort((a, b) => a.score - b.score)
 
-    const dqi = calcDQI(decisions)
-    const dqiVerdict = dqi >= 80 ? 'STRONG' : dqi >= 55 ? 'MIXED' : dqi >= 30 ? 'WEAK' : 'CRITICAL'
+    const { dqi, dqiVerdict, evidence } = dqiVerdictFor(decisions)
 
     res.json({
       decisions,
@@ -365,6 +375,7 @@ router.get('/', async (req, res) => {
       harmful: decisions.filter((d) => d.quality === 'HARMFUL'),
       dqi,
       dqiVerdict,
+      evidence,
       totalDecisions: decisions.length,
       ownerConcentration: ownerAgentCount,
     })
@@ -374,3 +385,4 @@ router.get('/', async (req, res) => {
 })
 
 module.exports = router
+router.dqiVerdictFor = dqiVerdictFor
