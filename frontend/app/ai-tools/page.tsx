@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { fetchApi } from '../../services/api';
 import { computeAIToolIntelligence, AIToolReport } from '../../lib/aiToolIntelligence';
 import { AITool, Agent, Workflow } from '../../types';
 import { AIToolHeader } from '../../components/ai-tools/AIToolHeader';
@@ -11,19 +12,17 @@ import { DeptExposureTable } from '../../components/ai-tools/DeptExposureTable';
 import { ExternalEcosystemTab } from '../../components/ai-tools/ExternalEcosystemTab';
 
 export default function AIToolsPage() {
-  const [tools, setTools]       = useState<AITool[]>([]);
-  const [agents, setAgents]     = useState<Agent[]>([]);
+  const [tools, setTools]         = useState<AITool[]>([]);
+  const [agents, setAgents]       = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     Promise.all([
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetchApi<any[]>('/api/tools').catch(() => []),
+      fetchApi<any[]>('/api/agents').catch(() => []),
+      fetchApi<{ workflows: any[] }>('/api/workflows/intelligence').catch(() => ({ workflows: [] })),
     ])
     .then(([toolsData, agentsData, wData]) => {
       // Normalize tools
@@ -55,7 +54,7 @@ export default function AIToolsPage() {
       }));
 
       // Normalize workflows
-      const rawWorkflows = Array.isArray(wData.workflows) ? wData.workflows : [];
+      const rawWorkflows = Array.isArray(wData?.workflows) ? wData.workflows : [];
       const normalizedWorkflows: Workflow[] = rawWorkflows.map((w: any) => ({
         id: w.id?.toString() || '',
         name: w.name || 'Unknown Workflow',
@@ -76,12 +75,12 @@ export default function AIToolsPage() {
   }, []);
 
   const report: AIToolReport | null = useMemo(() => {
-    if (tools.length === 0 && !loading) return computeAIToolIntelligence([], [], []);
     if (loading) return null;
     return computeAIToolIntelligence(tools, workflows, agents);
   }, [tools, agents, workflows, loading]);
 
-  if (loading || !report) {
+  // Visual Guard 1: LOADING
+  if (loading) {
     return (
       <div className="space-y-8 pb-12 animate-pulse mt-8 px-6">
         <div className="h-48 w-full bg-[var(--border-subtle)] rounded-xl" />
@@ -91,14 +90,27 @@ export default function AIToolsPage() {
     );
   }
 
+  // Visual Guard 2: FAILED / UNAVAILABLE
   if (error) {
     return (
       <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 mx-6">
-        Failed to load AI Tool Intelligence: {error}
+        <h3 className="font-semibold text-lg mb-2">AI Tool Intelligence Unavailable</h3>
+        <p className="text-sm opacity-80">{error}</p>
       </div>
     );
   }
 
+  // Visual Guard 3: EMPTY DATASET
+  if (!report || tools.length === 0) {
+    return (
+      <div className="p-12 text-center bg-zinc-900/50 border border-zinc-800 rounded-xl mt-10 max-w-7xl mx-auto">
+        <h3 className="text-zinc-300 font-medium text-lg mb-1">No AI Tools Detected</h3>
+        <p className="text-zinc-500 text-sm">Backend returned an empty dataset. No active AI tools registered.</p>
+      </div>
+    );
+  }
+
+  // Visual Guard 4: DATA READY
   return (
     <div className="space-y-8 pb-12 animate-in fade-in duration-500">
       <AIToolHeader report={report} />
@@ -108,7 +120,7 @@ export default function AIToolsPage() {
         <ToolRiskTable
           tools={report.highTools}
           title="High Risk Tools"
-          subtitle="Score ≥ 45 — Escalate to department heads and assign backup alternatives"
+          subtitle="Score >= 45 — Escalate to department heads and assign backup alternatives"
           tier="HIGH"
         />
       )}
@@ -117,7 +129,7 @@ export default function AIToolsPage() {
         <ToolRiskTable
           tools={report.mediumTools}
           title="Medium Risk Tools"
-          subtitle="Score ≥ 20 — Document policies and schedule usage reviews"
+          subtitle="Score >= 20 — Document policies and schedule usage reviews"
           tier="MEDIUM"
         />
       )}
@@ -138,7 +150,6 @@ export default function AIToolsPage() {
         totalMonthlySpend={report.totalMonthlySpend}
       />
 
-      {/* External ecosystem tab receives live tools for vendor derivation */}
       <ExternalEcosystemTab tools={tools} />
     </div>
   );
