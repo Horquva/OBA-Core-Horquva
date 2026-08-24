@@ -1172,7 +1172,19 @@ function departmentExposure(roots) {
 		const incidentExposureScore = clamp(round(mean([documentationCoverage, backupCoverage, incidentFreeScore])))
 		const incidentRiskLevel = band(100 - incidentExposureScore, ['LOW', 'MODERATE', 'HIGH', 'SEVERE'])
 
-		return { department, documentationCoverage, backupCoverage, incidentExposureScore, incidentRiskLevel }
+		const evidence = combineEvidence({
+			knowledgeAssets: evidenceGate(assets, () => true),
+			owners: evidenceGate(owners, () => true),
+		})
+
+		return {
+			department,
+			documentationCoverage: evidence.sufficient ? documentationCoverage : null,
+			backupCoverage: evidence.sufficient ? backupCoverage : null,
+			incidentExposureScore: evidence.sufficient ? incidentExposureScore : null,
+			incidentRiskLevel: evidence.sufficient ? incidentRiskLevel : null,
+			evidence,
+		}
 	})
 
 	return {

@@ -636,6 +636,28 @@ console.log('\nDepartment exposure — a different question from continuityScore
 		byDept.departments.every((x) => !('continuityScore' in x)), byDept.departments)
 }
 
+// ── Department exposure evidence gate (D-07, D-10) ──────────────────────────
+console.log('\nDepartment exposure — evidence gate:')
+{
+	const r = roots({
+		employees: [
+			{ id: 1, name: 'Ana', department: 'Eng' },
+			{ id: 2, name: 'Ben', department: 'Empty' },
+		],
+		owners: [{ id: 10, name: 'Ana', employee_id: 1, backup_owner: 'Cal' }],
+		workflows: [{ id: 1, name: 'EngFlow', risk: 'low', department: 'Eng' }],
+		workflow_failures: [],
+		knowledge_assets: [{ asset_type: 'agent', asset_id: 1, is_documented: true, owner_id: 1 }],
+	})
+	const byDept = d.departmentExposure(r)
+	const eng = byDept.departments.find((x) => x.department === 'Eng')
+	const empty = byDept.departments.find((x) => x.department === 'Empty')
+
+	check('Eng has owners and knowledge_assets — evidenced', eng.evidence.sufficient === true && typeof eng.incidentExposureScore === 'number', eng)
+	check('Empty department has neither — insufficient, not a fabricated score',
+		empty.evidence.sufficient === false && empty.incidentExposureScore === null && empty.incidentRiskLevel === null, empty)
+}
+
 // ── Provenance across the board ──────────────────────────────────────────────
 console.log('\nProvenance:')
 {
