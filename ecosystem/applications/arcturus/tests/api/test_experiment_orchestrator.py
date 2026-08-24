@@ -2,7 +2,7 @@ import pytest
 from uuid import uuid4
 
 from ecosystem.applications.arcturus.contracts.experiment.base_models import ExperimentConfig
-from ecosystem.applications.arcturus.api.services.experiment_orchestrator import ExperimentOrchestrator
+from ecosystem.applications.arcturus.src.integration.experiment_orchestrator import ExperimentOrchestrator
 
 def test_orchestrator_builds_valid_context():
     experiment_id = str(uuid4())

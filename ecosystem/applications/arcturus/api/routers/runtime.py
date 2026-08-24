@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from ecosystem.applications.arcturus.api.config import Settings
 from ecosystem.applications.arcturus.api.database import get_db_connection
 from ecosystem.applications.arcturus.api.services.event_bus import EventBus
-from ecosystem.applications.arcturus.api.services.experiment_orchestrator import ExperimentOrchestrator
+from ecosystem.applications.arcturus.src.integration.experiment_orchestrator import ExperimentOrchestrator
 from ecosystem.applications.arcturus.contracts.experiment.base_models import (
     ExperimentConfig,
     ExperimentStatus,
