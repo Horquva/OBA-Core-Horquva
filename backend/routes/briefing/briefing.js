@@ -36,6 +36,10 @@ async function getMostOverloaded() {
   }
 }
 
+// workflow_failures has no timestamp column in any migration — there is no
+// real recency to sort by. Ordering by workflow_id descending is the best
+// available proxy, not an actual "latest" guarantee; do not present this as
+// time-ordered without adding a real timestamp column first.
 async function getLatestIncident() {
   return must('workflow_failures', supabase
     .from('workflow_failures')
@@ -65,11 +69,12 @@ async function getDocTrend() {
 }
 
 async function getPendingDecisionsCount() {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('pending_decisions')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'pending')
 
+  if (error) throw new Error(`pending_decisions: ${error.message}`)
   return count ?? 0
 }
 
