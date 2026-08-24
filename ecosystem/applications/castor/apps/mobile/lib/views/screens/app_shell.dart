@@ -7,6 +7,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'overview_screen.dart';
+import 'signals_screen.dart';
 
 /// The application shell: one Scaffold that hosts the bottom navigation and
 /// swaps the active screen. This is what makes Castor a single unified app
@@ -27,7 +28,7 @@ class _AppShellState extends State<AppShell> {
     const screens = <Widget>[
       OverviewScreen(),
       _PlaceholderScreen(title: 'Briefing'),
-      _PlaceholderScreen(title: 'Signals'),
+      SignalsScreen(),
       _PlaceholderScreen(title: 'More'),
     ];
 
