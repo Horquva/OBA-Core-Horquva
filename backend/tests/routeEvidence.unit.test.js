@@ -48,8 +48,36 @@ console.log('\ndecisionIntelligence.js — dqiVerdict evidence gate (D-07, D-10,
 	check('real decisions still compute a real dqi', real.evidence.sufficient === true && real.dqi === 80, real)
 }
 
-console.log('\n========================================')
-console.log(failed === 0 ? 'ALL CHECKS PASSED ✅' : (failed + ' CHECK(S) FAILED ❌'))
-console.log(`${passed} passed, ${failed} failed`)
-console.log('========================================\n')
-process.exit(failed === 0 ? 0 : 1)
+console.log('\norchestrator.js — orgScore evidence short-circuit (D-07, D-10, D-22):')
+{
+	const orchestrator = require('../routes/intelligence/orchestrator')
+	check('orchestrator.js exports orchestrateFrom for testing without a live Supabase call',
+		typeof orchestrator.orchestrateFrom === 'function', typeof orchestrator.orchestrateFrom)
+
+	// A minimal intel bundle whose pillars.orgScore is insufficient (mirrors what
+	// derived.js's pillars() now returns for a near-empty database).
+	const insufficientIntel = {
+		pillars: {
+			orgScore: { score: null, rating: null, evidence: { sufficient: false, status: 'insufficient_evidence', coverage: 0, covered: 0, total: 0, threshold: 0.5 } },
+			pillars: [],
+		},
+		accountability: { accountabilityScore: null, evidence: { sufficient: false } },
+		collaboration: { summary: { evidence: { sufficient: false } } },
+		predictiveRisk: { scores: [], emergingThreats: [] },
+		orgHealth: { evidence: { sufficient: false } },
+		decisionQuality: { evidence: { sufficient: false } },
+		executiveMemory: { items: [] },
+	}
+	orchestrator.orchestrateFrom(insufficientIntel).then((result) => {
+		check('score/rating are null when orgScore is insufficient', result.score === null && result.rating === null, result)
+		check('evidence is passed through', result.evidence.sufficient === false, result.evidence)
+		check('a fixed verdict explains why, instead of generateVerdict running on a null score',
+			typeof result.verdict === 'string' && result.verdict.length > 0, result.verdict)
+
+		console.log('\n========================================')
+		console.log(failed === 0 ? 'ALL CHECKS PASSED ✅' : (failed + ' CHECK(S) FAILED ❌'))
+		console.log(`${passed} passed, ${failed} failed`)
+		console.log('========================================\n')
+		process.exit(failed === 0 ? 0 : 1)
+	})
+}

@@ -285,11 +285,20 @@ async function readModule(key, reader, intel) {
   }
 }
 
-async function orchestrate() {
-  // ONE computation feeds every module that derives from the roots, so no two
-  // modules in the same score can describe the organization at two different
-  // moments.
-  const intel = await domain.intelligence.all()
+/**
+ * Runs the module registry and builds the response from an already-loaded
+ * `intel` bundle. Split out from orchestrate() so it's callable with a
+ * hand-built intel bundle in tests, without a live Supabase call.
+ *
+ * The headline score is intel.pillars.orgScore — the one OIS (D-02, D-17).
+ * The 13-module registry above no longer votes on it; it still explains it
+ * via generateVerdict/generateRecommendations, UNLESS orgScore's own
+ * evidence gate reports insufficient (D-07, D-10, D-22) — those two
+ * functions assume a real numeric score, so an insufficient orgScore
+ * short-circuits to a fixed explanatory verdict instead.
+ */
+async function orchestrateFrom(intel) {
+  const orgScoreEvidence = intel.pillars.orgScore.evidence
 
   // Read all voting modules, plus brainCore separately for display only
   // (see the comment on MODULE_REGISTRY — it does not vote).
@@ -313,16 +322,8 @@ async function orchestrate() {
     readModule('brainCore', readBrainCore, intel)
   ])
 
-  // The headline score is intel.pillars.orgScore — the one OIS (D-02, D-17).
-  // The 13-module registry above no longer votes on it; it still explains it,
-  // via generateVerdict/generateRecommendations/computeTrustScore below, which
-  // all still take the full `results` list.
-  const score   = intel.pillars.orgScore.score
-  const rating  = intel.pillars.orgScore.rating
-  const verdict = generateVerdict(score, rating, results)
-  const recs    = generateRecommendations(results)
-  const trust   = computeTrustScore(results)
   const brainPosture = brainCoreResult?.meta?.posture ?? null
+  const trust = computeTrustScore(results)
 
   const unavailable = results.filter(m => m.unavailable)
   const dataIntegrity = {
@@ -336,7 +337,34 @@ async function orchestrate() {
       : null,
   }
 
-  return { score, rating, verdict, recs, trust, brainPosture, modules: results, dataIntegrity }
+  if (!orgScoreEvidence.sufficient) {
+    return {
+      score: null,
+      rating: null,
+      verdict: `Insufficient evidence to compute an Organizational Intelligence Score — ${Math.round((orgScoreEvidence.coverage ?? 0) * 100)}% coverage on at least one pillar. See evidence for detail.`,
+      recs: [],
+      trust,
+      brainPosture,
+      modules: results,
+      dataIntegrity,
+      evidence: orgScoreEvidence,
+    }
+  }
+
+  const score   = intel.pillars.orgScore.score
+  const rating  = intel.pillars.orgScore.rating
+  const verdict = generateVerdict(score, rating, results)
+  const recs    = generateRecommendations(results)
+
+  return { score, rating, verdict, recs, trust, brainPosture, modules: results, dataIntegrity, evidence: orgScoreEvidence }
+}
+
+async function orchestrate() {
+  // ONE computation feeds every module that derives from the roots, so no two
+  // modules in the same score can describe the organization at two different
+  // moments.
+  const intel = await domain.intelligence.all()
+  return orchestrateFrom(intel)
 }
 
 // ─────────────────────────────────────────────
@@ -359,10 +387,16 @@ async function getOrComputeOrchestration() {
 
   const result = await orchestrate()
 
-  // Never cache an incomplete score. Persisting a degraded result would pin a
-  // number computed during a partial outage for the rest of the day.
-  if (result.dataIntegrity.degraded) {
-    console.warn('[orchestrator] not caching a degraded snapshot —', result.dataIntegrity.warning)
+  // Never cache an incomplete or insufficiently-evidenced score. Persisting
+  // either would pin a number computed during a partial outage, or a null
+  // score whose evidence.coverage may have genuinely changed by the next
+  // read, for the rest of the day (D-07, D-10).
+  if (result.dataIntegrity.degraded || !result.evidence.sufficient) {
+    if (!result.evidence.sufficient) {
+      console.warn('[orchestrator] not caching an insufficient-evidence snapshot')
+    } else {
+      console.warn('[orchestrator] not caching a degraded snapshot —', result.dataIntegrity.warning)
+    }
     return {
       organizational_intelligence_score: result.score,
       rating:        result.rating,
@@ -372,6 +406,7 @@ async function getOrComputeOrchestration() {
       executive_recommendations: result.recs,
       modules:       result.modules,
       dataIntegrity: result.dataIntegrity,
+      evidence:      result.evidence,
       computed_at:   new Date().toISOString(),
       fromCache:     false
     }
@@ -413,6 +448,7 @@ async function getOrComputeOrchestration() {
     executive_recommendations: result.recs,
     modules: result.modules,
     dataIntegrity: result.dataIntegrity,
+    evidence: result.evidence,
     fromCache: false
   }
 }
@@ -460,7 +496,8 @@ router.get('/summary', async (req, res) => {
         snap.executive_recommendations ?? []
       ).slice(0, 3),
       generatedAt: snap.computed_at ?? new Date().toISOString(),
-      dataIntegrity: snap.dataIntegrity ?? null
+      dataIntegrity: snap.dataIntegrity ?? null,
+      evidence: snap.evidence ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -561,3 +598,4 @@ router.get('/score', async (req, res) => {
 })
 
 module.exports = router
+module.exports.orchestrateFrom = orchestrateFrom
