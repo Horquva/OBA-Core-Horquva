@@ -126,6 +126,35 @@ console.log("\nSPOF verdict — sole owner + no backup + criticality >= high (D-
 	check('reasons name the sole owner', D.spofVerdict({ criticality: 'critical', ownerCount: 1, hasBackup: false }).reasons.includes('sole_owner'))
 	check('reasons name the missing backup', D.spofVerdict({ criticality: 'critical', ownerCount: 1, hasBackup: false }).reasons.includes('no_backup_owner'))
 }
+
+console.log("\nCoverage gate — 50% inclusive (D-10):")
+{
+	const has = (r) => r.documented === true
+	const rows = (n, coveredCount) => Array.from({ length: n }, (_, i) => ({ documented: i < coveredCount }))
+
+	check('full coverage is sufficient', D.evidenceGate(rows(10, 10), has).sufficient === true)
+	check('exactly 50% is sufficient (inclusive boundary)', D.evidenceGate(rows(10, 5), has).sufficient === true, D.evidenceGate(rows(10, 5), has))
+	check('49% is insufficient', D.evidenceGate(rows(100, 49), has).sufficient === false, D.evidenceGate(rows(100, 49), has))
+	check('51% is sufficient', D.evidenceGate(rows(100, 51), has).sufficient === true)
+	check('zero coverage is insufficient', D.evidenceGate(rows(10, 0), has).sufficient === false)
+
+	check('threshold default is 0.5', D.COVERAGE_THRESHOLD === 0.5, D.COVERAGE_THRESHOLD)
+	check('threshold is overridable', D.evidenceGate(rows(10, 3), has, { threshold: 0.25 }).sufficient === true)
+
+	check('empty population is insufficient', D.evidenceGate([], has).sufficient === false, D.evidenceGate([], has))
+	check('empty population reports zero total', D.evidenceGate([], has).total === 0)
+
+	const bad = D.evidenceGate(rows(10, 1), has)
+	check('insufficient carries the status string', bad.status === 'insufficient_evidence', bad.status)
+	check('insufficient reports actual coverage', bad.coverage === 0.1, bad.coverage)
+	check('insufficient reports the threshold it failed', bad.threshold === 0.5, bad.threshold)
+	check('sufficient carries a computed status', D.evidenceGate(rows(10, 10), has).status === 'computed')
+
+	const c = D.coverage(rows(8, 2), has)
+	check('coverage reports covered and total', c.covered === 2 && c.total === 8, c)
+	check('coverage reports the ratio', c.ratio === 0.25, c.ratio)
+	check('coverage of empty is ratio 0', D.coverage([], has).ratio === 0)
+}
 console.log('\n----------------------------------------')
 console.log('passed: ' + passed + '   failed: ' + failed)
 console.log(failed === 0 ? 'CANONICAL DEFINITIONS TESTS PASSED ✅' : 'CANONICAL DEFINITIONS TESTS FAILED ❌')

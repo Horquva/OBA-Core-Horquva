@@ -182,6 +182,49 @@ function spofVerdict({ criticality, ownerCount, hasBackup } = {}) {
 	const isSpof = owners === 1 && !hasBackup && atOrAbove(level, SPOF_THRESHOLD)
 	return { status: isSpof ? 'spof' : 'not_spof', reasons }
 }
+
+/** Share of a population that must carry a field before a score may be computed (D-10). */
+const COVERAGE_THRESHOLD = 0.5
+
+/**
+ * How much of rows actually carries the signal a score needs.
+ *
+ * @param {Array} rows
+ * @param {(row: any) => boolean} hasField
+ */
+function coverage(rows, hasField) {
+	const list = Array.isArray(rows) ? rows : []
+	const total = list.length
+	const covered = list.filter((r) => Boolean(hasField(r))).length
+	return { covered, total, ratio: total === 0 ? 0 : covered / total }
+}
+
+/**
+ * Decides whether there is enough evidence to publish a number at all.
+ *
+ * Below the threshold the caller must return insufficient_evidence and NO
+ * value. An EMPTY population is always insufficient -- treating 0 of 0 as
+ * fully covered would let an empty database render as a healthy organization.
+ *
+ * W-C ships this gate and its tests. Surfacing the refusal in the UI is W-E.
+ *
+ * @param {Array} rows
+ * @param {(row: any) => boolean} hasField
+ * @param {{threshold?: number}} [opts]
+ */
+function evidenceGate(rows, hasField, opts = {}) {
+	const threshold = typeof opts.threshold === 'number' ? opts.threshold : COVERAGE_THRESHOLD
+	const { covered, total, ratio } = coverage(rows, hasField)
+	const sufficient = total > 0 && ratio >= threshold
+	return {
+		sufficient,
+		status: sufficient ? 'computed' : 'insufficient_evidence',
+		coverage: ratio,
+		covered,
+		total,
+		threshold,
+	}
+}
 module.exports = {
 	LEVELS,
 	RANK,
@@ -194,4 +237,7 @@ module.exports = {
 	edgeCriticality,
 	SPOF_THRESHOLD,
 	spofVerdict,
+	COVERAGE_THRESHOLD,
+	coverage,
+	evidenceGate,
 }
