@@ -385,6 +385,26 @@ console.log('\nPillars — evidence gate:')
 		g2.evidence.sufficient === false, g2.evidence)
 	check('...and the flat coverage/covered/total EvidenceBadge reads are populated, not undefined',
 		typeof g2.evidence.coverage === 'number' && typeof g2.evidence.total === 'number', g2.evidence)
+
+	const noOwnersOrAssets = roots({
+		workflows: [{ id: 1, name: 'W1', risk: 'low' }],
+		workflow_runbooks: [{ workflow_id: 1, is_documented: true }],
+		ai_platforms: [{ id: 1, name: 'P1' }],
+		tool_policies: [{ platform_id: 1, policy_name: 'pol', status: 'active' }],
+		accountability_entities: [{ id: 1, entity_name: 'E', entity_type: 'workflow', department: 'Eng' }],
+		accountability_links: [{ entity_id: 1, person_name: 'A', raci_role: 'Responsible' }],
+	})
+	const mi = d.pillars(noOwnersOrAssets, d.accountability(noOwnersOrAssets)).pillars.find((x) => x.resultKey === 'MI')
+	check('MI is insufficient with zero owners and zero knowledge_assets, even though accountability is fine',
+		mi.evidence.sufficient === false, mi.evidence)
+
+	const insufficientAccountability = roots({
+		owners: [{ id: 10, name: 'A', employee_id: 1, backup_owner: 'B' }],
+		knowledge_assets: [{ asset_type: 'agent', asset_id: 1, is_documented: true, owner_id: 1 }],
+	})
+	const mi2 = d.pillars(insufficientAccountability, d.accountability(insufficientAccountability)).pillars.find((x) => x.resultKey === 'MI')
+	check('MI inherits an insufficient accountability sub-score rather than recomputing around it',
+		mi2.evidence.sufficient === false, mi2.evidence)
 }
 
 // ── Decision quality ─────────────────────────────────────────────────────────

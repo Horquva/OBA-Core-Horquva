@@ -828,6 +828,12 @@ function pillars(roots, accountabilityResult) {
 
   const MI = round(mean([accountabilityResult.accountabilityScore, backupCoverage, ownershipCoverage]))
 
+  const miEvidence = combineEvidence({
+    accountability: accountabilityResult.evidence,
+    owners: evidenceGate(roots.owners, () => true),
+    knowledgeAssets: evidenceGate(roots.knowledge_assets, () => true),
+  })
+
   // ── DI ────────────────────────────────────────────────────────────────────
   const documentedAssets = roots.knowledge_assets.filter((k) => k.is_documented).length
   const documentationCoverage = clamp(round(pct(documentedAssets, roots.knowledge_assets.length)))
@@ -873,7 +879,7 @@ function pillars(roots, accountabilityResult) {
         accountability: accountabilityResult.accountabilityScore,
         backupCoverage,
         ownershipCoverage,
-      }, placeholderEvidence),
+      }, miEvidence),
       shape('DI', DI, { documentationCoverage, verificationRate, contradictionScore }, placeholderEvidence),
     ],
     orgScore: {
