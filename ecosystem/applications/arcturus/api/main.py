@@ -32,6 +32,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Core Day 3 Routers
+from ecosystem.applications.arcturus.api.routers.runtime import router as runtime_router
+from ecosystem.applications.arcturus.api.websocket.simulation_stream import router as ws_router
+
+app.include_router(runtime_router)
+app.include_router(ws_router)
+
 # Upstream platform routers — mounted as they land
 try:
     from ecosystem.applications.arcturus.api.routers.ontology import router as ontology_router
@@ -50,6 +57,18 @@ try:
     app.include_router(experiments_router)
 except ImportError:
     pass  # Experiments router not yet built
+
+try:
+    from ecosystem.applications.arcturus.api.routers.workforce import router as workforce_router
+    app.include_router(workforce_router)
+except ImportError:
+    pass  # Dua's PR not yet merged
+
+try:
+    from ecosystem.applications.arcturus.api.routers.workflows import router as workflows_router
+    app.include_router(workflows_router)
+except ImportError:
+    pass  # Javeria's PR not yet merged
 
 @app.exception_handler(ArcturusValidationError)
 async def arcturus_error_handler(request: Request, exc: ArcturusValidationError):
