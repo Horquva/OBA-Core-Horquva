@@ -218,17 +218,18 @@ it closes, written before the fix.
 |---|---|---|---|
 | W-A | Auth hardening | — | **DONE** |
 | W-B | Frozen intelligence → live | — | **DONE** |
+| **W-C** | Canonical definitions layer | D-03, D-06, D-10, F-G′, F-K | **DONE** — 11 commits, `387bd42`…`687a659` on `ocos/develop` |
 | **W-F** | Tenancy & auth cleanup | D-01, D-05, D-13 | not started (independent, cheap) |
-| **W-C** | Canonical definitions layer | D-03, D-06, D-10, F-G′, F-K | **NEXT — keystone** |
-| **W-D** | Truth layer consolidation | D-02, D-09a, D-11, D-12 | blocked by W-C |
-| **W-E** | Provenance & evidence semantics | D-07, D-10b | blocked by W-C, W-D |
+| **W-D** | Truth layer consolidation | D-02, D-09a, D-11, D-12 | **NEXT — unblocked** |
+| **W-E** | Provenance & evidence semantics | D-07, D-10b | blocked by W-D |
 | **W-G** | Graph lifecycle & narrative honesty | D-14 | blocked by W-D |
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I | last |
 
-W-C is the keystone: every downstream workstream consumes its definitions, and it is where the ~16
-SPOF implementations and 20 criticality filters collapse into one module.
+W-C is done: every downstream workstream now has one module to consume
+(`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
+criticality filters. Its artifacts are the quality template for every workstream after it — see §5.
 
-W-F is genuinely independent and may run first or in parallel.
+W-F remains genuinely independent and may run whenever, in any order relative to W-D onward.
 
 ---
 
@@ -242,3 +243,58 @@ W-F is genuinely independent and may run first or in parallel.
 | `verification_actions` table | dormant, no writer | with the write loop |
 | Multi-tenancy | D-01 chose single-tenant | if a second customer appears |
 | OIS weight recalibration | D-11 kept them authored | if the owner wants measured weights |
+
+---
+
+## 5. Process notes for the next workstream (read this before starting W-D)
+
+Each workstream from here on runs in its **own fresh session** — no shared conversation memory with
+W-C. This section is what carried W-C's rigor into a session with nothing but this file. Match it;
+don't skip steps because "the decisions are already made."
+
+**The sequence that produced W-C, in order:**
+
+1. **Brainstorming skill, architectural path.** Repo exploration first — actual file reads and greps,
+   not assumptions from the teardown or from this log. Then batched questions to the owner (4 at a
+   time), each answer restated as a Decision with Reason/Affected/Migration/Consequence before moving
+   on. This is where D-01…D-16 came from and why they're trustworthy.
+2. **Design doc** (`docs/superpowers/specs/YYYY-MM-DD-w-x-*-design.md`), committed before any plan
+   exists.
+3. **writing-plans skill** against that design. Every task gets the actual test code and
+   implementation code written out — no "add appropriate handling" placeholders. This is what let
+   execution be mechanical instead of another round of judgment calls.
+4. **Inline execution, task by task:** red (verify the test fails for the right reason) → green →
+   full-suite check (`node tests/run-all.js`) → commit. Never batch multiple tasks into one commit.
+
+**Two mistakes made and corrected during W-C — don't repeat them:**
+
+- **A finding (F-G) was wrong** because it checked a route's `row.criticality` read against the
+  database schema without reading the *loader* that populates that property. The loader normalized
+  it correctly; the schema check alone produced a false bug report. **Before calling any
+  `row.<field>` read a bug, trace it to the function that builds that row.** This cost a withdrawal
+  and a corrected pair of findings (F-G′, F-K) — cheaper to just check first.
+- **`git add <file>` is not safe in this repo right now.** Several files (`governance.js`, `memory.js`,
+  `voice.js` at minimum, likely others) carry substantial *pre-existing uncommitted work* unrelated
+  to any workstream — visible in `git status` before you touch anything. A directory-wide or
+  whole-file `git add` will bundle that unrelated work into your commit. Before staging a file that
+  was already modified at session start: `git diff <file>` first. If it's larger than your own edit,
+  isolate your change against `git show HEAD:<file>` (reconstruct a clean version containing only
+  your edit, stage that, commit, then restore the working tree to the full pre-existing-plus-your-edit
+  content) rather than committing the mixture. `git status --short` before every commit, always.
+
+**Standing constraints that don't change per workstream:**
+
+- No test framework in `backend/` — hand-rolled `node` scripts with a local `check()` helper. Follow
+  `backend/tests/definitions.unit.test.js` as the template.
+- `backend/domain/definitions.js` is pure (no I/O) and is now the dependency every score-producing
+  file should route through — don't reintroduce a parallel definition of criticality, SPOF, or
+  coverage anywhere.
+- Commit messages name the responsible decision (`D-nn`, `F-nn`) — this is the compensating control
+  for D-16 (no before/after reconciliation table).
+- Threshold-class retyping (behavior-preserving) and bug fixes (behavior-changing) never share a
+  commit — otherwise a real regression hides in a wall of no-op renames.
+
+**Quality bar, concretely:** the finished [W-C plan](../plans/2026-08-24-w-c-canonical-definitions.md)
+and its 11 commits (`387bd42` through `687a659` on `ocos/develop`) are the reference. If a future
+workstream's design doc, plan, or commit history looks thinner than that — fewer regression tests,
+vaguer task steps, batched commits — that's the signal quality slipped, not that the work was faster.
