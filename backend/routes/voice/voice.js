@@ -17,10 +17,6 @@ const { must } = require('../../lib/supabaseQuery')
 
 const RISK_SCORE = { critical: 90, high: 70, medium: 50, low: 25 }
 
-function pct(n, d) {
-  return d ? Math.round((100 * n) / d) : 0
-}
-
 function reasonsFor({ backup, documented, status }) {
   const reasons = []
   if (!backup) reasons.push('no backup owner — single point of failure')
@@ -106,12 +102,11 @@ async function buildBrain() {
       criticalAgents: ownedCritCount[h.entityName] || 0,
     }))
 
-  const allAssets = [...d.agents, ...d.workflows]
-  const total = allAssets.length || 1
-  const documentedCount = allAssets.filter((a) => a.documented).length
-  const backedCount = allAssets.filter((a) => a.backup_owner).length
-  const intelligenceScore = Math.round(0.5 * pct(documentedCount, total) + 0.5 * pct(backedCount, total))
-  const rating = intelligenceScore >= 75 ? 'Strong' : intelligenceScore >= 55 ? 'Moderate' : intelligenceScore >= 35 ? 'Weak' : 'Critical'
+  // Was a local 0.5·documented + 0.5·backed formula — a second, independently
+  // computed "Organizational Intelligence Score" alongside derived.js's
+  // pillars.orgScore (F-C). There is one OIS now (D-02).
+  const intelligenceScore = intel.pillars.orgScore.score
+  const rating = intel.pillars.orgScore.rating
 
   const failing = agents.find((a) => a.status === 'failed') || null
   const spof = [...agents].sort((a, b) => b.riskScore - a.riskScore)[0] || null
