@@ -2,6 +2,7 @@
 // 11-section company-dataset shape. One-time migration tool.
 const fs = require('fs')
 const path = require('path')
+const { maxLevel } = require('../domain/definitions')
 
 const ROOT = process.argv[2]
 const sql = fs.readFileSync(path.join(ROOT, 'backend/sql/02_seed_data.sql'), 'utf8')
@@ -366,7 +367,11 @@ for (const k of knowledge) {
   const holder = empName(k.owner_id)
   if (holder && !a.holders.includes(holder)) a.holders.push(holder)
   if (!k.is_documented) a.documented = false
-  if (k.criticality === 'critical') a.criticality = 'critical'
+  // Was: if (k.criticality === 'critical') a.criticality = 'critical' -- which only
+  // ever escalated for the exact string 'critical'; a 'high' row never raised the
+  // group above whatever the FIRST row in the topic happened to be, an arbitrary,
+  // order-dependent answer (same defect class as F-K). Take the max across every row.
+  a.criticality = maxLevel([a.criticality, k.criticality])
 }
 const outKnowledge = [...byTopic.values()]
 
