@@ -16,6 +16,7 @@ const tests = [
 	'intelligence.verify.test.js',
 	'auth.unit.test.js',
 	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
+	'definitions.unit.test.js', // pure; asserts the canonical criticality/SPOF definitions
 	'authRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).

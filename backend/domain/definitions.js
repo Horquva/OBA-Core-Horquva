@@ -1,0 +1,77 @@
+/**
+ * OBA Core — Canonical definitions.
+ *
+ * One place where "how critical is this", "how critical is this link" and
+ * "is this a single point of failure" are defined. Before this module those
+ * three questions were answered independently in roughly twenty route files,
+ * the brain, and the derived layer — and they disagreed. The brain treated
+ * 'high' as the critical set and excluded 'critical' entirely; route loaders
+ * defaulted an absent value to 'low' and collapsed several values by keeping
+ * whichever row the database happened to return last.
+ *
+ * Everything here is PURE. No database, no async, no I/O. Callers load rows
+ * and pass them in. That is deliberate: derived.js loads every root table once
+ * per request and must keep doing so, and a definitions module that issued its
+ * own queries would both break that guarantee and be untestable without a
+ * database.
+ *
+ * The `unknown` level is the load-bearing idea. Absent criticality is not
+ * `normal` and not `low` — it is unmeasured, and it never satisfies a
+ * threshold. A default here would silently manufacture findings out of missing
+ * data, which is the failure this whole workstream exists to remove.
+ *
+ * See docs/superpowers/specs/2026-08-24-oba-remediation-decision-log.md
+ * (decisions D-03, D-06, D-07, D-10).
+ */
+
+/** Lowest to highest. Order is meaningful — RANK is derived from it. */
+const LEVELS = ['low', 'normal', 'high', 'critical']
+
+const RANK = Object.fromEntries(LEVELS.map((level, i) => [level, i]))
+
+/**
+ * Not a level. A sentinel meaning "no signal was recorded for this".
+ * It has no rank and never compares true against a threshold.
+ */
+const UNKNOWN = 'unknown'
+
+/** Coerces whatever the database held into a level, or UNKNOWN. */
+function normalizeLevel(raw) {
+	if (typeof raw !== 'string') return UNKNOWN
+	const v = raw.trim().toLowerCase()
+	return Object.prototype.hasOwnProperty.call(RANK, v) ? v : UNKNOWN
+}
+
+/**
+ * True when `level` is at least as critical as `threshold`.
+ *
+ * Both arguments are normalized first, so callers may pass raw column values.
+ * UNKNOWN on either side yields false — an unmeasured thing is never proven to
+ * meet a bar, and an unmeasured bar can never be met.
+ */
+function atOrAbove(level, threshold) {
+	const l = normalizeLevel(level)
+	const t = normalizeLevel(threshold)
+	if (l === UNKNOWN || t === UNKNOWN) return false
+	return RANK[l] >= RANK[t]
+}
+
+/** Highest known level in the list; UNKNOWN when nothing is known. */
+function maxLevel(levels) {
+	let best = UNKNOWN
+	for (const raw of levels || []) {
+		const l = normalizeLevel(raw)
+		if (l === UNKNOWN) continue
+		if (best === UNKNOWN || RANK[l] > RANK[best]) best = l
+	}
+	return best
+}
+
+module.exports = {
+	LEVELS,
+	RANK,
+	UNKNOWN,
+	normalizeLevel,
+	atOrAbove,
+	maxLevel,
+}
