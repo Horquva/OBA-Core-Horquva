@@ -154,6 +154,21 @@ The tests cover:
 - Organizational graph rendering
 - Memory timeline events and filters
 
+### Rendering performance benchmarks
+
+Run the repeatable interaction benchmarks with:
+
+```bash
+npm run benchmark
+```
+
+The suite exercises a 100-node/150-edge graph and a 250-event
+timeline. The smooth-interaction target is at least 60 operations per
+second, corresponding to a 16.67 ms frame budget. These jsdom results
+provide a stable regression signal; final visual FPS must also be
+measured in the browser after connection to the Workspace
+`WidgetContainer`.
+
 ## Repository
 
 GitHub branch:
