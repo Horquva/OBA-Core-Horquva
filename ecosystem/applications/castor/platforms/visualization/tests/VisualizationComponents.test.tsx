@@ -3,12 +3,36 @@ import {
   render,
   screen,
 } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { LineChart } from "../src/charts/LineChart";
 import { KnowledgeGraph } from "../src/graphs/KnowledgeGraph";
 import { OrganizationalGraph } from "../src/graphs/OrganizationalGraph";
 import { MemoryTimeline } from "../src/timeline/MemoryTimeline";
+
+interface WidgetContainerCompatibilityProps {
+  id: string;
+  title: string;
+  children: ReactNode;
+}
+
+function TahaWidgetContainer({
+  id,
+  title,
+  children,
+}: WidgetContainerCompatibilityProps) {
+  return (
+    <div
+      id={id}
+      data-testid="widget-container"
+      className="flex flex-col h-full"
+    >
+      <h3>{title}</h3>
+      <div className="flex-1 p-4 w-full h-full">{children}</div>
+    </div>
+  );
+}
 
 describe("Visualization component library", () => {
   it("renders a line chart with its title and legend", () => {
@@ -357,5 +381,78 @@ describe("Visualization component library", () => {
     expect(onEventSelect).toHaveBeenCalledWith(
       expect.objectContaining({ id: "event-1" }),
     );
+  });
+
+  it("resizes inside Taha's WidgetContainer compatibility contract", () => {
+    render(
+      <TahaWidgetContainer id="knowledge-widget" title="Knowledge">
+        <KnowledgeGraph
+          accessibleLabel="Responsive knowledge graph"
+          width="100%"
+          height={360}
+          nodes={[
+            {
+              id: "knowledge-1",
+              label: "Castor guide",
+              type: "knowledge",
+            },
+          ]}
+          edges={[]}
+        />
+      </TahaWidgetContainer>,
+    );
+
+    expect(screen.getByTestId("widget-container")).toHaveClass(
+      "h-full",
+    );
+    expect(
+      screen.getByRole("region", { name: "Responsive knowledge graph" }),
+    ).toHaveStyle({ width: "100%" });
+    expect(
+      screen.getByRole("img", {
+        name: "Responsive knowledge graph visualization",
+      }),
+    ).toHaveAttribute("width", "100%");
+  });
+
+  it("receives live timeline data updates inside Taha's WidgetContainer", () => {
+    const initialEvents = [
+      {
+        id: "event-1",
+        timestamp: "2026-08-24T10:00:00Z",
+        title: "Initial memory",
+      },
+    ];
+
+    const view = render(
+      <TahaWidgetContainer id="memory-widget" title="Memory">
+        <MemoryTimeline
+          accessibleLabel="Live memory timeline"
+          events={initialEvents}
+        />
+      </TahaWidgetContainer>,
+    );
+
+    expect(screen.getByText("Initial memory")).toBeInTheDocument();
+
+    view.rerender(
+      <TahaWidgetContainer id="memory-widget" title="Memory">
+        <MemoryTimeline
+          accessibleLabel="Live memory timeline"
+          events={[
+            ...initialEvents,
+            {
+              id: "event-2",
+              timestamp: "2026-08-24T11:00:00Z",
+              title: "Live memory update",
+            },
+          ]}
+        />
+      </TahaWidgetContainer>,
+    );
+
+    expect(screen.getByText("Initial memory")).toBeInTheDocument();
+    expect(screen.getByText("Live memory update")).toBeInTheDocument();
+    expect(screen.getByText("2 of 2 events")).toBeInTheDocument();
   });
 });

@@ -131,6 +131,12 @@ For integration into Taha Zaidi's Executive Workspace:
 
 The Executive Workspace controls page composition and widget dimensions. This library controls visualization rendering inside those containers.
 
+Compatibility tests verify that graph and timeline components use the
+full available `WidgetContainer` width and receive updated live-data
+props after React rerenders. The contract matches Taha Zaidi's
+`castor/executive-workspace` implementation: visualizations are passed
+through `children` inside a `w-full h-full` content area.
+
 ## Quality Verification
 
 The following verification commands pass successfully:
