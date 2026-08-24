@@ -333,6 +333,91 @@ console.log('\nDecision quality and org health:')
 	check('one failure per workflow does not pin incident load to zero', h.incidentLoadScore > 0 && h.incidentLoadScore < 100, h.incidentLoadScore)
 }
 
+// ── Org health by department ─────────────────────────────────────────────────
+console.log('\nOrg health by department — same formula, narrower population (D-21):')
+{
+	const r = roots({
+		employees: [
+			{ id: 1, name: 'Ana', department: 'Eng' },
+			{ id: 2, name: 'Ben', department: 'Ops' },
+		],
+		owners: [
+			{ id: 10, name: 'Ana', employee_id: 1, backup_owner: 'Cal' },
+			{ id: 11, name: 'Ben', employee_id: 2, backup_owner: null },
+		],
+		agents: [
+			{ id: 1, name: 'EngAgent', risk: 'low', status: 'active', owner_id: 10 },
+			{ id: 2, name: 'OpsAgent', risk: 'low', status: 'active', owner_id: 11 },
+		],
+		workflows: [
+			{ id: 1, name: 'EngFlow', risk: 'low', department: 'Eng' },
+			{ id: 2, name: 'OpsFlow', risk: 'low', department: 'Ops' },
+		],
+		workflow_runbooks: [
+			{ workflow_id: 1, is_documented: true },
+			{ workflow_id: 2, is_documented: false },
+		],
+		workflow_failures: [],
+		knowledge_assets: [
+			{ asset_type: 'agent', asset_id: 1, is_documented: true, owner_id: 1 },
+			{ asset_type: 'agent', asset_id: 2, is_documented: false, owner_id: 2 },
+		],
+	})
+	const byDept = d.orgHealthByDepartment(r)
+	const eng = byDept.departments.find((x) => x.department === 'Eng')
+	const ops = byDept.departments.find((x) => x.department === 'Ops')
+
+	check('every employee department gets a row', byDept.departments.length === 2, byDept.departments.map((x) => x.department))
+	check('Eng (documented runbook, backed owner) scores higher than Ops (undocumented, no backup)',
+		eng.healthIndex > ops.healthIndex, [eng.healthIndex, ops.healthIndex])
+	check('each row uses the same five dimensions as org-level orgHealth',
+		'documentationScore' in eng && 'continuityScore' in eng && 'ownershipSpreadScore' in eng &&
+		'criticalSafetyScore' in eng && 'incidentLoadScore' in eng, eng)
+	check('provenance is reported', byDept.source === 'live' && typeof byDept.computedAt === 'string', byDept)
+
+	const empty = d.orgHealthByDepartment(roots())
+	check('no employees means no department rows, not a throw', empty.departments.length === 0, empty.departments)
+}
+
+// ── Department exposure ──────────────────────────────────────────────────────
+console.log('\nDepartment exposure — a different question from continuityScore (D-21):')
+{
+	const r = roots({
+		employees: [
+			{ id: 1, name: 'Ana', department: 'Eng' },
+			{ id: 2, name: 'Ben', department: 'Ops' },
+		],
+		owners: [
+			{ id: 10, name: 'Ana', employee_id: 1, backup_owner: 'Cal' },
+			{ id: 11, name: 'Ben', employee_id: 2, backup_owner: null },
+		],
+		workflows: [
+			{ id: 1, name: 'EngFlow', risk: 'low', department: 'Eng' },
+			{ id: 2, name: 'OpsFlow', risk: 'low', department: 'Ops' },
+		],
+		workflow_failures: [
+			{ workflow_id: 2, failure_type: 'timeout', severity: 'high' },
+			{ workflow_id: 2, failure_type: 'timeout', severity: 'high' },
+		],
+		knowledge_assets: [
+			{ asset_type: 'agent', asset_id: 1, is_documented: true, owner_id: 1 },
+			{ asset_type: 'agent', asset_id: 2, is_documented: false, owner_id: 2 },
+		],
+	})
+	const byDept = d.departmentExposure(r)
+	const eng = byDept.departments.find((x) => x.department === 'Eng')
+	const ops = byDept.departments.find((x) => x.department === 'Ops')
+
+	check('Ops (undocumented, no backup, two failures) is more exposed than Eng',
+		ops.incidentExposureScore < eng.incidentExposureScore, [eng.incidentExposureScore, ops.incidentExposureScore])
+	check('a severe exposure score is not labelled reassuringly',
+		ops.incidentRiskLevel === 'SEVERE' || ops.incidentRiskLevel === 'HIGH', ops.incidentRiskLevel)
+	check('documentationCoverage and backupCoverage are reported per department, not blended away',
+		eng.documentationCoverage === 100 && eng.backupCoverage === 100, eng)
+	check('exposure is NOT continuityScore under a new name',
+		byDept.departments.every((x) => !('continuityScore' in x)), byDept.departments)
+}
+
 // ── Provenance across the board ──────────────────────────────────────────────
 console.log('\nProvenance:')
 {

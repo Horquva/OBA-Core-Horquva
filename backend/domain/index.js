@@ -101,6 +101,8 @@ module.exports = {
       executiveMemory: derived.executiveMemory,
       pillars: derived.pillars,
       orgHealth: derived.orgHealth,
+      orgHealthByDepartment: derived.orgHealthByDepartment,
+      departmentExposure: derived.departmentExposure,
     },
     constants: derived.constants,
   },

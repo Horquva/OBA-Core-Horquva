@@ -1009,6 +1009,135 @@ function orgHealth(roots, { accountability: acc, predictiveRisk: risk }) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// 7. ORG HEALTH BY DEPARTMENT — same definition as §6, narrower population
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Replaces `dept_health_scores` (D-09 DROP list; consumed by health.js /departments).
+ *
+ * Reuses orgHealth()'s exact five-dimension formula, once per department — not a
+ * new definition, the same one over a filtered roots bundle. A department is any
+ * value present in employees.department; an entity belongs to a department by:
+ *
+ *   workflows            -> workflows.department directly
+ *   agents                -> owner_id -> owners.employee_id -> employees.department
+ *   knowledge_assets      -> owner_id -> employees.department directly
+ *   accountability_entities -> its own .department column
+ *
+ * A department with no employees at all cannot appear (there is nothing to key
+ * it by); a department with employees but no agents/workflows/assets still gets
+ * a row, scored on whatever it does have — orgHealth()'s own pct()/mean() helpers
+ * already treat an empty population as 0, not as an omission.
+ */
+function filterRootsByDepartment(roots, department) {
+	const employees = roots.employees.filter((e) => e.department === department)
+	const employeeIds = new Set(employees.map((e) => e.id))
+
+	const owners = roots.owners.filter((o) => employeeIds.has(o.employee_id))
+	const ownerIds = new Set(owners.map((o) => o.id))
+
+	const agents = roots.agents.filter((a) => ownerIds.has(a.owner_id))
+	const workflows = roots.workflows.filter((w) => w.department === department)
+	const workflowIds = new Set(workflows.map((w) => w.id))
+
+	const workflow_runbooks = roots.workflow_runbooks.filter((r) => workflowIds.has(r.workflow_id))
+	const workflow_failures = roots.workflow_failures.filter((f) => workflowIds.has(f.workflow_id))
+	const knowledge_assets = roots.knowledge_assets.filter((k) => employeeIds.has(k.owner_id))
+	const accountability_entities = roots.accountability_entities.filter((e) => e.department === department)
+	const entityIds = new Set(accountability_entities.map((e) => e.id))
+	const accountability_links = roots.accountability_links.filter((l) => entityIds.has(l.entity_id))
+
+	const filtered = {
+		...roots,
+		employees, owners, agents, workflows, workflow_runbooks, workflow_failures,
+		knowledge_assets, accountability_entities, accountability_links,
+	}
+	filtered._counts = Object.fromEntries(ROOT_TABLES.map((t) => [t, filtered[t].length]))
+	return filtered
+}
+
+function orgHealthByDepartment(roots) {
+	const departments = [...new Set(roots.employees.map((e) => e.department).filter(Boolean))]
+
+	const rows = departments.map((department) => {
+		const deptRoots = filterRootsByDepartment(roots, department)
+		const h = orgHealth(deptRoots, {
+			accountability: accountability(deptRoots),
+			predictiveRisk: predictiveRisk(deptRoots),
+		})
+		return {
+			department,
+			healthIndex: h.healthIndex,
+			healthStatus: h.healthStatus,
+			documentationScore: h.documentationScore,
+			continuityScore: h.continuityScore,
+			ownershipSpreadScore: h.ownershipSpreadScore,
+			criticalSafetyScore: h.criticalSafetyScore,
+			incidentLoadScore: h.incidentLoadScore,
+		}
+	})
+
+	return {
+		departments: rows,
+		...provenance({ employees: roots._counts.employees, departments: departments.length }),
+	}
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 8. DEPARTMENT EXPOSURE — a different question from continuityScore (D-21)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Replaces `department_exposure` (uncatalogued in the decision log; consumed by
+ * learning.js /incidents and /departments).
+ *
+ * DEFINITION, AUTHORED — this is not a recovery of an existing formula (the
+ * frozen table's seed rows carry no derivation), and it is deliberately NOT
+ * orgHealthByDepartment's continuityScore under a new name: it answers "how
+ * exposed is this department to disruption", not "how healthy is it overall".
+ * Equal thirds: documentation coverage, backup coverage, and an incident-free
+ * score scoped to THIS department's workflow failures (not the org-wide
+ * failuresPerWorkflow orgHealth.incidentLoadScore uses).
+ *
+ * incidentRiskLevel bands the inverse of the exposure score — SEVERE means
+ * highly exposed, LOW means well-covered — using the same 40/65/85 boundaries
+ * band() uses everywhere else, so the vocabulary means the same thing here as
+ * it does in every other score in the product.
+ */
+const DEPT_EXPOSURE_INCIDENT_PENALTY_PER_FAILURE = 30
+
+function departmentExposure(roots) {
+	const departments = [...new Set(roots.employees.map((e) => e.department).filter(Boolean))]
+	const employeesByDept = new Map(departments.map((dep) => [dep, roots.employees.filter((e) => e.department === dep)]))
+
+	const rows = departments.map((department) => {
+		const employees = employeesByDept.get(department)
+		const employeeIds = new Set(employees.map((e) => e.id))
+		const owners = roots.owners.filter((o) => employeeIds.has(o.employee_id))
+		const workflows = roots.workflows.filter((w) => w.department === department)
+		const workflowIds = new Set(workflows.map((w) => w.id))
+		const failures = roots.workflow_failures.filter((f) => workflowIds.has(f.workflow_id))
+		const assets = roots.knowledge_assets.filter((k) => employeeIds.has(k.owner_id))
+
+		const documentationCoverage = clamp(round(pct(assets.filter((a) => a.is_documented).length, assets.length)))
+		const backupCoverage = clamp(round(pct(owners.filter((o) => o.backup_owner).length, owners.length)))
+
+		const failuresPerWorkflow = workflows.length ? failures.length / workflows.length : 0
+		const incidentFreeScore = clamp(round(100 - failuresPerWorkflow * DEPT_EXPOSURE_INCIDENT_PENALTY_PER_FAILURE))
+
+		const incidentExposureScore = clamp(round(mean([documentationCoverage, backupCoverage, incidentFreeScore])))
+		const incidentRiskLevel = band(100 - incidentExposureScore, ['LOW', 'MODERATE', 'HIGH', 'SEVERE'])
+
+		return { department, documentationCoverage, backupCoverage, incidentExposureScore, incidentRiskLevel }
+	})
+
+	return {
+		departments: rows,
+		...provenance({ employees: roots._counts.employees, departments: departments.length }),
+	}
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // Orchestration
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -1042,6 +1171,8 @@ async function computeAll(supabase) {
     pillars: pillarsResult,
     decisionQuality: decisionQualityResult,
     orgHealth: orgHealthResult,
+    orgHealthByDepartment: orgHealthByDepartment(roots),
+    departmentExposure: departmentExposure(roots),
     computedAt: new Date().toISOString(),
     source: 'live',
     rootCounts: roots._counts,
@@ -1093,6 +1224,8 @@ module.exports = {
   pillars,
   decisionQuality,
   orgHealth,
+  orgHealthByDepartment,
+  departmentExposure,
   computeAll,
   // Exported so tests can assert against the definitions rather than
   // hard-coding the same magic numbers a second time.
