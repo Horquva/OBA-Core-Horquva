@@ -59,6 +59,8 @@
  * anything about this file.
  */
 
+const { atOrAbove } = require('./definitions')
+
 const ROOT_TABLES = [
   'employees', 'agents', 'owners', 'workflows', 'workflow_failures',
   'workflow_runbooks', 'dependencies', 'knowledge_assets', 'tool_users',
@@ -309,7 +311,7 @@ function collaboration(roots) {
   const criticalOwnedByEmployee = new Map()
   for (const a of roots.agents) {
     if (a.owner_id == null) continue
-    if (!['critical', 'high'].includes(a.risk)) continue
+    if (!atOrAbove(a.risk, 'high')) continue
     const employeeId = ownerRowToEmployee.get(a.owner_id)
     if (employeeId == null) continue
     criticalOwnedByEmployee.set(employeeId, (criticalOwnedByEmployee.get(employeeId) || 0) + 1)
@@ -443,6 +445,7 @@ function collaboration(roots) {
  * Roots: agents, owners, dependencies, workflows, knowledge_assets.
  */
 const RISK_FACTORS = {
+  NO_OWNER: 35,
   SINGLE_OWNER: 30,
   DEPENDENTS_MANY: 25,
   DEPENDENTS_FEW: 12,
@@ -486,7 +489,14 @@ function predictiveRisk(roots) {
 
     const owner = agent.owner_id != null ? ownerRowById.get(agent.owner_id) : null
     const ownerBackup = owner && owner.employee_id != null ? backups.get(owner.employee_id) : null
-    if (owner && !(ownerBackup && ownerBackup.hasBackup)) {
+    // No owner at all is a worse condition than an owner with no backup — there
+    // is no single point of failure to name, there is no coverage whatsoever —
+    // so it must not score lower on this dimension than the owned-and-unbacked
+    // case just because the `owner &&` guard made it fall through to nothing.
+    if (!owner) {
+      factors.single_owner = RISK_FACTORS.NO_OWNER
+      reasons.push('has no named owner at all')
+    } else if (!(ownerBackup && ownerBackup.hasBackup)) {
       factors.single_owner = RISK_FACTORS.SINGLE_OWNER
       reasons.push(`${owner.name} is the only named owner and has no backup`)
     }
@@ -503,7 +513,7 @@ function predictiveRisk(roots) {
     const criticalWorkflows = directDependents
       .filter((d) => d.type === 'workflow')
       .map((d) => workflowById.get(d.id))
-      .filter((w) => w && ['critical', 'high'].includes(w.risk))
+      .filter((w) => w && atOrAbove(w.risk, 'high'))
     if (criticalWorkflows.length) {
       factors.critical_workflow = RISK_FACTORS.CRITICAL_WORKFLOW
       reasons.push(`supports ${criticalWorkflows.length} high-risk workflow(s): ${criticalWorkflows.map((w) => w.name).join(', ')}`)
@@ -647,7 +657,7 @@ function executiveMemory(roots) {
   const ownerRowToEmployee = new Map(roots.owners.map((o) => [o.id, o.employee_id]))
   const criticalOwned = new Map()
   for (const a of roots.agents) {
-    if (a.owner_id == null || !['critical', 'high'].includes(a.risk)) continue
+    if (a.owner_id == null || !atOrAbove(a.risk, 'high')) continue
     const employeeId = ownerRowToEmployee.get(a.owner_id)
     if (employeeId == null) continue
     if (!criticalOwned.has(employeeId)) criticalOwned.set(employeeId, [])
@@ -816,9 +826,15 @@ function pillars(roots, accountabilityResult) {
   const verificationRate = clamp(round(pct(verified, claims.length)))
 
   const contradicted = claims.filter((c) => c.is_contradicted).length
-  const contradictionScore = clamp(
-    100 - round(pct(contradicted, claims.length) * CONTRADICTION_PENALTY_MULTIPLIER),
-  )
+  // pct() reads an empty table as 0% everywhere else in this file (same
+  // convention as documentationCoverage/ownershipCoverage above). Computing
+  // this one as 100 minus a penalty inverts that same "no data" condition
+  // into the opposite verdict from verificationRate right next to it — an
+  // org with zero truth_claims would show 0% verified but 100% trustworthy
+  // in the same breath. Read "no data" as 0 here too, consistently.
+  const contradictionScore = claims.length
+    ? clamp(100 - round(pct(contradicted, claims.length) * CONTRADICTION_PENALTY_MULTIPLIER))
+    : 0
 
   const DI = round(mean([documentationCoverage, verificationRate, contradictionScore]))
 
@@ -941,9 +957,15 @@ function orgHealth(roots, { accountability: acc, predictiveRisk: risk }) {
   const ownedAgents = [...perOwner.values()].reduce((a, b) => a + b, 0)
   const idealPerOwner = perOwner.size ? ownedAgents / perOwner.size : 0
   const worstConcentration = perOwner.size ? Math.max(...perOwner.values()) : 0
-  const ownershipSpreadScore = clamp(round(
-    idealPerOwner ? 100 * (idealPerOwner / worstConcentration) : 0,
-  ))
+  // No agent has an owner at all (perOwner.size === 0) is a different failure
+  // than "one person holds everything" — it means there is no concentration
+  // to measure, not that concentration is maximal. Reading it as 0 (worst)
+  // conflated "no signal" with "severe problem"; the fact that nothing is
+  // owned is a real issue, but it is a different one, already captured by
+  // ownershipCoverage in the MI pillar above.
+  const ownershipSpreadScore = perOwner.size
+    ? clamp(round(idealPerOwner ? 100 * (idealPerOwner / worstConcentration) : 0))
+    : 100
 
   const criticalThreats = risk.scores.filter((s) => s.threatLevel === 'CRITICAL').length
   const criticalSafetyScore = clamp(round(100 - pct(criticalThreats, roots.agents.length) * 1.5))
