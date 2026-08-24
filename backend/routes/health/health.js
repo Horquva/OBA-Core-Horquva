@@ -5,31 +5,19 @@ const domain = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
-// WEIGHTS (must sum to 1.0)
-// ─────────────────────────────────────────────
-
-const WEIGHTS = {
-  documentation:    0.20,
-  continuity:       0.25,
-  ownershipSpread:  0.15,
-  criticalSafety:   0.25,
-  incidentLoad:     0.15
-}
-
-// ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
 
-function computeHealthIndex(scores) {
-  return Math.round(
-    (scores.documentation  * WEIGHTS.documentation)  +
-    (scores.continuity     * WEIGHTS.continuity)      +
-    (scores.ownershipSpread * WEIGHTS.ownershipSpread) +
-    (scores.criticalSafety * WEIGHTS.criticalSafety)  +
-    (scores.incidentLoad   * WEIGHTS.incidentLoad)
-  )
-}
-
+// Used only to grade an individual dimension's raw 0-100 score (see
+// /dimensions below) — NOT to combine dimensions into an overall index. This
+// route used to also carry its own weighted combiner (documentation 20% /
+// continuity 25% / ownershipSpread 15% / criticalSafety 25% / incidentLoad
+// 15%) that /critical alone read from, while /summary and /dimensions read
+// domain/derived.js's orgHealth.healthIndex — an unweighted mean with
+// different STABLE/WARNING/CRITICAL thresholds (70/45, not 60/40). Same org,
+// same moment, two different "health index" numbers depending which endpoint
+// you called. There is one authoritative index now: domain.intelligence.all()
+// .orgHealth. See getCurrentSnapshot() below.
 function healthStatus(score) {
   if (score >= 60) return 'STABLE'
   if (score >= 40) return 'WARNING'
@@ -102,6 +90,8 @@ async function computeLiveDimensions() {
   const h = intel.orgHealth
 
   return {
+    healthIndex:          h.healthIndex,
+    healthStatus:         h.healthStatus,
     documentationScore:   h.documentationScore,
     continuityScore:      h.continuityScore,
     ownershipSpreadScore: h.ownershipSpreadScore,
@@ -129,10 +119,10 @@ router.get('/summary', async (req, res) => {
       snapshotMonth: snapshot.snapshot_month,
       dimensions: {
         documentation:   { score: snapshot.documentation_score,    weight: '20%' },
-        continuity:      { score: snapshot.continuity_score,        weight: '25%' },
-        ownershipSpread: { score: snapshot.ownership_spread_score,  weight: '15%' },
-        criticalSafety:  { score: snapshot.critical_safety_score,   weight: '25%' },
-        incidentLoad:    { score: snapshot.incident_load_score,      weight: '15%' }
+        continuity:      { score: snapshot.continuity_score,        weight: '20%' },
+        ownershipSpread: { score: snapshot.ownership_spread_score,  weight: '20%' },
+        criticalSafety:  { score: snapshot.critical_safety_score,   weight: '20%' },
+        incidentLoad:    { score: snapshot.incident_load_score,      weight: '20%' }
       }
     })
   } catch (err) {
@@ -152,7 +142,7 @@ router.get('/dimensions', async (req, res) => {
       {
         name: 'Critical Safety',
         key: 'criticalSafety',
-        weight: '25%',
+        weight: '20%',
         score: snapshot.critical_safety_score,
         status: healthStatus(snapshot.critical_safety_score),
         description: 'Percentage of agents not predicted at CRITICAL threat level'
@@ -160,7 +150,7 @@ router.get('/dimensions', async (req, res) => {
       {
         name: 'Continuity',
         key: 'continuity',
-        weight: '25%',
+        weight: '20%',
         score: snapshot.continuity_score,
         status: healthStatus(snapshot.continuity_score),
         description: 'Percentage of workflows that are documented with backup coverage'
@@ -176,7 +166,7 @@ router.get('/dimensions', async (req, res) => {
       {
         name: 'Ownership Spread',
         key: 'ownershipSpread',
-        weight: '15%',
+        weight: '20%',
         score: snapshot.ownership_spread_score,
         status: healthStatus(snapshot.ownership_spread_score),
         description: 'Percentage of employees who have backup coverage assigned'
@@ -184,7 +174,7 @@ router.get('/dimensions', async (req, res) => {
       {
         name: 'Incident Load',
         key: 'incidentLoad',
-        weight: '15%',
+        weight: '20%',
         score: snapshot.incident_load_score,
         status: healthStatus(snapshot.incident_load_score),
         description: 'Inverse of the proportion of critical-severity workflow failures'
@@ -337,23 +327,15 @@ router.get('/critical', async (req, res) => {
       }))
     ])
 
-    const liveIndex = computeHealthIndex({
-      documentation:    dimensions.documentationScore,
-      continuity:       dimensions.continuityScore,
-      ownershipSpread:  dimensions.ownershipSpreadScore,
-      criticalSafety:   dimensions.criticalSafetyScore,
-      incidentLoad:     dimensions.incidentLoadScore
-    })
-
     res.json({
-      liveHealthIndex: liveIndex,
-      liveHealthStatus: healthStatus(liveIndex),
+      liveHealthIndex: dimensions.healthIndex,
+      liveHealthStatus: dimensions.healthStatus,
       liveDimensions: {
         documentation:   { score: dimensions.documentationScore,   weight: '20%' },
-        continuity:      { score: dimensions.continuityScore,       weight: '25%' },
-        ownershipSpread: { score: dimensions.ownershipSpreadScore,  weight: '15%' },
-        criticalSafety:  { score: dimensions.criticalSafetyScore,   weight: '25%' },
-        incidentLoad:    { score: dimensions.incidentLoadScore,      weight: '15%' }
+        continuity:      { score: dimensions.continuityScore,       weight: '20%' },
+        ownershipSpread: { score: dimensions.ownershipSpreadScore,  weight: '20%' },
+        criticalSafety:  { score: dimensions.criticalSafetyScore,   weight: '20%' },
+        incidentLoad:    { score: dimensions.incidentLoadScore,      weight: '20%' }
       },
       criticalAgents: predictions.map(p => ({
         name: p.agents?.name,
