@@ -151,18 +151,17 @@ async function computeBrainCore() {
     })
   )
 
-  // Only verified signals contribute
+  // Only verified signals are shown in the diagnostic breakdown below —
+  // the headline number is intel.pillars.orgScore, not a weighted vote of
+  // these 10 signals (D-02, D-17; this is the same fix as orchestrator.js's,
+  // for the second of the two OIS-shaped composites the pre-existing
+  // brain-as-library-design.md's open question 3 named as a pair).
   const verifiedSignals = rawSignals.filter(s => s.verified)
 
-  // Weighted average
-  const totalWeight = verifiedSignals.reduce((s, sig) => s + sig.weight, 0)
-  const rawIndex = totalWeight > 0
-    ? verifiedSignals.reduce((s, sig) => s + sig.contribution, 0) / totalWeight
-    : 0
+  const brainIndex = intel.pillars.orgScore.score
 
-  const brainIndex = Math.round(rawIndex)
-
-  // Posture
+  // Posture keeps its own STABLE/STRAINED/CRITICAL vocabulary — only what
+  // feeds it changed.
   const posture =
     brainIndex >= 80 ? 'STABLE'
     : brainIndex >= 60 ? 'STRAINED'
