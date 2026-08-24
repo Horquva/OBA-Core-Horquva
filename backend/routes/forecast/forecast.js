@@ -65,7 +65,10 @@ router.get('/summary', async (req, res) => {
           if (!weakest || latest[scoreKey] < latest[`${weakest}_score`]) return dim
           return weakest
         }, null)
-      }
+      },
+      // organizational_forecasts is a genuine, never-rewritten time series
+      // (D-09 KEEP list) — these figures can never be recomputed live.
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -80,11 +83,14 @@ router.get('/health', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
 
-    res.json(forecasts.map(f => ({
-      horizonDays: f.horizon_days,
-      healthScore: f.health_score,
-      trend: f.health_trend
-    })))
+    res.json({
+      forecasts: forecasts.map(f => ({
+        horizonDays: f.horizon_days,
+        healthScore: f.health_score,
+        trend: f.health_trend
+      })),
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
+    })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -116,7 +122,8 @@ router.get('/memory', async (req, res) => {
       undocumentedAssets: undocumented.map(u => ({
         name: u.reference_name,
         detail: u.detail
-      }))
+      })),
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -149,7 +156,8 @@ router.get('/continuity', async (req, res) => {
       workflowsWithoutBackup: noBackup.map(w => ({
         name: w.reference_name,
         detail: w.detail
-      }))
+      })),
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -187,7 +195,8 @@ router.get('/outlook', async (req, res) => {
         fragileWorkflows: grouped.fragileWorkflows.map(w => ({ name: w.reference_name, detail: w.detail })),
         workflowsWithoutBackup: grouped.workflowsWithoutBackup.map(w => ({ name: w.reference_name, detail: w.detail })),
         undocumentedAssets: grouped.undocumentedAssets.map(u => ({ name: u.reference_name, detail: u.detail }))
-      }
+      },
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

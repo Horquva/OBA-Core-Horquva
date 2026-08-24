@@ -305,6 +305,11 @@ export interface ForecastHealthItem {
   trend: string;
 }
 
+export interface ForecastHealthResponse {
+  forecasts: ForecastHealthItem[];
+  provenance: { source: string; table: string };
+}
+
 export interface ForecastFinding {
   name: string;
   detail: string;
@@ -342,7 +347,7 @@ export const forecast = {
     request<ForecastSummaryResponse>('/api/forecast/summary'),
 
   health: () =>
-    request<ForecastHealthItem[]>('/api/forecast/health'),
+    request<ForecastHealthResponse>('/api/forecast/health'),
 
   memory: () =>
     request<ForecastMemoryResponse>('/api/forecast/memory'),
