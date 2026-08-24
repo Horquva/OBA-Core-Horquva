@@ -191,6 +191,22 @@ console.log("\nRegression F-K — platform criticality must not depend on row or
 		D.entityCriticality('platform', { id: 5 }, { knowledgeAssets: forward }) === D.entityCriticality('platform', { id: 5 }, { knowledgeAssets: reversed }))
 	check('the old last-row-wins rule would have disagreed', forward[forward.length - 1].criticality !== reversed[reversed.length - 1].criticality)
 }
+
+console.log('\ncombineEvidence — composite gates stay readable as a flat gate (D-22, D-23):')
+{
+	const a = D.evidenceGate([{ x: 1 }], () => true)          // sufficient, coverage 1
+	const b = D.evidenceGate([{ x: 1 }, { x: 1 }, { x: null }], (r) => r.x != null) // sufficient, coverage 0.67
+	const c = D.evidenceGate([], () => true)                   // insufficient, coverage 0
+
+	const allGood = D.combineEvidence({ a, b })
+	check('sufficient only if every named gate is', allGood.sufficient === true, allGood)
+	check("surfaces the worst gate's own coverage at the top level", allGood.coverage === b.coverage, allGood)
+	check('named gates are still reachable for detail', allGood.a === a && allGood.b === b, allGood)
+
+	const oneBad = D.combineEvidence({ a, c })
+	check('one insufficient gate sinks the whole composite', oneBad.sufficient === false, oneBad)
+	check('the worst (zero-coverage) gate is what surfaces at the top', oneBad.coverage === 0 && oneBad.total === 0, oneBad)
+}
 console.log('\n----------------------------------------')
 console.log('passed: ' + passed + '   failed: ' + failed)
 console.log(failed === 0 ? 'CANONICAL DEFINITIONS TESTS PASSED ✅' : 'CANONICAL DEFINITIONS TESTS FAILED ❌')

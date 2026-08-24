@@ -352,6 +352,41 @@ console.log('\nPillars — the authored measures:')
 	check('a contradicted claim hurts more than a merely unverified one', b.score < a.score, [a.score, b.score])
 }
 
+// ── Pillars evidence gate (D-07, D-10, D-24) ────────────────────────────────
+console.log('\nPillars — evidence gate:')
+{
+	const empty = roots()
+	const p = d.pillars(empty, d.accountability(empty))
+	const by = Object.fromEntries(p.pillars.map((x) => [x.resultKey, x]))
+
+	check('GI is insufficient with no workflows and no platforms',
+		by.GI.evidence.sufficient === false && by.GI.score === null && by.GI.rating === null, by.GI.evidence)
+	check('...components are still reported (raw intermediate math, not a verdict)',
+		'runbookCoverage' in by.GI.components, by.GI.components)
+
+	// D-24: zero platforms used to fabricate a perfect violationScore of 100.
+	const noPlatforms = roots({
+		workflows: [{ id: 1, name: 'W1', risk: 'low' }],
+		workflow_runbooks: [{ workflow_id: 1, is_documented: true }],
+	})
+	const g = d.pillars(noPlatforms, d.accountability(noPlatforms)).pillars.find((x) => x.resultKey === 'GI')
+	check('workflows are covered but platforms are still empty — GI stays insufficient',
+		g.evidence.sufficient === false && g.evidence.platforms.sufficient === false, g.evidence)
+
+	// Platforms exist but none has ANY tool_policies row (not even inactive) — never assessed.
+	const unassessedPlatforms = roots({
+		workflows: [{ id: 1, name: 'W1', risk: 'low' }],
+		workflow_runbooks: [{ workflow_id: 1, is_documented: true }],
+		ai_platforms: [{ id: 1, name: 'P1' }, { id: 2, name: 'P2' }],
+		tool_policies: [],
+	})
+	const g2 = d.pillars(unassessedPlatforms, d.accountability(unassessedPlatforms)).pillars.find((x) => x.resultKey === 'GI')
+	check('platforms exist but none was ever assessed for policy — still insufficient',
+		g2.evidence.sufficient === false, g2.evidence)
+	check('...and the flat coverage/covered/total EvidenceBadge reads are populated, not undefined',
+		typeof g2.evidence.coverage === 'number' && typeof g2.evidence.total === 'number', g2.evidence)
+}
+
 // ── Decision quality ─────────────────────────────────────────────────────────
 console.log('\nDecision quality and org health:')
 {

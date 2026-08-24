@@ -59,7 +59,7 @@
  * anything about this file.
  */
 
-const { atOrAbove, evidenceGate } = require('./definitions')
+const { atOrAbove, evidenceGate, combineEvidence } = require('./definitions')
 
 const ROOT_TABLES = [
   'employees', 'agents', 'owners', 'workflows', 'workflow_failures',
@@ -813,6 +813,11 @@ function pillars(roots, accountabilityResult) {
 
   const GI = round(mean([runbookCoverage, policyCoverage, violationScore]))
 
+  const giEvidence = combineEvidence({
+    workflows: evidenceGate(roots.workflows, (w) => roots.workflow_runbooks.some((r) => r.workflow_id === w.id)),
+    platforms: evidenceGate(roots.ai_platforms, (p) => roots.tool_policies.some((tp) => tp.platform_id === p.id)),
+  })
+
   // ── MI ────────────────────────────────────────────────────────────────────
   const namedOwners = roots.owners.length
   const ownersWithBackup = roots.owners.filter((o) => o.backup_owner).length
@@ -846,25 +851,30 @@ function pillars(roots, accountabilityResult) {
 
   const orgScore = round(GI * PILLAR_WEIGHTS.GI + MI * PILLAR_WEIGHTS.MI + DI * PILLAR_WEIGHTS.DI)
 
-  const shape = (key, score, components) => ({
+  const shape = (key, score, components, evidence) => ({
     resultType: 'pillar',
     resultKey: key,
-    score,
-    rating: band(score),
+    score: evidence.sufficient ? score : null,
+    rating: evidence.sufficient ? band(score) : null,
     components,
-    strengths: Object.entries(components).filter(([, v]) => v >= 70).map(([k]) => k),
-    weaknesses: Object.entries(components).filter(([, v]) => v < 50).map(([k]) => k),
+    strengths: evidence.sufficient ? Object.entries(components).filter(([, v]) => v >= 70).map(([k]) => k) : [],
+    weaknesses: evidence.sufficient ? Object.entries(components).filter(([, v]) => v < 50).map(([k]) => k) : [],
+    evidence,
   })
+
+  // MI and DI's real gates land in Tasks 4-5; this placeholder keeps this task's
+  // code running (and the pre-existing pillars tests green) in the interim.
+  const placeholderEvidence = { sufficient: true, status: 'computed', coverage: 1, covered: 0, total: 0, threshold: 0.5 }
 
   return {
     pillars: [
-      shape('GI', GI, { runbookCoverage, policyCoverage, violationScore }),
+      shape('GI', GI, { runbookCoverage, policyCoverage, violationScore }, giEvidence),
       shape('MI', MI, {
         accountability: accountabilityResult.accountabilityScore,
         backupCoverage,
         ownershipCoverage,
-      }),
-      shape('DI', DI, { documentationCoverage, verificationRate, contradictionScore }),
+      }, placeholderEvidence),
+      shape('DI', DI, { documentationCoverage, verificationRate, contradictionScore }, placeholderEvidence),
     ],
     orgScore: {
       resultType: 'overall',
@@ -872,6 +882,7 @@ function pillars(roots, accountabilityResult) {
       score: orgScore,
       rating: band(orgScore),
       weights: PILLAR_WEIGHTS,
+      evidence: placeholderEvidence,
     },
     // Named loudly so nobody mistakes an authored metric for a measured one.
     definitionsAreAuthored: true,

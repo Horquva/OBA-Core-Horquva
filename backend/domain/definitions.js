@@ -225,6 +225,31 @@ function evidenceGate(rows, hasField, opts = {}) {
 		threshold,
 	}
 }
+
+/**
+ * Combines several evidenceGate() results into one composite: sufficient only
+ * if every named gate is. Surfaces the WORST (lowest-coverage) gate's own
+ * coverage/covered/total/threshold at the top level — so a composite is still
+ * readable by anything that only knows how to read a single evidenceGate()
+ * shape (a UI badge, for instance) — while spreading every named gate
+ * alongside for detail.
+ *
+ * @param {{[name: string]: ReturnType<typeof evidenceGate>}} namedGates
+ */
+function combineEvidence(namedGates) {
+	const entries = Object.entries(namedGates)
+	const sufficient = entries.every(([, g]) => g.sufficient)
+	const worst = entries.reduce((min, [, g]) => (g.coverage < min.coverage ? g : min), entries[0][1])
+	return {
+		sufficient,
+		status: sufficient ? 'computed' : 'insufficient_evidence',
+		coverage: worst.coverage,
+		covered: worst.covered,
+		total: worst.total,
+		threshold: worst.threshold,
+		...namedGates,
+	}
+}
 module.exports = {
 	LEVELS,
 	RANK,
@@ -240,4 +265,5 @@ module.exports = {
 	COVERAGE_THRESHOLD,
 	coverage,
 	evidenceGate,
+	combineEvidence,
 }
