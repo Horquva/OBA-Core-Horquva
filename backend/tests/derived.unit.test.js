@@ -429,6 +429,23 @@ console.log('\nProvenance:')
 	}
 }
 
+// ── Source-level regression: no file re-derives its own OIS ─────────────────
+console.log('\nNo route computes a second Organizational Intelligence Score (D-02, D-17):')
+{
+	const fs = require('fs')
+	const path = require('path')
+	const filesThatMustReadPillarsOrgScore = [
+		'../routes/executive/executive.js',
+		'../routes/voice/voice.js',
+		'../routes/intelligence/orchestrator.js',
+		'../routes/intelligence/brainCore.js',
+	]
+	for (const rel of filesThatMustReadPillarsOrgScore) {
+		const src = fs.readFileSync(path.join(__dirname, rel), 'utf8')
+		check(`${rel} reads intel.pillars.orgScore`, src.includes('pillars.orgScore'), rel)
+	}
+}
+
 console.log('\n----------------------------------------')
 console.log('passed: ' + passed + '   failed: ' + failed)
 console.log(failed === 0 ? 'DERIVED INTELLIGENCE TESTS PASSED ✅' : 'DERIVED INTELLIGENCE TESTS FAILED ❌')
