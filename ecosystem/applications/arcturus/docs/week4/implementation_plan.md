@@ -365,6 +365,7 @@ async def run_simulation_async(context: SimulationContext, engine: RuntimeEngine
 ### 3. Experiment Orchestrator State Machine
 **Owner**: Hashim
 The orchestrator drives the pipeline and handles partial failures.
+**Design Decision**: The Orchestrator is directly wired into the `start_simulation` endpoint's background loop. It emits `STAGE_CHANGE` events (`INIT_ONTOLOGY`, etc.) to the frontend over WebSocket *before* handing the context to the RuntimeEngine for ticking.
 **States**: `CREATED -> INIT_ONTOLOGY -> INIT_ENTERPRISE -> INIT_WORKFORCE -> INIT_WORKFLOW -> INIT_SCENARIO -> RUNNING_SIMULATION -> GENERATING_DATA -> VALIDATING -> ASSESSING -> COMPLETED / FAILED`
 
 ### 4. WebSocket Message Protocol
@@ -747,15 +748,19 @@ Hardening the runtime engine to advance discrete simulation clocks, process tick
 
 ## Hashim Ali Khan — Day 3 WebSocket/SSE & Runtime Wiring
 
+**Design Constraints (Confirmed)**:
+- **Single-Worker Invariant**: The `EventBus` uses in-process `asyncio.Queue`. To avoid multi-process sync complexity (e.g. Redis), `api/config.py` enforces `workers: int = 1`. This allows the in-memory engine registry (`_active_engines`) to work safely.
+- **Orchestrator Chaining**: `ExperimentOrchestrator` runs *inside* the background async loop triggered by `/start`. It automatically initializes the upstream pipeline, sends live progress via WS, and then hands off to the tick loop.
+
 ### Day 3 Tasks
 
 | # | Task | Output |
 | :--- | :--- | :--- |
-| 1 | Implement WebSocket/SSE endpoint | `api/websocket/simulation_stream.py` — streams tick events, state changes |
+| 1 | Implement WebSocket endpoint | `api/websocket/simulation_stream.py` — native WS, 30s heartbeat, stateless app.state access |
 | 2 | Implement event bus | `api/services/event_bus.py` — in-process pub/sub connecting runtime to WebSocket |
-| 3 | Wire runtime router | `api/routers/runtime.py` — start/pause/resume/checkpoint endpoints |
-| 4 | Wire workforce + workflow + scenario routers | `api/main.py` updated with all Day 2 platform routers |
-| 5 | Experiment orchestrator (first pass) | `api/services/experiment_orchestrator.py` — chains Ontology → Enterprise → Workforce → Workflow → Scenario → Runtime |
+| 3 | Wire runtime router | `api/routers/runtime.py` — start/pause/resume endpoints, orchestrator auto-chaining |
+| 4 | Wire platform routers | `api/main.py` updated with try/except fallbacks for Day 2 PRs |
+| 5 | Experiment orchestrator | `api/services/experiment_orchestrator.py` — stubs for unmerged PRs to allow e2e testing |
 
 ---
 
