@@ -7,7 +7,7 @@ const supabase = require('../../supabase')
 // ─────────────────────────────────────────────
 
 function formatLevel(level) {
-  return level.replace('_', ' ')
+  return level ? level.replace('_', ' ') : 'unknown'
 }
 
 async function fetchLatestSnapshot() {
