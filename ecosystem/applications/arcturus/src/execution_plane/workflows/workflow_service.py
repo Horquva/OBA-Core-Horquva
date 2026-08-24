@@ -17,8 +17,12 @@ from ecosystem.applications.arcturus.contracts.execution.workflows.base_models i
 )
 
 from ecosystem.applications.arcturus.schemas.execution.workflows.base_schemas import (
+    ActivityStatus,
     PolicyEnforcementLevel,
     PolicyViolationAction,
+)
+from ecosystem.applications.arcturus.src.execution_plane.workflows.workflow_adapters import (
+    validate_activity_transition,
 )
 
 
@@ -143,3 +147,166 @@ class WorkflowService:
                 ),
                 platform_source="workflow",
             )
+
+    def validate_dependency_graph(
+        self,
+        workflow: WorkflowDefinitionContract,
+    ) -> None:
+        """
+        Validates the DAG dependency structure of activities in a workflow.
+        Checks for:
+        1. Non-existent dependency references.
+        2. Self-dependencies.
+        3. Circular dependencies (cycles).
+        """
+        activity_ids = {a.activity_id for a in workflow.activities}
+        adj: dict[str, list[str]] = {a.activity_id: [] for a in workflow.activities}
+
+        for activity in workflow.activities:
+            for dep_id in activity.dependencies:
+                if dep_id not in activity_ids:
+                    raise ArcturusValidationError(
+                        message=(
+                            f"activity '{activity.activity_id}' references non-existent "
+                            f"dependency '{dep_id}' in workflow '{workflow.workflow_id}'"
+                        ),
+                        platform_source="workflow",
+                    )
+                if dep_id == activity.activity_id:
+                    raise ArcturusValidationError(
+                        message=(
+                            f"activity '{activity.activity_id}' has a self-dependency in "
+                            f"workflow '{workflow.workflow_id}'"
+                        ),
+                        platform_source="workflow",
+                    )
+                adj[dep_id].append(activity.activity_id)
+
+        # Cycle detection using DFS
+        visited: dict[str, int] = {a_id: 0 for a_id in activity_ids}  # 0=unvisited, 1=visiting, 2=visited
+
+        def dfs(node: str, path: list[str]) -> None:
+            visited[node] = 1
+            for neighbor in adj.get(node, []):
+                if visited[neighbor] == 1:
+                    cycle = " -> ".join(path + [neighbor])
+                    raise ArcturusValidationError(
+                        message=(
+                            f"circular dependency detected in workflow "
+                            f"'{workflow.workflow_id}': {cycle}"
+                        ),
+                        platform_source="workflow",
+                    )
+                if visited[neighbor] == 0:
+                    dfs(neighbor, path + [neighbor])
+            visited[node] = 2
+
+        for a_id in activity_ids:
+            if visited[a_id] == 0:
+                dfs(a_id, [a_id])
+
+    def advance_activity(
+        self,
+        workflow: WorkflowDefinitionContract,
+        activity_id: str,
+        target_status: ActivityStatus,
+        timestamp: datetime | None = None,
+    ) -> ActivityStateContract:
+        """
+        Advances an activity's status adhering to state machine rules
+        and DAG dependency preconditions.
+        """
+        activity_map = {a.activity_id: a for a in workflow.activities}
+        if activity_id not in activity_map:
+            raise ArcturusValidationError(
+                message=(
+                    f"activity '{activity_id}' not found in workflow "
+                    f"'{workflow.workflow_id}'"
+                ),
+                platform_source="workflow",
+            )
+
+        activity = activity_map[activity_id]
+        now = timestamp or datetime.utcnow()
+
+        # Validate state machine transition
+        validate_activity_transition(activity.status, target_status)
+
+        # If transitioning to IN_PROGRESS or COMPLETED, verify dependencies are COMPLETED
+        if target_status in (ActivityStatus.IN_PROGRESS, ActivityStatus.COMPLETED):
+            for dep_id in activity.dependencies:
+                dep_act = activity_map.get(dep_id)
+                if dep_act is None or dep_act.status != ActivityStatus.COMPLETED:
+                    raise ArcturusValidationError(
+                        message=(
+                            f"cannot advance activity '{activity_id}' to '{target_status.value}': "
+                            f"dependency '{dep_id}' status is '{dep_act.status.value if dep_act else 'unknown'}'"
+                        ),
+                        platform_source="workflow",
+                    )
+
+        # Apply state changes and timestamp tracking
+        updates: dict[str, Any] = {"status": target_status}
+        if target_status == ActivityStatus.IN_PROGRESS and activity.started_at is None:
+            updates["started_at"] = now
+        elif target_status in (ActivityStatus.COMPLETED, ActivityStatus.FAILED, ActivityStatus.CANCELLED):
+            if activity.started_at is None:
+                updates["started_at"] = now
+            updates["completed_at"] = now
+
+        updated_activity = activity.model_copy(update=updates)
+
+        # Update in workflow activities list
+        idx = next(i for i, a in enumerate(workflow.activities) if a.activity_id == activity_id)
+        workflow.activities[idx] = updated_activity
+
+        return updated_activity
+
+    def get_unblocked_activities(
+        self,
+        workflow: WorkflowDefinitionContract,
+    ) -> list[ActivityStateContract]:
+        """
+        Returns all activities currently in PENDING state whose dependencies
+        have all reached COMPLETED status.
+        """
+        activity_map = {a.activity_id: a for a in workflow.activities}
+        unblocked: list[ActivityStateContract] = []
+
+        for activity in workflow.activities:
+            if activity.status != ActivityStatus.PENDING:
+                continue
+
+            all_deps_completed = all(
+                activity_map.get(dep_id) is not None
+                and activity_map[dep_id].status == ActivityStatus.COMPLETED
+                for dep_id in activity.dependencies
+            )
+
+            if all_deps_completed:
+                unblocked.append(activity)
+
+        return unblocked
+
+    def create_workflow_event(
+        self,
+        workflow_id: str,
+        activity_id: str,
+        old_status: ActivityStatus,
+        new_status: ActivityStatus,
+        tick: int = 0,
+        details: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Constructs a normalized event dictionary for Runtime and Synthetic Data streaming.
+        """
+        return {
+            "event_type": "WORKFLOW_ACTIVITY_STATUS_CHANGED",
+            "workflow_id": workflow_id,
+            "activity_id": activity_id,
+            "old_status": old_status.value,
+            "new_status": new_status.value,
+            "tick": tick,
+            "timestamp": datetime.utcnow().isoformat(),
+            "details": details or {},
+        }
