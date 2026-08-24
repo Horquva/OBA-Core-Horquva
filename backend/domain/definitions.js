@@ -67,6 +67,60 @@ function maxLevel(levels) {
 	return best
 }
 
+
+/**
+ * Which column actually carries the criticality signal, per entity type.
+ *
+ * These are three different column names for one concept, which is why every
+ * consumer that hardcoded one of them was wrong for the other two:
+ *
+ *   agents            -> risk
+ *   workflows         -> risk
+ *   knowledge_assets  -> criticality
+ *   ai_platforms      -> (none; derived -- see entityCriticality)
+ *
+ * Verified against backend/sql/01_schema_migration.sql.
+ */
+const ENTITY_CRITICALITY_FIELD = {
+	agent: 'risk',
+	workflow: 'risk',
+	knowledge_asset: 'criticality',
+}
+
+/**
+ * Criticality of one entity, whatever table it came from.
+ *
+ * ai_platforms carries no criticality column, so a platform is criticality is
+ * the highest criticality among the knowledge assets recorded about it. One
+ * critical piece of knowledge about a tool makes the tool critical. That is a
+ * judgement, not a measurement, and it is labelled authored wherever it
+ * surfaces.
+ *
+ * A platform with no knowledge assets is UNKNOWN rather than normal. It
+ * therefore cannot satisfy the SPOF threshold and reports as not-evaluable
+ * instead of not-a-SPOF.
+ *
+ * @param {string} entityType  agent | workflow | knowledge_asset | platform
+ * @param {object} row         the entity row
+ * @param {{knowledgeAssets?: Array}} [ctx]  required only for platforms
+ */
+function entityCriticality(entityType, row, ctx = {}) {
+	if (!row) return UNKNOWN
+
+	if (entityType === 'platform') {
+		const assets = ctx.knowledgeAssets
+		if (!Array.isArray(assets)) return UNKNOWN
+		return maxLevel(
+			assets
+				.filter((a) => a && a.asset_type === 'platform' && a.asset_id === row.id)
+				.map((a) => a.criticality),
+		)
+	}
+
+	const field = ENTITY_CRITICALITY_FIELD[entityType]
+	if (!field) return UNKNOWN
+	return normalizeLevel(row[field])
+}
 module.exports = {
 	LEVELS,
 	RANK,
@@ -74,4 +128,6 @@ module.exports = {
 	normalizeLevel,
 	atOrAbove,
 	maxLevel,
+	ENTITY_CRITICALITY_FIELD,
+	entityCriticality,
 }

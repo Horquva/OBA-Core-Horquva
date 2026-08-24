@@ -59,6 +59,36 @@ console.log('\nmaxLevel — highest known, ignoring unknowns:')
 	check('empty list is unknown', D.maxLevel([]) === D.UNKNOWN, D.maxLevel([]))
 }
 
+
+console.log("\nEntity criticality — four different column names (D-03):")
+{
+	check('agent reads .risk', D.entityCriticality('agent', { risk: 'critical' }) === 'critical', D.entityCriticality('agent', { risk: 'critical' }))
+	check('workflow reads .risk', D.entityCriticality('workflow', { risk: 'high' }) === 'high', D.entityCriticality('workflow', { risk: 'high' }))
+	check('knowledge_asset reads .criticality', D.entityCriticality('knowledge_asset', { criticality: 'low' }) === 'low', D.entityCriticality('knowledge_asset', { criticality: 'low' }))
+
+	check('agent ignores a stray .criticality property', D.entityCriticality('agent', { criticality: 'critical' }) === D.UNKNOWN, D.entityCriticality('agent', { criticality: 'critical' }))
+	check('workflow ignores a stray .criticality property', D.entityCriticality('workflow', { criticality: 'critical' }) === D.UNKNOWN, D.entityCriticality('workflow', { criticality: 'critical' }))
+
+	check('unrecognized entity type is unknown', D.entityCriticality('teapot', { risk: 'critical' }) === D.UNKNOWN, D.entityCriticality('teapot', { risk: 'critical' }))
+	check('missing row is unknown, not a throw', D.entityCriticality('agent', null) === D.UNKNOWN, D.entityCriticality('agent', null))
+}
+
+console.log("\nPlatform criticality — derived from knowledge assets (authored):")
+{
+	const knowledgeAssets = [
+		{ asset_type: 'platform', asset_id: 1, criticality: 'normal' },
+		{ asset_type: 'platform', asset_id: 1, criticality: 'critical' },
+		{ asset_type: 'platform', asset_id: 2, criticality: 'low' },
+		{ asset_type: 'workflow', asset_id: 1, criticality: 'critical' },
+	]
+	const ctx = { knowledgeAssets }
+
+	check('platform takes the max of its assets', D.entityCriticality('platform', { id: 1 }, ctx) === 'critical', D.entityCriticality('platform', { id: 1 }, ctx))
+	check('platform with one low asset is low', D.entityCriticality('platform', { id: 2 }, ctx) === 'low', D.entityCriticality('platform', { id: 2 }, ctx))
+	check('platform with no assets is unknown, not normal', D.entityCriticality('platform', { id: 99 }, ctx) === D.UNKNOWN, D.entityCriticality('platform', { id: 99 }, ctx))
+	check('platform without ctx is unknown, not a throw', D.entityCriticality('platform', { id: 1 }) === D.UNKNOWN, D.entityCriticality('platform', { id: 1 }))
+	check('other asset types do not leak in', D.entityCriticality('platform', { id: 1 }, { knowledgeAssets: [{ asset_type: 'workflow', asset_id: 1, criticality: 'critical' }] }) === D.UNKNOWN)
+}
 console.log('\n----------------------------------------')
 console.log('passed: ' + passed + '   failed: ' + failed)
 console.log(failed === 0 ? 'CANONICAL DEFINITIONS TESTS PASSED ✅' : 'CANONICAL DEFINITIONS TESTS FAILED ❌')
