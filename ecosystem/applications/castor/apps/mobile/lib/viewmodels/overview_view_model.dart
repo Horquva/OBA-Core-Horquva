@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show Color, IconData;
 
+import '../models/signal.dart';
+import '../repositories/signals_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
-import '../views/widgets/severity_badge.dart';
 
 /// A single KPI stat shown on the Overview.
 class StatData {
@@ -19,25 +20,17 @@ class StatData {
   final Color? iconColor;
 }
 
-/// A featured signal shown in the Overview carousel.
-class HighlightData {
-  const HighlightData({
-    required this.severity,
-    required this.number,
-    required this.title,
-    required this.meta,
-  });
-  final Severity severity;
-  final String number;
-  final String title;
-  final String meta;
-}
-
 /// ViewModel for the Overview screen (the "VM" in MVVM).
 ///
-/// A plain [ChangeNotifier]: it holds the data plus [isLoading] / [error], and
-/// notifies the View when they change. Data here is DEMO (sample data).
+/// A plain [ChangeNotifier]. The stats are demo data; the featured signals come
+/// from the SAME [SignalsRepository] the Signals screen uses, so both screens
+/// show one shared set of signals (the Overview just shows the top few).
 class OverviewViewModel extends ChangeNotifier {
+  OverviewViewModel({SignalsRepository? signalsRepository})
+      : _signalsRepository = signalsRepository ?? SignalsRepository();
+
+  final SignalsRepository _signalsRepository;
+
   // ─── State ──────────────────────────────────────────────────────────────
   bool isLoading = false;
   String? error;
@@ -46,18 +39,18 @@ class OverviewViewModel extends ChangeNotifier {
   String greeting = 'Good morning, Dur Muhammad Khan.';
   String subtitle = 'Your organization changed overnight.';
   List<StatData> stats = [];
-  List<HighlightData> highlights = [];
 
-  /// Loads the DEMO overview data (simulates fetching from a repository).
+  /// The featured signals shown in the Overview carousel — the same signals as
+  /// the Signals screen, limited to the top 5.
+  List<Signal> topSignals = [];
+
+  /// Loads the Overview data.
   Future<void> load() async {
     isLoading = true;
     error = null;
     notifyListeners();
 
     try {
-      // Simulate a short delay so the loading state is visible.
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-
       stats = const [
         StatData(
           icon: AppIcons.signals,
@@ -73,20 +66,9 @@ class OverviewViewModel extends ChangeNotifier {
         ),
       ];
 
-      highlights = const [
-        HighlightData(
-          severity: Severity.critical,
-          number: '01',
-          title: 'Vendor dependency has created a continuity exposure.',
-          meta: 'Business Impact: High  •  Probability: Likely',
-        ),
-        HighlightData(
-          severity: Severity.important,
-          number: '02',
-          title: 'Q2 revenue forecast updated.',
-          meta: 'Business Impact: Medium  •  Probability: Likely',
-        ),
-      ];
+      // Same repository as the Signals screen; keep only the top 5 here.
+      final all = await _signalsRepository.fetchSignals();
+      topSignals = all.take(5).toList();
     } catch (e) {
       error = 'Could not load your overview. Please try again.';
     } finally {

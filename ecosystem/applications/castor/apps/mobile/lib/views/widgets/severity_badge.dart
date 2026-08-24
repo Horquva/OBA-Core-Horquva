@@ -43,6 +43,19 @@ IconData severityIcon(Severity severity) {
   }
 }
 
+/// Turns a severity string (e.g. "critical") from the backend into the
+/// [Severity] enum. Shared so every model parses severity the same way.
+Severity severityFromString(String value) {
+  switch (value) {
+    case 'critical':
+      return Severity.critical;
+    case 'important':
+      return Severity.important;
+    default:
+      return Severity.informational;
+  }
+}
+
 /// Castor Design System — Severity Badge.
 ///
 /// Shows how urgent something is as small, coloured, uppercase text, e.g.

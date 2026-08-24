@@ -12,6 +12,7 @@ import '../widgets/app_top_bar.dart';
 import '../widgets/segmented_tabs.dart';
 import '../widgets/severity_badge.dart';
 import '../widgets/signal_card.dart';
+import 'signal_detail_screen.dart';
 
 /// The Signals screen — MVVM.
 ///
@@ -112,9 +113,21 @@ class _SignalsView extends StatelessWidget {
           title: s.title,
           description: s.description,
           tags: s.tags,
-          onTap: () {}, // Signal detail screen comes later.
+          onTap: () => _openDetail(context, s.id),
         );
       },
     );
+  }
+
+  /// Opens the detail screen for the tapped signal (passing its id).
+  void _openDetail(BuildContext context, String id) {
+    final route = AppPlatform.isIOS
+        ? CupertinoPageRoute<void>(
+            builder: (_) => SignalDetailScreen(signalId: id),
+          )
+        : MaterialPageRoute<void>(
+            builder: (_) => SignalDetailScreen(signalId: id),
+          );
+    Navigator.of(context).push(route);
   }
 }

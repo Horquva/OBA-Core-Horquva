@@ -12,6 +12,8 @@ class Signal {
     required this.description,
     required this.time,
     this.tags = const [],
+    this.impact = '',
+    this.probability = '',
   });
 
   /// Unique id (useful when opening the detail screen or updating one item).
@@ -32,29 +34,25 @@ class Signal {
   /// Category tags, e.g. ["Operations", "Risk"].
   final List<String> tags;
 
+  /// Business impact, e.g. "High" (shown on the Overview highlight card).
+  final String impact;
+
+  /// Probability, e.g. "Likely" (shown on the Overview highlight card).
+  final String probability;
+
   /// Builds a Signal from a JSON map — i.e. a server/database response.
   ///
   /// When you connect a real backend, the response just needs the same keys.
   factory Signal.fromJson(Map<String, dynamic> json) {
     return Signal(
       id: json['id'] as String,
-      severity: _severityFromString(json['severity'] as String),
+      severity: severityFromString(json['severity'] as String),
       title: json['title'] as String,
       description: json['description'] as String,
       time: json['time'] as String,
       tags: (json['tags'] as List<dynamic>? ?? const []).cast<String>(),
+      impact: json['impact'] as String? ?? '',
+      probability: json['probability'] as String? ?? '',
     );
-  }
-}
-
-/// Turns a severity string (e.g. "critical") into the [Severity] enum.
-Severity _severityFromString(String value) {
-  switch (value) {
-    case 'critical':
-      return Severity.critical;
-    case 'important':
-      return Severity.important;
-    default:
-      return Severity.informational;
   }
 }

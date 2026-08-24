@@ -15,6 +15,7 @@ import '../widgets/signal_carousel.dart';
 import '../widgets/signal_highlight_card.dart';
 import '../widgets/stat_item.dart';
 import '../widgets/status_pill.dart';
+import 'signal_detail_screen.dart';
 
 /// The Overview (home) screen — MVVM.
 ///
@@ -42,11 +43,11 @@ class _OverviewView extends StatelessWidget {
 
     return Scaffold(
       appBar: HomeAppBar(onNotification: () {}, onAvatar: () {}),
-      body: _body(vm),
+      body: _body(context, vm),
     );
   }
 
-  Widget _body(OverviewViewModel vm) {
+  Widget _body(BuildContext context, OverviewViewModel vm) {
     // Loading first, then error, otherwise the content.
     if (vm.isLoading) {
       // Platform-adaptive spinner: Cupertino on iOS, Material on Android.
@@ -68,10 +69,10 @@ class _OverviewView extends StatelessWidget {
         ),
       );
     }
-    return _content(vm);
+    return _content(context, vm);
   }
 
-  Widget _content(OverviewViewModel vm) {
+  Widget _content(BuildContext context, OverviewViewModel vm) {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
@@ -178,17 +179,19 @@ class _OverviewView extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xl),
 
-        // Featured signals carousel (from the ViewModel).
+        // Featured signals carousel — the SAME signals as the Signals screen
+        // (top 5). Tapping the action opens that signal's detail.
         SignalCarousel(
           cards: [
-            for (final h in vm.highlights)
+            for (int i = 0; i < vm.topSignals.length; i++)
               SignalHighlightCard(
-                severity: h.severity,
-                number: h.number,
-                title: h.title,
-                meta: h.meta,
+                severity: vm.topSignals[i].severity,
+                number: (i + 1).toString().padLeft(2, '0'),
+                title: vm.topSignals[i].title,
+                meta:
+                    'Business Impact: ${vm.topSignals[i].impact}  •  Probability: ${vm.topSignals[i].probability}',
                 actionLabel: 'Review & Take Action',
-                onAction: () {},
+                onAction: () => _openSignalDetail(context, vm.topSignals[i].id),
               ),
           ],
         ),
@@ -217,5 +220,17 @@ class _OverviewView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Opens the detail screen for a signal (adaptive route).
+  void _openSignalDetail(BuildContext context, String id) {
+    final route = AppPlatform.isIOS
+        ? CupertinoPageRoute<void>(
+            builder: (_) => SignalDetailScreen(signalId: id),
+          )
+        : MaterialPageRoute<void>(
+            builder: (_) => SignalDetailScreen(signalId: id),
+          );
+    Navigator.of(context).push(route);
   }
 }
