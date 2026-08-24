@@ -1,0 +1,25 @@
+# Part H — Infrastructure-as-Code Security (Checkov configuration)
+# Referenced by: .github/workflows/security-gate.yml (iac-scan job)
+
+framework:
+  - terraform
+  - kubernetes
+  - dockerfile
+  - github_actions
+
+skip-check: []   # every exception here must map to a governed waiver (severity-policy.json)
+
+# Blocking severities (matches severity-policy.json: critical/high = blocking)
+hard-fail-on:
+  - CRITICAL
+  - HIGH
+
+# Baseline categories enforced
+check:
+  - CKV_AWS_*      # cloud misconfiguration
+  - CKV_K8S_*      # Kubernetes security (privileged containers, host network, etc.)
+  - CKV_DOCKER_*   # Dockerfile hardening (non-root, no ADD from remote, etc.)
+  - CKV_GHA_*      # GitHub Actions workflow security (pinned actions, permissions)
+
+output: sarif
+compact: true
