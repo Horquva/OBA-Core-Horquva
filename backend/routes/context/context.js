@@ -234,6 +234,16 @@ router.get('/metrics', async (req, res) => {
         documentationCoverage:     docTrend?.coverage_pct ?? null,
         orgIntelligenceScore:      orgScore?.score ?? null,
         orgIntelligenceRating:     orgScore?.rating ?? null
+      },
+      // organizationalHealthIndex/orgIntelligenceScore above are this
+      // moment's live computation; documentationCoverage is read directly
+      // from documentation_trend, a genuine never-rewritten time series
+      // (D-09 KEEP list) — the one figure in this response that cannot be
+      // recomputed.
+      metricsProvenance: {
+        documentationCoverage: { source: 'historical', table: 'documentation_trend' },
+        organizationalHealthIndex: { source: 'live' },
+        orgIntelligenceScore: { source: 'live' }
       }
     })
   } catch (err) {
