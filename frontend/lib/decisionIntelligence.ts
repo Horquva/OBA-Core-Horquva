@@ -10,6 +10,8 @@
 // whose response shape didn't actually have most of the fields this expected,
 // so every workflow decision silently scored as "Unknown Workflow").
 
+import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
+
 export type DecisionCategory = 'ownership' | 'tooling' | 'workflow';
 export type QualityTier = 'GOOD' | 'ACCEPTABLE' | 'POOR' | 'HARMFUL';
 
@@ -48,9 +50,10 @@ export interface DecisionIntelligenceReport {
   acceptable: DecisionRecord[];
   poor: DecisionRecord[];
   harmful: DecisionRecord[];
-  /** Org-wide Decision Quality Index 0–100 */
-  dqi: number;
-  dqiVerdict: 'STRONG' | 'MIXED' | 'WEAK' | 'CRITICAL';
+  /** Org-wide Decision Quality Index 0–100, or null when evidence is insufficient */
+  dqi: number | null;
+  dqiVerdict: 'STRONG' | 'MIXED' | 'WEAK' | 'CRITICAL' | null;
+  evidence: EvidenceInfo & { sufficient: boolean };
   totalDecisions: number;
   /** Per-person concentration: owner → agent count */
   ownerConcentration: Record<string, number>;
