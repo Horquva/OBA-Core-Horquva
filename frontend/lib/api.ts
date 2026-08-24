@@ -801,8 +801,12 @@ export interface ExecMemoryItemsResponse {
 
 export interface HeroDependency {
   personName: string;
-  department: string;
-  resolutionCount: number;
+  department: string | null;
+  /** Critical assets this person owns with no backup owner named. Replaces the
+   *  old `resolutionCount`, which came from a seeded table and claimed a count
+   *  of resolved incidents that nothing in the schema actually records. */
+  criticalAssetCount: number;
+  criticalAssets: string[];
   riskLevel: string;
   description: string;
 }

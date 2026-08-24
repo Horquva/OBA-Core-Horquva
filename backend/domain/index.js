@@ -31,6 +31,19 @@
 const brain = require('../brain')
 const { loadOrgDataset } = require('./dataset')
 const analyses = require('./analyses')
+const derived = require('./derived')
+
+let supabase = null
+try {
+  supabase = require('../supabase')
+} catch (_) {
+  supabase = null
+}
+
+function requireSupabase() {
+  if (!supabase) throw new Error('domain.intelligence requires Supabase; none is configured')
+  return supabase
+}
 
 module.exports = {
   // ─── The organization, as data ───
@@ -58,4 +71,37 @@ module.exports = {
   standardClaimChecks: analyses.standardClaimChecks,
   playbookAdvice: analyses.playbookAdvice,
   resilienceScenarios: analyses.resilienceScenarios,
+
+  // ─── Derived intelligence (computed, formerly frozen tables) ───
+  /**
+   * The six summaries that used to be rows nobody ever wrote:
+   * accountability, collaboration, predictive risk, executive memory,
+   * the GI/MI/DI pillars, and this month's organizational health.
+   *
+   * Every one is computed from root tables on demand and carries `computedAt`,
+   * `source` and an `inputs` map. Routes should pass that provenance through
+   * rather than stripping it — being able to tell a computed answer from a
+   * remembered one is the entire point of this layer existing.
+   *
+   * See derived.js for each metric's definition. The GI/MI/DI pillar formulas
+   * are AUTHORED rather than recovered — nothing in this repository ever
+   * defined them — and are flagged as such in their own response.
+   */
+  intelligence: {
+    all: (opts) => derived.computeAllCached(requireSupabase(), opts),
+    /** Forces a recompute, bypassing the in-process memo. */
+    refresh: () => derived.computeAllCached(requireSupabase(), { force: true }),
+    invalidate: derived.invalidate,
+    /** The raw computations, for callers supplying their own root bundle. */
+    compute: {
+      loadRoots: () => derived.loadRoots(requireSupabase()),
+      accountability: derived.accountability,
+      collaboration: derived.collaboration,
+      predictiveRisk: derived.predictiveRisk,
+      executiveMemory: derived.executiveMemory,
+      pillars: derived.pillars,
+      orgHealth: derived.orgHealth,
+    },
+    constants: derived.constants,
+  },
 }

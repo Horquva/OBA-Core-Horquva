@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const domain = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
@@ -52,39 +53,40 @@ function detectQuestionType(question) {
 // ─────────────────────────────────────────────
 
 async function answerRisk() {
-  const data = await must('predictive_risk_scores', supabase
-    .from('predictive_risk_scores')
-    .select('predicted_score, threat_level, reasons, agents(name, risk, owner_id)')
-    .eq('threat_level', 'CRITICAL')
-    .order('predicted_score', { ascending: false })
-    .limit(1)
-    .maybeSingle())
-
-  if (!data) return null
+  const intel = await domain.intelligence.all()
+  const top = intel.predictiveRisk.scores.find(p => p.threatLevel === 'CRITICAL')
+  if (!top) return null
+  const data = {
+    predicted_score: top.predictedScore,
+    reasons: top.reasons,
+    agents: { name: top.agentName, risk: top.recordedRisk },
+  }
 
   return {
     answer: `Your biggest risk is ${data.agents?.name} — a ${data.agents?.risk} agent with a predicted risk score of ${data.predicted_score}. Key reasons: ${data.reasons?.join(', ')}.`,
     entityName: data.agents?.name,
     responsiblePerson: null,
-    dataSources: ['predictive_risk_scores', 'agents', 'dependencies']
+    dataSources: ['agents', 'owners', 'dependencies', 'workflows', 'knowledge_assets']
   }
 }
 
 async function answerOwnership() {
-  const data = await must('collaboration_scores', supabase
-    .from('collaboration_scores')
-    .select('dependency_score, critical_agents_owned, has_backup, employees(name, department, role)')
-    .order('dependency_score', { ascending: false })
-    .limit(1)
-    .maybeSingle())
-
-  if (!data) return null
+  const intel = await domain.intelligence.all()
+  const people = intel.collaboration.perEmployee
+  if (!people.length) return null
+  const top = people.reduce((a, b) => (b.dependencyScore > a.dependencyScore ? b : a))
+  const data = {
+    dependency_score: top.dependencyScore,
+    critical_agents_owned: top.criticalAgentsOwned,
+    has_backup: top.hasBackup,
+    employees: { name: top.name, department: top.department, role: null },
+  }
 
   return {
     answer: `${data.employees?.name} is your most overloaded person. They own ${data.critical_agents_owned} critical agents, have a dependency score of ${data.dependency_score}/100, and ${data.has_backup ? 'have' : 'have no'} backup coverage assigned.`,
     entityName: data.employees?.name,
     responsiblePerson: data.employees?.name,
-    dataSources: ['collaboration_scores', 'employee_agent', 'knowledge_assets']
+    dataSources: ['employees', 'tool_users', 'employee_agent', 'agents', 'owners']
   }
 }
 
@@ -108,11 +110,12 @@ async function answerContinuity() {
 }
 
 async function answerPredictive() {
-  const data = await must('predictive_risk_scores', supabase
-    .from('predictive_risk_scores')
-    .select('predicted_score, threat_level, is_emerging_threat, reasons, agents(name, risk)')
-    .eq('is_emerging_threat', true)
-    .order('predicted_score', { ascending: false }))
+  const intel = await domain.intelligence.all()
+  const data = intel.predictiveRisk.emergingThreats.map(p => ({
+    predicted_score: p.predictedScore,
+    reasons: p.reasons,
+    agents: { name: p.agentName, risk: p.recordedRisk },
+  }))
 
   if (!data.length) return null
 
@@ -122,16 +125,24 @@ async function answerPredictive() {
     answer: `${data.length} agents are emerging threats predicted to escalate: ${names}. These agents are not yet critical but are trending toward HIGH or CRITICAL risk.`,
     entityName: data[0]?.agents?.name,
     responsiblePerson: null,
-    dataSources: ['predictive_risk_scores', 'agents']
+    dataSources: ['agents', 'owners', 'dependencies']
   }
 }
 
 async function answerGovernance() {
-  const data = await must('accountability_scores', supabase
-    .from('accountability_scores')
-    .select('score, status, same_r_and_a, accountability_entities(entity_name, entity_type)')
-    .in('status', ['AT_RISK', 'CRITICAL'])
-    .order('score', { ascending: true }))
+  // `accountability_scores` was a frozen pre-aggregate of accountability_links.
+  // Scored live now, and banded with the same thresholds as every other score
+  // in the product rather than this table's own AT_RISK/CRITICAL vocabulary.
+  const intel = await domain.intelligence.all()
+  const data = intel.accountability.perEntity
+    .filter(e => ['CRITICAL', 'WEAK'].includes(e.status))
+    .sort((a, b) => a.score - b.score)
+    .map(e => ({
+      score: e.score,
+      status: e.status,
+      same_r_and_a: e.sameResponsibleAndAccountable,
+      accountability_entities: { entity_name: e.entityName, entity_type: e.entityType },
+    }))
 
   if (!data.length) return null
 
@@ -141,19 +152,20 @@ async function answerGovernance() {
     answer: `${data.length} entities have governance issues (AT_RISK or CRITICAL accountability status): ${names}. The primary issue is the same person holding both Responsible and Accountable roles.`,
     entityName: data[0]?.accountability_entities?.entity_name,
     responsiblePerson: null,
-    dataSources: ['accountability_scores', 'accountability_links']
+    dataSources: ['accountability_entities', 'accountability_links']
   }
 }
 
 async function answerAccountability() {
-  const summary = await must('accountability_summary', supabase
-    .from('accountability_summary')
-    .select('*')
-    .order('computed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle())
-
-  if (!summary) return null
+  const intel = await domain.intelligence.all()
+  const a = intel.accountability
+  const summary = {
+    accountability_score: a.accountabilityScore,
+    status: a.status,
+    same_r_and_a_count: a.sameRandACount,
+    total_entities: a.totalEntities,
+    unique_people_count: a.uniquePeopleCount,
+  }
 
   return {
     answer: `Your Accountability Score is ${summary.accountability_score}/100 (${summary.status}). ${summary.same_r_and_a_count} of ${summary.total_entities} entities have the same person as Responsible and Accountable — a separation-of-duties violation. Only ${summary.unique_people_count} unique people appear across all responsibility chains, indicating high concentration.`,
@@ -183,11 +195,14 @@ async function answerKnowledge() {
 }
 
 async function answerGeneral() {
-  const orgScore = await must('intelligence_results', supabase
-    .from('intelligence_results')
-    .select('score, rating, strengths, weaknesses')
-    .eq('result_key', 'org_score')
-    .maybeSingle())
+  const intel = await domain.intelligence.all()
+  const weakest = [...intel.pillars.pillars].sort((a, b) => a.score - b.score)
+  const orgScore = {
+    score: intel.pillars.orgScore.score,
+    rating: intel.pillars.orgScore.rating,
+    strengths: weakest[weakest.length - 1].strengths,
+    weaknesses: weakest[0].weaknesses,
+  }
 
   if (!orgScore) {
     return {

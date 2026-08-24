@@ -1,0 +1,1085 @@
+/**
+ * DERIVED INTELLIGENCE — the summaries, computed instead of remembered
+ * ====================================================================
+ *
+ * Six products used to live as rows in tables nothing ever wrote:
+ *
+ *   accountability_summary · collaboration_scores · collaboration_summary
+ *   predictive_risk_scores · executive_memory_items · intelligence_results
+ *
+ * Every one was seeded once by SQL and read forever after as though current.
+ * This module computes all six on demand, so the numbers a user sees are
+ * answers to the database's present state rather than a memory of its past.
+ *
+ * ── The rule that shapes this file ──────────────────────────────────────────
+ *
+ * COMPUTE FROM ROOTS, NEVER FROM ANOTHER DERIVED TABLE.
+ *
+ * The database contains a second tier of tables that also look like inputs —
+ * `governance_assessments`, `continuity_assessments`, `failure_patterns`,
+ * `incident_patterns`, `hero_dependencies`, `accountability_scores` — and every
+ * one of them is itself computed-and-never-refreshed. Deriving a summary from
+ * those would produce something that looks live, recomputes on every request,
+ * and is still stale, which is strictly worse than the frozen table it replaced
+ * because the staleness would no longer be visible anywhere.
+ *
+ * So the inputs here are only tables that hold facts somebody or something
+ * outside this codebase actually maintains:
+ *
+ *   employees · agents · owners · workflows · workflow_failures
+ *   workflow_runbooks · dependencies · knowledge_assets · tool_users
+ *   employee_agent · ai_platforms · tool_policies · policy_violations
+ *   tool_ownership · accountability_entities · accountability_links
+ *   truth_claims · decision_history
+ *
+ * `loadRoots()` reads exactly that list and nothing else. If a future analysis
+ * needs something not in it, the honest move is to add a root — not to reach
+ * for a convenient pre-aggregated table.
+ *
+ * ── About the formulas ──────────────────────────────────────────────────────
+ *
+ * The seeded rows carried scores with no definition anywhere in the repository:
+ * `intelligence_results` claimed GI=62, MI=55, DI=68 against source data whose
+ * live averages are nothing like those numbers. Recomputing therefore required
+ * DEFINING these measures, not rediscovering them.
+ *
+ * Every such definition is written out in the comment above the function that
+ * implements it, in prose, with its weights named as constants. They are
+ * deliberately simple and auditable rather than clever: an executive metric
+ * whose derivation cannot be explained in a paragraph is not worth the trust
+ * placed in it. Expect to tune the weights — that is a product conversation,
+ * and this file is written so it can happen in one place.
+ *
+ * ── Provenance ──────────────────────────────────────────────────────────────
+ *
+ * Every function returns `computedAt`, `source: 'live'` and an `inputs` map of
+ * which root tables it read and how many rows each contributed. Callers should
+ * pass that through to the client. The point is not decoration: it is that a
+ * consumer can tell a computed answer from a remembered one without knowing
+ * anything about this file.
+ */
+
+const ROOT_TABLES = [
+  'employees', 'agents', 'owners', 'workflows', 'workflow_failures',
+  'workflow_runbooks', 'dependencies', 'knowledge_assets', 'tool_users',
+  'employee_agent', 'ai_platforms', 'tool_policies', 'policy_violations',
+  'tool_ownership', 'accountability_entities', 'accountability_links',
+  'truth_claims', 'decision_history',
+]
+
+// ─── Small shared helpers ────────────────────────────────────────────────────
+
+const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n))
+const round = (n) => Math.round(n)
+const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
+const pct = (part, whole) => (whole ? (part / whole) * 100 : 0)
+
+/** Bands a 0-100 score onto a four-step label. Used by every score here so the
+ *  word attached to a number means the same thing across the whole product. */
+function band(score, labels = ['CRITICAL', 'WEAK', 'PARTIAL', 'STRONG']) {
+  if (score >= 85) return labels[3]
+  if (score >= 65) return labels[2]
+  if (score >= 40) return labels[1]
+  return labels[0]
+}
+
+function provenance(inputs) {
+  return { computedAt: new Date().toISOString(), source: 'live', inputs }
+}
+
+// ─── Root loading ────────────────────────────────────────────────────────────
+
+/**
+ * Reads every root table once, in parallel, and hands back a plain bundle.
+ *
+ * One load per request serves all six analyses. Computing them separately would
+ * mean re-reading `employees` and `agents` six times; more importantly it would
+ * let two summaries in the same response disagree because they read the database
+ * a few milliseconds apart.
+ *
+ * A failed table read is fatal here rather than silently empty. A summary
+ * computed over zero rows does not look broken — it looks like a healthy
+ * organization with nothing in it, which is the most dangerous possible
+ * failure mode for this particular product.
+ */
+async function loadRoots(supabase) {
+  const results = await Promise.all(
+    ROOT_TABLES.map(async (table) => {
+      const { data, error } = await supabase.from(table).select('*')
+      if (error) throw new Error(`derived: could not read root table "${table}" — ${error.message}`)
+      return [table, data || []]
+    }),
+  )
+  const roots = Object.fromEntries(results)
+  roots._counts = Object.fromEntries(results.map(([t, rows]) => [t, rows.length]))
+  return roots
+}
+
+// ─── Shared derivations several analyses need ────────────────────────────────
+
+/** employee_id -> { hasBackup, backupOwner, ownerRow } for people in `owners`. */
+function backupIndex(roots) {
+  const byEmployee = new Map()
+  for (const o of roots.owners) {
+    if (o.employee_id == null) continue
+    byEmployee.set(o.employee_id, {
+      hasBackup: Boolean(o.backup_owner),
+      backupOwner: o.backup_owner || null,
+      ownerRow: o,
+    })
+  }
+  return byEmployee
+}
+
+/**
+ * Dependency adjacency. An edge means `source depends_on target` (the same
+ * reading graphLoader.js uses when it builds the Knowledge Graph), so the
+ * things that BREAK when X fails are the sources pointing at X.
+ */
+function dependencyIndex(roots) {
+  const dependentsOf = new Map() // "type:id" -> [{type,id,dependency_type}]
+  const key = (type, id) => `${type}:${id}`
+  for (const d of roots.dependencies) {
+    const k = key(d.target_type, d.target_id)
+    if (!dependentsOf.has(k)) dependentsOf.set(k, [])
+    dependentsOf.get(k).push({ type: d.source_type, id: d.source_id, dependency_type: d.dependency_type })
+  }
+  return { dependentsOf, key }
+}
+
+/** Transitive count of everything that fails downstream of one node. */
+function cascadeReach(startType, startId, { dependentsOf, key }) {
+  const seen = new Set()
+  const queue = [[startType, startId]]
+  while (queue.length) {
+    const [t, id] = queue.shift()
+    for (const dep of dependentsOf.get(key(t, id)) || []) {
+      const k = key(dep.type, dep.id)
+      if (seen.has(k)) continue
+      seen.add(k)
+      queue.push([dep.type, dep.id])
+    }
+  }
+  return seen.size
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 1. ACCOUNTABILITY
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Replaces the `accountability_summary` row.
+ *
+ * DEFINITION. Accountability is scored per entity from its RACI links, then
+ * averaged. An entity scores:
+ *
+ *   100  it has a Responsible and an Accountable, and they are different people
+ *    60  it has both, but one person holds each — work and answerability are
+ *        not separated, which is the specific failure RACI exists to prevent
+ *    40  it has one of the two
+ *     0  it has neither
+ *
+ * Consulted and Informed links are recorded but do not score: being kept in the
+ * loop is not accountability, and counting it would let an entity with nobody
+ * responsible look well governed.
+ *
+ * Roots: accountability_entities, accountability_links.
+ * NOT used: accountability_scores — it is a frozen pre-aggregate of this.
+ */
+const RACI_BOTH_SEPARATE = 100
+const RACI_BOTH_SAME_PERSON = 60
+const RACI_ONE_ONLY = 40
+
+function accountability(roots) {
+  const linksByEntity = new Map()
+  for (const l of roots.accountability_links) {
+    if (!linksByEntity.has(l.entity_id)) linksByEntity.set(l.entity_id, [])
+    linksByEntity.get(l.entity_id).push(l)
+  }
+
+  let sameRandA = 0
+  let entitiesWithLinks = 0
+  const perEntity = []
+
+  for (const entity of roots.accountability_entities) {
+    const links = linksByEntity.get(entity.id) || []
+    if (links.length) entitiesWithLinks++
+
+    const responsible = links.filter((l) => l.raci_role === 'Responsible').map((l) => l.person_name)
+    const accountable = links.filter((l) => l.raci_role === 'Accountable').map((l) => l.person_name)
+    const overlap = responsible.some((p) => accountable.includes(p))
+
+    let score
+    if (responsible.length && accountable.length) {
+      score = overlap ? RACI_BOTH_SAME_PERSON : RACI_BOTH_SEPARATE
+      if (overlap) sameRandA++
+    } else if (responsible.length || accountable.length) {
+      score = RACI_ONE_ONLY
+    } else {
+      score = 0
+    }
+
+    perEntity.push({
+      entityId: entity.id,
+      entityName: entity.entity_name,
+      entityType: entity.entity_type,
+      department: entity.department,
+      score,
+      status: band(score),
+      responsible,
+      accountable,
+      sameResponsibleAndAccountable: overlap,
+      missingResponsible: responsible.length === 0,
+      missingAccountable: accountable.length === 0,
+    })
+  }
+
+  const accountabilityScore = round(mean(perEntity.map((e) => e.score)))
+  const uniquePeople = new Set(roots.accountability_links.map((l) => l.person_name))
+
+  return {
+    accountabilityScore,
+    status: band(accountabilityScore),
+    totalEntities: roots.accountability_entities.length,
+    entitiesWithLinks,
+    sameRandACount: sameRandA,
+    uniquePeopleCount: uniquePeople.size,
+    perEntity,
+    ...provenance({
+      accountability_entities: roots._counts.accountability_entities,
+      accountability_links: roots._counts.accountability_links,
+    }),
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 2. COLLABORATION
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Replaces both `collaboration_scores` (per employee) and the
+ * `collaboration_summary` row.
+ *
+ * The frozen table documented its own inputs in its column names —
+ * ai_tools_used, ai_agents_used, critical_agents_owned, has_backup — so the
+ * counting is recovered rather than invented. The three SCORES are definitions:
+ *
+ *   ADOPTION (0-100). How much AI this person actually works with, weighted by
+ *   how heavily they use it. A platform used at `power` level counts for more
+ *   than one touched `rare`ly, because a rarely-touched licence is a cost line,
+ *   not adoption. Agents count double: being assigned to an agent is a working
+ *   relationship, not a login.
+ *
+ *   DEPENDENCY (0-100). How badly the ORGANIZATION depends on this one person.
+ *   This is a risk measure, not a compliment: it rises with each critical asset
+ *   they own and jumps when nobody is named as their backup. A high dependency
+ *   score is a continuity problem, and the person is usually its victim.
+ *
+ *   COLLABORATION (0-100). Adoption is good, concentration is not, so this
+ *   blends high adoption with LOW dependency. Someone who uses everything and
+ *   is also the only one who can is not collaborating — they are a bottleneck.
+ *
+ * Roots: employees, tool_users, employee_agent, agents, owners.
+ */
+const USAGE_WEIGHT = { power: 3, regular: 2, occasional: 1, rare: 0.5 }
+const AGENT_ENGAGEMENT_WEIGHT = 2
+const ADOPTION_SATURATION = 10 // engagement points that count as fully adopted
+const DEPENDENCY_PER_CRITICAL_ASSET = 25
+const DEPENDENCY_NO_BACKUP = 30
+const COLLABORATION_ADOPTION_WEIGHT = 0.6
+const COLLABORATION_INDEPENDENCE_WEIGHT = 0.4
+
+function collaboration(roots) {
+  const backups = backupIndex(roots)
+
+  const toolsByEmployee = new Map()
+  for (const tu of roots.tool_users) {
+    if (!toolsByEmployee.has(tu.employee_id)) toolsByEmployee.set(tu.employee_id, [])
+    toolsByEmployee.get(tu.employee_id).push(tu)
+  }
+
+  const agentsByEmployee = new Map()
+  for (const ea of roots.employee_agent) {
+    if (!agentsByEmployee.has(ea.employee_id)) agentsByEmployee.set(ea.employee_id, [])
+    agentsByEmployee.get(ea.employee_id).push(ea)
+  }
+
+  // agents.owner_id points at an owners row, which in turn names an employee.
+  const ownerRowToEmployee = new Map(roots.owners.map((o) => [o.id, o.employee_id]))
+  const criticalOwnedByEmployee = new Map()
+  for (const a of roots.agents) {
+    if (a.owner_id == null) continue
+    if (!['critical', 'high'].includes(a.risk)) continue
+    const employeeId = ownerRowToEmployee.get(a.owner_id)
+    if (employeeId == null) continue
+    criticalOwnedByEmployee.set(employeeId, (criticalOwnedByEmployee.get(employeeId) || 0) + 1)
+  }
+
+  // Only people who actually touch AI get a row. Scoring the other ~12
+  // employees as zero-adoption would drag the organizational average down to
+  // describe something real ("most staff use no AI") using a metric meant to
+  // describe something else ("how well do AI users work with it").
+  const perEmployee = []
+  for (const emp of roots.employees) {
+    const tools = toolsByEmployee.get(emp.id) || []
+    const agentLinks = agentsByEmployee.get(emp.id) || []
+    if (!tools.length && !agentLinks.length) continue
+
+    const engagement =
+      tools.reduce((sum, t) => sum + (USAGE_WEIGHT[t.usage_level] ?? 1), 0) +
+      agentLinks.length * AGENT_ENGAGEMENT_WEIGHT
+
+    const adoptionScore = clamp(round(pct(engagement, ADOPTION_SATURATION)))
+
+    const criticalOwned = criticalOwnedByEmployee.get(emp.id) || 0
+    const backup = backups.get(emp.id)
+    const isNamedOwner = backup !== undefined
+    const hasBackup = backup ? backup.hasBackup : false
+
+    let dependencyScore = criticalOwned * DEPENDENCY_PER_CRITICAL_ASSET
+    if (criticalOwned > 0 && !hasBackup) dependencyScore += DEPENDENCY_NO_BACKUP
+    dependencyScore = clamp(round(dependencyScore))
+
+    const collaborationScore = clamp(round(
+      COLLABORATION_ADOPTION_WEIGHT * adoptionScore +
+      COLLABORATION_INDEPENDENCE_WEIGHT * (100 - dependencyScore),
+    ))
+
+    perEmployee.push({
+      employeeId: emp.id,
+      name: emp.name,
+      department: emp.department,
+      adoptionScore,
+      dependencyScore,
+      collaborationScore,
+      aiToolsUsed: tools.length,
+      aiAgentsUsed: agentLinks.length,
+      criticalAgentsOwned: criticalOwned,
+      hasBackup,
+      isNamedOwner,
+    })
+  }
+
+  const highest = perEmployee.reduce(
+    (top, e) => (top === null || e.dependencyScore > top.dependencyScore ? e : top),
+    null,
+  )
+
+  const aiAdoptionScore = round(mean(perEmployee.map((e) => e.adoptionScore)))
+  const collaborationScore = round(mean(perEmployee.map((e) => e.collaborationScore)))
+
+  // The organization's dependency exposure is its WORST bottleneck, not its
+  // average one. Averaging hides exactly what this measure exists to find: with
+  // most staff owning nothing critical, the mean sits near 5 and reports "no
+  // concentration risk" for an organization that would still lose two critical
+  // agents if one specific person resigned. The mean is kept alongside, because
+  // the gap between the two is itself the interesting number.
+  const humanDependencyScore = perEmployee.length
+    ? Math.max(...perEmployee.map((e) => e.dependencyScore))
+    : 0
+  const meanDependencyScore = round(mean(perEmployee.map((e) => e.dependencyScore)))
+
+  return {
+    perEmployee,
+    summary: {
+      aiAdoptionScore,
+      adoptionLevel: band(aiAdoptionScore, ['MINIMAL', 'LOW', 'MODERATE', 'HIGH']),
+      humanDependencyScore,
+      meanDependencyScore,
+      // Deliberately inverted: a HIGH dependency score is a BAD outcome, so the
+      // reassuring label has to sit at the low end or the word and the number
+      // would tell opposite stories.
+      dependencyLevel: band(100 - humanDependencyScore, ['SEVERE', 'HIGH', 'MODERATE', 'LOW']),
+      highestDependencyEmployee: highest ? highest.name : null,
+      highestDependencyScore: highest ? highest.dependencyScore : null,
+      collaborationScore,
+      collaborationLevel: band(collaborationScore, ['POOR', 'FAIR', 'GOOD', 'STRONG']),
+      peopleScored: perEmployee.length,
+      peopleTotal: roots.employees.length,
+    },
+    ...provenance({
+      employees: roots._counts.employees,
+      tool_users: roots._counts.tool_users,
+      employee_agent: roots._counts.employee_agent,
+      agents: roots._counts.agents,
+      owners: roots._counts.owners,
+    }),
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 3. PREDICTIVE RISK
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Replaces the 15 `predictive_risk_scores` rows.
+ *
+ * DEFINITION. Each agent accumulates penalty points from independently
+ * observable conditions; the total is its predicted score. The factor names and
+ * the {name -> points} shape are kept from the frozen table's
+ * `contributing_factors` JSON so existing consumers keep working.
+ *
+ * The factors, and why each is weighted where it is:
+ *
+ *   single_owner (30)          one named owner, no backup. The largest single
+ *                              factor because it is the only one where the
+ *                              organization loses the asset outright.
+ *   high_dependency_count (25) three or more things break with it (12 for one
+ *                              or two). Blast radius, not fragility.
+ *   critical_workflow (27)     a workflow rated high or critical depends on it.
+ *   undocumented (18)          its knowledge assets are not written down, so
+ *                              recovery depends on a person being reachable.
+ *   unstable (25/10)           status `failed` / `inactive`. Observed, not
+ *                              predicted — an already-failing agent is not a
+ *                              risk, it is an incident, and should outrank
+ *                              anything merely fragile.
+ *   intrinsic_risk (20/12)     the risk level already recorded on the agent.
+ *
+ * `isEmergingThreat` means the computed score lands in a HIGHER band than the
+ * agent's own recorded `risk` label — i.e. the data has moved and the label has
+ * not. That makes the flag say something the score alone doesn't, which is the
+ * only reason to keep a boolean next to a number.
+ *
+ * Roots: agents, owners, dependencies, workflows, knowledge_assets.
+ */
+const RISK_FACTORS = {
+  SINGLE_OWNER: 30,
+  DEPENDENTS_MANY: 25,
+  DEPENDENTS_FEW: 12,
+  CRITICAL_WORKFLOW: 27,
+  UNDOCUMENTED: 18,
+  STATUS_FAILED: 25,
+  STATUS_INACTIVE: 10,
+  INTRINSIC_CRITICAL: 20,
+  INTRINSIC_HIGH: 12,
+}
+const MANY_DEPENDENTS = 3
+
+function threatLevel(score) {
+  if (score >= 75) return 'CRITICAL'
+  if (score >= 55) return 'HIGH'
+  if (score >= 35) return 'MEDIUM'
+  return 'LOW'
+}
+
+const THREAT_ORDER = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 }
+const RECORDED_RISK_AS_THREAT = { low: 'LOW', medium: 'MEDIUM', high: 'HIGH', critical: 'CRITICAL' }
+
+function predictiveRisk(roots) {
+  const depIndex = dependencyIndex(roots)
+  const backups = backupIndex(roots)
+  const ownerRowById = new Map(roots.owners.map((o) => [o.id, o]))
+  const workflowById = new Map(roots.workflows.map((w) => [w.id, w]))
+
+  const docByAgent = new Map()
+  for (const ka of roots.knowledge_assets) {
+    if (ka.asset_type !== 'agent') continue
+    const current = docByAgent.get(ka.asset_id) || { total: 0, documented: 0 }
+    current.total++
+    if (ka.is_documented) current.documented++
+    docByAgent.set(ka.asset_id, current)
+  }
+
+  const scores = roots.agents.map((agent) => {
+    const factors = {}
+    const reasons = []
+
+    const owner = agent.owner_id != null ? ownerRowById.get(agent.owner_id) : null
+    const ownerBackup = owner && owner.employee_id != null ? backups.get(owner.employee_id) : null
+    if (owner && !(ownerBackup && ownerBackup.hasBackup)) {
+      factors.single_owner = RISK_FACTORS.SINGLE_OWNER
+      reasons.push(`${owner.name} is the only named owner and has no backup`)
+    }
+
+    const directDependents = (depIndex.dependentsOf.get(depIndex.key('agent', agent.id)) || [])
+    if (directDependents.length >= MANY_DEPENDENTS) {
+      factors.high_dependency_count = RISK_FACTORS.DEPENDENTS_MANY
+      reasons.push(`${directDependents.length} things depend on it directly`)
+    } else if (directDependents.length > 0) {
+      factors.high_dependency_count = RISK_FACTORS.DEPENDENTS_FEW
+      reasons.push(`${directDependents.length} thing(s) depend on it directly`)
+    }
+
+    const criticalWorkflows = directDependents
+      .filter((d) => d.type === 'workflow')
+      .map((d) => workflowById.get(d.id))
+      .filter((w) => w && ['critical', 'high'].includes(w.risk))
+    if (criticalWorkflows.length) {
+      factors.critical_workflow = RISK_FACTORS.CRITICAL_WORKFLOW
+      reasons.push(`supports ${criticalWorkflows.length} high-risk workflow(s): ${criticalWorkflows.map((w) => w.name).join(', ')}`)
+    }
+
+    const docs = docByAgent.get(agent.id)
+    if (docs && docs.documented < docs.total) {
+      factors.undocumented = RISK_FACTORS.UNDOCUMENTED
+      reasons.push(`${docs.total - docs.documented} of ${docs.total} knowledge asset(s) undocumented`)
+    }
+
+    if (agent.status === 'failed') {
+      factors.unstable = RISK_FACTORS.STATUS_FAILED
+      reasons.push('currently in a failed state')
+    } else if (agent.status === 'inactive') {
+      factors.unstable = RISK_FACTORS.STATUS_INACTIVE
+      reasons.push('currently inactive')
+    }
+
+    if (agent.risk === 'critical') {
+      factors.intrinsic_risk = RISK_FACTORS.INTRINSIC_CRITICAL
+      reasons.push('recorded risk level is critical')
+    } else if (agent.risk === 'high') {
+      factors.intrinsic_risk = RISK_FACTORS.INTRINSIC_HIGH
+      reasons.push('recorded risk level is high')
+    }
+
+    const predictedScore = clamp(Object.values(factors).reduce((a, b) => a + b, 0))
+    const level = threatLevel(predictedScore)
+    const recorded = RECORDED_RISK_AS_THREAT[agent.risk] || 'LOW'
+
+    return {
+      agentId: agent.id,
+      agentName: agent.name,
+      predictedScore,
+      threatLevel: level,
+      recordedRisk: agent.risk,
+      // The data has outrun the label.
+      isEmergingThreat: THREAT_ORDER[level] > THREAT_ORDER[recorded],
+      contributingFactors: factors,
+      reasons,
+      cascadeReach: cascadeReach('agent', agent.id, depIndex),
+    }
+  })
+
+  scores.sort((a, b) => b.predictedScore - a.predictedScore)
+
+  return {
+    scores,
+    emergingThreats: scores.filter((s) => s.isEmergingThreat),
+    ...provenance({
+      agents: roots._counts.agents,
+      owners: roots._counts.owners,
+      dependencies: roots._counts.dependencies,
+      workflows: roots._counts.workflows,
+      knowledge_assets: roots._counts.knowledge_assets,
+    }),
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 4. EXECUTIVE MEMORY
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Replaces the 10 `executive_memory_items` rows.
+ *
+ * The frozen table's four `memory_type` values each have a root that can
+ * produce them, so this is a projection rather than an invention:
+ *
+ *   repeat_offender  a workflow that has failed more than once
+ *   lesson           a failure MODE seen across two or more workflows — the
+ *                    pattern is the lesson; a one-off is just an incident
+ *   hero_risk        a person carrying two or more critical assets with nobody
+ *                    named as their backup
+ *   bad_decision     a decision recorded as negative, or flagged for revisit
+ *
+ * `relevanceScore` is 0-1 and ranks within the whole set so a caller can take
+ * a top-N without knowing what the types mean.
+ *
+ * Roots: workflows, workflow_failures, agents, owners, employees, decision_history.
+ * NOT used: failure_patterns, incident_patterns, hero_dependencies — all three
+ * are frozen pre-aggregates of exactly these questions.
+ */
+const HERO_CRITICAL_ASSET_THRESHOLD = 2
+const SEVERITY_RANK = { critical: 1, high: 0.8, medium: 0.55, low: 0.3 }
+
+function executiveMemory(roots) {
+  const items = []
+  const workflowById = new Map(roots.workflows.map((w) => [w.id, w]))
+
+  // ── repeat offenders ──────────────────────────────────────────────────────
+  const failuresByWorkflow = new Map()
+  for (const f of roots.workflow_failures) {
+    if (!failuresByWorkflow.has(f.workflow_id)) failuresByWorkflow.set(f.workflow_id, [])
+    failuresByWorkflow.get(f.workflow_id).push(f)
+  }
+  for (const [workflowId, failures] of failuresByWorkflow) {
+    if (failures.length < 2) continue
+    const workflow = workflowById.get(workflowId)
+    if (!workflow) continue
+    const worst = failures.map((f) => SEVERITY_RANK[f.severity] ?? 0.3).sort((a, b) => b - a)[0]
+    items.push({
+      memoryType: 'repeat_offender',
+      title: `${workflow.name} has failed ${failures.length} times`,
+      description: `Failure modes recorded: ${[...new Set(failures.map((f) => f.failure_type))].join(', ')}.`,
+      entityName: workflow.name,
+      severity: failures.some((f) => f.severity === 'critical') ? 'critical' : 'high',
+      isRecurring: true,
+      sourceModule: 'derived.executiveMemory',
+      relevanceRaw: worst * failures.length,
+      evidence: { workflowId, failureCount: failures.length },
+    })
+  }
+
+  // ── lessons: failure modes that recur ACROSS workflows ────────────────────
+  const byType = new Map()
+  for (const f of roots.workflow_failures) {
+    if (!byType.has(f.failure_type)) byType.set(f.failure_type, new Set())
+    byType.get(f.failure_type).add(f.workflow_id)
+  }
+  for (const [failureType, workflowIds] of byType) {
+    if (workflowIds.size < 2) continue
+    const names = [...workflowIds].map((id) => workflowById.get(id)).filter(Boolean).map((w) => w.name)
+    items.push({
+      memoryType: 'lesson',
+      title: `"${failureType}" has affected ${workflowIds.size} different workflows`,
+      description: `A recurring organizational failure mode rather than an isolated incident. Affected: ${names.join(', ')}.`,
+      entityName: failureType,
+      severity: workflowIds.size >= 3 ? 'high' : 'medium',
+      isRecurring: true,
+      sourceModule: 'derived.executiveMemory',
+      relevanceRaw: workflowIds.size * 0.8,
+      evidence: { failureType, workflowCount: workflowIds.size, affectedEntities: names },
+    })
+  }
+
+  // ── hero risks ────────────────────────────────────────────────────────────
+  const backups = backupIndex(roots)
+  const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
+  const ownerRowToEmployee = new Map(roots.owners.map((o) => [o.id, o.employee_id]))
+  const criticalOwned = new Map()
+  for (const a of roots.agents) {
+    if (a.owner_id == null || !['critical', 'high'].includes(a.risk)) continue
+    const employeeId = ownerRowToEmployee.get(a.owner_id)
+    if (employeeId == null) continue
+    if (!criticalOwned.has(employeeId)) criticalOwned.set(employeeId, [])
+    criticalOwned.get(employeeId).push(a.name)
+  }
+  for (const [employeeId, assets] of criticalOwned) {
+    if (assets.length < HERO_CRITICAL_ASSET_THRESHOLD) continue
+    const backup = backups.get(employeeId)
+    if (backup && backup.hasBackup) continue
+    const employee = employeeById.get(employeeId)
+    if (!employee) continue
+    items.push({
+      memoryType: 'hero_risk',
+      title: `${employee.name} carries ${assets.length} critical assets with no backup`,
+      description: `Owns ${assets.join(', ')}. No backup owner is named, so their absence removes all of it at once.`,
+      entityName: employee.name,
+      severity: assets.length >= 3 ? 'critical' : 'high',
+      isRecurring: false,
+      sourceModule: 'derived.executiveMemory',
+      relevanceRaw: assets.length * 1.2,
+      // `department` and `criticalAssetCount` are carried explicitly because
+      // consumers display them. The frozen table also offered a
+      // `resolution_count` ("N incidents resolved"); nothing in the schema
+      // records incident resolutions, so that number was never derivable and is
+      // deliberately not reproduced here.
+      evidence: {
+        employeeId,
+        assets,
+        criticalAssetCount: assets.length,
+        department: employee.department || null,
+      },
+    })
+  }
+
+  // ── bad decisions ─────────────────────────────────────────────────────────
+  for (const d of roots.decision_history) {
+    const negative = d.outcome === 'negative'
+    if (!negative && !d.should_revisit) continue
+    items.push({
+      memoryType: 'bad_decision',
+      title: d.title,
+      description: negative
+        ? (d.description || 'Recorded with a negative outcome.')
+        : (d.revisit_reason || 'Flagged for revisit.'),
+      entityName: d.title,
+      severity: negative ? 'high' : 'medium',
+      isRecurring: false,
+      sourceModule: 'derived.executiveMemory',
+      relevanceRaw: negative ? 1.0 : 0.6,
+      evidence: { decisionId: d.id, outcome: d.outcome, shouldRevisit: d.should_revisit },
+    })
+  }
+
+  // Normalise relevance across the whole set, then drop the raw score.
+  const maxRaw = Math.max(1, ...items.map((i) => i.relevanceRaw))
+  const scored = items
+    .map(({ relevanceRaw, ...rest }) => ({
+      ...rest,
+      relevanceScore: Math.round((relevanceRaw / maxRaw) * 100) / 100,
+    }))
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+
+  return {
+    items: scored,
+    byType: scored.reduce((acc, i) => {
+      acc[i.memoryType] = (acc[i.memoryType] || 0) + 1
+      return acc
+    }, {}),
+    ...provenance({
+      workflows: roots._counts.workflows,
+      workflow_failures: roots._counts.workflow_failures,
+      agents: roots._counts.agents,
+      owners: roots._counts.owners,
+      employees: roots._counts.employees,
+      decision_history: roots._counts.decision_history,
+    }),
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 5. PILLARS  (GI / MI / DI / org_score)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Replaces the four `intelligence_results` rows.
+ *
+ * ⚠ READ THIS BEFORE TRUSTING THESE NUMBERS.
+ *
+ * The other four analyses in this file recover a definition that the data or
+ * the column names already implied. These three do not. The seeded rows
+ * asserted GI=62, MI=55, DI=68 with no derivation recorded anywhere in the
+ * repository, and none of the three matches any aggregate of the live source
+ * tables (live governance averages 46, continuity 50, documentation 48).
+ *
+ * So the definitions below are AUTHORED, not recovered. They are a considered
+ * proposal, not a restoration of intent:
+ *
+ *   GI — Governance Intelligence. Are the rules written down and followed?
+ *        Equal thirds: runbook coverage (documented / all workflows), policy
+ *        coverage (platforms under an active policy / all platforms), and a
+ *        violation penalty (100 minus weighted open violations).
+ *
+ *   MI — Management Intelligence. Is it clear who answers for what?
+ *        Equal thirds: the accountability score above, backup coverage (named
+ *        owners with a backup / all named owners), and ownership coverage
+ *        (knowledge assets with an owner / all knowledge assets).
+ *
+ *   DI — Data Intelligence. Can the organization trust what it knows?
+ *        Equal thirds: documentation coverage (documented / all knowledge
+ *        assets), verification rate (VERIFIED / all truth claims), and a
+ *        contradiction penalty (100 minus the contradicted share, tripled,
+ *        because a contradicted claim is far worse than a merely unverified
+ *        one — it means two parts of the organization disagree on a fact).
+ *
+ *   org_score — weighted mean, GOVERNANCE 0.35 / MANAGEMENT 0.35 / DATA 0.30.
+ *        Data is weighted slightly lower only because its inputs are the
+ *        thinnest; raise it once truth_claims covers more of the estate.
+ *
+ * Each pillar returns its components, so a reader can see which third dragged
+ * it down rather than being handed a bare number. If these weights are wrong
+ * for the business, this is the one place to change them.
+ */
+const PILLAR_WEIGHTS = { GI: 0.35, MI: 0.35, DI: 0.30 }
+const VIOLATION_SEVERITY_PENALTY = { critical: 25, high: 15, medium: 8, low: 3 }
+const CONTRADICTION_PENALTY_MULTIPLIER = 3
+
+function pillars(roots, accountabilityResult) {
+  // ── GI ────────────────────────────────────────────────────────────────────
+  const documentedRunbooks = roots.workflow_runbooks.filter((r) => r.is_documented).length
+  const runbookCoverage = clamp(round(pct(documentedRunbooks, roots.workflows.length)))
+
+  const platformsUnderPolicy = new Set(
+    roots.tool_policies.filter((p) => p.status === 'active').map((p) => p.platform_id),
+  ).size
+  const policyCoverage = clamp(round(pct(platformsUnderPolicy, roots.ai_platforms.length)))
+
+  // Per platform, not absolute. A flat total would mean five violations score
+  // the same whether the estate is twelve platforms or twelve hundred, so the
+  // measure would degrade into a headcount of incidents and every growing
+  // organization would look like it was getting worse at governance.
+  const violationWeight = roots.policy_violations.reduce(
+    (sum, v) => sum + (VIOLATION_SEVERITY_PENALTY[v.severity] ?? 5), 0,
+  )
+  const violationScore = clamp(round(
+    100 - (roots.ai_platforms.length ? violationWeight / roots.ai_platforms.length : 0),
+  ))
+
+  const GI = round(mean([runbookCoverage, policyCoverage, violationScore]))
+
+  // ── MI ────────────────────────────────────────────────────────────────────
+  const namedOwners = roots.owners.length
+  const ownersWithBackup = roots.owners.filter((o) => o.backup_owner).length
+  const backupCoverage = clamp(round(pct(ownersWithBackup, namedOwners)))
+
+  const assetsWithOwner = roots.knowledge_assets.filter((k) => k.owner_id != null).length
+  const ownershipCoverage = clamp(round(pct(assetsWithOwner, roots.knowledge_assets.length)))
+
+  const MI = round(mean([accountabilityResult.accountabilityScore, backupCoverage, ownershipCoverage]))
+
+  // ── DI ────────────────────────────────────────────────────────────────────
+  const documentedAssets = roots.knowledge_assets.filter((k) => k.is_documented).length
+  const documentationCoverage = clamp(round(pct(documentedAssets, roots.knowledge_assets.length)))
+
+  const claims = roots.truth_claims
+  const verified = claims.filter((c) => c.verdict === 'VERIFIED').length
+  const verificationRate = clamp(round(pct(verified, claims.length)))
+
+  const contradicted = claims.filter((c) => c.is_contradicted).length
+  const contradictionScore = clamp(
+    100 - round(pct(contradicted, claims.length) * CONTRADICTION_PENALTY_MULTIPLIER),
+  )
+
+  const DI = round(mean([documentationCoverage, verificationRate, contradictionScore]))
+
+  const orgScore = round(GI * PILLAR_WEIGHTS.GI + MI * PILLAR_WEIGHTS.MI + DI * PILLAR_WEIGHTS.DI)
+
+  const shape = (key, score, components) => ({
+    resultType: 'pillar',
+    resultKey: key,
+    score,
+    rating: band(score),
+    components,
+    strengths: Object.entries(components).filter(([, v]) => v >= 70).map(([k]) => k),
+    weaknesses: Object.entries(components).filter(([, v]) => v < 50).map(([k]) => k),
+  })
+
+  return {
+    pillars: [
+      shape('GI', GI, { runbookCoverage, policyCoverage, violationScore }),
+      shape('MI', MI, {
+        accountability: accountabilityResult.accountabilityScore,
+        backupCoverage,
+        ownershipCoverage,
+      }),
+      shape('DI', DI, { documentationCoverage, verificationRate, contradictionScore }),
+    ],
+    orgScore: {
+      resultType: 'overall',
+      resultKey: 'org_score',
+      score: orgScore,
+      rating: band(orgScore),
+      weights: PILLAR_WEIGHTS,
+    },
+    // Named loudly so nobody mistakes an authored metric for a measured one.
+    definitionsAreAuthored: true,
+    ...provenance({
+      workflows: roots._counts.workflows,
+      workflow_runbooks: roots._counts.workflow_runbooks,
+      ai_platforms: roots._counts.ai_platforms,
+      tool_policies: roots._counts.tool_policies,
+      policy_violations: roots._counts.policy_violations,
+      owners: roots._counts.owners,
+      knowledge_assets: roots._counts.knowledge_assets,
+      truth_claims: roots._counts.truth_claims,
+      accountability_links: roots._counts.accountability_links,
+    }),
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 5b. DECISION QUALITY
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * The share of recorded decisions that did not turn out badly.
+ *
+ * `decision_history` is a log of things that happened, so unlike the summaries
+ * above there was never a frozen aggregate to replace — brainCore already
+ * computed this inline. It lives here so every signal that route consumes comes
+ * from one consistent read of the roots instead of nine plus a stray query.
+ *
+ * Decisions still awaiting an outcome are excluded rather than counted as
+ * successes; a pending decision is not evidence of good judgement.
+ */
+function decisionQuality(roots) {
+  const decided = roots.decision_history.filter((d) => d.outcome)
+  const negative = decided.filter((d) => d.outcome === 'negative').length
+  const score = decided.length ? clamp(round(pct(decided.length - negative, decided.length))) : 50
+
+  return {
+    score,
+    rating: band(score),
+    decisionsRecorded: roots.decision_history.length,
+    decisionsWithOutcome: decided.length,
+    negativeOutcomes: negative,
+    flaggedForRevisit: roots.decision_history.filter((d) => d.should_revisit).length,
+    hasEvidence: decided.length > 0,
+    ...provenance({ decision_history: roots._counts.decision_history }),
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 6. ORGANIZATIONAL HEALTH — the current month
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Produces one row shaped like `org_health_snapshots`, for THIS month.
+ *
+ * Unlike everything above, this is not a replacement — it is the missing write.
+ * `org_health_snapshots` is a monthly time series, and history cannot be
+ * recomputed: the Knowledge Graph has no time dimension (see domain/index.js),
+ * so there is no way to ask what documentation coverage was in March. The six
+ * existing months are seed data and stay exactly as they are.
+ *
+ * The five sub-scores match the table's existing columns so the series remains
+ * one series rather than becoming two incompatible halves.
+ */
+// One failure per workflow per period costs 25 points. Chosen so a healthy
+// estate (well under one failure each) stays in the 80s and a struggling one
+// (two apiece) lands near 50, rather than pinning at either extreme.
+const INCIDENT_LOAD_PENALTY_PER_FAILURE = 25
+
+function orgHealth(roots, { accountability: acc, predictiveRisk: risk }) {
+  const documentedAssets = roots.knowledge_assets.filter((k) => k.is_documented).length
+  const documentationScore = clamp(round(pct(documentedAssets, roots.knowledge_assets.length)))
+
+  const documentedRunbooks = roots.workflow_runbooks.filter((r) => r.is_documented).length
+  const ownersWithBackup = roots.owners.filter((o) => o.backup_owner).length
+  const continuityScore = clamp(round(mean([
+    pct(documentedRunbooks, roots.workflows.length),
+    pct(ownersWithBackup, roots.owners.length),
+  ])))
+
+  // Ownership SPREAD, not coverage: concentration is the risk. One person
+  // holding many assets scores worse than the same assets spread thin.
+  const perOwner = new Map()
+  for (const a of roots.agents) {
+    if (a.owner_id == null) continue
+    perOwner.set(a.owner_id, (perOwner.get(a.owner_id) || 0) + 1)
+  }
+  const ownedAgents = [...perOwner.values()].reduce((a, b) => a + b, 0)
+  const idealPerOwner = perOwner.size ? ownedAgents / perOwner.size : 0
+  const worstConcentration = perOwner.size ? Math.max(...perOwner.values()) : 0
+  const ownershipSpreadScore = clamp(round(
+    idealPerOwner ? 100 * (idealPerOwner / worstConcentration) : 0,
+  ))
+
+  const criticalThreats = risk.scores.filter((s) => s.threatLevel === 'CRITICAL').length
+  const criticalSafetyScore = clamp(round(100 - pct(criticalThreats, roots.agents.length) * 1.5))
+
+  // Failures per workflow, not failures as a percentage of workflows. The
+  // ratio here is naturally around 1 (11 failures across 10 workflows), so
+  // scaling a percentage would saturate this to zero permanently and the score
+  // would carry no information at all.
+  const failuresPerWorkflow = roots.workflows.length
+    ? roots.workflow_failures.length / roots.workflows.length
+    : 0
+  const incidentLoadScore = clamp(round(100 - failuresPerWorkflow * INCIDENT_LOAD_PENALTY_PER_FAILURE))
+
+  const healthIndex = round(mean([
+    documentationScore, continuityScore, ownershipSpreadScore,
+    criticalSafetyScore, incidentLoadScore,
+  ]))
+
+  const now = new Date()
+  const snapshotMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+
+  return {
+    snapshotMonth,
+    healthIndex,
+    healthStatus: healthIndex >= 70 ? 'STABLE' : healthIndex >= 45 ? 'WARNING' : 'CRITICAL',
+    documentationScore,
+    continuityScore,
+    ownershipSpreadScore,
+    criticalSafetyScore,
+    incidentLoadScore,
+    accountabilityScore: acc.accountabilityScore,
+    ...provenance({
+      knowledge_assets: roots._counts.knowledge_assets,
+      workflow_runbooks: roots._counts.workflow_runbooks,
+      workflows: roots._counts.workflows,
+      owners: roots._counts.owners,
+      agents: roots._counts.agents,
+      workflow_failures: roots._counts.workflow_failures,
+    }),
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Orchestration
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Computes every derived product from a single consistent read of the roots.
+ *
+ * Ordering matters in exactly two places: `pillars` consumes the accountability
+ * score, and `orgHealth` consumes both accountability and predictive risk.
+ * Neither recomputes them, so MI and the health index cannot drift from the
+ * accountability figure shown elsewhere in the same response.
+ */
+async function computeAll(supabase) {
+  const roots = await loadRoots(supabase)
+
+  const accountabilityResult = accountability(roots)
+  const collaborationResult = collaboration(roots)
+  const predictiveRiskResult = predictiveRisk(roots)
+  const executiveMemoryResult = executiveMemory(roots)
+  const pillarsResult = pillars(roots, accountabilityResult)
+  const decisionQualityResult = decisionQuality(roots)
+  const orgHealthResult = orgHealth(roots, {
+    accountability: accountabilityResult,
+    predictiveRisk: predictiveRiskResult,
+  })
+
+  return {
+    accountability: accountabilityResult,
+    collaboration: collaborationResult,
+    predictiveRisk: predictiveRiskResult,
+    executiveMemory: executiveMemoryResult,
+    pillars: pillarsResult,
+    decisionQuality: decisionQualityResult,
+    orgHealth: orgHealthResult,
+    computedAt: new Date().toISOString(),
+    source: 'live',
+    rootCounts: roots._counts,
+  }
+}
+
+// ─── Short-lived memo ────────────────────────────────────────────────────────
+
+/**
+ * `computeAll` issues 18 parallel reads. A dashboard mounting ten components
+ * that each want a summary would otherwise cost 180 round trips per page.
+ *
+ * This memo is NOT the frozen-table pattern returning under a new name, and the
+ * difference is worth being precise about. A persisted snapshot survives process
+ * restarts and deploys, so it can be arbitrarily old and nothing in the system
+ * knows. This lives in process memory, expires in seconds, and reports the
+ * genuine `computedAt` of the computation it holds. The worst case is an answer
+ * a few seconds behind the database; the worst case of the tables this replaced
+ * was an answer fourteen days behind it with no way to tell.
+ */
+const MEMO_TTL_MS = 30_000
+let memo = null
+
+async function computeAllCached(supabase, { force = false } = {}) {
+  const now = Date.now()
+  if (!force && memo && now - memo.at < MEMO_TTL_MS) {
+    return { ...memo.value, fromMemo: true }
+  }
+  const value = await computeAll(supabase)
+  memo = { at: now, value }
+  return { ...value, fromMemo: false }
+}
+
+/** Drops the memo. Called after any write that changes the roots. */
+function invalidate() {
+  memo = null
+}
+
+module.exports = {
+  ROOT_TABLES,
+  loadRoots,
+  computeAllCached,
+  invalidate,
+  MEMO_TTL_MS,
+  accountability,
+  collaboration,
+  predictiveRisk,
+  executiveMemory,
+  pillars,
+  decisionQuality,
+  orgHealth,
+  computeAll,
+  // Exported so tests can assert against the definitions rather than
+  // hard-coding the same magic numbers a second time.
+  constants: {
+    RACI_BOTH_SEPARATE, RACI_BOTH_SAME_PERSON, RACI_ONE_ONLY,
+    USAGE_WEIGHT, AGENT_ENGAGEMENT_WEIGHT, ADOPTION_SATURATION,
+    DEPENDENCY_PER_CRITICAL_ASSET, DEPENDENCY_NO_BACKUP,
+    RISK_FACTORS, MANY_DEPENDENTS,
+    HERO_CRITICAL_ASSET_THRESHOLD,
+    PILLAR_WEIGHTS, VIOLATION_SEVERITY_PENALTY,
+  },
+}

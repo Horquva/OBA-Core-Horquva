@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
 const { must, optional } = require('../../lib/supabaseQuery')
+const domain = require('../../domain')
 
 // ─────────────────────────────────────────────
 // MODULE REGISTRY
@@ -60,113 +61,102 @@ async function readBrainCore() {
   }
 }
 
-async function readGovernance() {
-  const data = await must('intelligence_results', supabase
-    .from('intelligence_results')
-    .select('score')
-    .eq('result_type', 'pillar')
-    .eq('result_key', 'GI')
-    .maybeSingle())
+// Eleven of the thirteen readers below used to SELECT from pre-aggregated
+// tables that nothing in the application ever wrote. They are projections of
+// one live computation now — see domain/derived.js. The two that still read a
+// table (`readBrainCore`, `readExecutiveBriefing`) read snapshot tables this
+// application genuinely writes on request, so they were never frozen.
 
-  return { score: data?.score ?? 0, verified: !!data, source: 'intelligence_results' }
+function pillar(intel, key) {
+  const found = (intel.pillars.pillars || []).find((p) => p.resultKey === key)
+  return found
+    ? { score: found.score, verified: true, source: `domain.intelligence.pillars(${key})` }
+    : { score: 0, verified: false, source: `domain.intelligence.pillars(${key})` }
 }
 
-async function readContinuity() {
-  const data = await must('org_health_snapshots', supabase
+const readGovernance         = (intel) => pillar(intel, 'GI')
+const readMemory             = (intel) => pillar(intel, 'MI')
+const readDomainIntelligence = (intel) => pillar(intel, 'DI')
+
+const readContinuity = (intel) => ({
+  score: intel.orgHealth.continuityScore, verified: true,
+  source: 'domain.intelligence.orgHealth',
+})
+
+const readOrgHealth = (intel) => ({
+  score: intel.orgHealth.healthIndex, verified: true,
+  source: 'domain.intelligence.orgHealth',
+})
+
+// Inverted: more CRITICAL agents means a lower score.
+function readPredictiveRisk(intel) {
+  const scores = intel.predictiveRisk.scores
+  if (!scores.length) return { score: 0, verified: false, source: 'domain.intelligence.predictiveRisk' }
+  const critical = scores.filter((p) => p.threatLevel === 'CRITICAL').length
+  return {
+    score: Math.round(((scores.length - critical) / scores.length) * 100),
+    verified: true, source: 'domain.intelligence.predictiveRisk',
+  }
+}
+
+const readCollaboration = (intel) => ({
+  score: intel.collaboration.summary.collaborationScore,
+  verified: intel.collaboration.perEmployee.length > 0,
+  source: 'domain.intelligence.collaboration',
+})
+
+const readAccountability = (intel) => ({
+  score: intel.accountability.accountabilityScore,
+  verified: intel.accountability.entitiesWithLinks > 0,
+  source: 'domain.intelligence.accountability',
+})
+
+const readDecisionQuality = (intel) => ({
+  score: intel.decisionQuality.score,
+  verified: intel.decisionQuality.hasEvidence,
+  source: 'domain.intelligence.decisionQuality',
+})
+
+const readAIAdoption = (intel) => ({
+  score: intel.collaboration.summary.aiAdoptionScore,
+  verified: intel.collaboration.perEmployee.length > 0,
+  source: 'domain.intelligence.collaboration',
+})
+
+// Inverted: more critical memory items means a lower memory-health score.
+function readExecutiveMemory(intel) {
+  const items = intel.executiveMemory.items
+  if (!items.length) return { score: 0, verified: false, source: 'domain.intelligence.executiveMemory' }
+  const critical = items.filter((m) => m.severity === 'critical').length
+  return {
+    score: Math.round(((items.length - critical) / items.length) * 100),
+    verified: true, source: 'domain.intelligence.executiveMemory',
+  }
+}
+
+// The one genuinely temporal signal. `org_health_snapshots` is a monthly series
+// and history cannot be recomputed — the Knowledge Graph has no time dimension
+// — so the stored months stay exactly as they are and supply the baseline,
+// while the CURRENT end of the trend is computed live. Comparing two stored
+// rows, as this did before, compared June against January and called it today.
+async function readHealthTrend(intel) {
+  const history = await optional('org_health_snapshots(trend)', supabase
     .from('org_health_snapshots')
-    .select('continuity_score')
-    .order('snapshot_month', { ascending: false })
-    .limit(1).maybeSingle())
+    .select('health_index, snapshot_month')
+    .order('snapshot_month', { ascending: true }), [])
 
-  return { score: data?.continuity_score ?? 0, verified: !!data, source: 'org_health_snapshots' }
-}
+  if (!history.length) return { score: 50, verified: false, source: 'org_health_snapshots' }
 
-async function readOrgHealth() {
-  const data = await must('org_health_snapshots', supabase
-    .from('org_health_snapshots')
-    .select('health_index')
-    .order('snapshot_month', { ascending: false })
-    .limit(1).maybeSingle())
+  const earliest = history[0].health_index
+  const current = intel.orgHealth.healthIndex
+  const delta = current - earliest
 
-  return { score: data?.health_index ?? 0, verified: !!data, source: 'org_health_snapshots' }
-}
-
-async function readPredictiveRisk() {
-  const data = await must('predictive_risk_scores', supabase
-    .from('predictive_risk_scores')
-    .select('threat_level'))
-
-  if (!data.length) return { score: 0, verified: false, source: 'predictive_risk_scores' }
-
-  const critical = data.filter(p => p.threat_level === 'CRITICAL').length
-  const score = Math.round(((data.length - critical) / data.length) * 100)
-
-  return { score, verified: true, source: 'predictive_risk_scores' }
-}
-
-async function readMemory() {
-  const data = await must('intelligence_results', supabase
-    .from('intelligence_results')
-    .select('score')
-    .eq('result_type', 'pillar')
-    .eq('result_key', 'MI')
-    .maybeSingle())
-
-  return { score: data?.score ?? 0, verified: !!data, source: 'intelligence_results' }
-}
-
-async function readCollaboration() {
-  const data = await must('collaboration_summary', supabase
-    .from('collaboration_summary')
-    .select('collaboration_score')
-    .order('computed_at', { ascending: false })
-    .limit(1).maybeSingle())
-
-  return { score: data?.collaboration_score ?? 0, verified: !!data, source: 'collaboration_summary' }
-}
-
-async function readAccountability() {
-  const data = await must('accountability_summary', supabase
-    .from('accountability_summary')
-    .select('accountability_score')
-    .order('computed_at', { ascending: false })
-    .limit(1).maybeSingle())
-
-  return { score: data?.accountability_score ?? 0, verified: !!data, source: 'accountability_summary' }
-}
-
-async function readDomainIntelligence() {
-  const data = await must('intelligence_results', supabase
-    .from('intelligence_results')
-    .select('score')
-    .eq('result_type', 'pillar')
-    .eq('result_key', 'DI')
-    .maybeSingle())
-
-  return { score: data?.score ?? 0, verified: !!data, source: 'intelligence_results' }
-}
-
-async function readDecisionQuality() {
-  const data = await must('decision_history', supabase
-    .from('decision_history')
-    .select('outcome'))
-
-  if (!data.length) return { score: 50, verified: false, source: 'decision_history' }
-
-  const negative = data.filter(d => d.outcome === 'negative').length
-  const score = Math.round(((data.length - negative) / data.length) * 100)
-
-  return { score, verified: true, source: 'decision_history' }
-}
-
-async function readAIAdoption() {
-  const data = await must('collaboration_summary', supabase
-    .from('collaboration_summary')
-    .select('ai_adoption_score')
-    .order('computed_at', { ascending: false })
-    .limit(1).maybeSingle())
-
-  return { score: data?.ai_adoption_score ?? 0, verified: !!data, source: 'collaboration_summary' }
+  return {
+    score: Math.min(Math.max(Math.round(50 + delta * 2), 0), 100),
+    verified: true,
+    source: 'org_health_snapshots(history) + domain.intelligence.orgHealth(current)',
+    meta: { baselineMonth: history[0].snapshot_month, baseline: earliest, current, delta },
+  }
 }
 
 async function readExecutiveBriefing() {
@@ -182,38 +172,6 @@ async function readExecutiveBriefing() {
     : 0
 
   return { score, verified: !!data, source: 'executive_briefings' }
-}
-
-async function readExecutiveMemory() {
-  const data = await must('executive_memory_items', supabase
-    .from('executive_memory_items')
-    .select('relevance_score, severity'))
-
-  if (!data.length) return { score: 0, verified: false, source: 'executive_memory_items' }
-
-  // Invert: more critical memory items = lower memory health score
-  const critical = data.filter(m => m.severity === 'critical').length
-  const score = Math.round(((data.length - critical) / data.length) * 100)
-
-  return { score, verified: true, source: 'executive_memory_items' }
-}
-
-async function readHealthTrend() {
-  const data = await must('org_health_snapshots', supabase
-    .from('org_health_snapshots')
-    .select('health_index')
-    .order('snapshot_month', { ascending: true }))
-
-  if (data.length < 2) return { score: 50, verified: false, source: 'org_health_snapshots' }
-
-  const latest  = data[data.length - 1].health_index
-  const earliest = data[0].health_index
-
-  // Trending upward = higher score
-  const delta = latest - earliest
-  const score = Math.min(Math.max(Math.round(50 + delta * 2), 0), 100)
-
-  return { score, verified: true, source: 'org_health_snapshots' }
 }
 
 const MODULE_READERS = {
@@ -325,9 +283,9 @@ function computeTrustScore(modules) {
  * average and renormalizing the rest, so the headline Organizational
  * Intelligence Score changed composition with nothing saying so.
  */
-async function readModule(key, reader) {
+async function readModule(key, reader, intel) {
   try {
-    return await reader()
+    return await reader(intel)
   } catch (err) {
     console.error(`[orchestrator] module '${key}' unavailable: ${err.message}`)
     return { score: 0, verified: false, source: null, unavailable: true, error: err.message }
@@ -335,12 +293,17 @@ async function readModule(key, reader) {
 }
 
 async function orchestrate() {
+  // ONE computation feeds every module that derives from the roots, so no two
+  // modules in the same score can describe the organization at two different
+  // moments.
+  const intel = await domain.intelligence.all()
+
   // Read all voting modules, plus brainCore separately for display only
   // (see the comment on MODULE_REGISTRY — it does not vote).
   const [results, brainCoreResult] = await Promise.all([
     Promise.all(
       MODULE_REGISTRY.map(async cfg => {
-        const result = await readModule(cfg.key, MODULE_READERS[cfg.key])
+        const result = await readModule(cfg.key, MODULE_READERS[cfg.key], intel)
         return {
           key:         cfg.key,
           label:       cfg.label,
@@ -354,7 +317,7 @@ async function orchestrate() {
         }
       })
     ),
-    readModule('brainCore', readBrainCore)
+    readModule('brainCore', readBrainCore, intel)
   ])
 
   // Only verified modules contribute to the score

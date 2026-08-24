@@ -1,7 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
-const { loadDataset: loadOrgDataset } = require('../../domain')
+const domain = require('../../domain')
+const { loadDataset: loadOrgDataset } = domain
 const { must } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
@@ -31,20 +32,22 @@ function reasonsFor({ backup, documented, status }) {
 async function buildBrain() {
   const [
     d,
-    { data: predictive, error: e1 },
-    { data: heroes, error: e2 },
     { data: pendingDecisions, error: e3 },
     { data: orchestration, error: e4 },
   ] = await Promise.all([
     loadOrgDataset(),
-    supabase.from('predictive_risk_scores').select('*, agents ( name )'),
-    supabase.from('hero_dependencies').select('*').order('resolution_count', { ascending: false }),
     supabase.from('pending_decisions').select('*'),
     supabase.from('workflow_orchestration').select('*, workflows ( name )'),
   ])
-  if (e1 || e2 || e3 || e4) throw new Error((e1 || e2 || e3 || e4).message)
+  if (e3 || e4) throw new Error((e3 || e4).message)
 
-  const predictiveByAgentName = Object.fromEntries((predictive || []).filter((p) => p.agents?.name).map((p) => [p.agents.name, p]))
+  // Predictions come from the live computation now. Reading them from
+  // `predictive_risk_scores` meant the voice assistant answered "what is most
+  // at risk?" from a table that had not changed since it was seeded.
+  const intel = await domain.intelligence.all()
+  const predictiveByAgentName = Object.fromEntries(
+    intel.predictiveRisk.scores.filter((p) => p.agentName).map((p) => [p.agentName, p]),
+  )
   const orchestrationByWorkflowName = Object.fromEntries((orchestration || []).filter((o) => o.workflows?.name).map((o) => [o.workflows.name, o]))
 
   const agents = d.agents.map((a) => {
@@ -89,15 +92,19 @@ async function buildBrain() {
       ownedCritCount[a.owner] = (ownedCritCount[a.owner] || 0) + 1
     }
   })
-  const people = (heroes || []).map((h) => ({
-    name: h.person_name,
-    department: h.department,
-    role: null,
-    resolutionCount: h.resolution_count,
-    riskLevel: h.risk_level,
-    description: h.description,
-    criticalAgents: ownedCritCount[h.person_name] || 0,
-  }))
+  // Was `hero_dependencies`, a seeded table — so the assistant's answer to
+  // "who is the organization most dependent on?" could not change. Computed now.
+  const people = intel.executiveMemory.items
+    .filter((i) => i.memoryType === 'hero_risk')
+    .map((h) => ({
+      name: h.entityName,
+      department: null,
+      role: null,
+      resolutionCount: null,
+      riskLevel: h.severity,
+      description: h.description,
+      criticalAgents: ownedCritCount[h.entityName] || 0,
+    }))
 
   const allAssets = [...d.agents, ...d.workflows]
   const total = allAssets.length || 1

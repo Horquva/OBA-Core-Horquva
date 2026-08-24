@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const domain = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
@@ -35,16 +36,26 @@ function healthStatus(score) {
   return 'CRITICAL'
 }
 
+// The "current" snapshot was the newest STORED month — June, in a database
+// whose newest month is June and whose write path does not exist. Current means
+// now: this is computed. The stored months remain the historical series and are
+// still read by fetchAllSnapshots() below, because history genuinely cannot be
+// recomputed (the graph has no time dimension).
 async function getCurrentSnapshot() {
-  const { data, error } = await supabase
-    .from('org_health_snapshots')
-    .select('*')
-    .order('snapshot_month', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (error) throw new Error(error.message)
-  return data
+  const intel = await domain.intelligence.all()
+  const h = intel.orgHealth
+  return {
+    snapshot_month:         h.snapshotMonth,
+    health_index:           h.healthIndex,
+    health_status:          h.healthStatus,
+    documentation_score:    h.documentationScore,
+    continuity_score:       h.continuityScore,
+    ownership_spread_score: h.ownershipSpreadScore,
+    critical_safety_score:  h.criticalSafetyScore,
+    incident_load_score:    h.incidentLoadScore,
+    computed_at:            h.computedAt,
+    source:                 h.source,
+  }
 }
 
 async function fetchAllSnapshots() {
@@ -77,66 +88,27 @@ function detectTrend(snapshots) {
 // yielding a confident-looking index of 15 / "CRITICAL" — a real number,
 // reported to an executive, derived from nothing.
 async function computeLiveDimensions() {
-
-  const [docTrend, runbooks, collabs, predictions, failures] = await Promise.all([
-    // A missing row here is legitimately "not measured yet", not a failure, so
-    // maybeSingle() — but a broken query still throws.
-    must('documentation_trend', supabase
-      .from('documentation_trend')
-      .select('coverage_pct')
-      .order('recorded_month', { ascending: false })
-      .limit(1)
-      .maybeSingle()),
-
-    must('workflow_runbooks', supabase
-      .from('workflow_runbooks')
-      .select('is_documented')),
-
-    must('collaboration_scores', supabase
-      .from('collaboration_scores')
-      .select('has_backup')),
-
-    must('predictive_risk_scores', supabase
-      .from('predictive_risk_scores')
-      .select('threat_level')),
-
-    must('workflow_failures', supabase
-      .from('workflow_failures')
-      .select('severity')),
-  ])
-
-  // 1 — DOCUMENTATION: from documentation_trend
-  const documentationScore = docTrend ? Math.round(docTrend.coverage_pct) : 0
-
-  // 2 — CONTINUITY: from workflow_runbooks — % that are documented
-  const continuityScore = runbooks.length
-    ? Math.round((runbooks.filter(r => r.is_documented).length / runbooks.length) * 100)
-    : 0
-
-  // 3 — OWNERSHIP SPREAD: from collaboration_scores — % employees with backup
-  const ownershipSpreadScore = collabs.length
-    ? Math.round((collabs.filter(c => c.has_backup).length / collabs.length) * 100)
-    : 0
-
-  // 4 — CRITICAL SAFETY: from predictive_risk_scores — % agents NOT at CRITICAL threat
-  const criticalSafetyScore = predictions.length
-    ? Math.round(
-        (predictions.filter(p => p.threat_level !== 'CRITICAL').length / predictions.length) * 100
-      )
-    : 0
-
-  // 5 — INCIDENT LOAD: from workflow_failures — inverse of critical severity %
-  const criticalFailures = failures.filter(f => f.severity === 'critical').length
-  const incidentLoadScore = failures.length
-    ? Math.round(((failures.length - criticalFailures) / failures.length) * 100)
-    : 100
+  // This function used to compute all five dimensions itself, from five direct
+  // queries — a second, independent definition of continuity, ownership spread,
+  // critical safety and incident load sitting alongside the one in the domain
+  // layer. Two of its five inputs (collaboration_scores, predictive_risk_scores)
+  // were frozen tables, so the "live" dimensions were partly not live; and where
+  // its definitions disagreed with the domain layer's, this page and the rest of
+  // the product reported different numbers for the same question with no rule
+  // about which was right.
+  //
+  // It delegates now. The definitions live in domain/derived.js, once.
+  const intel = await domain.intelligence.all()
+  const h = intel.orgHealth
 
   return {
-    documentationScore,
-    continuityScore,
-    ownershipSpreadScore,
-    criticalSafetyScore,
-    incidentLoadScore
+    documentationScore:   h.documentationScore,
+    continuityScore:      h.continuityScore,
+    ownershipSpreadScore: h.ownershipSpreadScore,
+    criticalSafetyScore:  h.criticalSafetyScore,
+    incidentLoadScore:    h.incidentLoadScore,
+    computedAt:           h.computedAt,
+    source:               h.source,
   }
 }
 
@@ -345,25 +317,24 @@ router.get('/critical', async (req, res) => {
     const [dimensions, predictions, runbooks, accountability] = await Promise.all([
       computeLiveDimensions(),
 
-      must('predictive_risk_scores', supabase
-        .from('predictive_risk_scores')
-        .select('predicted_score, threat_level, agents(name, risk)')
-        .eq('threat_level', 'CRITICAL')
-        .order('predicted_score', { ascending: false })),
+      domain.intelligence.all().then(intel => intel.predictiveRisk.scores
+        .filter(p => p.threatLevel === 'CRITICAL')
+        .map(p => ({
+          predicted_score: p.predictedScore,
+          threat_level:    p.threatLevel,
+          agents: { name: p.agentName, risk: p.recordedRisk },
+        }))),
 
       must('workflow_runbooks', supabase
         .from('workflow_runbooks')
         .select('workflows(name, department), employees(name)')
         .eq('is_documented', false)),
 
-      // No summary row yet is a real possibility; a broken query is not the same
-      // thing, so maybeSingle() + must() rather than the old bare .single().
-      must('accountability_summary', supabase
-        .from('accountability_summary')
-        .select('accountability_score, same_r_and_a_count, unique_people_count')
-        .order('computed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle())
+      domain.intelligence.all().then(intel => ({
+        accountability_score: intel.accountability.accountabilityScore,
+        same_r_and_a_count:   intel.accountability.sameRandACount,
+        unique_people_count:  intel.accountability.uniquePeopleCount,
+      }))
     ])
 
     const liveIndex = computeHealthIndex({

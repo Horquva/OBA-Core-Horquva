@@ -1,29 +1,39 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
 // HELPERS — pull live signals from existing modules
 // ─────────────────────────────────────────────
 
+// Both of these used to SELECT from tables seeded once by SQL and written by
+// nothing, so the "daily" briefing opened with the same single point of failure
+// and the same overloaded person every day regardless of what had changed.
+// Row shapes below match the old SELECTs so the briefing prose is untouched.
+
 async function getTopSPOF() {
-  return must('predictive_risk_scores', supabase
-    .from('predictive_risk_scores')
-    .select('predicted_score, agents(name, risk, owner_id)')
-    .eq('threat_level', 'CRITICAL')
-    .order('predicted_score', { ascending: false })
-    .limit(1)
-    .maybeSingle())
+  const intel = await domain.intelligence.all()
+  const top = intel.predictiveRisk.scores.find(p => p.threatLevel === 'CRITICAL')
+  if (!top) return null
+  return {
+    predicted_score: top.predictedScore,
+    agents: { name: top.agentName, risk: top.recordedRisk, owner_id: null },
+  }
 }
 
 async function getMostOverloaded() {
-  return must('collaboration_scores', supabase
-    .from('collaboration_scores')
-    .select('dependency_score, critical_agents_owned, has_backup, employees(name, department)')
-    .order('dependency_score', { ascending: false })
-    .limit(1)
-    .maybeSingle())
+  const intel = await domain.intelligence.all()
+  const people = intel.collaboration.perEmployee
+  if (!people.length) return null
+  const top = people.reduce((a, b) => (b.dependencyScore > a.dependencyScore ? b : a))
+  return {
+    dependency_score:      top.dependencyScore,
+    critical_agents_owned: top.criticalAgentsOwned,
+    has_backup:            top.hasBackup,
+    employees: { name: top.name, department: top.department },
+  }
 }
 
 async function getLatestIncident() {
@@ -277,20 +287,17 @@ router.get('/pending-decisions', async (req, res) => {
 
 router.get('/top-risks', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('predictive_risk_scores')
-      .select(`
-        predicted_score,
-        threat_level,
-        is_emerging_threat,
-        reasons,
-        agents ( name, status, risk )
-      `)
-      .in('threat_level', ['CRITICAL', 'HIGH'])
-      .order('predicted_score', { ascending: false })
-      .limit(5)
-
-    if (error) throw new Error(error.message)
+    const intel = await domain.intelligence.all()
+    const data = intel.predictiveRisk.scores
+      .filter(p => ['CRITICAL', 'HIGH'].includes(p.threatLevel))
+      .slice(0, 5)
+      .map(p => ({
+        predicted_score:    p.predictedScore,
+        threat_level:       p.threatLevel,
+        is_emerging_threat: p.isEmergingThreat,
+        reasons:            p.reasons,
+        agents: { name: p.agentName, status: null, risk: p.recordedRisk },
+      }))
 
     res.json({
       totalHighAndCritical: data.length,

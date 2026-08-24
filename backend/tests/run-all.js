@@ -15,6 +15,7 @@ const tests = [
 	'graphLoader.live.test.js', // self-skips when SUPABASE_URL is unset
 	'intelligence.verify.test.js',
 	'auth.unit.test.js',
+	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
 	'authRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).

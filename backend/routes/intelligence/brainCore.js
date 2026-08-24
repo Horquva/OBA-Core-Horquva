@@ -1,7 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
-const { must, optional } = require('../../lib/supabaseQuery')
+const { optional } = require('../../lib/supabaseQuery')
+const domain = require('../../domain')
 
 // ─────────────────────────────────────────────
 // SIGNAL WEIGHTS  (must sum to 1.0)
@@ -21,137 +22,90 @@ const SIGNAL_CONFIG = [
 ]
 
 // ─────────────────────────────────────────────
-// SIGNAL READERS  — one per source table
-// Each returns { score, source, verified }
+// SIGNAL READERS  — each returns { score, source, verified }
 //
-// `verified: false` means "no row on record" and ONLY that. It used to also
-// absorb every query failure: these readers destructured just `{ data }`, so a
-// dropped table or an RLS rejection produced data:null, verified:false, and the
-// signal was silently dropped from the weighted average while the remaining
-// signals were renormalized. The headline Brain Index then changed composition
-// with nothing anywhere saying so.
-//
-// Now the readers use must(), so a broken query throws; readSignal() below
-// catches it and marks the signal `unavailable` with the real error, which
-// computeBrainCore() reports as a degraded result. Missing rows still degrade
-// gracefully — a Supabase failure is no longer able to impersonate one.
+// `verified: false` means "nothing on record to score" and ONLY that. It must
+// never absorb a failure: an earlier version let a dropped table produce
+// verified:false, which silently removed that signal from the weighted average
+// and renormalized the rest, so the headline Brain Index quietly changed
+// composition with nothing anywhere saying so. readSignal() below keeps the two
+// apart — a thrown error becomes `unavailable`, which computeBrainCore()
+// reports as degraded.
 // ─────────────────────────────────────────────
 
-async function readGovernance() {
-  const data = await must('intelligence_results (GI)', supabase
-    .from('intelligence_results')
-    .select('score')
-    .eq('result_type', 'pillar')
-    .eq('result_key', 'GI')
-    .maybeSingle())
+// Every signal below is a PROJECTION of one live computation, not a table read.
+//
+// These ten readers used to query eight different pre-aggregated tables. Six of
+// those were seeded once by SQL and written by nothing afterwards, so the Brain
+// Index was a weighted average of numbers that could not change — and because
+// this route stamps its snapshot with `computed_at: now()`, a fortnight-old
+// input came back out wearing today's date. The freshness was manufactured here.
+//
+// `domain.intelligence.all()` computes all of it from the root tables on
+// demand. See domain/derived.js for each metric's definition, and note that the
+// GI/MI/DI pillars are authored measures rather than recovered ones.
 
-  return { score: data?.score ?? 0, source: 'intelligence_results', verified: !!data }
+function pillarScore(intel, key) {
+  const found = (intel.pillars.pillars || []).find((p) => p.resultKey === key)
+  return found
+    ? { score: found.score, source: `domain.intelligence.pillars(${key})`, verified: true }
+    : { score: 0, source: `domain.intelligence.pillars(${key})`, verified: false }
 }
 
-async function readContinuity() {
-  const data = await must('org_health_snapshots (continuity)', supabase
-    .from('org_health_snapshots')
-    .select('continuity_score')
-    .order('snapshot_month', { ascending: false })
-    .limit(1)
-    .maybeSingle())
+const SIGNAL_READERS = {
+  governance:         (intel) => pillarScore(intel, 'GI'),
+  memoryIntelligence: (intel) => pillarScore(intel, 'MI'),
+  domainIntelligence: (intel) => pillarScore(intel, 'DI'),
 
-  return { score: data?.continuity_score ?? 0, source: 'org_health_snapshots', verified: !!data }
-}
+  continuity: (intel) => ({
+    score: intel.orgHealth.continuityScore,
+    source: 'domain.intelligence.orgHealth',
+    verified: true,
+  }),
 
-async function readOrgHealth() {
-  const data = await must('org_health_snapshots (health_index)', supabase
-    .from('org_health_snapshots')
-    .select('health_index')
-    .order('snapshot_month', { ascending: false })
-    .limit(1)
-    .maybeSingle())
+  orgHealth: (intel) => ({
+    score: intel.orgHealth.healthIndex,
+    source: 'domain.intelligence.orgHealth',
+    verified: true,
+  }),
 
-  return { score: data?.health_index ?? 0, source: 'org_health_snapshots', verified: !!data }
-}
+  // Inverted: more CRITICAL agents means a lower score.
+  predictiveRisk: (intel) => {
+    const scores = intel.predictiveRisk.scores
+    if (!scores.length) {
+      return { score: 0, source: 'domain.intelligence.predictiveRisk', verified: false }
+    }
+    const critical = scores.filter((s) => s.threatLevel === 'CRITICAL').length
+    return {
+      score: Math.round(((scores.length - critical) / scores.length) * 100),
+      source: 'domain.intelligence.predictiveRisk',
+      verified: true,
+    }
+  },
 
-async function readPredictiveRisk() {
-  // Invert: more CRITICAL agents = lower score
-  const data = await must('predictive_risk_scores', supabase
-    .from('predictive_risk_scores')
-    .select('threat_level'))
+  collaboration: (intel) => ({
+    score: intel.collaboration.summary.collaborationScore,
+    source: 'domain.intelligence.collaboration',
+    verified: intel.collaboration.perEmployee.length > 0,
+  }),
 
-  if (!data.length) return { score: 0, source: 'predictive_risk_scores', verified: false }
+  accountability: (intel) => ({
+    score: intel.accountability.accountabilityScore,
+    source: 'domain.intelligence.accountability',
+    verified: intel.accountability.entitiesWithLinks > 0,
+  }),
 
-  const criticalCount = data.filter(p => p.threat_level === 'CRITICAL').length
-  const safeRatio = (data.length - criticalCount) / data.length
-  const score = Math.round(safeRatio * 100)
+  aiAdoption: (intel) => ({
+    score: intel.collaboration.summary.aiAdoptionScore,
+    source: 'domain.intelligence.collaboration',
+    verified: intel.collaboration.perEmployee.length > 0,
+  }),
 
-  return { score, source: 'predictive_risk_scores', verified: true }
-}
-
-async function readMemoryIntelligence() {
-  const data = await must('intelligence_results (MI)', supabase
-    .from('intelligence_results')
-    .select('score')
-    .eq('result_type', 'pillar')
-    .eq('result_key', 'MI')
-    .maybeSingle())
-
-  return { score: data?.score ?? 0, source: 'intelligence_results', verified: !!data }
-}
-
-async function readCollaboration() {
-  const data = await must('collaboration_summary (collaboration)', supabase
-    .from('collaboration_summary')
-    .select('collaboration_score')
-    .order('computed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle())
-
-  return { score: data?.collaboration_score ?? 0, source: 'collaboration_summary', verified: !!data }
-}
-
-async function readDomainIntelligence() {
-  const data = await must('intelligence_results (DI)', supabase
-    .from('intelligence_results')
-    .select('score')
-    .eq('result_type', 'pillar')
-    .eq('result_key', 'DI')
-    .maybeSingle())
-
-  return { score: data?.score ?? 0, source: 'intelligence_results', verified: !!data }
-}
-
-async function readAccountability() {
-  const data = await must('accountability_summary', supabase
-    .from('accountability_summary')
-    .select('accountability_score')
-    .order('computed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle())
-
-  return { score: data?.accountability_score ?? 0, source: 'accountability_summary', verified: !!data }
-}
-
-async function readAIAdoption() {
-  const data = await must('collaboration_summary (ai_adoption)', supabase
-    .from('collaboration_summary')
-    .select('ai_adoption_score')
-    .order('computed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle())
-
-  return { score: data?.ai_adoption_score ?? 0, source: 'collaboration_summary', verified: !!data }
-}
-
-async function readDecisionQuality() {
-  // Score = % of historical decisions that were not negative
-  const data = await must('decision_history', supabase
-    .from('decision_history')
-    .select('outcome'))
-
-  if (!data.length) return { score: 50, source: 'decision_history', verified: false }
-
-  const negative = data.filter(d => d.outcome === 'negative').length
-  const score = Math.round(((data.length - negative) / data.length) * 100)
-
-  return { score, source: 'decision_history', verified: true }
+  decisionQuality: (intel) => ({
+    score: intel.decisionQuality.score,
+    source: 'domain.intelligence.decisionQuality',
+    verified: intel.decisionQuality.hasEvidence,
+  }),
 }
 
 /**
@@ -160,37 +114,29 @@ async function readDecisionQuality() {
  * the whole dashboard — ten independent signals means nine are still real — but
  * it must not be invisible either.
  */
-async function readSignal(key, reader) {
+async function readSignal(key, reader, intel) {
   try {
-    return await reader()
+    return await reader(intel)
   } catch (err) {
     console.error(`[brainCore] signal '${key}' unavailable: ${err.message}`)
     return { score: 0, source: null, verified: false, unavailable: true, error: err.message }
   }
 }
 
-const SIGNAL_READERS = {
-  governance:         readGovernance,
-  continuity:         readContinuity,
-  orgHealth:          readOrgHealth,
-  predictiveRisk:     readPredictiveRisk,
-  memoryIntelligence: readMemoryIntelligence,
-  collaboration:      readCollaboration,
-  domainIntelligence: readDomainIntelligence,
-  accountability:     readAccountability,
-  aiAdoption:         readAIAdoption,
-  decisionQuality:    readDecisionQuality
-}
 
 // ─────────────────────────────────────────────
 // CORE COMPUTATION
 // ─────────────────────────────────────────────
 
 async function computeBrainCore() {
-  // Read all signals in parallel
+  // ONE computation, shared by all ten signals. Reading them independently
+  // would let two signals in the same Brain Index describe the organization at
+  // two different moments — and would multiply eighteen root reads by ten.
+  const intel = await domain.intelligence.all()
+
   const rawSignals = await Promise.all(
     SIGNAL_CONFIG.map(async cfg => {
-      const result = await readSignal(cfg.key, SIGNAL_READERS[cfg.key])
+      const result = await readSignal(cfg.key, SIGNAL_READERS[cfg.key], intel)
       return {
         key:          cfg.key,
         label:        cfg.label,
@@ -262,12 +208,27 @@ async function computeBrainCore() {
   // be able to tell. Without this, a partial Supabase outage silently changed
   // which signals composed the Brain Index.
   const unavailable = rawSignals.filter(s => s.unavailable)
+
+  // Integrity has TWO axes, and this used to track only one.
+  //
+  // `degraded` answered "did a query fail?" — pure reachability. A row that read
+  // back perfectly counted as verified no matter how old it was, so the six
+  // never-written tables that fed this index scored a clean bill of health
+  // every single time. The metric that existed to catch bad inputs was
+  // structurally incapable of noticing the actual problem.
+  //
+  // `computedAt` closes that: every signal now derives from a computation with
+  // a real timestamp, so freshness is a fact about this response rather than
+  // something a reader has to take on trust.
   const dataIntegrity = {
     degraded: unavailable.length > 0,
     signalsRead: rawSignals.length,
     signalsVerified: verifiedSignals.length,
     signalsUnavailable: unavailable.length,
     unavailableSignals: unavailable.map(s => ({ key: s.key, label: s.label, error: s.error })),
+    computedAt: intel.computedAt,
+    inputsComputedLive: true,
+    rootCounts: intel.rootCounts,
     warning: unavailable.length
       ? `${unavailable.length} of ${rawSignals.length} signals could not be read. This index was computed from the rest and is NOT a complete picture.`
       : null,
@@ -279,6 +240,28 @@ async function computeBrainCore() {
 // ─────────────────────────────────────────────
 // SNAPSHOT CACHE
 // ─────────────────────────────────────────────
+
+/**
+ * Integrity for a response, whether it was just computed or read from today's
+ * cached snapshot.
+ *
+ * A cache hit used to report `dataIntegrity: null`, on the reasoning that a
+ * snapshot is only ever written when every read succeeded, so there is no
+ * degradation to report. That is still true of the REACHABILITY axis — and
+ * false of the freshness one. A snapshot cached at 02:00 is a real answer about
+ * 02:00, and reporting nothing at all is how a stale number passes for a fresh
+ * one. Age is now always reported, and it is the cached path that most needs to
+ * report it.
+ */
+function integrityFor(snapshot) {
+  if (snapshot.dataIntegrity) return snapshot.dataIntegrity
+  return {
+    degraded: false,
+    fromCache: true,
+    computedAt: snapshot.computed_at ?? null,
+    warning: null,
+  }
+}
 
 async function getOrComputeSnapshot() {
   // Return today's cached snapshot if available. A failed cache read is
@@ -353,9 +336,7 @@ router.get('/', async (req, res) => {
       explanation: snapshot.explanation,
       fromCache:   snapshot.fromCache,
       computedAt:  snapshot.computed_at,
-      // Absent on a cache hit — a cached snapshot is only ever written when the
-      // read was complete, so there is no degradation to report.
-      dataIntegrity: snapshot.dataIntegrity ?? null
+      dataIntegrity: integrityFor(snapshot)
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -376,7 +357,7 @@ router.get('/summary', async (req, res) => {
       summary:    snapshot.summary,
       topSignals: snapshot.top_signals ?? snapshot.topSignals,
       computedAt: snapshot.computed_at,
-      dataIntegrity: snapshot.dataIntegrity ?? null
+      dataIntegrity: integrityFor(snapshot)
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -394,7 +375,7 @@ router.get('/posture', async (req, res) => {
     res.json({
       posture:    snapshot.posture,
       brainIndex: snapshot.brain_index ?? snapshot.brainIndex,
-      dataIntegrity: snapshot.dataIntegrity ?? null
+      dataIntegrity: integrityFor(snapshot)
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

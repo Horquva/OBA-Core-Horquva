@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
@@ -203,12 +204,13 @@ router.get('/metrics', async (req, res) => {
     // empty table (no snapshot recorded yet) is legitimate, not a failure;
     // optional() still logs a real query error instead of rendering it as null.
     const [healthSnapshot, docTrend, orgScore] = await Promise.all([
-      optional('org_health_snapshots', supabase
-        .from('org_health_snapshots')
-        .select('health_index, health_status, snapshot_month')
-        .order('snapshot_month', { ascending: false })
-        .limit(1)
-        .maybeSingle()),
+      // Was the newest STORED month, which in a database with no write path
+      // means a fixed month forever. Computed now.
+      domain.intelligence.all().then(intel => ({
+        health_index:   intel.orgHealth.healthIndex,
+        health_status:  intel.orgHealth.healthStatus,
+        snapshot_month: intel.orgHealth.snapshotMonth,
+      })),
 
       optional('documentation_trend', supabase
         .from('documentation_trend')
@@ -217,11 +219,10 @@ router.get('/metrics', async (req, res) => {
         .limit(1)
         .maybeSingle()),
 
-      optional('intelligence_results(org_score)', supabase
-        .from('intelligence_results')
-        .select('score, rating')
-        .eq('result_key', 'org_score')
-        .maybeSingle())
+      domain.intelligence.all().then(intel => ({
+        score:  intel.pillars.orgScore.score,
+        rating: intel.pillars.orgScore.rating,
+      }))
     ])
 
     res.json({
@@ -260,11 +261,14 @@ router.get('/avatar', async (req, res) => {
       .limit(1)
       .maybeSingle())
 
-    // Pull hero risk for avatar context
-    const heroes = await must('hero_dependencies', supabase
-      .from('hero_dependencies')
-      .select('person_name, resolution_count, risk_level')
-      .eq('risk_level', 'critical'))
+    // Pull hero risk for avatar context.
+    // `hero_dependencies` was seeded once and written by nothing, so naming a
+    // backup owner for somebody never removed them from this list. Hero risk is
+    // computed now: owning two or more critical assets with no named backup.
+    const heroIntel = await domain.intelligence.all()
+    const heroes = heroIntel.executiveMemory.items
+      .filter(i => i.memoryType === 'hero_risk' && i.severity === 'critical')
+      .map(i => ({ person_name: i.entityName, resolution_count: null, risk_level: i.severity }))
 
     const criticalCount  = items.filter(i => i.urgency === 'CRITICAL').length
     const highCount      = items.filter(i => i.urgency === 'HIGH').length
