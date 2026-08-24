@@ -99,6 +99,33 @@ console.log("\nEdge criticality — dependency_type, a separate concept:")
 	check('does not read a stray .criticality', D.edgeCriticality({ criticality: 'critical' }) === D.UNKNOWN, D.edgeCriticality({ criticality: 'critical' }))
 	check('edge threshold comparison works', D.atOrAbove(D.edgeCriticality({ dependency_type: 'critical' }), 'high') === true)
 }
+
+console.log("\nSPOF verdict — sole owner + no backup + criticality >= high (D-06):")
+{
+	const v = (criticality, ownerCount, hasBackup) => D.spofVerdict({ criticality, ownerCount, hasBackup }).status
+
+	check('threshold is high', D.SPOF_THRESHOLD === 'high', D.SPOF_THRESHOLD)
+
+	check('sole owner + no backup + critical IS a spof', v('critical', 1, false) === 'spof', v('critical', 1, false))
+	check('sole owner + no backup + high IS a spof', v('high', 1, false) === 'spof', v('high', 1, false))
+	check('a backup defeats it', v('critical', 1, true) === 'not_spof', v('critical', 1, true))
+	check('multiple owners defeat it', v('critical', 3, false) === 'not_spof', v('critical', 3, false))
+	check('normal criticality defeats it', v('normal', 1, false) === 'not_spof', v('normal', 1, false))
+	check('low criticality defeats it', v('low', 1, false) === 'not_spof', v('low', 1, false))
+
+	check('zero owners is orphaned, not spof', v('critical', 0, false) === 'orphaned', v('critical', 0, false))
+	check('orphaned even when criticality is low', v('low', 0, false) === 'orphaned', v('low', 0, false))
+
+	check('unknown criticality is not evaluable', v(D.UNKNOWN, 1, false) === 'not_evaluable', v(D.UNKNOWN, 1, false))
+	check('not_evaluable is distinct from not_spof', v(D.UNKNOWN, 1, false) !== v('normal', 1, false))
+	check('missing criticality is not evaluable', D.spofVerdict({ ownerCount: 1, hasBackup: false }).status === 'not_evaluable')
+
+	check('zero dependents does not prevent a spof', v('critical', 1, false) === 'spof')
+
+	check('reasons are reported', D.spofVerdict({ criticality: 'critical', ownerCount: 1, hasBackup: false }).reasons.length > 0)
+	check('reasons name the sole owner', D.spofVerdict({ criticality: 'critical', ownerCount: 1, hasBackup: false }).reasons.includes('sole_owner'))
+	check('reasons name the missing backup', D.spofVerdict({ criticality: 'critical', ownerCount: 1, hasBackup: false }).reasons.includes('no_backup_owner'))
+}
 console.log('\n----------------------------------------')
 console.log('passed: ' + passed + '   failed: ' + failed)
 console.log(failed === 0 ? 'CANONICAL DEFINITIONS TESTS PASSED ✅' : 'CANONICAL DEFINITIONS TESTS FAILED ❌')

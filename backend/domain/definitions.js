@@ -134,6 +134,54 @@ function edgeCriticality(depRow) {
 	if (!depRow) return UNKNOWN
 	return normalizeLevel(depRow.dependency_type)
 }
+
+/** Criticality at or above which ownership fragility counts as a SPOF (D-06). */
+const SPOF_THRESHOLD = 'high'
+
+/**
+ * Is this entity a single point of failure?
+ *
+ * SPOF = sole owner AND no backup owner AND criticality >= high.
+ *
+ * Dependents are deliberately NOT consulted. A critical asset with nothing
+ * currently depending on it is still a single point of failure, because the
+ * dependency graph is incomplete and absence of a recorded dependent is not
+ * evidence of absence.
+ *
+ * Four outcomes rather than a boolean:
+ *
+ *   spof           sole owner, no backup, critical enough
+ *   orphaned       NOBODY owns it -- not "sole owner", and a worse finding
+ *                  that would be hidden if folded into not_spof
+ *   not_evaluable  criticality is unmeasured; we cannot say either way
+ *   not_spof       genuinely fine on this axis
+ *
+ * Takes resolved facts rather than rows so it stays pure and so callers can
+ * reuse the backup index derived.js already builds (derived.js:121).
+ *
+ * @param {{criticality?: string, ownerCount?: number, hasBackup?: boolean}} facts
+ * @returns {{status: string, reasons: string[]}}
+ */
+function spofVerdict({ criticality, ownerCount, hasBackup } = {}) {
+	const level = normalizeLevel(criticality)
+	const owners = Number(ownerCount) || 0
+
+	if (owners === 0) {
+		return { status: 'orphaned', reasons: ['no_owner'] }
+	}
+
+	if (level === UNKNOWN) {
+		return { status: 'not_evaluable', reasons: ['criticality_unmeasured'] }
+	}
+
+	const reasons = []
+	if (owners === 1) reasons.push('sole_owner')
+	if (!hasBackup) reasons.push('no_backup_owner')
+	if (atOrAbove(level, SPOF_THRESHOLD)) reasons.push('criticality_' + level)
+
+	const isSpof = owners === 1 && !hasBackup && atOrAbove(level, SPOF_THRESHOLD)
+	return { status: isSpof ? 'spof' : 'not_spof', reasons }
+}
 module.exports = {
 	LEVELS,
 	RANK,
@@ -144,4 +192,6 @@ module.exports = {
 	ENTITY_CRITICALITY_FIELD,
 	entityCriticality,
 	edgeCriticality,
+	SPOF_THRESHOLD,
+	spofVerdict,
 }
