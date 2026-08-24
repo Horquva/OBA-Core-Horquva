@@ -384,23 +384,26 @@ function collaboration(roots) {
     : 0
   const meanDependencyScore = round(mean(perEmployee.map((e) => e.dependencyScore)))
 
+  const evidence = evidenceGate(roots.employees, () => true)
+
   return {
     perEmployee,
     summary: {
-      aiAdoptionScore,
-      adoptionLevel: band(aiAdoptionScore, ['MINIMAL', 'LOW', 'MODERATE', 'HIGH']),
-      humanDependencyScore,
-      meanDependencyScore,
+      aiAdoptionScore: evidence.sufficient ? aiAdoptionScore : null,
+      adoptionLevel: evidence.sufficient ? band(aiAdoptionScore, ['MINIMAL', 'LOW', 'MODERATE', 'HIGH']) : null,
+      humanDependencyScore: evidence.sufficient ? humanDependencyScore : null,
+      meanDependencyScore: evidence.sufficient ? meanDependencyScore : null,
       // Deliberately inverted: a HIGH dependency score is a BAD outcome, so the
       // reassuring label has to sit at the low end or the word and the number
       // would tell opposite stories.
-      dependencyLevel: band(100 - humanDependencyScore, ['SEVERE', 'HIGH', 'MODERATE', 'LOW']),
+      dependencyLevel: evidence.sufficient ? band(100 - humanDependencyScore, ['SEVERE', 'HIGH', 'MODERATE', 'LOW']) : null,
       highestDependencyEmployee: highest ? highest.name : null,
       highestDependencyScore: highest ? highest.dependencyScore : null,
-      collaborationScore,
-      collaborationLevel: band(collaborationScore, ['POOR', 'FAIR', 'GOOD', 'STRONG']),
+      collaborationScore: evidence.sufficient ? collaborationScore : null,
+      collaborationLevel: evidence.sufficient ? band(collaborationScore, ['POOR', 'FAIR', 'GOOD', 'STRONG']) : null,
       peopleScored: perEmployee.length,
       peopleTotal: roots.employees.length,
+      evidence,
     },
     ...provenance({
       employees: roots._counts.employees,

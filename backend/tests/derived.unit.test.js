@@ -161,6 +161,24 @@ console.log('\nCollaboration — adoption, dependency, concentration:')
 	check('a severe peak is not labelled reassuringly', c.summary.dependencyLevel === 'SEVERE', c.summary.dependencyLevel)
 }
 
+// ── Collaboration evidence gate (D-07, D-10) ───────────────────────────────
+console.log('\nCollaboration — evidence gate:')
+{
+	const empty = d.collaboration(roots())
+	check('zero employees is insufficient evidence',
+		empty.summary.evidence.sufficient === false, empty.summary.evidence)
+	check('...so every summary verdict is null, not a fabricated MINIMAL/POOR',
+		empty.summary.aiAdoptionScore === null && empty.summary.adoptionLevel === null &&
+		empty.summary.collaborationScore === null && empty.summary.collaborationLevel === null &&
+		empty.summary.dependencyLevel === null, empty.summary)
+	check('peopleScored/peopleTotal still report zero, not null', empty.summary.peopleScored === 0 && empty.summary.peopleTotal === 0, empty.summary)
+
+	const oneEmployeeNoAI = d.collaboration(roots({ employees: [{ id: 1, name: 'Solo', department: 'Eng' }] }))
+	check('employees exist but none touch AI — a real zero, evidence is sufficient',
+		oneEmployeeNoAI.summary.evidence.sufficient === true && oneEmployeeNoAI.summary.aiAdoptionScore === 0,
+		oneEmployeeNoAI.summary)
+}
+
 // ── Predictive risk ──────────────────────────────────────────────────────────
 console.log('\nPredictive risk — factors and emergence:')
 {
