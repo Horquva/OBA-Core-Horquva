@@ -416,6 +416,45 @@ console.log('\nPillars — evidence gate:')
 	check('DI is insufficient with zero knowledge_assets and zero truth_claims', di.evidence.sufficient === false, di.evidence)
 }
 
+console.log('\norgScore — insufficient if any pillar is insufficient:')
+{
+	const fullFixture = roots({
+		workflows: [{ id: 1, name: 'W1', risk: 'low' }, { id: 2, name: 'W2', risk: 'low' }],
+		workflow_runbooks: [{ workflow_id: 1, is_documented: true }, { workflow_id: 2, is_documented: false }],
+		ai_platforms: [{ id: 1, name: 'P1' }, { id: 2, name: 'P2' }],
+		tool_policies: [{ platform_id: 1, policy_name: 'pol', status: 'active' }],
+		policy_violations: [],
+		owners: [{ id: 10, name: 'A', employee_id: 1, backup_owner: 'B' }, { id: 11, name: 'C', employee_id: 2, backup_owner: null }],
+		knowledge_assets: [
+			{ asset_type: 'agent', asset_id: 1, is_documented: true, owner_id: 1 },
+			{ asset_type: 'agent', asset_id: 2, is_documented: false, owner_id: 1 },
+		],
+		truth_claims: [{ verdict: 'VERIFIED', is_contradicted: false }, { verdict: 'UNVERIFIED', is_contradicted: false }],
+		accountability_entities: [{ id: 1, entity_name: 'E', entity_type: 'workflow', department: 'Eng' }],
+		accountability_links: [
+			{ entity_id: 1, person_name: 'A', raci_role: 'Responsible' },
+			{ entity_id: 1, person_name: 'B', raci_role: 'Accountable' },
+		],
+	})
+	const good = d.pillars(fullFixture, d.accountability(fullFixture))
+	check('all three pillars evidenced -> orgScore is sufficient and computes',
+		good.orgScore.evidence.sufficient === true && typeof good.orgScore.score === 'number', good.orgScore)
+
+	// Same fixture minus truth_claims only (knowledge_assets stays, since MI also
+	// depends on it — zeroing it would sink MI too and defeat the point of this
+	// check, which is isolating a SINGLE insufficient pillar).
+	const diMissing = { ...fullFixture, truth_claims: [], _counts: { ...fullFixture._counts, truth_claims: 0 } }
+	const partial = d.pillars(diMissing, d.accountability(diMissing))
+	check('DI insufficient alone still sinks orgScore, even though GI and MI are fine',
+		partial.orgScore.evidence.sufficient === false && partial.orgScore.score === null, partial.orgScore.evidence)
+	check('...and says exactly which pillar is the problem',
+		partial.orgScore.evidence.DI.sufficient === false &&
+		partial.orgScore.evidence.GI.sufficient === true &&
+		partial.orgScore.evidence.MI.sufficient === true, partial.orgScore.evidence)
+	check("...and the flat coverage figure is DI's (the worst/only-insufficient one)",
+		partial.orgScore.evidence.coverage === partial.orgScore.evidence.DI.coverage, partial.orgScore.evidence)
+}
+
 // ── Decision quality ─────────────────────────────────────────────────────────
 console.log('\nDecision quality and org health:')
 {

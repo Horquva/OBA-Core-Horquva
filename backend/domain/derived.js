@@ -861,6 +861,7 @@ function pillars(roots, accountabilityResult) {
   })
 
   const orgScore = round(GI * PILLAR_WEIGHTS.GI + MI * PILLAR_WEIGHTS.MI + DI * PILLAR_WEIGHTS.DI)
+  const orgScoreEvidence = combineEvidence({ GI: giEvidence, MI: miEvidence, DI: diEvidence })
 
   const shape = (key, score, components, evidence) => ({
     resultType: 'pillar',
@@ -872,10 +873,6 @@ function pillars(roots, accountabilityResult) {
     weaknesses: evidence.sufficient ? Object.entries(components).filter(([, v]) => v < 50).map(([k]) => k) : [],
     evidence,
   })
-
-  // MI and DI's real gates land in Tasks 4-5; this placeholder keeps this task's
-  // code running (and the pre-existing pillars tests green) in the interim.
-  const placeholderEvidence = { sufficient: true, status: 'computed', coverage: 1, covered: 0, total: 0, threshold: 0.5 }
 
   return {
     pillars: [
@@ -890,10 +887,10 @@ function pillars(roots, accountabilityResult) {
     orgScore: {
       resultType: 'overall',
       resultKey: 'org_score',
-      score: orgScore,
-      rating: band(orgScore),
+      score: orgScoreEvidence.sufficient ? orgScore : null,
+      rating: orgScoreEvidence.sufficient ? band(orgScore) : null,
       weights: PILLAR_WEIGHTS,
-      evidence: placeholderEvidence,
+      evidence: orgScoreEvidence,
     },
     // Named loudly so nobody mistakes an authored metric for a measured one.
     definitionsAreAuthored: true,
