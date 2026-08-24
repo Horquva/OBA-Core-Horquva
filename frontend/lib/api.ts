@@ -1,5 +1,6 @@
 import type { RiskLevel } from '../types';
 import { authHeader } from './authFetch';
+import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Base ────────────────────────────────────────────────────────────────────
 
@@ -691,13 +692,14 @@ export const orgScience = {
 // ─── Orchestrator / M55  (/api/intelligence/orchestrator) ───────────────────
 
 export interface OrchestratorSummary {
-  organizationalIntelligenceScore: number;
-  rating: string;
+  organizationalIntelligenceScore: number | null;
+  rating: string | null;
   brainPosture: string | null;
   trustScore: number;
   finalVerdict: string;
   topRecommendations: string[];
   generatedAt: string;
+  evidence?: EvidenceInfo | null;
 }
 
 export interface OrchestratorModule {
