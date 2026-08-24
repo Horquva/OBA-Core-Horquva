@@ -6,6 +6,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import { LineChart } from "../src/charts/LineChart";
+import { KnowledgeGraph } from "../src/graphs/KnowledgeGraph";
 import { OrganizationalGraph } from "../src/graphs/OrganizationalGraph";
 import { MemoryTimeline } from "../src/timeline/MemoryTimeline";
 
@@ -128,6 +129,67 @@ describe("Visualization component library", () => {
     });
 
     expect(financeNode).toHaveStyle({ opacity: "1" });
+  });
+
+  it("supports knowledge graph search, grouping, zoom, and keyboard selection", () => {
+    const onNodeSelect = vi.fn();
+
+    render(
+      <KnowledgeGraph
+        accessibleLabel="Company knowledge map"
+        onNodeSelect={onNodeSelect}
+        nodes={[
+          {
+            id: "knowledge-1",
+            label: "Deployment guide",
+            type: "knowledge",
+          },
+          {
+            id: "project-1",
+            label: "Castor",
+            type: "project",
+          },
+        ]}
+        edges={[
+          {
+            id: "edge-1",
+            source: "knowledge-1",
+            target: "project-1",
+            label: "Documents",
+          },
+        ]}
+      />,
+    );
+
+    const search = screen.getByLabelText("Search knowledge graph");
+    const filter = screen.getByLabelText(
+      "Filter knowledge graph by node type",
+    );
+    const knowledgeNode = screen.getByLabelText(
+      "knowledge: Deployment guide",
+    );
+    const projectNode = screen.getByLabelText("project: Castor");
+
+    fireEvent.change(search, {
+      target: { value: "Deployment" },
+    });
+
+    expect(knowledgeNode).toHaveAttribute("data-search-match", "true");
+    expect(projectNode).toHaveStyle({ opacity: "0.22" });
+
+    fireEvent.click(screen.getByLabelText("Zoom in knowledge graph"));
+    expect(screen.getByLabelText("knowledge graph zoom level")).toHaveTextContent(
+      "115%",
+    );
+
+    fireEvent.keyDown(knowledgeNode, { key: "Enter" });
+    expect(onNodeSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "knowledge-1" }),
+    );
+
+    fireEvent.change(filter, { target: { value: "project" } });
+    expect(screen.queryByText("Deployment guide")).not.toBeInTheDocument();
+    expect(screen.getByText("Castor")).toBeInTheDocument();
   });
 
   it("renders memory timeline events and filter controls", () => {

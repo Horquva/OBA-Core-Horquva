@@ -23,6 +23,7 @@ export interface OrganizationalGraphProps
   nodes: GraphNode[];
   edges: GraphEdge[];
   title?: string;
+  interactionLabel?: string;
   onNodeSelect?: (node: GraphNode) => void;
 }
 
@@ -79,6 +80,7 @@ export function OrganizationalGraph({
   state = "ready",
   width = "100%",
   height = 420,
+  interactionLabel = "organizational graph",
   onNodeSelect,
 }: OrganizationalGraphProps) {
   const [query, setQuery] = useState("");
@@ -414,7 +416,7 @@ export function OrganizationalGraph({
           >
             <input
               type="search"
-              aria-label="Search organizational graph"
+              aria-label={`Search ${interactionLabel}`}
               placeholder="Search nodes"
               value={query}
               onChange={(event) =>
@@ -431,7 +433,7 @@ export function OrganizationalGraph({
             />
 
             <select
-              aria-label="Filter organizational graph by node type"
+              aria-label={`Filter ${interactionLabel} by node type`}
               value={nodeType}
               onChange={(event) =>
                 setNodeType(
@@ -458,14 +460,14 @@ export function OrganizationalGraph({
 
             <button
               type="button"
-              aria-label="Zoom out organizational graph"
+              aria-label={`Zoom out ${interactionLabel}`}
               onClick={handleZoomOut}
             >
               −
             </button>
 
             <output
-              aria-label="Organizational graph zoom level"
+              aria-label={`${interactionLabel} zoom level`}
               style={{
                 minWidth: 48,
                 textAlign: "center",
@@ -477,7 +479,7 @@ export function OrganizationalGraph({
 
             <button
               type="button"
-              aria-label="Zoom in organizational graph"
+              aria-label={`Zoom in ${interactionLabel}`}
               onClick={handleZoomIn}
             >
               +
@@ -504,7 +506,7 @@ export function OrganizationalGraph({
               color: "#667085",
             }}
           >
-            No organizational nodes available.
+            No {interactionLabel} nodes available.
           </div>
         ) : (
           <svg
@@ -569,7 +571,7 @@ export function OrganizationalGraph({
                   >
                     <title>
                       {edge.label ??
-                        "Organizational relationship"}
+                        `${interactionLabel} relationship`}
                     </title>
                   </line>
                 );

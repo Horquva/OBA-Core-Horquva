@@ -22,6 +22,7 @@ export function KnowledgeGraph({
       {...graphProps}
       title={title}
       accessibleLabel={accessibleLabel}
+      interactionLabel="knowledge graph"
     />
   );
 }
