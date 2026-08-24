@@ -123,7 +123,14 @@ router.get('/summary', async (req, res) => {
         ownershipSpread: { score: snapshot.ownership_spread_score,  weight: '20%' },
         criticalSafety:  { score: snapshot.critical_safety_score,   weight: '20%' },
         incidentLoad:    { score: snapshot.incident_load_score,      weight: '20%' }
-      }
+      },
+      // Two different provenances in one response: healthIndex/dimensions are
+      // this month's live computation (getCurrentSnapshot() -> derived.js's
+      // orgHealth); trend is read from org_health_snapshots' stored rows, which
+      // can never be recomputed. Collapsing these into one field would
+      // misrepresent whichever half it didn't describe.
+      computedProvenance: { source: snapshot.source, computedAt: snapshot.computed_at },
+      trendProvenance: { source: 'historical', table: 'org_health_snapshots' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -198,21 +205,12 @@ router.get('/dimensions', async (req, res) => {
 
 router.get('/departments', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('dept_health_scores')
-      .select('*')
-      .order('snapshot_month', { ascending: false })
-
-    if (error) throw new Error(error.message)
-
-    // Keep only the latest snapshot per department
-    const latestByDept = {}
-    data.forEach(d => {
-      if (!latestByDept[d.department]) latestByDept[d.department] = d
-    })
-
-    const departments = Object.values(latestByDept)
-      .sort((a, b) => a.health_index - b.health_index)
+    // Was dept_health_scores — a frozen table, one row per department, never
+    // rewritten after seeding. Computed live now, from the same orgHealth()
+    // formula the org-level score uses, per department (D-09a, D-21).
+    const intel = await domain.intelligence.all()
+    const departments = [...intel.orgHealthByDepartment.departments]
+      .sort((a, b) => a.healthIndex - b.healthIndex)
 
     const weakest = departments[0]
 
@@ -220,14 +218,14 @@ router.get('/departments', async (req, res) => {
       weakestDepartment: weakest?.department ?? null,
       departments: departments.map(d => ({
         department: d.department,
-        healthIndex: d.health_index,
-        healthStatus: d.health_status,
+        healthIndex: d.healthIndex,
+        healthStatus: d.healthStatus,
         scores: {
-          documentation: d.documentation_score,
-          continuity:    d.continuity_score,
-          ownership:     d.ownership_score,
-          safety:        d.safety_score,
-          incident:      d.incident_score
+          documentation: d.documentationScore,
+          continuity:    d.continuityScore,
+          ownership:     d.ownershipSpreadScore,
+          safety:        d.criticalSafetyScore,
+          incident:      d.incidentLoadScore
         }
       }))
     })
@@ -262,7 +260,11 @@ router.get('/trend', async (req, res) => {
         month: s.snapshot_month,
         healthIndex: s.health_index,
         healthStatus: s.health_status
-      }))
+      })),
+      // org_health_snapshots is a genuine, never-rewritten time series (D-09
+      // KEEP list) — this trend can never be recomputed, unlike the current
+      // month's figures the rest of this file reads from domain.intelligence.
+      provenance: { source: 'historical', table: 'org_health_snapshots' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -290,7 +292,8 @@ router.get('/history', async (req, res) => {
           criticalSafety:  s.critical_safety_score,
           incidentLoad:    s.incident_load_score
         }
-      }))
+      })),
+      provenance: { source: 'historical', table: 'org_health_snapshots' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
