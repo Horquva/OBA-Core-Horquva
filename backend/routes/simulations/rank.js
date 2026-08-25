@@ -8,6 +8,9 @@ router.get('/', async (req, res) => {
     const baseline = domain.simulations.baselineHealthScore(roots)
     const scenarios = domain.simulations.rankAllScenarios(roots).map((s) => ({
       ...s,
+      healthBefore: 'stable',
+      healthAfter: s.severity === 'critical' ? 'critical' : s.severity === 'low' ? 'stable' : 'degraded',
+      riskLevel: s.severity,
       baselineHealthScore: baseline,
       simulatedHealthScore: baseline != null && s.healthDelta != null ? baseline - s.healthDelta : null,
     }))
