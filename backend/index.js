@@ -63,9 +63,11 @@ const { requireAuth } = require('./middleware/auth')
 app.use('/api/auth', require('./routes/auth/auth'))
 
 // OBA Core is single-tenant and no business table carries an org column, so a
-// second organization in app_users would silently share one dataset. Report it
-// loudly at boot; see lib/orgGuard.js for why this warns rather than exits.
-require('./lib/orgGuard').assertSingleTenant().catch(() => {})
+// second organization in app_users would silently share one dataset. D-01:
+// this is now a hard boot failure, not a warning — see the gate on
+// app.listen() at the bottom of this file, and lib/orgGuard.js for why the
+// check itself still only reports rather than exiting.
+const orgGuardCheck = require('./lib/orgGuard').assertSingleTenant()
 
 // Everything else under /api touches real org data — require a valid bearer token.
 app.use('/api', requireAuth)
@@ -140,6 +142,12 @@ app.use(errorHandler)
 console.log("4. Routes loaded")
 
 const PORT = process.env.PORT || 3000
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT)
+orgGuardCheck.then((result) => {
+  if (!result.ok) {
+    console.error('Refusing to start — see the SINGLE-TENANT ASSUMPTION VIOLATED banner above.')
+    process.exit(1)
+  }
+  app.listen(PORT, () => {
+    console.log("Server running on port", PORT)
+  })
 })

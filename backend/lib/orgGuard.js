@@ -11,10 +11,14 @@
  * the product is implying an isolation it does not implement. This check makes
  * that transition loud instead of silent.
  *
- * It WARNS rather than refusing to boot, deliberately. A hard exit fails in the
- * wrong direction: it would take down a working deployment over a data
- * condition, and would also kill local development whenever Supabase happens to
- * be unreachable. The condition needs an operator, not an outage.
+ * This module itself never throws or exits — it only reports. `index.js` is
+ * the one that decides what to do with a bad result, and as of D-01 that
+ * decision is process.exit(1): a genuine violation means two organizations
+ * are silently sharing one dataset, which is worse than a deployment that
+ * refuses to start. Supabase being merely unreachable is not this condition —
+ * checkSingleTenant() returns {ok: true, reason: 'no-supabase'} or the error
+ * message for that case, not a violation, so local development without a
+ * configured database still boots.
  *
  * Real tenancy is its own workstream: org_id across the schema, a backfill, and
  * a scoped query helper the route files go through.
