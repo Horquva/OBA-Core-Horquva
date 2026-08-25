@@ -8,8 +8,62 @@ from ecosystem.applications.arcturus.contracts.shared.base_models import (
 from ecosystem.applications.arcturus.contracts.execution.workflows.base_models import (
     ActivityStateContract,
 )
+from ecosystem.applications.arcturus.schemas.execution.workflows.base_schemas import (
+    ActivityStatus,
+)
 
 PLATFORM_SOURCE = "workflow"
+
+
+# ---------------------------------------------------------------------------
+# Activity State Machine Transitions
+# ---------------------------------------------------------------------------
+
+VALID_ACTIVITY_TRANSITIONS: dict[ActivityStatus, set[ActivityStatus]] = {
+    ActivityStatus.PENDING: {
+        ActivityStatus.IN_PROGRESS,
+        ActivityStatus.ESCALATED,
+        ActivityStatus.CANCELLED,
+    },
+    ActivityStatus.IN_PROGRESS: {
+        ActivityStatus.COMPLETED,
+        ActivityStatus.FAILED,
+        ActivityStatus.ESCALATED,
+        ActivityStatus.CANCELLED,
+    },
+    ActivityStatus.ESCALATED: {
+        ActivityStatus.PENDING,
+        ActivityStatus.IN_PROGRESS,
+        ActivityStatus.CANCELLED,
+        ActivityStatus.FAILED,
+    },
+    ActivityStatus.COMPLETED: set(),
+    ActivityStatus.FAILED: set(),
+    ActivityStatus.CANCELLED: set(),
+}
+
+
+def validate_activity_transition(
+    current_status: ActivityStatus,
+    target_status: ActivityStatus,
+) -> None:
+    """
+    Validates that transitioning from current_status to target_status
+    follows the workflow activity state machine.
+    Raises ArcturusValidationError on invalid transition.
+    """
+    if current_status == target_status:
+        return
+
+    allowed = VALID_ACTIVITY_TRANSITIONS.get(current_status, set())
+    if target_status not in allowed:
+        raise ArcturusValidationError(
+            message=(
+                f"invalid activity state transition from "
+                f"'{current_status.value}' to '{target_status.value}'"
+            ),
+            platform_source=PLATFORM_SOURCE,
+        )
 
 
 # ---------------------------------------------------------------------------

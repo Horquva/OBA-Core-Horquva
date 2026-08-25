@@ -1,7 +1,6 @@
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 import logging
 
-# Importing your local contract and the shared error taxonomy
 from ecosystem.applications.arcturus.contracts.ontology.ontology_snapshot_contract import RelationshipState
 from ecosystem.applications.arcturus.contracts.shared.base_models import ArcturusValidationError
 
@@ -61,7 +60,8 @@ class RelationshipEngine:
                         platform_source="Enterprise Ontology"
                     )
 
-    def get_children(self, parent_id: int, relationship_type: str = None) -> List[int]:
+    # MINOR FIX: Changed strictly to Optional[str] for linter compliance
+    def get_children(self, parent_id: int, relationship_type: Optional[str] = None) -> List[int]:
         """Retrieves downstream entities, optionally filtered by relationship type."""
         edges = self._graph.get(parent_id, [])
         if relationship_type:

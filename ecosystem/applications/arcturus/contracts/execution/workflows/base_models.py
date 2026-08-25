@@ -42,6 +42,11 @@ class ActivityStateContract(ContractEnvelope):
         description="References an agent from Syeda's AgentAssignmentPayload.",
     )
 
+    dependencies: list[str] = Field(
+        default_factory=list,
+        description="List of activity_id values that must be COMPLETED before this activity can execute.",
+    )
+
     started_at: datetime | None = None
 
     completed_at: datetime | None = None
