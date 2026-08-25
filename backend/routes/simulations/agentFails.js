@@ -32,6 +32,14 @@ router.get('/:agent', async (req, res) => {
     if (agentErr) return res.status(500).json({ error: agentErr.message })
     if (!targetAgent) return res.status(404).json({ error: 'Agent not found' })
 
+    // F-I: agent_source/agent_target duplicate source_id/target_id whenever
+    // both ends are agents (byte-identical, confirmed against seed data) and
+    // are NULL otherwise -- kept here deliberately rather than migrated to the
+    // polymorphic source_id/target_id pair, because the FK-embedding is
+    // exactly what these two columns exist for and correctness can't drift
+    // (no write path touches `dependencies`, D-04). Migrating this to
+    // source_id/target_id would cost a second round-trip for a purely
+    // architectural preference with no behavior change.
     // Get agents that depend on this agent
     const { data: depLinks, error: depErr } = await supabase
       .from('dependencies')

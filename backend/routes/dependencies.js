@@ -5,6 +5,13 @@ const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 
 // GET /api/dependencies — full dependency graph with analysis
 router.get('/', async (req, res) => {
+  // F-I: agent_source/agent_target used to be embedded here via PostgREST's FK
+  // syntax to attach each edge's agent detail inline, but nothing ever read
+  // .agent_source/.agent_target from this response (confirmed: zero references
+  // anywhere in frontend/). source_id/target_id + the type columns are the
+  // canonical edge representation (derived.js, graphLoader.js, network.js,
+  // risks.js, export-company.js all already use only these) -- the embed was
+  // computing a join, sending it over the wire, and being discarded.
   const { data, error } = await supabase
     .from('dependencies')
     .select(`
@@ -14,9 +21,7 @@ router.get('/', async (req, res) => {
       source_type,
       target_type,
       dependency_type,
-      strength,
-      agent_source:agents!dependencies_agent_source_fkey (id, name, status, risk),
-      agent_target:agents!dependencies_agent_target_fkey (id, name, status, risk)
+      strength
     `)
 
   if (error) return res.status(500).json({ error: error.message })

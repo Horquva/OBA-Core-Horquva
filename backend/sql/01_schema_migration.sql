@@ -113,6 +113,18 @@ CREATE TABLE agent_platform (
   platform_id INTEGER
 );
 
+-- agent_source/agent_target duplicate source_id/target_id whenever both ends
+-- are agents (source_type='agent' AND target_type='agent'), and are NULL for
+-- every cross-type edge -- verified against 02_seed_data.sql, which populates
+-- them identically to source_id/target_id in that case and never otherwise.
+-- They exist only so PostgREST's FK-embedding syntax can pull a related
+-- agent's full row in one query (see 05_foreign_keys.sql's header comment on
+-- why 33 route handlers depend on declared FKs for exactly this). Safe to
+-- treat as redundant-by-design rather than a data-integrity risk: nothing
+-- writes to this table (D-04), so the two representations cannot drift.
+-- routes/simulations/agentFails.js is the one deliberate consumer of the FK
+-- pair; every other reader (derived.js, graphLoader.js, network.js, risks.js,
+-- export-company.js) uses only source_id/target_id (F-I).
 CREATE TABLE dependencies (
   id              SERIAL PRIMARY KEY,
   source_id       INTEGER,
