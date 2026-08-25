@@ -3,14 +3,24 @@
 Date opened: 2026-08-24
 Status: decisions D-01…D-16 approved by owner 2026-08-24; D-17…D-21/F-L decided and closed during
 W-D's brainstorming phase 2026-08-25; D-22…D-27 decided and closed during W-E's brainstorming phase
-2026-08-25; D-28…D-32 decided and closed during W-G's brainstorming phase 2026-08-25. W-A, W-B, W-C,
-W-D, W-E, W-G landed. W-H is next (W-F remains independent, may run whenever).
+2026-08-25; D-28…D-32 decided and closed during W-G's brainstorming phase 2026-08-25; D-33…D-36
+decided and closed during W-F's brainstorming phase 2026-08-25. W-A, W-B, W-C, W-D, W-E, W-G, W-F
+landed. W-H is next and last.
 
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
 continue through the normal process regardless. Every decision below still carries its own
 Reason/Affected/Consequence, same bar as every prior workstream; nothing was rubber-stamped to move
 faster.
+
+**W-F ran with the owner present** (2026-08-25), unlike W-G — D-01's org-consolidation migration is
+explicitly owner-gated ("show the rows to the owner before touching them"), so this one couldn't run
+unattended by design. Two calls were put to the owner directly rather than decided on their behalf:
+how to consolidate the 4 org values (rewrite, not delete), and whether a boot-time violation is a
+hard `process.exit(1)` or a soft 503 (hard exit, matching D-01's literal wording). Both live-database
+writes in this workstream (the consolidation itself, and creating/removing a verification account
+via the new provisioning tool) were run only after an explicit go-ahead at the moment each one
+executed, separate from the general plan approval.
 
 This file is the source of truth for the remediation. Session memory is a pointer to it, not a
 substitute. If memory and this file disagree, **this file wins**.
@@ -356,6 +366,43 @@ UI-observable changes: the banner rendered `Graph data as of 1m ago`, network in
 `dataSource.loadedAt` on the wire matched it, clicking Reload advanced the timestamp to "just now"
 while all 8 graph-backed cards visibly re-fetched, and `/admin`'s new Graph Status row pinged LIVE.
 
+### D-33…D-36 — decided during W-F's brainstorming phase (2026-08-25)
+
+D-01/D-05/D-13 named the fixes but not every gap; these four close what tracing found, the same way
+every prior batch closed gaps in the decisions before it. Full detail is in
+[the W-F design doc](2026-08-25-w-f-tenancy-auth-cleanup-design.md) and
+[plan](../plans/2026-08-25-w-f-tenancy-auth-cleanup.md).
+
+- **D-33 · `lib/search.ts` was never a D-05 file.** D-05's affected-file list named
+  `Sidebar.tsx`, `app/account/page.tsx`, and `lib/search.ts` as needing "role is cosmetic"
+  documentation. Traced individually: the first two read `useAuth()`'s auth role; `search.ts`'s only
+  `role` reference is `employees[].role`, an organizational job title from the company dataset,
+  never touched by `requireRole` or any auth path. Same word, two unrelated vocabularies — the log's
+  own §1 already warned about exactly this pattern for criticality fields. Left untouched rather than
+  given a comment the decision never actually meant for it.
+- **D-34 · `provision-user.js` takes role as an explicit argument, not an env default.**
+  `DEFAULT_USER_ROLE`/`ORG_SLUG` existed only inside the deleted `/register` handler and were not
+  carried into the CLI tool — an admin creating an account on purpose says what it is. `org` is
+  hardcoded to `'horquva'` rather than env-configurable, since D-01 leaves exactly one valid value.
+- **D-35 · The `process.exit(1)` boot gate has a real, stated verification boundary.**
+  `checkSingleTenant()`'s pure logic is unit-tested offline (`orgGuard.unit.test.js`). The
+  `index.js` wiring that calls `process.exit(1)` on a bad result is verified by code review and a
+  live happy-path check only — proving the failure path would mean deliberately reintroducing a bad
+  org value into the now-consolidated production data purely to watch it crash, which is the same
+  class of action W-D's own automation was correctly refused for (§5's mistakes-list, the
+  `orchestrator_snapshots` `DELETE`). Recorded as a known gap rather than silently claimed as
+  covered.
+- **D-36 · Deleting `/register` moves its test, doesn't just delete it.** `authRoutes.test.js`'s
+  registration block is replaced with the same "removed endpoint, assert 404" pattern the file
+  already used for `reset-password` — proving the route is gone rather than merely that nothing
+  currently calls it.
+
+Two calls in this workstream were the owner's, made live rather than decided on the owner's behalf
+(§ status line): rewriting `org` → `'horquva'` for all 5 accounts instead of deleting the 3
+non-`'horquva'` stragglers, and the hard-exit boot behavior. Both live-database writes (the
+consolidation UPDATE, and creating/removing a `provision-user.js` verification account) ran only
+after an explicit go-ahead at the moment each one executed.
+
 ---
 
 ## 3. Workstream map
@@ -368,7 +415,7 @@ it closes, written before the fix.
 | W-A | Auth hardening | — | **DONE** |
 | W-B | Frozen intelligence → live | — | **DONE** |
 | **W-C** | Canonical definitions layer | D-03, D-06, D-10, F-G′, F-K | **DONE** — 11 commits, `387bd42`…`687a659` on `ocos/develop` |
-| **W-F** | Tenancy & auth cleanup | D-01, D-05, D-13 | not started (independent, cheap) |
+| **W-F** | Tenancy & auth cleanup | D-01, D-05, D-13, D-33, D-34, D-35, D-36 | **DONE** — 6 tasks, 11 commits, `a3acd57`…`df2edd0` on `ocos/develop` |
 | **W-D** | Truth layer consolidation | D-02, D-09a, D-11, D-12, D-17, D-18, D-19, D-20, D-21, F-L | **DONE** — 16 commits, `c66d871`…`9c15daf` on `ocos/develop` |
 | **W-E** | Provenance & evidence semantics | D-07, D-10b, D-22, D-23, D-24, D-25, D-26, D-27 | **DONE** — 20 commits, `2553b20`…`d5d9c7d` on `ocos/develop` |
 | **W-G** | Graph lifecycle & narrative honesty | D-14, D-28, D-29, D-30, D-31, D-32 | **DONE** — 4 tasks, 6 commits, `c0dd891`…`9b0f641` on `ocos/develop` |
@@ -513,8 +560,9 @@ already made."
 **Quality bar, concretely:** the finished [W-C plan](../plans/2026-08-24-w-c-canonical-definitions.md)
 (11 commits, `387bd42`…`687a659`), [W-D plan](../plans/2026-08-25-w-d-truth-layer-consolidation.md)
 (16 commits, `c66d871`…`9c15daf`), [W-E plan](../plans/2026-08-25-w-e-provenance-evidence-semantics.md)
-(19 tasks, 20 commits, `2553b20`…`d5d9c7d`), and [W-G plan](../plans/2026-08-25-w-g-graph-lifecycle.md)
-(4 tasks, 6 commits, `c0dd891`…`9b0f641`), all on `ocos/develop`, are the reference. If a future
+(19 tasks, 20 commits, `2553b20`…`d5d9c7d`), [W-G plan](../plans/2026-08-25-w-g-graph-lifecycle.md)
+(4 tasks, 6 commits, `c0dd891`…`9b0f641`), and [W-F plan](../plans/2026-08-25-w-f-tenancy-auth-cleanup.md)
+(6 tasks, 11 commits, `a3acd57`…`df2edd0`), all on `ocos/develop`, are the reference. If a future
 workstream's design doc, plan, or commit history looks thinner than these — fewer regression tests,
 vaguer task steps, batched commits, no live-server verification for route-wiring or frontend UI
 changes — that's the signal quality slipped, not that the work was faster.
@@ -528,3 +576,14 @@ unattended, say so explicitly in the log (§'s opening Status line) rather than 
 indistinguishable from a normal live session — a decision made without the owner in the room is a
 different kind of decision than one they weighed in on, even when it turns out to be the same
 answer.
+
+**W-F's addition:** the reverse case — a workstream whose own decision (D-01) is explicitly
+owner-gated needs its own explicit go-ahead at the moment the gated action runs, separate from the
+general "here's the plan, go" approval that started the session. General approval covers writing
+code; it does not retroactively cover a specific destructive database write the design doc itself
+flagged as needing the owner's eyes first. Two such moments came up here — the org-consolidation
+UPDATE and, unplanned, a verification account the live-check step created and then had to ask
+whether to remove — and both got their own confirmation rather than being folded into the earlier
+yes. The unplanned one is the more useful lesson: a "verify live" step that writes to a real table
+is itself a decision point the plan should flag in advance, not one to notice only after the write
+already happened.
