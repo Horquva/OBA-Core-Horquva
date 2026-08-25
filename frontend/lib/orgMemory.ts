@@ -2,6 +2,8 @@
 // Module 10 — Organizational Memory Intelligence
 
 import { AssetItem } from './knowledgeRisk';
+import { evidenceGate } from './evidenceGate';
+import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Memory Status ────────────────────────────────────────────────────────────
 
@@ -40,9 +42,10 @@ export interface OrgMemoryReport {
   carriers: MemoryCarrierProfile[];
   criticalCarriers: MemoryCarrierProfile[];
   highCarriers: MemoryCarrierProfile[];
-  /** Institutional Memory Health Score 0–100 */
-  imhs: number;
-  imhsVerdict: 'HEALTHY' | 'AT_RISK' | 'CRITICAL';
+  /** Institutional Memory Health Score 0–100, or null when evidence is insufficient */
+  imhs: number | null;
+  imhsVerdict: 'HEALTHY' | 'AT_RISK' | 'CRITICAL' | null;
+  evidence: EvidenceInfo & { sufficient: boolean };
   totalAssets: number;
 }
 
@@ -81,13 +84,17 @@ function carrierTier(profile: Omit<MemoryCarrierProfile, 'tier' | 'isCriticalCar
 // ─── IMHS Calculation ─────────────────────────────────────────────────────────
 // PRESERVED×1.0 + VULNERABLE×0.5 + AT_RISK×0.25 + LOST×0.0 / total × 100
 
+// The empty-population case (total === 0) is no longer special-cased here —
+// evidenceGate() in the caller owns that decision now, so this can assume a
+// non-empty population and divide normally (D-24: this used to return a
+// fabricated 100 for zero assets, "no assets to lose" read as "perfectly
+// preserved").
 function calcIMHS(
   preserved: number,
   vulnerable: number,
   atRisk: number,
   total: number
 ): number {
-  if (total === 0) return 100;
   return Math.round(((preserved * 1.0 + vulnerable * 0.5 + atRisk * 0.25) / total) * 100);
 }
 
@@ -142,9 +149,12 @@ export function computeOrgMemory(
   const lost       = memoryAssets.filter(a => a.memoryStatus === 'LOST');
 
   // ── IMHS ──
-  const imhs = calcIMHS(preserved.length, vulnerable.length, atRisk.length, memoryAssets.length);
+  const evidence = evidenceGate(memoryAssets, () => true);
+  const imhs = evidence.sufficient
+    ? calcIMHS(preserved.length, vulnerable.length, atRisk.length, memoryAssets.length)
+    : null;
   const imhsVerdict: OrgMemoryReport['imhsVerdict'] =
-    imhs >= 75 ? 'HEALTHY' : imhs >= 45 ? 'AT_RISK' : 'CRITICAL';
+    !evidence.sufficient ? null : (imhs! >= 75 ? 'HEALTHY' : imhs! >= 45 ? 'AT_RISK' : 'CRITICAL');
 
   // ── Build carrier profiles (only assets that have an owner) ──
   const ownerSet = new Set<string>();
@@ -192,6 +202,7 @@ export function computeOrgMemory(
     highCarriers:     carriers.filter(c => c.tier === 'HIGH'),
     imhs,
     imhsVerdict,
+    evidence,
     totalAssets: memoryAssets.length,
   };
 }
