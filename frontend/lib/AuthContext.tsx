@@ -17,7 +17,6 @@ interface AuthContextValue {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (payload: { email: string; password: string; name?: string }) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<string>;
   logout: () => void;
 }
@@ -63,20 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     persist(data.token, data.user);
   }, [persist]);
 
-  // `role` and `org` are intentionally absent. The server ignores them now —
-  // it always creates a plain member of the single tenant — so accepting them
-  // here would only advertise a choice the caller does not have.
-  const register = useCallback(async (payload: { email: string; password: string; name?: string }) => {
-    const res = await fetch(`${API_BASE}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || 'Registration failed');
-    persist(data.token, data.user);
-  }, [persist]);
-
   // Replaces the old resetPassword(email, password), which posted an arbitrary
   // email to an unauthenticated endpoint and could overwrite anyone's password.
   // This changes only the signed-in user's own, and the server retires the
@@ -106,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router, token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, changePassword, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, changePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

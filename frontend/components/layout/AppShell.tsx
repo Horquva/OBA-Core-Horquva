@@ -9,7 +9,7 @@ import GlobalSearchOverlay from '@/components/global/GlobalSearchOverlay';
 import CommandBar from '@/components/global/CommandBar';
 import DeepLinkFocus from '@/components/global/DeepLinkFocus';
 
-const AUTH_ROUTES = ['/login', '/signup'];
+const AUTH_ROUTES = ['/login'];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

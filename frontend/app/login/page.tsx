@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
 import { AuthLayout, authInputStyle, authLabelStyle, authButtonStyle } from '@/components/auth/AuthLayout';
@@ -34,7 +33,6 @@ export default function LoginPage() {
     <AuthLayout
       title="Sign in"
       subtitle="Access your Organizational Brain workspace"
-      footer={<>Don&apos;t have an account? <Link href="/signup" style={{ color: 'var(--accent)' }}>Create one</Link></>}
     >
       <form onSubmit={onSubmit}>
         <div style={{ marginBottom: '14px' }}>
