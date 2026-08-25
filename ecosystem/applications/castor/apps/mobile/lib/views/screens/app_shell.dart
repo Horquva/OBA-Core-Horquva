@@ -6,6 +6,8 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../widgets/bottom_nav_bar.dart';
+import 'decisions_screen.dart';
+import 'more_sheet.dart';
 import 'overview_screen.dart';
 import 'signals_screen.dart';
 
@@ -22,19 +24,47 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
 
+  // True while the "More" popup is open, so the More tab shows as selected.
+  bool _moreOpen = false;
+
+  // Which "More" destination is currently open (shown in the body), or null.
+  int? _moreIndex;
+
   @override
   Widget build(BuildContext context) {
-    // The four bottom-nav tabs.
+    // The three main tabs (Overview, Briefing, Signals).
     const screens = <Widget>[
       OverviewScreen(),
       _PlaceholderScreen(title: 'Briefing'),
       SignalsScreen(),
-      _PlaceholderScreen(title: 'More'),
     ];
 
+    // The body: a "More" destination if one is open, otherwise the active tab.
+    final Widget body =
+        _moreIndex != null ? _moreScreen(_moreIndex!) : screens[_index];
+
     final Widget nav = BottomNavBar(
-      currentIndex: _index,
-      onTap: (i) => setState(() => _index = i),
+      // Highlight "More" (index 3) while its popup is open OR a More screen is
+      // showing; otherwise highlight the active tab.
+      currentIndex: (_moreOpen || _moreIndex != null) ? 3 : _index,
+      onTap: (i) async {
+        if (i == 3) {
+          // Open the More wheel; it returns the tapped destination index.
+          setState(() => _moreOpen = true);
+          final tapped = await showMoreSheet(context, selectedIndex: _moreIndex);
+          if (!mounted) return;
+          setState(() {
+            _moreOpen = false;
+            if (tapped != null) _moreIndex = tapped;
+          });
+        } else {
+          // A main tab: switch to it and leave the More section.
+          setState(() {
+            _index = i;
+            _moreIndex = null;
+          });
+        }
+      },
       onCastorTap: () {}, // Ask Castor screen comes later.
     );
 
@@ -45,7 +75,7 @@ class _AppShellState extends State<AppShell> {
         backgroundColor: AppColors.background,
         child: Column(
           children: [
-            Expanded(child: screens[_index]),
+            Expanded(child: body),
             nav,
           ],
         ),
@@ -53,9 +83,22 @@ class _AppShellState extends State<AppShell> {
     }
 
     return Scaffold(
-      body: screens[_index],
+      body: body,
       bottomNavigationBar: nav,
     );
+  }
+
+  /// Builds the screen for an open "More" destination. The back button clears
+  /// the More section (returns to the last main tab).
+  Widget _moreScreen(int index) {
+    switch (index) {
+      case 0: // Decisions
+        return DecisionsScreen(
+          onBack: () => setState(() => _moreIndex = null),
+        );
+      default:
+        return const _PlaceholderScreen(title: 'Coming soon');
+    }
   }
 }
 
