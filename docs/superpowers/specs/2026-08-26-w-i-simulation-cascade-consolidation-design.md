@@ -95,6 +95,18 @@ A peer to `derived.js`, following its existing pattern (pure functions over `roo
   `workflowDisruption(id, roots)` — each keeps today's correct scenario-specific direct hop, then
   extends it with `cascadeFrom` for real transitive reach, computes severity via 2.3 and health delta
   via 2.4.
+
+  **Correction found during planning, not present in the original problem statement:**
+  `employeeLeaves`'s "direct hop" is not actually correct today and needs fixing, not just extending.
+  The live route finds "agents owned by this employee" via the `employee_agent` table — an
+  operator/usage-role link (used elsewhere for adoption metrics) — rather than `agents.owner_id`,
+  which is the ownership fact every other consumer (`predictiveRisk`, `pillars`, `routes/ownership.js`)
+  actually uses. `routes/ownership.js` carries its own explicit warning about this id space
+  (`agents.owner_id` references `employees.id` directly, not `owners.id` — "both id spaces start at 1,
+  so joining on the wrong one never errors, it silently returns a different, plausible person"). The
+  new `employeeLeaves()` must filter agents by `owner_id === employeeId` directly, matching
+  `ownership.js`'s pattern, and use the `owners` table only for `backup_owner` enrichment as
+  `ownership.js` already does.
 - `rankAllScenarios(roots)` — iterates every employee, every agent, and every tool whose criticality is
   high or critical **per `definitions.js`'s `entityCriticality()`** (not the raw, disputed `agents.risk`
   column) — calls the relevant function above for each (reusing one dependency index across the whole
