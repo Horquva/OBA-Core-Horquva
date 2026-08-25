@@ -67,9 +67,20 @@ class RuntimeEngine:
 
         self._status = ExecutionStatus.CHECKPOINTING
         self._checkpoints.save(self._context.run_id, self._clock_step, self._state)
-        self._status = ExecutionStatus.RUNNING
+        if self._status != ExecutionStatus.PAUSED:
+            self._status = ExecutionStatus.RUNNING
 
         return dict(self._state)
+
+    def pause(self) -> None:
+        if self._status not in (ExecutionStatus.RUNNING, ExecutionStatus.INITIALIZED, ExecutionStatus.CHECKPOINTING):
+            raise BusinessRuleViolation(f"pause() called from invalid state: {self._status}")
+        self._status = ExecutionStatus.PAUSED
+
+    def resume(self) -> None:
+        if self._status != ExecutionStatus.PAUSED:
+            raise BusinessRuleViolation(f"resume() called from invalid state: {self._status}")
+        self._status = ExecutionStatus.RUNNING
 
     def finalize_run(self) -> RunHistoryRecord:
         if self._context is None:

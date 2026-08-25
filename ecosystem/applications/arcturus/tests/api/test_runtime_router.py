@@ -35,28 +35,25 @@ def client():
         yield client
 
 def test_start_simulation_returns_202(client, test_db):
-    with patch("ecosystem.applications.arcturus.api.routers.runtime.asyncio.create_task") as mock_task:
-        response = client.post(f"/api/v1/runtime/experiments/{test_db}/start", json={
-            "global_seed": 42,
-            "duration_ticks": 5,
-            "tick_delay_seconds": 0.1
-        })
-        
-        assert response.status_code == 202
-        data = response.json()
-        assert data["status"] == "ACCEPTED"
-        assert "run_id" in data
-        assert data["experiment_id"] == test_db
-        mock_task.assert_called_once()
+    response = client.post(f"/api/v1/runtime/experiments/{test_db}/start", json={
+        "global_seed": 42,
+        "duration_ticks": 5,
+        "tick_delay_seconds": 0.1
+    })
+    
+    assert response.status_code == 202
+    data = response.json()
+    assert data["status"] == "ACCEPTED"
+    assert "run_id" in data
+    assert data["experiment_id"] == test_db
 
 def test_pause_and_resume_running_simulation(client, test_db):
     # First start it
-    with patch("ecosystem.applications.arcturus.api.routers.runtime.asyncio.create_task"):
-        client.post(f"/api/v1/runtime/experiments/{test_db}/start", json={
-            "global_seed": 42,
-            "duration_ticks": 5,
-            "tick_delay_seconds": 0.1
-        })
+    client.post(f"/api/v1/runtime/experiments/{test_db}/start", json={
+        "global_seed": 42,
+        "duration_ticks": 5,
+        "tick_delay_seconds": 0.1
+    })
         
     # Pause it
     pause_response = client.post(f"/api/v1/runtime/experiments/{test_db}/pause")
@@ -77,17 +74,16 @@ def test_start_nonexistent_experiment_returns_404(client):
     assert response.status_code == 404
     
 def test_double_start_returns_409(client, test_db):
-    with patch("ecosystem.applications.arcturus.api.routers.runtime.asyncio.create_task"):
-        client.post(f"/api/v1/runtime/experiments/{test_db}/start", json={
-            "global_seed": 42,
-            "duration_ticks": 5,
-            "tick_delay_seconds": 0.1
-        })
-        
-        # Second start should fail
-        response = client.post(f"/api/v1/runtime/experiments/{test_db}/start", json={
-            "global_seed": 42,
-            "duration_ticks": 5,
-            "tick_delay_seconds": 0.1
-        })
-        assert response.status_code == 409
+    client.post(f"/api/v1/runtime/experiments/{test_db}/start", json={
+        "global_seed": 42,
+        "duration_ticks": 5,
+        "tick_delay_seconds": 0.1
+    })
+    
+    # Second start should fail
+    response = client.post(f"/api/v1/runtime/experiments/{test_db}/start", json={
+        "global_seed": 42,
+        "duration_ticks": 5,
+        "tick_delay_seconds": 0.1
+    })
+    assert response.status_code == 409
