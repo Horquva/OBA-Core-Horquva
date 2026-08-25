@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_platform.dart';
-import '../../models/decision.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_spacing.dart';
@@ -11,8 +10,9 @@ import '../../theme/app_typography.dart';
 import '../../viewmodels/decisions_view_model.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/decision_card.dart';
+import '../widgets/decision_style.dart';
 import '../widgets/segmented_tabs.dart';
-import '../widgets/severity_badge.dart';
+import 'decision_detail_screen.dart';
 
 /// The Decisions screen — MVVM.
 ///
@@ -106,52 +106,28 @@ class _DecisionsView extends StatelessWidget {
       itemBuilder: (context, i) {
         final d = decisions[i];
         return DecisionCard(
-          icon: _priorityIcon(d.priority),
-          severity: _prioritySeverity(d.priority),
-          priorityLabel: _priorityLabel(d.priority),
+          icon: decisionPriorityIcon(d.priority),
+          severity: decisionSeverity(d.priority),
+          priorityLabel: decisionPriorityLabel(d.priority),
           number: i + 1,
           title: d.title,
           meta: '${d.impact} impact  •  ${d.action}',
           due: 'Due: ${d.due}',
-          onTap: () {}, // Decision detail screen comes later.
+          onTap: () => _openDetail(context, d.id),
         );
       },
     );
   }
-}
 
-// ─── Priority → UI mappings (colour, label, icon) ────────────────────────────
-
-/// Reuse the signal colour system: urgent = red, high = amber, medium = green.
-Severity _prioritySeverity(DecisionPriority p) {
-  switch (p) {
-    case DecisionPriority.urgent:
-      return Severity.critical;
-    case DecisionPriority.high:
-      return Severity.important;
-    case DecisionPriority.medium:
-      return Severity.informational;
-  }
-}
-
-String _priorityLabel(DecisionPriority p) {
-  switch (p) {
-    case DecisionPriority.urgent:
-      return 'URGENT';
-    case DecisionPriority.high:
-      return 'HIGH PRIORITY';
-    case DecisionPriority.medium:
-      return 'MEDIUM PRIORITY';
-  }
-}
-
-IconData _priorityIcon(DecisionPriority p) {
-  switch (p) {
-    case DecisionPriority.urgent:
-      return AppIcons.urgent;
-    case DecisionPriority.high:
-      return AppIcons.highPriority;
-    case DecisionPriority.medium:
-      return AppIcons.medium;
+  /// Opens the detail screen for the tapped decision (adaptive route).
+  void _openDetail(BuildContext context, String id) {
+    final route = AppPlatform.isIOS
+        ? CupertinoPageRoute<void>(
+            builder: (_) => DecisionDetailScreen(decisionId: id),
+          )
+        : MaterialPageRoute<void>(
+            builder: (_) => DecisionDetailScreen(decisionId: id),
+          );
+    Navigator.of(context).push(route);
   }
 }
