@@ -6,6 +6,7 @@
   --bg-base:      #0c0c0f;   /* near-black canvas        */
   --bg-surface:   #111116;   /* sidebar / panels         */
   --bg-elevated:  #16161c;   /* cards, inputs            */
+  --bg-card:      #16161c;   /* card panels (alias of elevated) */
   --bg-hover:     #1c1c24;   /* hover states             */
 
   /* Borders */
@@ -50,6 +51,7 @@
   --bg-base:      #E5E7EB;
   --bg-surface:   #F3F4F6;
   --bg-elevated:  #F3F4F6;
+  --bg-card:      #F3F4F6;
   --bg-hover:     #D1D5DB;
 
   /* Borders */

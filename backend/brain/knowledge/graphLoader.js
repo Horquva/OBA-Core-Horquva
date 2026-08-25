@@ -114,13 +114,13 @@ async function loadFromSupabase(graph) {
   // what lets the dataset be derived from this graph instead of from a second
   // pass over Supabase.
   //
-  // ⚠ They are attached as METADATA, not as edges, deliberately. `agent_platform`
-  // and `workflow_tool_dependencies` are genuine dependency relationships the
-  // graph does not model — turning them into `depends_on` edges would be more
-  // correct and would move every cascade, SPOF and centrality number the
-  // analyses produce. That is a real gap, but it is a change to what the graph
-  // MEANS, not to where data is loaded from, so it is left as a follow-up rather
-  // than smuggled into a consolidation commit.
+  // `agent_platform` and `workflow_tool_dependencies` are ALSO turned into real
+  // `depends_on` edges below (not just metadata) — an agent or workflow that
+  // depends on a platform is the same kind of dependency as agent->agent or
+  // workflow->agent, and needs to count the same way in every cascade, SPOF
+  // and centrality number the analyses produce. The metadata lookups here
+  // (agentsUsing/workflowsUsing/backupTool) stay, since display code reads
+  // them directly and they're harmless alongside the edges.
   // One join per concept: backup coverage is lib/ownerBackups.js's job, and
   // agents.js, dependencies.js and decisionIntelligence.js already use it.
   const backupByEmployee = await loadOwnerBackupByEmployee()
@@ -263,6 +263,23 @@ async function loadFromSupabase(graph) {
     const to = nodeFor(dep.target_type, dep.target_id)
     if (from && to) {
       R(from, 'depends_on', to, { criticality: dep.dependency_type || 'medium' })
+    }
+  }
+
+  // ─── Tool/platform dependencies (agent_platform, workflow_tool_dependencies) ───
+  for (const l of agentPlatform || []) {
+    const agent = agentEntities[l.agent_id]
+    const platform = platformEntities[l.platform_id]
+    if (agent && platform) R(agent, 'depends_on', platform, { metadata: { source: 'agent_platform' } })
+  }
+  for (const l of workflowToolDeps || []) {
+    const workflow = workflowEntities[l.workflow_id]
+    const platform = platformEntities[l.platform_id]
+    if (workflow && platform) {
+      R(workflow, 'depends_on', platform, {
+        criticality: l.is_critical ? 'critical' : 'medium',
+        metadata: { source: 'workflow_tool_dependencies' },
+      })
     }
   }
 

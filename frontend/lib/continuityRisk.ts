@@ -22,37 +22,39 @@ export interface ContinuityReport {
   deptGovernance: Record<string, { total: number; healthy: number; atRisk: number; score: number }>;
 }
 
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  return Math.abs(hash);
+// Derives survival/governance signal from the same real attributes the rest
+// of the backend already treats as ground truth (owner, backup owner,
+// documentation, criticality — see backend/routes/decisionIntelligence.js's
+// scoreAgentDecision/scoreWorkflowDecision). Previously this generated
+//'survivalStatus'/'governanceScore'/'complianceViolations' from a hash of
+// the asset's id+name, which produced numbers with no relationship to the
+// organization at all and rendered as if they were real intelligence.
+function classifySurvival(hasOwner: boolean, hasBackup: boolean, documented: boolean, highStakes: boolean): ContinuityAsset['survivalStatus'] {
+  if (!hasOwner) return highStakes ? 'LOST' : 'DEGRADED';
+  if (!hasBackup) return highStakes ? 'FAILS' : 'DEGRADED';
+  if (!documented) return 'DEGRADED';
+  return 'SURVIVES';
 }
 
-// Pseudo-random but deterministic generation based on asset id/name
+function computeGovernanceScore(hasOwner: boolean, hasBackup: boolean, documented: boolean): number {
+  let score = 100;
+  if (!hasOwner) score -= 40;
+  if (!hasBackup) score -= 25;
+  if (!documented) score -= 20;
+  return Math.max(0, score);
+}
+
 export function computeContinuityRisk(dataset: Dataset): ContinuityReport {
   const assets: ContinuityAsset[] = [];
 
-  const add = (id: string, name: string, type: any, dept: string, owner: string, crit: string) => {
-    const seed = hashString(id + name);
-    
-    // Deterministic survival status
-    let survivalStatus: ContinuityAsset['survivalStatus'] = 'SURVIVES';
-    const sMod = seed % 100;
-    if (sMod > 80) survivalStatus = 'LOST';
-    else if (sMod > 60) survivalStatus = 'FAILS';
-    else if (sMod > 40) survivalStatus = 'DEGRADED';
+  const add = (id: string, name: string, type: any, dept: string, owner: string, backup: string, documented: boolean, crit: string) => {
+    const hasOwner = !!owner;
+    const hasBackup = !!backup;
+    const highStakes = crit === 'critical' || crit === 'high';
 
-    // Deterministic governance score (0-100)
-    const governanceScore = 40 + (seed % 61); // 40 to 100
-    
-    // Violations
-    let complianceViolations = 0;
-    if (governanceScore < 60) complianceViolations = (seed % 3) + 1;
-    if (governanceScore < 50) complianceViolations += 2;
+    const survivalStatus = classifySurvival(hasOwner, hasBackup, documented, highStakes);
+    const governanceScore = computeGovernanceScore(hasOwner, hasBackup, documented);
+    const complianceViolations = [!hasOwner, !hasBackup, !documented].filter(Boolean).length;
 
     assets.push({
       id, name, type, department: dept || 'General', owner: owner || 'None', criticality: crit || 'medium',
@@ -60,9 +62,9 @@ export function computeContinuityRisk(dataset: Dataset): ContinuityReport {
     });
   };
 
-  dataset.agents?.forEach(a => add(a.id, a.name, 'agent', a.department, a.owner || '', a.criticality));
-  dataset.workflows?.forEach(w => add(w.id, w.name, 'workflow', w.department, w.owner || '', w.criticality));
-  dataset.ai_tools?.forEach(t => add(t.id, t.name, 'tool', t.departments?.[0] || 'General', t.access_owner || '', t.criticality));
+  dataset.agents?.forEach(a => add(a.id, a.name, 'agent', a.department, a.owner || '', a.backup_owner || '', a.documented, a.criticality));
+  dataset.workflows?.forEach(w => add(w.id, w.name, 'workflow', w.department, w.owner || '', w.backup_owner || '', w.documented, w.criticality));
+  dataset.ai_tools?.forEach(t => add(t.id, t.name, 'tool', t.departments?.[0] || 'General', t.access_owner || '', t.backup_tool || '', t.documented, t.criticality));
 
   // Compute rollups
   let totalSurvScore = 0;

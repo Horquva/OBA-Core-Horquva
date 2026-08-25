@@ -25,14 +25,14 @@
 // coherent registry that drives dependency ordering, while these were labels.
 // Each function is now named for what it computes.
 //
-// ⚠ THIS FILE IS CLEAN; THE REPO IS NOT. Four brain codes are still claimed by
-// SQL routes that compute something different under the same number:
-//   M21 routes/avatar/index.js · M51 routes/selfHealing/index.js
-//   M52, M53 routes/automation/index.js
-// e.g. the brain's M52 returns governance coverage from the graph
-// (complianceRate, governanceGaps) while /api/automation/governance returns
-// pending approvals from `pending_decisions`. Same collision, different files,
-// not yet fixed.
+// The other four brain codes that had the same problem — M21
+// (routes/avatar/index.js), M51 (routes/selfHealing/index.js), M52 and M53
+// (routes/automation/index.js) — got the identical fix the same day: each
+// route is named for what it computes and no longer reports a `module: 'Mxx'`
+// field that isn't its own. e.g. the brain's M52 returns governance coverage
+// from the graph (complianceRate, governanceGaps) while
+// /api/automation/governance returns pending approvals from
+// `pending_decisions` — two real answers, now under two distinct names.
 // See docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
 // ─────────────────────────────────────────────────────────────
 

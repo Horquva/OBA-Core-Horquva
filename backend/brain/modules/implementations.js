@@ -16,12 +16,15 @@
  *   Tahir    (prediction)— M11 M12 M13 M17 M32 M33 M37 M41 M42 M43 M44 M45 M47 M49
  *   Anusha   (executive) — M15 M16 M21 M23 M51 M52 M53
  *
- * NOTE - module-code overlap: M39, M40, M46, M48 and M54 below are ALSO
- * independently implemented in backend/routes/intelligence/constitutional.js
- * (via domain/dataset.js's Supabase joins, not this file's knowledge graph).
- * See that file's header comment for why the split exists. Both are real,
- * neither is a stub, and they can disagree — if you're changing scoring logic
- * for any of these five codes, check both files.
+ * RESOLVED module-code overlap: until 2026-08-24, M39, M40, M46, M48 and M54
+ * below were ALSO independently implemented in
+ * backend/routes/intelligence/constitutional.js (via domain/dataset.js's
+ * Supabase joins, not this file's knowledge graph) — two real, disagreeing
+ * answers to the same catalog code. That file's analyses were renamed off the
+ * M-numbers entirely (they compute a related but different question, e.g. its
+ * "capability" is a per-department score, M39 here is capability counts), so
+ * M01–M55 is now exclusively this file's namespace. See
+ * docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
  */
 
 const A = require('./analytics')

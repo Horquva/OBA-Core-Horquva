@@ -65,15 +65,13 @@ loaders building a whole-organization view from one database, free to drift. The
 derivation was verified byte-identical against the previous implementation, and
 all 51 graph analyses are unchanged.
 
-## Known gap: two real dependency relationships are not edges
+## Resolved: two real dependency relationships are now edges
 
 `agent_platform` (which agents use which platform) and
-`workflow_tool_dependencies` (which workflows depend on which tool) are loaded
-and attached to entities as **metadata**, not as `depends_on` edges.
-
-Modelling them as edges would be more correct — they are literally dependency
-data, and the dependency graph does not have them — but it would move every
-cascade, single-point-of-failure and centrality number the analyses produce.
-That is a change to what the graph *means*, not to where data is loaded from, so
-it was kept out of the consolidation. It is the highest-value remaining
-improvement to the graph's accuracy.
+`workflow_tool_dependencies` (which workflows depend on which tool) used to be
+loaded and attached to entities only as **metadata**, not as `depends_on`
+edges — understating every cascade, single-point-of-failure and centrality
+number the analyses produce. Both are now also modelled as real `depends_on`
+edges (`workflow_tool_dependencies.is_critical` maps to edge criticality); the
+metadata lookups (`agentsUsing`/`workflowsUsing`/`backupTool`) stay in place
+since display code reads them directly.
