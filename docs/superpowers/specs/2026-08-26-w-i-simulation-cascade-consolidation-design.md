@@ -129,11 +129,27 @@ useful independently — for `voice.js`, and later the AI agent, asking about on
 
 ### 2.7 Frontend repointing
 
-`SimulationDashboard.tsx` fetches `/api/simulations/rank` once, replacing its local `rankScenarios()`
-call; `ScenarioRanking`/`ImpactSummary` keep rendering, now fed server data instead of a client
-computation. `frontend/lib/simulation.ts` is deleted once nothing calls it — **known consumer:
-`SimulationDashboard.tsx`; `frontend/components/knowledge/DepartureSim.tsx` is a possible second
-consumer and must be checked before deletion**, not assumed clear.
+**Correction found during planning:** three components use `lib/simulation.ts`, not one, and
+`DepartureSim.tsx` turned out not to be a consumer at all (verified by grep — no false assumption
+carried forward). `frontend/app/simulation/page.tsx` fetches `agents`/`dependencies`/`tools` once and
+passes them to all three:
+
+- `SimulationDashboard.tsx` and `SimulationUniverseRanking.tsx` both call `rankScenarios()` — the
+  bulk/ranked view. `page.tsx` fetches `/api/simulations/rank` once, in the same `Promise.all` as
+  today's other fetches, and passes the result down as a new prop to both — they render the same
+  ranked list two different ways, they don't need to fetch it twice.
+- `ScenarioSandbox.tsx` calls `simulatePersonLeaving`/`simulateAgentFailing`/`simulateToolUnavailable`
+  individually, on button press, for a user-picked one-of-three preset scenario ("Stress Test" = the
+  frontend's current highest-risk person, "Node Outage" = its highest-risk agent, "Data Breach" = its
+  most-used tool). It calls the matching single-target route on click
+  (`/api/simulations/employee-leaves/:name`, `/agent-fails/:name`, `/platform-down/:name` — "tool" in
+  the frontend and "platform" in `ai_platforms` are the same entity, 12 rows either side) instead of
+  computing locally. Its existing client-side logic for *picking* which person/agent/tool is riskiest
+  is unaffected — only the simulation call itself moves server-side.
+
+`frontend/lib/simulation.ts` becomes types-only once all three are repointed (`ScenarioResult`,
+`ScenarioType` stay — `ScenarioRanking.tsx`/`ImpactSummary.tsx` import only the types today), matching
+the precedent `lib/decisionIntelligence.ts` already set for this exact situation.
 
 ## 3. Testing & verification
 
@@ -143,7 +159,7 @@ consumer and must be checked before deletion**, not assumed clear.
   sign (a departure/failure must never *improve* the score).
 - Route-level tests confirming the 4 existing endpoints' response shape is byte-identical in field
   names/types to today, values aside.
-- Manual verification: load `/continuity` in the browser, confirm `SimulationDashboard`'s ranked list
+- Manual verification: load `/simulation` in the browser, confirm `SimulationDashboard`'s ranked list
   and detail view match `/api/simulations/rank` and a direct single-target call.
 
 ## 4. Explicitly out of scope
