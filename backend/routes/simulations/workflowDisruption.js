@@ -23,6 +23,7 @@ router.get('/:workflow', async (req, res) => {
     if (!target) return res.status(404).json({ error: 'Workflow not found' })
 
     const result = domain.simulations.workflowDisruption(target.id, roots)
+    const baseline = domain.simulations.baselineHealthScore(roots)
     res.json({
       scenario: result.scenario,
       impactedAgents: result.impactedAgents,
@@ -32,6 +33,8 @@ router.get('/:workflow', async (req, res) => {
       healthAfter: result.severity === 'critical' ? 'critical' : result.severity === 'low' ? 'stable' : 'degraded',
       riskLevel: result.severity,
       healthDelta: result.healthDelta,
+      baselineHealthScore: baseline,
+      simulatedHealthScore: baseline != null && result.healthDelta != null ? baseline - result.healthDelta : null,
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

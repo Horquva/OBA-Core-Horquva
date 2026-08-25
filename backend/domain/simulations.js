@@ -90,6 +90,15 @@ function healthScore(roots) {
   return derived.orgHealth(roots, { accountability: acc, predictiveRisk: risk }).healthIndex
 }
 
+/**
+ * Public name for healthScore() — the current, unmutated org health score.
+ * Routes use this alongside healthDelta to show a before/after pair without
+ * a second health formula: simulatedHealthScore = baselineHealthScore - healthDelta.
+ */
+function baselineHealthScore(roots) {
+  return healthScore(roots)
+}
+
 /** Positive = health drops after the mutation. Null if either side lacks evidence. */
 function healthDelta(baselineRoots, mutatedRoots) {
   const before = healthScore(baselineRoots)
@@ -302,6 +311,7 @@ module.exports = {
   cloneRoots,
   recount,
   healthDelta,
+  baselineHealthScore,
   employeeLeaves,
   agentFails,
   platformDown,

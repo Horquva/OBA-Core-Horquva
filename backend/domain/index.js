@@ -116,5 +116,6 @@ module.exports = {
     platformDown: simulations.platformDown,
     workflowDisruption: simulations.workflowDisruption,
     rankAllScenarios: simulations.rankAllScenarios,
+    baselineHealthScore: simulations.baselineHealthScore,
   },
 }
