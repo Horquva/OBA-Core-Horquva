@@ -54,10 +54,12 @@ require.cache[supabasePath] = {
 const express = require('express')
 const employeeLeavesRoute = require('../routes/simulations/employeeLeaves')
 const agentFailsRoute = require('../routes/simulations/agentFails')
+const rankRoute = require('../routes/simulations/rank')
 
 const app = express()
 app.use('/api/simulations/employee-leaves', employeeLeavesRoute)
 app.use('/api/simulations/agent-fails', agentFailsRoute)
+app.use('/api/simulations/rank', rankRoute)
 
 const server = app.listen(0, async () => {
 	const port = server.address().port
@@ -71,6 +73,11 @@ const server = app.listen(0, async () => {
 
 	const r2 = await fetch(`${base}/api/simulations/agent-fails/NoSuchAgent`)
 	check('agent-fails 404s for an unknown name', r2.status === 404, r2.status)
+
+	const r3 = await fetch(`${base}/api/simulations/rank`)
+	const j3 = await r3.json()
+	check('rank 200s', r3.status === 200, r3.status)
+	check('rank returns a scenarios array', Array.isArray(j3.scenarios), j3)
 
 	console.log('\n========================================')
 	console.log(`${passed} passed, ${failed} failed`)
