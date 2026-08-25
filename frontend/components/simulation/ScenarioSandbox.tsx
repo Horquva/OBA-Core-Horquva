@@ -205,8 +205,8 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [] }: 
             </div>
             <div className="text-right">
               <p className="text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-wide">Health Impact</p>
-              <p className={`text-lg font-bold ${delta < 0 ? "text-red-400" : "text-emerald-400"}`}>
-                {delta > 0 ? "+" : ""}{delta}
+              <p className={`text-lg font-bold ${delta > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                {delta > 0 ? "-" : delta < 0 ? "+" : ""}{Math.abs(delta)}
               </p>
               <p className="text-[10px] text-[color:var(--text-tertiary)]">
                 {result.baselineHealthScore} → {result.simulatedHealthScore}

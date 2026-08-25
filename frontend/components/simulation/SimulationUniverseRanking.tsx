@@ -195,8 +195,8 @@ export function SimulationUniverseRanking({ scenarios }: Props) {
 
                   {/* Delta */}
                   <td className="p-3">
-                    <span className={`text-sm font-bold ${s.healthDelta < -10 ? 'text-red-400' : s.healthDelta < -5 ? 'text-amber-400' : 'text-[color:var(--text-secondary)]'}`}>
-                      {s.healthDelta > 0 ? '+' : ''}{s.healthDelta}
+                    <span className={`text-sm font-bold ${s.healthDelta > 10 ? 'text-red-400' : s.healthDelta > 5 ? 'text-amber-400' : 'text-[color:var(--text-secondary)]'}`}>
+                      {s.healthDelta > 0 ? '-' : s.healthDelta < 0 ? '+' : ''}{Math.abs(s.healthDelta)}
                     </span>
                   </td>
 
