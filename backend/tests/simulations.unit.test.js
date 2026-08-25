@@ -214,6 +214,41 @@ console.log('\nworkflowDisruption:')
 	check('the shared agent is impacted', result.impactedAgents.some((a) => a.id === 10))
 }
 
+// ── rankAllScenarios ─────────────────────────────────────────────────────────
+console.log('\nrankAllScenarios:')
+{
+	// knowledge_assets/owners/workflows populated so healthDelta is a real
+	// number for every candidate (same evidence-gate reasoning as Task 2/3's
+	// tests) — otherwise every entry's healthDelta is null and the sort-order
+	// check below passes vacuously (JS coerces null >= null to true) without
+	// actually exercising the sort.
+	const r = roots({
+		employees: [
+			{ id: 1, name: 'Sarah', department: 'Eng' },
+			{ id: 2, name: 'Bob', department: 'Ops' },
+		],
+		agents: [
+			{ id: 10, name: 'Minor', status: 'active', risk: 'low', owner_id: 1 },
+			{ id: 11, name: 'Critical', status: 'active', risk: 'critical', owner_id: 2 },
+		],
+		dependencies: [],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 10, is_documented: true }],
+		owners: [
+			{ id: 1, name: 'Sarah', employee_id: 1, backup_owner: 'Bob' },
+			{ id: 2, name: 'Bob', employee_id: 2, backup_owner: null },
+		],
+		workflows: [{ id: 1, name: 'Wf', status: 'active', risk: 'low' }],
+		workflow_runbooks: [],
+		workflow_failures: [],
+	})
+
+	const ranked = s.rankAllScenarios(r)
+	check('returns a non-empty ranked list', Array.isArray(ranked) && ranked.length > 0, ranked.length)
+	check('every entry has a real numeric healthDelta, not null', ranked.every((res) => typeof res.healthDelta === 'number'), ranked.map((x) => x.healthDelta))
+	check('sorted worst-first by healthDelta', ranked.every((res, i) => i === 0 || ranked[i - 1].healthDelta >= res.healthDelta), ranked.map((x) => x.healthDelta))
+	check('every entry has a severity', ranked.every((res) => ['low', 'medium', 'high', 'critical'].includes(res.severity)))
+}
+
 console.log('\n========================================')
 console.log(`${passed} passed, ${failed} failed`)
 console.log('========================================\n')

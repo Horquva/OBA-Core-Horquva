@@ -263,6 +263,37 @@ function workflowDisruption(workflowId, roots) {
   }
 }
 
+/**
+ * Every employee, every high/critical-criticality agent, and every
+ * high/critical-criticality tool (ai_platforms row), ranked worst-first by
+ * health impact. Criticality is entityCriticality() — never the raw,
+ * disputed agents.risk column read directly.
+ */
+function rankAllScenarios(roots) {
+  const results = []
+
+  for (const employee of roots.employees) {
+    const r = employeeLeaves(employee.id, roots)
+    if (r) results.push(r)
+  }
+
+  for (const agent of roots.agents) {
+    if (!atOrAbove(entityCriticality('agent', agent), 'high')) continue
+    const r = agentFails(agent.id, roots)
+    if (r) results.push(r)
+  }
+
+  for (const platform of roots.ai_platforms) {
+    const criticality = entityCriticality('platform', platform, { knowledgeAssets: roots.knowledge_assets })
+    if (!atOrAbove(criticality, 'high')) continue
+    const r = platformDown(platform.id, roots)
+    if (r) results.push(r)
+  }
+
+  results.sort((a, b) => (b.healthDelta ?? -Infinity) - (a.healthDelta ?? -Infinity))
+  return results
+}
+
 module.exports = {
   buildDependencyIndex,
   cascadeFrom,
@@ -275,4 +306,5 @@ module.exports = {
   agentFails,
   platformDown,
   workflowDisruption,
+  rankAllScenarios,
 }
