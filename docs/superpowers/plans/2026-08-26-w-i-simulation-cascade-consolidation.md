@@ -254,6 +254,13 @@ console.log('\nworkflowsUsingAgents:')
 // ── healthDelta reuses orgHealth(), never a second formula ─────────────────
 console.log('\nhealthDelta:')
 {
+	// orgHealth()'s healthIndex is gated on FIVE evidenceGate()s all being
+	// sufficient (documentation, continuity, ownershipSpread, criticalSafety,
+	// incidentLoad — derived.js:1008-1023), each requiring a non-empty
+	// population (definitions.js's evidenceGate: "an EMPTY population is
+	// always insufficient"). This fixture deliberately carries >=1 row in
+	// knowledge_assets, owners, and workflows (agents already has 2) so
+	// healthIndex resolves to a real number instead of null.
 	const base = roots({
 		agents: [
 			{ id: 1, name: 'A', status: 'active', risk: 'high', owner_id: 10 },
@@ -261,8 +268,8 @@ console.log('\nhealthDelta:')
 		],
 		employees: [{ id: 10, name: 'Owner1' }, { id: 20, name: 'Owner2' }],
 		owners: [{ id: 10, name: 'Owner1', employee_id: 10, backup_owner: 'Owner2' }],
-		knowledge_assets: [],
-		workflows: [],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 1, is_documented: true }],
+		workflows: [{ id: 1, name: 'Wf', status: 'active', risk: 'low' }],
 		workflow_runbooks: [],
 		workflow_failures: [],
 	})
@@ -313,7 +320,7 @@ function buildDependencyIndex(roots) {
 
 /** Everything that transitively fails downstream of one node, as entities not just a count. */
 function cascadeFrom(startType, startId, index) {
-  const seen = new Set()
+  const seen = new Set([index.key(startType, startId)])
   const impacted = []
   const queue = [[startType, startId]]
   while (queue.length) {
@@ -433,6 +440,10 @@ Append to `backend/tests/simulations.unit.test.js`, before the final `console.lo
 // ── employeeLeaves ───────────────────────────────────────────────────────────
 console.log('\nemployeeLeaves:')
 {
+	// knowledge_assets + owners are populated (in addition to the existing
+	// workflows row) purely so orgHealth()'s five evidenceGate()s are all
+	// sufficient and healthDelta resolves to a real number, not null — see
+	// the note on the same pattern in Task 2's healthDelta test above.
 	const r = roots({
 		employees: [{ id: 1, name: 'Sarah', department: 'Eng' }],
 		agents: [
@@ -444,6 +455,8 @@ console.log('\nemployeeLeaves:')
 		],
 		workflow_dependencies: [{ id: 1, workflow_id: 100, agent_id: 10, is_critical: true }],
 		workflows: [{ id: 100, name: 'Release', status: 'active', risk: 'high' }],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 10, is_documented: true }],
+		owners: [{ id: 1, name: 'Sarah', employee_id: 1, backup_owner: null }],
 	})
 
 	const unknown = s.employeeLeaves(999, r)
@@ -876,6 +889,11 @@ git commit -m "feat(W-I): add workflowDisruption() with real transitive cascade"
 // ── rankAllScenarios ─────────────────────────────────────────────────────────
 console.log('\nrankAllScenarios:')
 {
+	// knowledge_assets/owners/workflows populated so healthDelta is a real
+	// number for every candidate (same evidence-gate reasoning as Task 2/3's
+	// tests) — otherwise every entry's healthDelta is null and the sort-order
+	// check below passes vacuously (JS coerces null >= null to true) without
+	// actually exercising the sort.
 	const r = roots({
 		employees: [{ id: 1, name: 'Sarah', department: 'Eng' }],
 		agents: [
@@ -883,10 +901,14 @@ console.log('\nrankAllScenarios:')
 			{ id: 11, name: 'Critical', status: 'active', risk: 'critical', owner_id: 1 },
 		],
 		dependencies: [],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 10, is_documented: true }],
+		owners: [{ id: 1, name: 'Sarah', employee_id: 1, backup_owner: null }],
+		workflows: [{ id: 1, name: 'Wf', status: 'active', risk: 'low' }],
 	})
 
 	const ranked = s.rankAllScenarios(r)
 	check('returns a non-empty ranked list', Array.isArray(ranked) && ranked.length > 0, ranked.length)
+	check('every entry has a real numeric healthDelta, not null', ranked.every((res) => typeof res.healthDelta === 'number'), ranked.map((x) => x.healthDelta))
 	check('sorted worst-first by healthDelta', ranked.every((res, i) => i === 0 || ranked[i - 1].healthDelta >= res.healthDelta), ranked.map((x) => x.healthDelta))
 	check('every entry has a severity', ranked.every((res) => ['low', 'medium', 'high', 'critical'].includes(res.severity)))
 }
