@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { spofVerdict } = require('../domain/definitions')
 
 // GET /api/risks — comprehensive risk intelligence
 router.get('/', async (req, res) => {
@@ -25,15 +26,25 @@ router.get('/', async (req, res) => {
     low:      agents.filter(a => a.risk === 'low').length,
   }
 
-  // SPOF detection
-  const spofs = agents.filter(a =>
-    (a.risk === 'critical' || a.risk === 'high') && a.owner_id
+  // SPOF detection — D-06: sole owner AND no backup AND criticality >= high,
+  // via the canonical spofVerdict() rather than this route's own ad hoc rule
+  // (which used to require owner present + risk high/critical + >=2 dependents,
+  // and never checked backup coverage at all).
+  const { data: owners, error: ownersErr } = await supabase
+    .from('owners')
+    .select('employee_id, backup_owner')
+
+  if (ownersErr) return res.status(500).json({ error: ownersErr.message })
+
+  const hasBackupByEmployee = new Map(
+    owners.filter(o => o.employee_id != null).map(o => [o.employee_id, Boolean(o.backup_owner)])
   )
 
-  // Fetch dependency counts for SPOF analysis. This used to fall back to `[]`
-  // on failure, which meant a broken query reported zero dependents for every
-  // agent — every genuine single point of failure would silently disappear
-  // from singlePointsOfFailure during an outage instead of the request failing.
+  // Dependents are informational display data only here — D-06 deliberately
+  // does not gate the verdict on them (an incomplete dependency graph must
+  // not hide a SPOF that has no recorded dependent yet). This used to fall
+  // back to `[]` on failure, which meant a broken query reported zero
+  // dependents for every agent instead of the request failing.
   const { data: deps, error: depsErr } = await supabase
     .from('dependencies')
     .select('target_id, target_type, dependency_type')
@@ -47,8 +58,12 @@ router.get('/', async (req, res) => {
     depCounts[d.target_id] = (depCounts[d.target_id] || 0) + 1
   })
 
-  const spofAgents = spofs
-    .filter(a => (depCounts[a.id] || 0) >= 2)
+  const spofAgents = agents
+    .filter(a => spofVerdict({
+      criticality: a.risk,
+      ownerCount: a.owner_id != null ? 1 : 0,
+      hasBackup: a.owner_id != null ? Boolean(hasBackupByEmployee.get(a.owner_id)) : false,
+    }).status === 'spof')
     .map(a => ({
       name:            a.name,
       risk:            a.risk,
