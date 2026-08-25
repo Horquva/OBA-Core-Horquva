@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import ValidationError
@@ -227,7 +227,7 @@ class WorkflowService:
             )
 
         activity = activity_map[activity_id]
-        now = timestamp or datetime.utcnow()
+        now = timestamp or datetime.now(timezone.utc)
 
         # Validate state machine transition
         validate_activity_transition(activity.status, target_status)
@@ -307,6 +307,6 @@ class WorkflowService:
             "old_status": old_status.value,
             "new_status": new_status.value,
             "tick": tick,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "details": details or {},
         }
