@@ -3,9 +3,8 @@
  * Apply these ONLY to routes that must be protected. Keep demo/read endpoints public.
  *
  * Usage:
- *   const { requireAuth, requireRole, optionalAuth } = require('../../middleware/auth')
+ *   const { requireAuth, optionalAuth } = require('../../middleware/auth')
  *   router.post('/secure', requireAuth, handler)
- *   router.delete('/x', requireAuth, requireRole('admin'), handler)
  */
 
 const { verify } = require('../lib/jwt')
@@ -57,12 +56,4 @@ function requireAuth(req, res, next) {
 	}
 }
 
-function requireRole(...roles) {
-	return (req, res, next) => {
-		if (!req.user) return res.status(401).json({ error: 'Authentication required' })
-		if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'Forbidden — insufficient role' })
-		next()
-	}
-}
-
-module.exports = { requireAuth, optionalAuth, requireRole, orgContext, extractToken }
+module.exports = { requireAuth, optionalAuth, orgContext, extractToken }

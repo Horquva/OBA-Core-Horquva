@@ -74,6 +74,7 @@ export default function AccountPage() {
         {user?.email && (
           <p className="mt-1 text-sm text-[var(--text-tertiary)]">
             Signed in as {user.email}
+            {/* Display only (D-05) — role no longer gates anything server-side. */}
             {user.role ? ` · ${user.role}` : ''}
           </p>
         )}

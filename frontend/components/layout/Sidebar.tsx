@@ -33,7 +33,10 @@ import { useAuth } from '@/lib/AuthContext';
 
 type NavItem = { name: string; href: string; icon: LucideIcon; roles?: string[] };
 
-// Role gating for the Role-Based Executive Experience.
+// Role gating for the Role-Based Executive Experience. Presentation only —
+// D-05 deleted requireRole() server-side, so every authenticated user can
+// still reach any endpoint directly; this only decides which nav items
+// render for a given role, not what that role is allowed to do.
 const EXEC = ['admin', 'ceo', 'cto', 'coo'];
 const MANAGER_UP = [...EXEC, 'manager'];
 
