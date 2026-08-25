@@ -138,10 +138,13 @@ class WorkforceService:
         roles: List[WorkforceRoleContract],
     ) -> List[AgentAssignment]:
         """
-        Assign workers to compatible roles.
+        Assign workers to compatible roles using deterministic
+        round-robin balancing.
 
-        A worker without required capabilities is marked BLOCKED
-        instead of being incorrectly assigned.
+        Workers are assigned only to roles whose capability
+        requirements they satisfy. Among compatible roles, the
+        role with the fewest current assignments is selected.
+        Ties are resolved by the original role order.
         """
 
         assignments: List[AgentAssignment] = []
@@ -149,38 +152,56 @@ class WorkforceService:
         if not roles:
             return assignments
 
+        # Start from the assignments already present on each role.
+        role_loads: Dict[int, int] = {
+            role.role.role_id: len(role.assigned_agent_ids)
+            for role in roles
+        }
+
         for agent in agents:
-            assigned = False
+            compatible_roles = [
+                role
+                for role in roles
+                if self._has_required_capabilities(agent, role)
+            ]
 
-            for role in roles:
-                if not self._has_required_capabilities(agent, role):
-                    continue
-
-                agent.role_id = role.role.role_id
-
-                if agent.agent_id not in role.assigned_agent_ids:
-                    role.assigned_agent_ids.append(agent.agent_id)
-
-                assignments.append(
-                    AgentAssignment(
-                        agent_id=agent.agent_id,
-                        role_id=role.role.role_id,
-                        status="ASSIGNED",
-                    )
-                )
-
-                assigned = True
-                break
-
-            if not assigned:
+            if not compatible_roles:
                 assignments.append(
                     AgentAssignment(
                         agent_id=agent.agent_id,
                         role_id=0,
                         status="BLOCKED",
-                        reason="No compatible role capability requirements were satisfied.",
+                        reason=(
+                            "No compatible role capability requirements "
+                            "were satisfied."
+                        ),
                     )
                 )
+                continue
+
+            # Select the least-loaded compatible role.
+            # min() preserves the original role order when loads tie,
+            # making the assignment deterministic.
+            selected_role = min(
+                compatible_roles,
+                key=lambda role: role_loads[role.role.role_id],
+            )
+
+            role_id = selected_role.role.role_id
+
+            agent.role_id = role_id
+
+            if agent.agent_id not in selected_role.assigned_agent_ids:
+                selected_role.assigned_agent_ids.append(agent.agent_id)
+                role_loads[role_id] += 1
+
+            assignments.append(
+                AgentAssignment(
+                    agent_id=agent.agent_id,
+                    role_id=role_id,
+                    status="ASSIGNED",
+                )
+            )
 
         return assignments
 
