@@ -960,19 +960,6 @@ export const accountabilityApi = {
   issues: () => request<AccountabilityIssues>('/api/accountability/issues'),
 };
 
-// ─── Relationship (M29) ─────────────────────────────────────────────────────
-
-export interface RelationshipHealth {
-  healthy: number;
-  atRisk: number;
-  fragile: number;
-  totalRelationships: number;
-}
-
-export const relationshipApi = {
-  health: () => request<RelationshipHealth>('/api/relationships/health'),
-};
-
 // ─── Predictive Risk (M11) ───────────────────────────────────────────────────
 
 export interface PredictiveSummary {
