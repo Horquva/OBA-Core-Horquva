@@ -222,6 +222,47 @@ function platformDown(platformId, roots) {
   }
 }
 
+function workflowDisruption(workflowId, roots) {
+  const workflow = roots.workflows.find((w) => w.id === workflowId)
+  if (!workflow) return null
+
+  const directAgentIds = new Set(
+    roots.workflow_dependencies.filter((wd) => wd.workflow_id === workflowId).map((wd) => wd.agent_id),
+  )
+
+  const index = buildDependencyIndex(roots)
+  const impactedAgentIds = new Set(directAgentIds)
+  for (const id of directAgentIds) {
+    for (const hit of cascadeFrom('agent', id, index)) {
+      if (hit.type === 'agent') impactedAgentIds.add(hit.id)
+    }
+  }
+
+  const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
+  const siblingWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
+  const impactedWorkflows = [
+    workflow,
+    ...siblingWorkflows.filter((w) => w.id !== workflowId),
+  ]
+  const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  const mutated = cloneRoots(roots)
+  mutated.workflows = mutated.workflows.filter((w) => w.id !== workflowId)
+  recount(mutated)
+
+  return {
+    scenario: `If ${workflow.name} is disrupted`,
+    targetType: 'workflow',
+    targetId: workflowId,
+    targetName: workflow.name,
+    impactedAgents,
+    impactedWorkflows,
+    impactedPeople: [],
+    severity: severityFor(entities),
+    healthDelta: healthDelta(roots, mutated),
+  }
+}
+
 module.exports = {
   buildDependencyIndex,
   cascadeFrom,
@@ -233,4 +274,5 @@ module.exports = {
   employeeLeaves,
   agentFails,
   platformDown,
+  workflowDisruption,
 }

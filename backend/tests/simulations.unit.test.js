@@ -189,6 +189,31 @@ console.log('\nplatformDown:')
 	check('reaches the agent on the platform AND its transitive dependent', ids.length === 2 && ids[0] === 10 && ids[1] === 11, ids)
 }
 
+// ── workflowDisruption ───────────────────────────────────────────────────────
+console.log('\nworkflowDisruption:')
+{
+	const r = roots({
+		workflows: [
+			{ id: 100, name: 'Release', status: 'active', risk: 'high' },
+			{ id: 101, name: 'Hotfix', status: 'active', risk: 'critical' },
+		],
+		agents: [
+			{ id: 10, name: 'Shared', status: 'active', risk: 'high', owner_id: 1 },
+		],
+		workflow_dependencies: [
+			{ id: 1, workflow_id: 100, agent_id: 10, is_critical: true },
+			{ id: 2, workflow_id: 101, agent_id: 10, is_critical: false },
+		],
+	})
+
+	check('unknown workflow returns null', s.workflowDisruption(999, r) === null)
+
+	const result = s.workflowDisruption(100, r)
+	const wfIds = result.impactedWorkflows.map((w) => w.id).sort()
+	check('includes itself and the sibling workflow sharing the same agent', wfIds.length === 2 && wfIds[0] === 100 && wfIds[1] === 101, wfIds)
+	check('the shared agent is impacted', result.impactedAgents.some((a) => a.id === 10))
+}
+
 console.log('\n========================================')
 console.log(`${passed} passed, ${failed} failed`)
 console.log('========================================\n')
