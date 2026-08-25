@@ -10,8 +10,7 @@
 
 const { verify } = require('../lib/jwt')
 const { isRevoked } = require('../lib/tokenBlocklist')
-
-const SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
+const SECRET = require('../lib/authSecret')
 
 // Authorization header ONLY. A `?token=` query fallback used to be accepted
 // here; it was removed because query strings land in access logs, proxy logs
