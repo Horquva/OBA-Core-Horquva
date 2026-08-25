@@ -15,111 +15,118 @@ export default function SimulationPage() {
   const [tools, setTools] = useState<AITool[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
 
   useEffect(() => {
+    let socket: WebSocket | null = null;
+
     Promise.all([
       fetchApi<any[]>('/api/agents'),
       fetchApi<{ dependencies: any[] }>('/api/dependencies'),
       fetchApi<any[]>('/api/tools')
     ])
     .then(([agentsData, depsData, toolsData]) => {
-      const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
-        ...a,
-        id: a.id?.toString() || '',
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
-        backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-        criticality: a.risk || a.criticality || 'low',
-        department: a.department || (a.owner?.department) || 'Unassigned',
-        documented: true,
-      })) : [];
-
-      const mappedDeps: Dependency[] = Array.isArray(depsData?.dependencies) 
-        ? depsData.dependencies
-          .filter((d: any) => d.source_type === 'agent' && d.target_type === 'agent')
-          .map((d: any) => ({
-            from: d.source_id?.toString() || '',
-            to: d.target_id?.toString() || '',
-            type: d.dependency_type || 'sequential',
-          })) 
+      const mappedAgents: Agent[] = Array.isArray(agentsData)
+        ? agentsData.map((a: any) => ({
+            ...a,
+            id: a?.id?.toString() || '',
+            owner: typeof a?.owner === 'object' && a?.owner ? a.owner.name || '' : a?.owner || '',
+            backup_owner: typeof a?.backup_owner === 'object' && a?.backup_owner ? a.backup_owner.name || '' : a?.backup_owner || '',
+          }))
         : [];
 
-      const mappedTools: AITool[] = Array.isArray(toolsData) ? toolsData.map((t: any) => ({
-        ...t,
-        access_owner: t.owner || t.access_owner || 'Unassigned',
-        backup_tool: t.backupAssigned ? 'Yes' : null,
-        users: [], 
-      })) : [];
-
       setAgents(mappedAgents);
-      setDependencies(mappedDeps);
-      setTools(mappedTools);
+      setDependencies(Array.isArray(depsData?.dependencies) ? depsData.dependencies : []);
+      setTools(Array.isArray(toolsData) ? toolsData : []);
+      setLoading(false);
     })
     .catch((err) => {
-      setError(err.message);
-    })
-    .finally(() => {
+      console.error('Failed to fetch initial simulation data:', err);
+      setError('Simulation initial data load karne me error aya.');
       setLoading(false);
     });
+
+    if (typeof window !== 'undefined') {
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsBase = process.env.NEXT_PUBLIC_WS_URL || `${wsProtocol}//${window.location.host}`;
+      const wsUrl = wsBase.startsWith('ws://') || wsBase.startsWith('wss://')
+        ? `${wsBase.replace(/\/$/, '')}/api/websocket/simulation_stream`
+        : `${wsProtocol}//${wsBase.replace(/\/$/, '')}/api/websocket/simulation_stream`;
+
+      try {
+        socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => {
+          setWsStatus('connected');
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload?.type === 'agent_update' && payload?.data) {
+              setAgents((prev) =>
+                prev.map((agent) => (agent.id === payload.data.id ? { ...agent, ...payload.data } : agent))
+              );
+            }
+          } catch (e) {
+            console.error('WebSocket stream parse error:', e);
+          }
+        };
+
+        socket.onerror = (err) => {
+          console.error('WebSocket Error:', err);
+          setWsStatus('disconnected');
+        };
+
+        socket.onclose = () => {
+          setWsStatus('disconnected');
+        };
+      } catch (err) {
+        console.error('Failed to construct WebSocket:', err);
+        setWsStatus('disconnected');
+      }
+    }
+
+    return () => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+      }
+    };
   }, []);
 
-  // Visual Guard 1: LOADING
   if (loading) {
-    return (
-      <div className="flex flex-col gap-8 pb-12 animate-pulse mt-8 px-6 md:px-10 max-w-7xl w-full mx-auto">
-        <div className="h-[600px] w-full bg-[var(--border-subtle)] rounded-xl"></div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="h-48 bg-[var(--border-subtle)] rounded-xl"></div>
-          <div className="h-48 bg-[var(--border-subtle)] rounded-xl"></div>
-          <div className="h-48 bg-[var(--border-subtle)] rounded-xl"></div>
+    return <div className="p-6 text-gray-400">Simulation data loading...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6 text-red-500">{error}</div>;
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">What-If Scenario & Live Simulation</h1>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-gray-400">Stream Status:</span>
+          <span
+            className={`px-2 py-0.5 rounded-full font-medium ${
+              wsStatus === 'connected'
+                ? 'bg-green-500/20 text-green-400'
+                : wsStatus === 'connecting'
+                ? 'bg-yellow-500/20 text-yellow-400'
+                : 'bg-red-500/20 text-red-400'
+            }`}
+          >
+            {wsStatus.toUpperCase()}
+          </span>
         </div>
       </div>
-    );
-  }
 
-  // Visual Guard 2: FAILED / UNAVAILABLE
-  if (error) {
-    return (
-      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 max-w-7xl mx-auto">
-        <h3 className="font-semibold text-lg mb-2">Backend Connection Unavailable</h3>
-        <p className="text-sm opacity-80">{error}</p>
-      </div>
-    );
-  }
-
-  // Visual Guard 3: EMPTY DATASET
-  if (agents.length === 0) {
-    return (
-      <div className="p-12 text-center bg-zinc-900/50 border border-zinc-800 rounded-xl mt-10 max-w-7xl mx-auto">
-        <h3 className="text-zinc-300 font-medium text-lg mb-1">No Simulation Data Available</h3>
-        <p className="text-zinc-500 text-sm">Backend returned an empty dataset. No active agents found.</p>
-      </div>
-    );
-  }
-
-  // Visual Guard 4: DATA READY
-  return (
-    <div className="flex flex-col gap-8 pb-12 animate-in fade-in duration-500">
-      <div style={{ height: 'calc(100vh - 2rem)' }}>
-        <SimulationDashboard
-          agents={agents}
-          dependencies={dependencies}
-          tools={tools}
-        />
-      </div>
-
-      <div className="px-6 md:px-10 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-        <TwinHealthIndex agents={agents} />
-        <TwinSyncStatus agents={agents} tools={tools} />
-        <ScenarioSandbox agents={agents} dependencies={dependencies} tools={tools} />
-      </div>
-
-      <div className="px-6 md:px-10 max-w-7xl w-full mx-auto">
-        <SimulationUniverseRanking
-          agents={agents}
-          dependencies={dependencies}
-          tools={tools}
-        />
-      </div>
+      <SimulationDashboard agents={agents} dependencies={dependencies} tools={tools} />
+      <TwinHealthIndex agents={agents} />
+      <TwinSyncStatus agents={agents} />
+      <ScenarioSandbox agents={agents} dependencies={dependencies} />
+      <SimulationUniverseRanking agents={agents} />
     </div>
   );
 }
