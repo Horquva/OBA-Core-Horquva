@@ -167,6 +167,28 @@ console.log('\nagentFails:')
 	check('impactedPeople is empty for an agent scenario', result.impactedPeople.length === 0)
 }
 
+// ── platformDown ─────────────────────────────────────────────────────────────
+console.log('\nplatformDown:')
+{
+	const r = roots({
+		ai_platforms: [{ id: 50, name: 'ClaudeAPI', type: 'llm', status: 'active' }],
+		agents: [
+			{ id: 10, name: 'User1', status: 'active', risk: 'high', owner_id: 1 },
+			{ id: 11, name: 'Downstream', status: 'active', risk: 'low', owner_id: 2 },
+		],
+		agent_platform: [{ id: 1, agent_id: 10, platform_id: 50 }],
+		dependencies: [
+			{ source_id: 11, target_id: 10, source_type: 'agent', target_type: 'agent', dependency_type: 'normal' },
+		],
+	})
+
+	check('unknown platform returns null', s.platformDown(999, r) === null)
+
+	const result = s.platformDown(50, r)
+	const ids = result.impactedAgents.map((a) => a.id).sort()
+	check('reaches the agent on the platform AND its transitive dependent', ids.length === 2 && ids[0] === 10 && ids[1] === 11, ids)
+}
+
 console.log('\n========================================')
 console.log(`${passed} passed, ${failed} failed`)
 console.log('========================================\n')

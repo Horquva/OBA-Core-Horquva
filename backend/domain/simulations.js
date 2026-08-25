@@ -185,6 +185,43 @@ function agentFails(agentId, roots) {
   }
 }
 
+function platformDown(platformId, roots) {
+  const platform = roots.ai_platforms.find((p) => p.id === platformId)
+  if (!platform) return null
+
+  const directAgentIds = new Set(
+    roots.agent_platform.filter((ap) => ap.platform_id === platformId).map((ap) => ap.agent_id),
+  )
+
+  const index = buildDependencyIndex(roots)
+  const impactedAgentIds = new Set(directAgentIds)
+  for (const id of directAgentIds) {
+    for (const hit of cascadeFrom('agent', id, index)) {
+      if (hit.type === 'agent') impactedAgentIds.add(hit.id)
+    }
+  }
+
+  const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
+  const impactedWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
+  const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  const mutated = cloneRoots(roots)
+  mutated.ai_platforms = mutated.ai_platforms.filter((p) => p.id !== platformId)
+  recount(mutated)
+
+  return {
+    scenario: `If ${platform.name} goes down`,
+    targetType: 'platform',
+    targetId: platformId,
+    targetName: platform.name,
+    impactedAgents,
+    impactedWorkflows,
+    impactedPeople: [],
+    severity: severityFor(entities),
+    healthDelta: healthDelta(roots, mutated),
+  }
+}
+
 module.exports = {
   buildDependencyIndex,
   cascadeFrom,
@@ -195,4 +232,5 @@ module.exports = {
   healthDelta,
   employeeLeaves,
   agentFails,
+  platformDown,
 }
