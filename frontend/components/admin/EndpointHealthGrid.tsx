@@ -99,6 +99,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Maturity Curve',       path: '/api/intelligence/maturity',          pingPath: '/api/intelligence/maturity',           category: 'Constitutional', module: 'M43', mounted: true },
   { name: 'Behavioral Profile',   path: '/api/intelligence/behavior',          pingPath: '/api/intelligence/behavior',           category: 'Constitutional', module: 'M44', mounted: true },
   { name: 'Industry Benchmark',   path: '/api/intelligence/benchmark',         pingPath: '/api/intelligence/benchmark',          category: 'Constitutional', module: 'M45', mounted: true },
+  { name: 'Graph Status',         path: '/api/intelligence/graph/status',      pingPath: '/api/intelligence/graph/status',       category: 'Constitutional', mounted: true },
   { name: 'Autonomous Advisor',   path: '/api/intelligence/advisor',           pingPath: '/api/intelligence/advisor',            category: 'Constitutional', mounted: true },
   { name: 'Simulation Universe',  path: '/api/intelligence/simulation-universe', pingPath: '/api/intelligence/simulation-universe', category: 'Constitutional', mounted: true },
 
