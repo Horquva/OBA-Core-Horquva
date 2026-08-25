@@ -84,14 +84,15 @@ def test_valid_workforce_agent_roster():
     roster = WorkforceAgentRoster(
         context=create_context(),
         enterprise_instance_id="ENT-001",
-        agents=[
-            AgentProfileContract(
-                agent_id=1,
-                name="Agent-001",
-                role_id=101,
-                status="active",
-            )
-        ],
+       agents=[
+    AgentProfileContract(
+        agent_id=1,
+        name="Agent-001",
+        role_id=101,
+        status="active",
+        experiment_id="EXP-001",
+    )
+],
         roles=[create_role()],
     )
 
