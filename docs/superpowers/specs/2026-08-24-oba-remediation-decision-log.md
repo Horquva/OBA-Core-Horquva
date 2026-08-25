@@ -2,7 +2,9 @@
 
 Date opened: 2026-08-24
 Status: decisions D-01…D-16 approved by owner 2026-08-24; D-17…D-21/F-L decided and closed during
-W-D's brainstorming phase 2026-08-25. W-A, W-B, W-C, W-D landed. W-E is next.
+W-D's brainstorming phase 2026-08-25; D-22…D-27 decided and closed during W-E's brainstorming phase
+2026-08-25. W-A, W-B, W-C, W-D, W-E landed. W-G and W-H are next (W-F remains independent, may run
+whenever).
 
 This file is the source of truth for the remediation. Session memory is a pointer to it, not a
 substitute. If memory and this file disagree, **this file wins**.
@@ -241,6 +243,65 @@ verification performed before each one, is in
   incident-exposure metric — not `continuityScore` under a new name, despite sharing input
   tables.
 
+### D-22…D-27 — decided during W-E's brainstorming phase (2026-08-25)
+
+D-07 and D-10 above did not fully specify how to wire `evidenceGate()` (built and tested in W-C,
+zero callers before W-E) into the ~10 backend sites and ~8 frontend sites that needed it; these six
+close the gaps found while tracing every score-producing route and its frontend consumers. Full
+detail is in [the W-E design doc](2026-08-25-w-e-provenance-evidence-design.md) and
+[plan](../plans/2026-08-25-w-e-provenance-evidence-semantics.md).
+
+- **D-22 · Evidence gating is per-component, not just top-level.** GI/MI/DI, and each
+  `derived.js` aggregate (`accountability`, `collaboration`, `orgHealth`'s five dimensions,
+  `departmentExposure`, `decisionQuality`), independently declares its required inputs and gates
+  on its own coverage — not one blanket gate at the top of a function.
+- **D-23 · Sibling `evidence` object, not a wrapped value.** Score/rating fields keep their
+  existing type (number-or-null / string-or-null); a new sibling `evidence: {sufficient, status,
+  coverage, covered, total, threshold}` carries the detail. A new `combineEvidence()` helper
+  (`definitions.js`) composes several named `evidenceGate()` results into one that still exposes
+  this same flat shape, surfacing the worst (lowest-coverage) named gate — needed because several
+  sites (GI, MI, DI, orgScore, `orgHealth`, `departmentExposure`) draw evidence from more than one
+  population.
+- **D-24 · The optimistic-fabrication mirror bug is in scope.** The same absence-reads-as-a-verdict
+  defect exists in the opposite direction: `pillars()` GI's `violationScore` (100 on zero
+  `ai_platforms`), `orgHealth()`'s `ownershipSpreadScore` (100 on zero owned agents),
+  `decisionIntelligence.js`'s `calcDQI` (100 on zero decisions), and two client-side TS
+  equivalents — `frontend/lib/risk.ts`'s `calculateHealthScore` and `frontend/lib/orgMemory.ts`'s
+  `calcIMHS` (both 100 on an empty population). All five fixed under the same gate.
+- **D-25 · `decisionQuality()`'s ad hoc `hasEvidence`/`score ?? 50` pattern is replaced by
+  `evidenceGate()`.** One evidence mechanism everywhere, same principle W-C applied to
+  criticality. Breaking change, accepted under D-16: a 0-decision org moves from a WEAK (50)
+  rating to `insufficient_evidence`.
+- **D-26 · Sentinel surfacing (`unknown` criticality, SPOF `not_evaluable`) uses the same visual
+  language as score-level evidence gaps — narrowed during execution.** Tracing found
+  `spofVerdict()` (built in W-C) has zero callers anywhere; `routes/workflows/spof.js` was never
+  migrated onto it. That migration is D-06's affected-file list, not D-07/D-10b's, so SPOF
+  `not_evaluable` UI surfacing has no live site yet and was left out of W-E rather than silently
+  expanded into a D-06 migration. The `unknown` criticality sentinel (already live via
+  `decisionIntelligence.js`/`tools.js` post-W-C) did not end up needing dedicated new UI wiring
+  either — no confirmed live consumer renders it as a bare tier badge today.
+- **D-27 · Minimal TypeScript port of `coverage()`/`evidenceGate()` for client-side scoring.**
+  `frontend/lib/riskIntelligence.ts` and `orgMemory.ts` compute their own aggregate score
+  client-side from raw fetched rows, bypassing `derived.js`/`domain.intelligence` entirely — the
+  same bug class, living in the browser. A new `frontend/lib/evidenceGate.ts` ports just the
+  population/coverage primitives (not the criticality vocabulary — nothing client-side
+  reimplements SPOF). Originally scoped to four files (design doc); narrowed to two during
+  planning — `knowledgeRisk.ts` and `aiToolIntelligence.ts` turned out to have no single top-level
+  aggregate score to gate, only per-item tiers over already-empty-safe lists.
+
+**Corrections found during W-E's own execution, beyond the design doc's trace:** `FivePillarsRadar.tsx`
+reads the 13-module registry (explicitly narration-only per D-17/D-19, never gated) — no change
+needed, contrary to the design doc's assumption. `ConcentrationRiskPanel.tsx` and
+`DecisionSupportQueue.tsx` turned out to read unrelated client-side/mock logic, not `spofVerdict()`
+or `dqiVerdict` respectively; the real `dqiVerdict` consumer is `DecisionHeader.tsx`. Two more direct
+`calculateHealthScore` callers were found only while wiring `riskIntelligence.ts`:
+`components/risk/RiskHeader.tsx` (a second, more prominent OHS gauge on `/risk` alongside
+`OrgHealthBanner.tsx` — both now wired) and `components/simulation/SimulationDashboard.tsx` /
+`TwinHealthIndex.tsx` (given a defensive `?? 0` fallback only, no evidence-badge UI, since neither
+is a traced consumer of a published verdict for this workstream). None of these were wrong
+reasoning in the design doc — the same lesson W-D recorded for D-02/D-09a/D-12: unverified
+generalization from a name or an import, not individually checked, is what slips through.
+
 ---
 
 ## 3. Workstream map
@@ -255,8 +316,8 @@ it closes, written before the fix.
 | **W-C** | Canonical definitions layer | D-03, D-06, D-10, F-G′, F-K | **DONE** — 11 commits, `387bd42`…`687a659` on `ocos/develop` |
 | **W-F** | Tenancy & auth cleanup | D-01, D-05, D-13 | not started (independent, cheap) |
 | **W-D** | Truth layer consolidation | D-02, D-09a, D-11, D-12, D-17, D-18, D-19, D-20, D-21, F-L | **DONE** — 16 commits, `c66d871`…`9c15daf` on `ocos/develop` |
-| **W-E** | Provenance & evidence semantics | D-07, D-10b | **NEXT — unblocked** |
-| **W-G** | Graph lifecycle & narrative honesty | D-14 | unblocked |
+| **W-E** | Provenance & evidence semantics | D-07, D-10b, D-22, D-23, D-24, D-25, D-26, D-27 | **DONE** — 20 commits, `2553b20`…`d5d9c7d` on `ocos/develop` |
+| **W-G** | Graph lifecycle & narrative honesty | D-14 | **NEXT — unblocked** |
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I | last |
 
 W-C is done: every downstream workstream now has one module to consume
@@ -271,23 +332,24 @@ W-F remains genuinely independent and may run whenever, in any order relative to
 
 | Item | Why | Revisit when |
 |---|---|---|
-| Write/action loop (Phases 9–10) | D-04 | after W-E |
+| Write/action loop (Phases 9–10) | D-04 | W-E is done; owner decides when to start this |
 | Acceptance criteria §20 items 8–9 | unreachable without the write loop | with the write loop |
 | Recommendation lifecycle | depends on the write loop | with the write loop |
 | `verification_actions` table | dormant, no writer | with the write loop |
 | Multi-tenancy | D-01 chose single-tenant | if a second customer appears |
 | OIS weight recalibration | D-11 kept them authored | if the owner wants measured weights |
+| `routes/workflows/spof.js` migration onto `spofVerdict()` | D-06's own affected-file list, not yet done; found during W-E that `spofVerdict()` (built W-C) still has zero callers | when D-06 itself is revisited — also unblocks SPOF `not_evaluable` UI surfacing, which W-E's D-26 left undone for exactly this reason |
 
 ---
 
-## 5. Process notes for the next workstream (read this before starting W-E)
+## 5. Process notes for the next workstream (read this before starting W-G)
 
 Each workstream from here on runs in its **own fresh session** — no shared conversation memory with
-W-C or W-D. This section is what carried W-C's rigor into W-D with nothing but this file, and W-D
-repeated it successfully — two data points now, not one. Match it; don't skip steps because "the
-decisions are already made."
+W-C, W-D, or W-E. This section is what carried W-C's rigor into W-D and then W-E with nothing but
+this file — three data points now, not two. Match it; don't skip steps because "the decisions are
+already made."
 
-**The sequence that produced W-C and W-D, in order:**
+**The sequence that produced W-C, W-D, and W-E, in order:**
 
 1. **Brainstorming skill, architectural path.** Repo exploration first — actual file reads and greps,
    not assumptions from the teardown or from this log. Then batched questions to the owner (4 at a
@@ -300,6 +362,17 @@ decisions are already made."
    `executive_briefings`, which looked like a 5th KEEP-list table by association but is written
    daily). None of these were wrong reasoning, just unverified generalization — checking each item
    individually instead of extrapolating from a pattern is what caught them.
+   **W-E's addition:** the same discipline applies to frontend consumers, not just backend files
+   and tables — a component *importing* a function is not the same as a component *rendering its
+   published verdict*. `FivePillarsRadar.tsx` imports from the same intelligence surface but reads
+   the narration-only 13-module registry, not a gated score; `ConcentrationRiskPanel.tsx` and
+   `DecisionSupportQueue.tsx` looked like SPOF/DQI consumers by name and page placement but read
+   unrelated client-side mock logic. Two more real consumers (`components/risk/RiskHeader.tsx`,
+   `components/simulation/SimulationDashboard.tsx`/`TwinHealthIndex.tsx`) were found only while
+   wiring a sibling file, not during the design doc's own frontend grep — `grep`ing for a function
+   name finds every *caller*; it does not tell you which callers are *published verdicts* worth
+   gating versus internal plumbing safe to leave with a defensive fallback. Check each render site
+   individually, the same as every backend table.
 2. **Design doc** (`docs/superpowers/specs/YYYY-MM-DD-w-x-*-design.md`), committed before any plan
    exists.
 3. **writing-plans skill** against that design. Every task gets the actual test code and
@@ -315,6 +388,20 @@ decisions are already made."
    function in a `node -e` snippet. **Restart the server after every code change you're about to
    verify** — Node does not hot-reload, and a stale process will silently serve the old computation
    (caught twice during W-D: once each for `brainCore.js` and `prediction.js`).
+   **W-E's addition:** this extends to frontend UI changes claimed complete. `tsc --noEmit` proves
+   the types are consistent; it does not prove the component renders correctly. Start both dev
+   servers (`.claude/launch.json` has `backend`/`frontend` entries with `autoPort` — another
+   session's server on the default port is common and should not be reused or killed), log in
+   through the actual UI form with the real `ADMIN_EMAIL`/`ADMIN_PASSWORD` already in `backend/.env`
+   (no need to invent scratch credentials — they're already there), and read the rendered page text
+   plus console/network logs. If the frontend's `NEXT_PUBLIC_API_URL` (`.env.local`) points at a
+   port your own backend instance isn't running on, retarget it and restart the frontend dev
+   server for the env change to take effect — then put it back afterward, since `.env.local` is
+   gitignored local config, not something a workstream's commits should touch. A cached daily
+   snapshot (`orchestrator_snapshots`) will read stale in the browser exactly as it does over curl;
+   the "always live" sibling route (`/modules` alongside `/summary`) or a direct `node -e` call
+   against the same domain function is the way to see current behavior, matching W-D's stale-cache
+   note below.
 
 **Mistakes made and corrected — don't repeat them:**
 
@@ -325,13 +412,18 @@ decisions are already made."
   and a corrected pair of findings (F-G′, F-K) — cheaper to just check first.
 - **`git add <file>` is not safe in this repo right now.** Several files carry substantial
   *pre-existing uncommitted work* unrelated to any workstream — visible in `git status` before you
-  touch anything. As of the end of W-D, that's `governance.js`, `memory.js`, `orchestration.js`,
+  touch anything. As of the end of W-E, that's `governance.js`, `memory.js`, `orchestration.js`,
   `gateCheck.js`, `knowledge/gaps.js`, `knowledge/impact.js`, `index.js`, `middleware/auth.js`,
   `auth/auth.js`, `.env.example`, `schema.sql`, `.claude/launch.json`, `constitutional-modules.js`,
-  `employeeLeaves.js`, `platformDown.js`, and every frontend file under active WIP — check
-  `git status --short` fresh each session, this list will have moved. (`voice.js`, `health.js`,
-  `learning.js`, `forecast.js`, `briefing.js` carried WIP through W-C but were fully absorbed or
-  finished during W-D — they're clean now.) A directory-wide or whole-file `git add` will bundle
+  `employeeLeaves.js`, `platformDown.js`, and a command-bar/deep-link frontend feature
+  (`GlobalSearchOverlay.tsx`, `DependencyEvolutionTab.tsx`, `SignalDrilldown.tsx`, `CommandBar.tsx`,
+  `DeepLinkFocus.tsx`, `commandIndex.ts`, `focusTarget.ts`, `globals.css`,
+  `recommendations/page.tsx`, `GlobalPanelsContext.tsx`, `AppShell.tsx`, `notifications.ts`,
+  `package.json`) — check `git status --short` fresh each session, this list will have moved.
+  (`voice.js`, `health.js`, `learning.js`, `forecast.js`, `briefing.js` carried WIP through W-C but
+  were fully absorbed or finished during W-D — they're clean now. W-E touched none of the files on
+  this list — confirmed by a final `git status --short` diff against the session-start snapshot
+  before its last commit.) A directory-wide or whole-file `git add` will bundle
   unrelated work into your commit. Before staging a file that was already modified at session start:
   `git diff <file>` first. If it's larger than your own edit, isolate your change against
   `git show HEAD:<file>` (reconstruct a clean version containing only your edit, stage that, commit,
@@ -354,14 +446,20 @@ decisions are already made."
   file should route through — don't reintroduce a parallel definition of criticality, SPOF, or
   coverage anywhere. As of W-D, `backend/domain/derived.js`'s `pillars.orgScore` is the same for
   "the one Organizational Intelligence Score" — don't reintroduce a second weighted composite either.
+  As of W-E, `evidenceGate()`/`combineEvidence()` (also in `definitions.js`) are the one evidence
+  mechanism — don't reintroduce a second ad hoc "is there enough data" check. The one narrow,
+  deliberate exception is `frontend/lib/evidenceGate.ts`, a hand-kept TypeScript port that exists
+  only because there is no shared runtime between `backend/` and `frontend/`; the two must be kept
+  in sync by hand if the 50% threshold or the coverage formula ever changes.
 - Commit messages name the responsible decision (`D-nn`, `F-nn`) — this is the compensating control
   for D-16 (no before/after reconciliation table).
 - Threshold-class retyping (behavior-preserving) and bug fixes (behavior-changing) never share a
   commit — otherwise a real regression hides in a wall of no-op renames.
 
 **Quality bar, concretely:** the finished [W-C plan](../plans/2026-08-24-w-c-canonical-definitions.md)
-(11 commits, `387bd42`…`687a659`) and [W-D plan](../plans/2026-08-25-w-d-truth-layer-consolidation.md)
-(16 commits, `c66d871`…`9c15daf`), both on `ocos/develop`, are the reference. If a future workstream's
-design doc, plan, or commit history looks thinner than these — fewer regression tests, vaguer task
-steps, batched commits, no live-server verification for route-wiring changes — that's the signal
-quality slipped, not that the work was faster.
+(11 commits, `387bd42`…`687a659`), [W-D plan](../plans/2026-08-25-w-d-truth-layer-consolidation.md)
+(16 commits, `c66d871`…`9c15daf`), and [W-E plan](../plans/2026-08-25-w-e-provenance-evidence-semantics.md)
+(19 tasks, 20 commits, `2553b20`…`d5d9c7d`), all on `ocos/develop`, are the reference. If a future
+workstream's design doc, plan, or commit history looks thinner than these — fewer regression tests,
+vaguer task steps, batched commits, no live-server verification for route-wiring or frontend UI
+changes — that's the signal quality slipped, not that the work was faster.
