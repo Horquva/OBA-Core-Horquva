@@ -82,6 +82,29 @@ router.get('/benchmark', moduleEndpoint('benchmark')) // IndustryBenchmarkCard
 router.get('/strategic-alignment', moduleEndpoint('strategic-alignment')) // StrategicAlignmentCard
 router.get('/capability-by-dept', moduleEndpoint('capability')) // CapabilityByDeptCard
 
+// ── Graph lifecycle (D-14) ───────────────────────────────────────
+// loadGraph() otherwise runs exactly once, at backend/index.js boot — nothing
+// ever calls it again, so a Supabase edit after boot is invisible until the
+// process restarts. No admin gate: D-05 deleted requireRole, and a reload is
+// idempotent and non-destructive (loadGraph() only swaps the graph in on
+// success, so the previous one keeps answering every other route here if
+// this fails) — any authenticated user triggering it is acceptable.
+
+// GET /api/intelligence/graph/status — current provenance, no analysis run.
+router.get('/graph/status', (req, res) => {
+  res.json({ isReady: domain.graph.isReady(), source: domain.graph.source() })
+})
+
+// POST /api/intelligence/graph/reload — see header comment above.
+router.post('/graph/reload', async (req, res) => {
+  try {
+    const stats = await domain.graph.load()
+    res.json({ reloaded: true, stats, loadedAt: domain.graph.source().loadedAt })
+  } catch (e) {
+    res.status(502).json({ reloaded: false, error: e.message, source: domain.graph.source() })
+  }
+})
+
 // Convenience index: list all prediction-layer endpoints in one call.
 router.get('/prediction', (req, res) => {
   res.json({

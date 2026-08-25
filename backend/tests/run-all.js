@@ -19,6 +19,7 @@ const tests = [
 	'definitions.unit.test.js', // pure; asserts the canonical criticality/SPOF definitions
 	'routeEvidence.unit.test.js', // pure; asserts evidence gating in routes outside derived.js
 	'authRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline
+	'graphRoutes.test.js', // HTTP-level; stubs brain, so it runs offline
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
 if (process.env.BASE_URL) tests.push('api.smoke.test.js')
