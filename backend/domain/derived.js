@@ -66,7 +66,7 @@ const ROOT_TABLES = [
   'workflow_runbooks', 'dependencies', 'knowledge_assets', 'tool_users',
   'employee_agent', 'ai_platforms', 'tool_policies', 'policy_violations',
   'tool_ownership', 'accountability_entities', 'accountability_links',
-  'truth_claims', 'decision_history',
+  'truth_claims', 'decision_history', 'agent_platform', 'workflow_dependencies',
 ]
 
 // ─── Small shared helpers ────────────────────────────────────────────────────
@@ -1270,6 +1270,8 @@ function invalidate() {
 module.exports = {
   ROOT_TABLES,
   loadRoots,
+  dependencyIndex,
+  cascadeReach,
   computeAllCached,
   invalidate,
   MEMO_TTL_MS,

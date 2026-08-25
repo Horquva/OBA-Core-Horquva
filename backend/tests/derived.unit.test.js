@@ -118,6 +118,23 @@ console.log('\nAccountability — evidence gate:')
 	check('a real, evidenced score is still allowed through, not gated away', full.status === 'WEAK', full.status)
 }
 
+// ── Root table coverage (W-I) ──────────────────────────────────────────────
+console.log('\nRoot tables — W-I additions:')
+{
+	check('ROOT_TABLES includes agent_platform', d.ROOT_TABLES.includes('agent_platform'))
+	check('ROOT_TABLES includes workflow_dependencies', d.ROOT_TABLES.includes('workflow_dependencies'))
+	check('dependencyIndex is exported', typeof d.dependencyIndex === 'function')
+
+	const r = roots({
+		dependencies: [
+			{ source_id: 1, target_id: 2, source_type: 'agent', target_type: 'agent', dependency_type: 'critical' },
+		],
+	})
+	const idx = d.dependencyIndex(r)
+	const hit = idx.dependentsOf.get(idx.key('agent', 2))
+	check('dependencyIndex finds the dependent of a target', Array.isArray(hit) && hit.length === 1 && hit[0].id === 1, hit)
+}
+
 // ── Collaboration ────────────────────────────────────────────────────────────
 console.log('\nCollaboration — adoption, dependency, concentration:')
 {
