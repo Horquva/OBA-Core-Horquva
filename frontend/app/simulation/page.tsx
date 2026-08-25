@@ -8,17 +8,19 @@ import { TwinSyncStatus } from '../../components/simulation/TwinSyncStatus';
 import { ScenarioSandbox } from '../../components/simulation/ScenarioSandbox';
 import { Agent, Dependency, AITool } from '../../types';
 import { authHeader } from '../../lib/authFetch';
+import { ScenarioResult, mapScenario } from '../../lib/simulation';
 
 export default function SimulationPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [tools, setTools] = useState<AITool[]>([]);
+  const [scenarios, setScenarios] = useState<ScenarioResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    
+
     Promise.all([
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load agents');
@@ -31,9 +33,13 @@ export default function SimulationPage() {
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load tools');
         return r.json();
+      }),
+      fetch(`${base}/api/simulations/rank`, { headers: authHeader() }).then(r => {
+        if (!r.ok) throw new Error('Failed to load simulations');
+        return r.json();
       })
     ])
-    .then(([agentsData, depsData, toolsData]) => {
+    .then(([agentsData, depsData, toolsData, rankData]) => {
       const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
         ...a,
         id: a.id?.toString() || '',
@@ -64,6 +70,7 @@ export default function SimulationPage() {
       setAgents(mappedAgents);
       setDependencies(mappedDeps);
       setTools(mappedTools);
+      setScenarios(Array.isArray(rankData.scenarios) ? rankData.scenarios.map(mapScenario) : []);
     })
     .catch((err) => {
       setError(err.message);
@@ -99,9 +106,7 @@ export default function SimulationPage() {
     <div className="flex flex-col gap-8 pb-12 animate-in fade-in duration-500">
       <div style={{ height: 'calc(100vh - 2rem)' }}>
         <SimulationDashboard
-          agents={agents}
-          dependencies={dependencies}
-          tools={tools}
+          scenarios={scenarios}
         />
       </div>
 
@@ -115,9 +120,7 @@ export default function SimulationPage() {
       {/* Full universe ranking — every entity ranked by survivability */}
       <div className="px-6 md:px-10 max-w-7xl w-full mx-auto">
         <SimulationUniverseRanking
-          agents={agents}
-          dependencies={dependencies}
-          tools={tools}
+          scenarios={scenarios}
         />
       </div>
     </div>

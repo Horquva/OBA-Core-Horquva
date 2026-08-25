@@ -1,15 +1,12 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Agent, Dependency, AITool } from '../../types';
-import { rankScenarios, ScenarioResult, ScenarioType } from '../../lib/simulation';
+import { ScenarioResult, ScenarioType } from '../../lib/simulation';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { Globe, UserMinus, ShieldOff, Cpu, ChevronUp, ChevronDown, ArrowRight } from 'lucide-react';
 
 interface Props {
-  agents: Agent[];
-  dependencies: Dependency[];
-  tools: AITool[];
+  scenarios: ScenarioResult[];
 }
 
 type SortKey = 'survivability' | 'delta' | 'cascades' | 'name' | 'type';
@@ -34,24 +31,20 @@ function survivabilityLabel(score: number): { label: string; color: string } {
   return               { label: 'Catastrophic', color: 'text-red-500' };
 }
 
-export function SimulationUniverseRanking({ agents, dependencies, tools }: Props) {
+export function SimulationUniverseRanking({ scenarios }: Props) {
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [sortKey, setSortKey] = useState<SortKey>('survivability');
   const [sortAsc, setSortAsc] = useState(true);
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const universe = useMemo(
-    // Use the existing rankScenarios engine — it already covers people, agents, tools
-    () => rankScenarios(agents, dependencies, tools),
-    [agents, dependencies, tools]
-  );
+  const universe = scenarios;
 
   const filtered = useMemo(() => {
     const base = filter === 'ALL' ? universe : universe.filter(s => s.type === filter);
     return [...base].sort((a, b) => {
       let diff = 0;
       if (sortKey === 'survivability') diff = survivabilityScore(a) - survivabilityScore(b);
-      else if (sortKey === 'delta')    diff = a.healthScoreDelta - b.healthScoreDelta;
+      else if (sortKey === 'delta')    diff = a.healthDelta - b.healthDelta;
       else if (sortKey === 'cascades') diff = a.impactedAgents.length - b.impactedAgents.length;
       else if (sortKey === 'name')     diff = a.targetName.localeCompare(b.targetName);
       else if (sortKey === 'type')     diff = a.type.localeCompare(b.type);
@@ -175,7 +168,7 @@ export function SimulationUniverseRanking({ agents, dependencies, tools }: Props
                   <td className="p-3">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border ${meta.color}`}>
                       <Icon className="w-3 h-3" />
-                      {s.typeLabel}
+                      {meta.label}
                     </span>
                   </td>
 
@@ -202,8 +195,8 @@ export function SimulationUniverseRanking({ agents, dependencies, tools }: Props
 
                   {/* Delta */}
                   <td className="p-3">
-                    <span className={`text-sm font-bold ${s.healthScoreDelta < -10 ? 'text-red-400' : s.healthScoreDelta < -5 ? 'text-amber-400' : 'text-[color:var(--text-secondary)]'}`}>
-                      {s.healthScoreDelta > 0 ? '+' : ''}{s.healthScoreDelta}
+                    <span className={`text-sm font-bold ${s.healthDelta < -10 ? 'text-red-400' : s.healthDelta < -5 ? 'text-amber-400' : 'text-[color:var(--text-secondary)]'}`}>
+                      {s.healthDelta > 0 ? '+' : ''}{s.healthDelta}
                     </span>
                   </td>
 
