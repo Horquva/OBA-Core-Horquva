@@ -32,6 +32,7 @@ const brain = require('../brain')
 const { loadOrgDataset } = require('./dataset')
 const analyses = require('./analyses')
 const derived = require('./derived')
+const simulations = require('./simulations')
 
 let supabase = null
 try {
@@ -105,5 +106,15 @@ module.exports = {
       departmentExposure: derived.departmentExposure,
     },
     constants: derived.constants,
+  },
+
+  // ─── Simulation (cascade reach, severity, health impact) ───
+  simulations: {
+    loadRoots: () => derived.loadRoots(requireSupabase()),
+    employeeLeaves: simulations.employeeLeaves,
+    agentFails: simulations.agentFails,
+    platformDown: simulations.platformDown,
+    workflowDisruption: simulations.workflowDisruption,
+    rankAllScenarios: simulations.rankAllScenarios,
   },
 }
