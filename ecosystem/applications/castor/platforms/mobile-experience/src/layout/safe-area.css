@@ -1,0 +1,36 @@
+/**
+ * Safe-area utility classes.
+ * Ref: specs/01-responsive-layout-infrastructure.md §7
+ *
+ * REQUIRES the document meta viewport to include `viewport-fit=cover`:
+ *   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+ * Without it, env(safe-area-inset-*) resolves to 0 and these classes are inert (safe no-op).
+ */
+
+.cx-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.cx-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.cx-safe-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.cx-safe-right {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.cx-safe-x {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.cx-safe-all {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
