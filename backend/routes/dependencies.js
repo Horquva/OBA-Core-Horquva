@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
+const { spofVerdict } = require('../domain/definitions')
 
 // GET /api/dependencies — full dependency graph with analysis
 router.get('/', async (req, res) => {
@@ -59,10 +60,16 @@ router.get('/', async (req, res) => {
  * GET /api/dependencies/agent-spofs — agent-level single-point-of-failure list.
  *
  * Server-side home of what used to be frontend/lib/graph.ts's getSPOFs() +
- * getDownstream(), used by both the Dependency Map and Risk pages — same
- * algorithm, ported unchanged: an agent is a SPOF if >= 3 agents downstream of
- * it (via BFS over agent-to-agent dependencies) would be affected by its
- * failure, it has no backup_owner, and its criticality is high or critical.
+ * getDownstream(), used by both the Dependency Map and Risk pages.
+ *
+ * SPOF status now comes from the canonical spofVerdict() (D-06: sole owner
+ * AND no backup AND criticality >= high) rather than this route's own former
+ * rule, which also required >=3 downstream victims — conflating "is this
+ * fragile" with "how big would the blast radius be," which D-06 explicitly
+ * says not to do (an incomplete dependency graph must not hide a real SPOF
+ * just because no dependent happens to be recorded yet). victimsCount is
+ * still reported per agent, as informational blast-radius context, not as
+ * part of the SPOF gate.
  */
 router.get('/agent-spofs', async (req, res) => {
   try {
@@ -110,7 +117,12 @@ router.get('/agent-spofs', async (req, res) => {
       const victims = getDownstream(agent.id)
       if (victims.size > maxCascadeRisk) maxCascadeRisk = victims.size
 
-      if (victims.size >= 3 && !agent.backup_owner && (agent.risk === 'high' || agent.risk === 'critical')) {
+      const verdict = spofVerdict({
+        criticality: agent.risk,
+        ownerCount: agent.owner_id != null ? 1 : 0,
+        hasBackup: Boolean(agent.backup_owner),
+      })
+      if (verdict.status === 'spof') {
         spofs.push({ agentId: agent.id, name: agent.name, victimsCount: victims.size })
       }
     }
