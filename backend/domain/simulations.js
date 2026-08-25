@@ -154,6 +154,37 @@ function employeeLeaves(employeeId, roots) {
   }
 }
 
+function agentFails(agentId, roots) {
+  const agent = roots.agents.find((a) => a.id === agentId)
+  if (!agent) return null
+
+  const index = buildDependencyIndex(roots)
+  const impactedAgentIds = new Set()
+  for (const hit of cascadeFrom('agent', agentId, index)) {
+    if (hit.type === 'agent') impactedAgentIds.add(hit.id)
+  }
+
+  const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
+  const impactedWorkflows = workflowsUsingAgents(new Set([agentId, ...impactedAgentIds]), roots)
+  const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  const mutated = cloneRoots(roots)
+  mutated.agents = mutated.agents.filter((a) => a.id !== agentId)
+  recount(mutated)
+
+  return {
+    scenario: `If ${agent.name} fails`,
+    targetType: 'agent',
+    targetId: agentId,
+    targetName: agent.name,
+    impactedAgents,
+    impactedWorkflows,
+    impactedPeople: [],
+    severity: severityFor(entities),
+    healthDelta: healthDelta(roots, mutated),
+  }
+}
+
 module.exports = {
   buildDependencyIndex,
   cascadeFrom,
@@ -163,4 +194,5 @@ module.exports = {
   recount,
   healthDelta,
   employeeLeaves,
+  agentFails,
 }

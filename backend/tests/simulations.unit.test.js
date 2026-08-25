@@ -144,6 +144,29 @@ console.log('\nemployeeLeaves:')
 	check('healthDelta is a number', typeof result.healthDelta === 'number', result.healthDelta)
 }
 
+// ── agentFails ───────────────────────────────────────────────────────────────
+console.log('\nagentFails:')
+{
+	const r = roots({
+		agents: [
+			{ id: 10, name: 'Core', status: 'active', risk: 'critical', owner_id: 1 },
+			{ id: 11, name: 'Dependent', status: 'active', risk: 'high', owner_id: 2 },
+			{ id: 12, name: 'Transitive', status: 'active', risk: 'low', owner_id: 3 },
+		],
+		dependencies: [
+			{ source_id: 11, target_id: 10, source_type: 'agent', target_type: 'agent', dependency_type: 'critical' },
+			{ source_id: 12, target_id: 11, source_type: 'agent', target_type: 'agent', dependency_type: 'normal' },
+		],
+	})
+
+	check('unknown agent returns null', s.agentFails(999, r) === null)
+
+	const result = s.agentFails(10, r)
+	const ids = result.impactedAgents.map((a) => a.id).sort()
+	check('reaches direct and transitive dependents, excludes itself', ids.length === 2 && ids[0] === 11 && ids[1] === 12, ids)
+	check('impactedPeople is empty for an agent scenario', result.impactedPeople.length === 0)
+}
+
 console.log('\n========================================')
 console.log(`${passed} passed, ${failed} failed`)
 console.log('========================================\n')
