@@ -16,10 +16,12 @@ const tests = [
 	'intelligence.verify.test.js',
 	'auth.unit.test.js',
 	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
+	'simulations.unit.test.js', // pure; asserts cascade/severity/health-delta (W-I)
 	'definitions.unit.test.js', // pure; asserts the canonical criticality/SPOF definitions
 	'routeEvidence.unit.test.js', // pure; asserts evidence gating in routes outside derived.js
 	'authRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline
 	'graphRoutes.test.js', // HTTP-level; stubs brain, so it runs offline
+	'simulationRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-I)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
