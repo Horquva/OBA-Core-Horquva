@@ -19,8 +19,9 @@ from ecosystem.applications.arcturus.contracts.shared.base_models import (
     ArcturusValidationError,
     SimulationContext,
 )
-from ecosystem.applications.arcturus.contracts.simulation.base_models import ExecutionStatus
+from ecosystem.applications.arcturus.contracts.simulation.base_models import ExecutionStatus, ScenarioDSLPayload
 from ecosystem.applications.arcturus.src.simulation.runtime_engine import RuntimeEngine
+from ecosystem.applications.arcturus.src.simulation.runtime_adapters import build_simulation_context
 
 router = APIRouter(prefix="/api/v1/runtime", tags=["Runtime"])
 settings = Settings()
@@ -62,8 +63,12 @@ async def start_simulation(
         if isinstance(config_dict, str):
             config_dict = json.loads(config_dict)
             
+        raw_scenario_id = config_dict.get("scenario_id", "SCN-BL-001")
+        if not raw_scenario_id.startswith("SCN-"):
+            raw_scenario_id = "SCN-BL-001"
+
         config = ExperimentConfig(
-            scenario_id=config_dict.get("scenario_id", "default_baseline"),
+            scenario_id=raw_scenario_id,
             global_seed=payload.global_seed,
             duration_ticks=payload.duration_ticks,
             tick_delay_seconds=payload.tick_delay_seconds,
@@ -71,21 +76,19 @@ async def start_simulation(
         )
 
         # Create a new SimulationContext and SimulationRunRecord
-        run_id = str(uuid4())
-        context = SimulationContext(
-            experiment_id=experiment_id,
-            run_id=run_id,
-            global_seed=payload.global_seed,
-            config={
-                "duration_ticks": payload.duration_ticks,
-                "tick_delay_seconds": payload.tick_delay_seconds,
-            },
+        scenario = ScenarioDSLPayload(
+            scenario_id=config.scenario_id,
+            seed=payload.global_seed,
+            variables={"duration_ticks": payload.duration_ticks, "tick_delay_seconds": payload.tick_delay_seconds},
+            constraints={},
         )
+        context = build_simulation_context(scenario, experiment_id=experiment_id)
+        run_id = str(context.run_id)
 
         # Persist the run record
         db.execute(
             "INSERT INTO simulation_runs (run_id, experiment_id, trace_id, status, started_at) VALUES (?, ?, ?, ?, ?)",
-            (run_id, experiment_id, str(uuid4()), "RUNNING", datetime.now(timezone.utc).isoformat()),
+            (run_id, experiment_id, str(context.trace_id), "RUNNING", datetime.now(timezone.utc).isoformat()),
         )
         db.execute(
             "UPDATE experiments SET status = ?, started_at = ? WHERE id = ?",
@@ -114,7 +117,7 @@ async def pause_simulation(experiment_id: str, request: Request):
     if not engine:
         raise HTTPException(status_code=404, detail="No active simulation for this experiment")
     
-    engine._status = ExecutionStatus.PAUSED
+    engine.pause()
     await bus.publish(experiment_id, "STATUS_UPDATE", {"status": "PAUSED"})
     return {"status": "PAUSED", "experiment_id": experiment_id}
 
@@ -127,7 +130,7 @@ async def resume_simulation(experiment_id: str, request: Request):
     if not engine or engine.status != ExecutionStatus.PAUSED:
         raise HTTPException(status_code=409, detail="Simulation is not in PAUSED state")
     
-    engine._status = ExecutionStatus.RUNNING
+    engine.resume()
     await bus.publish(experiment_id, "STATUS_UPDATE", {"status": "RUNNING"})
     return {"status": "RUNNING", "experiment_id": experiment_id}
 
