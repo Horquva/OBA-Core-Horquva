@@ -6,6 +6,8 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../widgets/bottom_nav_bar.dart';
+import 'ask_castor_screen.dart';
+import 'briefing_screen.dart';
 import 'decisions_screen.dart';
 import 'more_sheet.dart';
 import 'overview_screen.dart';
@@ -35,7 +37,7 @@ class _AppShellState extends State<AppShell> {
     // The three main tabs (Overview, Briefing, Signals).
     const screens = <Widget>[
       OverviewScreen(),
-      _PlaceholderScreen(title: 'Briefing'),
+      BriefingScreen(),
       SignalsScreen(),
     ];
 
@@ -47,25 +49,8 @@ class _AppShellState extends State<AppShell> {
       // Highlight "More" (index 3) while its popup is open OR a More screen is
       // showing; otherwise highlight the active tab.
       currentIndex: (_moreOpen || _moreIndex != null) ? 3 : _index,
-      onTap: (i) async {
-        if (i == 3) {
-          // Open the More wheel; it returns the tapped destination index.
-          setState(() => _moreOpen = true);
-          final tapped = await showMoreSheet(context, selectedIndex: _moreIndex);
-          if (!mounted) return;
-          setState(() {
-            _moreOpen = false;
-            if (tapped != null) _moreIndex = tapped;
-          });
-        } else {
-          // A main tab: switch to it and leave the More section.
-          setState(() {
-            _index = i;
-            _moreIndex = null;
-          });
-        }
-      },
-      onCastorTap: () {}, // Ask Castor screen comes later.
+      onTap: (i) => _onNavTap(context, i),
+      onCastorTap: () => _openAskCastor(context),
     );
 
     // Platform-adaptive shell: a CupertinoPageScaffold on iOS, a Material
@@ -86,6 +71,48 @@ class _AppShellState extends State<AppShell> {
       body: body,
       bottomNavigationBar: nav,
     );
+  }
+
+  /// Handles a bottom-nav tab tap: a main tab switches the body, "More" (3)
+  /// opens the wheel.
+  void _onNavTap(BuildContext context, int i) {
+    if (i == 3) {
+      _openMore(context);
+    } else {
+      setState(() {
+        _index = i;
+        _moreIndex = null;
+      });
+    }
+  }
+
+  /// Opens the More wheel and applies the chosen destination.
+  Future<void> _openMore(BuildContext context) async {
+    setState(() => _moreOpen = true);
+    final tapped = await showMoreSheet(context, selectedIndex: _moreIndex);
+    if (!mounted) return;
+    setState(() {
+      _moreOpen = false;
+      if (tapped != null) _moreIndex = tapped;
+    });
+  }
+
+  /// Opens the Ask Castor screen (adaptive route) from the centre button. It
+  /// carries its own nav bar; tapping a tab pops it and switches the shell.
+  void _openAskCastor(BuildContext context) {
+    void onNavTap(int i) {
+      Navigator.of(context).pop(); // close Ask Castor
+      _onNavTap(context, i);
+    }
+
+    final route = AppPlatform.isIOS
+        ? CupertinoPageRoute<void>(
+            builder: (_) => AskCastorScreen(onNavTap: onNavTap),
+          )
+        : MaterialPageRoute<void>(
+            builder: (_) => AskCastorScreen(onNavTap: onNavTap),
+          );
+    Navigator.of(context).push(route);
   }
 
   /// Builds the screen for an open "More" destination. The back button clears
