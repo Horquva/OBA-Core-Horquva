@@ -9,8 +9,10 @@ services:
     startCommand: npm start
     healthCheckPath: /
     envVars:
+      # Node 22+ required: @supabase/realtime-js needs native WebSocket
+      # support, which Node only ships from v22 onward.
       - key: NODE_VERSION
-        value: 20
+        value: 22
       # Set these in the Render dashboard (Environment tab) — not committed here.
       - key: SUPABASE_URL
         sync: false
