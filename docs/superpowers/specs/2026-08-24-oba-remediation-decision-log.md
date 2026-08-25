@@ -3,8 +3,14 @@
 Date opened: 2026-08-24
 Status: decisions D-01…D-16 approved by owner 2026-08-24; D-17…D-21/F-L decided and closed during
 W-D's brainstorming phase 2026-08-25; D-22…D-27 decided and closed during W-E's brainstorming phase
-2026-08-25. W-A, W-B, W-C, W-D, W-E landed. W-G and W-H are next (W-F remains independent, may run
-whenever).
+2026-08-25; D-28…D-32 decided and closed during W-G's brainstorming phase 2026-08-25. W-A, W-B, W-C,
+W-D, W-E, W-G landed. W-H is next (W-F remains independent, may run whenever).
+
+**W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
+proceed without waiting for live approval — the owner was offline and asked for the work to
+continue through the normal process regardless. Every decision below still carries its own
+Reason/Affected/Consequence, same bar as every prior workstream; nothing was rubber-stamped to move
+faster.
 
 This file is the source of truth for the remediation. Session memory is a pointer to it, not a
 substitute. If memory and this file disagree, **this file wins**.
@@ -302,6 +308,54 @@ is a traced consumer of a published verdict for this workstream). None of these 
 reasoning in the design doc — the same lesson W-D recorded for D-02/D-09a/D-12: unverified
 generalization from a name or an import, not individually checked, is what slips through.
 
+### D-28…D-32 — decided during W-G's brainstorming phase (2026-08-25)
+
+D-14 named the fix (manual reload + expose `loadedAt`) but not the full trace; these five close
+what D-14 left implicit, the same way D-22…D-27 closed D-07/D-10's gaps for W-E. Full detail,
+including the verification performed before each one, is in
+[the W-G design doc](2026-08-25-w-g-graph-lifecycle-design.md) and
+[plan](../plans/2026-08-25-w-g-graph-lifecycle.md).
+
+- **D-28 · F-H's "no `loadedAt` exposed anywhere" was already stale the day it was written.**
+  `backend/routes/intelligence/prediction.js` (the 8 Org Science cards, D-18) has sent
+  `dataSource: domain.graph.source()` — which includes `loadedAt` — since W-D's D-18 migration
+  commit (`f00576e`), predating this workstream entirely. The real gap was never the backend field;
+  it was that `frontend/lib/api.ts`'s `IntelligenceResponse<T>` never typed `dataSource` and no
+  component ever rendered it, so a value the backend had been sending for a full workstream cycle
+  stayed invisible. Same mistake class as the withdrawn F-G: a claim checked against the code
+  without reading what the code already did.
+- **D-29 · `voice.js` / `dataset.js`'s graph path is out of scope.** `backend/domain/dataset.js`'s
+  `loadOrgDataset()` is a second, independent consumer of the same graph singleton, used only by
+  `voice.js`. Traced every voice route individually rather than assuming "reads the same graph →
+  same fix" — all of them return a single natural-language answer (`{query, answer, confidence,
+  ...}`), not a score tile or verdict, and no UI surface anywhere renders a "data as of" indicator
+  for a conversational response. Revisit only if the voice UI grows a provenance panel of its own.
+- **D-30 · No rate limit or de-dup on the reload endpoint.** D-14 already accepted "any
+  authenticated user triggering it" as fine. Verified `loadGraph()`'s actual concurrency behavior
+  (`backend/brain/index.js`): each call builds an independent graph locally and only swaps the
+  shared reference in on success, so concurrent reloads cannot corrupt each other — merely
+  redundant Supabase reads under heavy simultaneous use, not a realistic risk for this
+  single-tenant tool. Skipped deliberately, not by omission.
+- **D-31 · Two new routes on `prediction.js`, not a new mount point.** `GET
+  /api/intelligence/graph/status` (cheap, no analysis run — current `isReady()`/`source()` only)
+  and `POST /api/intelligence/graph/reload` (calls `domain.graph.load()`; 502 with the *previous*
+  `loadedAt` still attached on failure, so a failed reload degrades to "stale but serving," never
+  to "serving nothing"). Neither imports `requireRole` — global `requireAuth` already covers them,
+  matching D-05.
+- **D-32 · One shared banner, not eight per-card edits.** `GraphFreshnessBanner` on the Org Science
+  page (the only page whose cards are graph-derived) fetches `/graph/status` once, shows relative
+  time plus a Reload button, and remounts the 10-card grid via a key bump on success. Follows
+  `EvidenceBadge.tsx`'s precedent (W-E) of a small, neutral, reusable status chip rather than
+  inventing new visual language. `EndpointHealthGrid.tsx` gained one new pingable row for the
+  status endpoint; the reload endpoint was deliberately **not** added there — an automatic
+  health-check pinger silently reloading the graph on a timer is exactly the invisible side effect
+  this workstream removes elsewhere.
+
+Verified live against a running backend (not just the test suite) per §5's standing rule for
+UI-observable changes: the banner rendered `Graph data as of 1m ago`, network inspection confirmed
+`dataSource.loadedAt` on the wire matched it, clicking Reload advanced the timestamp to "just now"
+while all 8 graph-backed cards visibly re-fetched, and `/admin`'s new Graph Status row pinged LIVE.
+
 ---
 
 ## 3. Workstream map
@@ -317,7 +371,7 @@ it closes, written before the fix.
 | **W-F** | Tenancy & auth cleanup | D-01, D-05, D-13 | not started (independent, cheap) |
 | **W-D** | Truth layer consolidation | D-02, D-09a, D-11, D-12, D-17, D-18, D-19, D-20, D-21, F-L | **DONE** — 16 commits, `c66d871`…`9c15daf` on `ocos/develop` |
 | **W-E** | Provenance & evidence semantics | D-07, D-10b, D-22, D-23, D-24, D-25, D-26, D-27 | **DONE** — 20 commits, `2553b20`…`d5d9c7d` on `ocos/develop` |
-| **W-G** | Graph lifecycle & narrative honesty | D-14 | **NEXT — unblocked** |
+| **W-G** | Graph lifecycle & narrative honesty | D-14, D-28, D-29, D-30, D-31, D-32 | **DONE** — 4 tasks, 6 commits, `c0dd891`…`9b0f641` on `ocos/develop` |
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I | last |
 
 W-C is done: every downstream workstream now has one module to consume
@@ -342,7 +396,7 @@ W-F remains genuinely independent and may run whenever, in any order relative to
 
 ---
 
-## 5. Process notes for the next workstream (read this before starting W-G)
+## 5. Process notes for the next workstream (read this before starting W-H)
 
 Each workstream from here on runs in its **own fresh session** — no shared conversation memory with
 W-C, W-D, or W-E. This section is what carried W-C's rigor into W-D and then W-E with nothing but
@@ -458,8 +512,19 @@ already made."
 
 **Quality bar, concretely:** the finished [W-C plan](../plans/2026-08-24-w-c-canonical-definitions.md)
 (11 commits, `387bd42`…`687a659`), [W-D plan](../plans/2026-08-25-w-d-truth-layer-consolidation.md)
-(16 commits, `c66d871`…`9c15daf`), and [W-E plan](../plans/2026-08-25-w-e-provenance-evidence-semantics.md)
-(19 tasks, 20 commits, `2553b20`…`d5d9c7d`), all on `ocos/develop`, are the reference. If a future
+(16 commits, `c66d871`…`9c15daf`), [W-E plan](../plans/2026-08-25-w-e-provenance-evidence-semantics.md)
+(19 tasks, 20 commits, `2553b20`…`d5d9c7d`), and [W-G plan](../plans/2026-08-25-w-g-graph-lifecycle.md)
+(4 tasks, 6 commits, `c0dd891`…`9b0f641`), all on `ocos/develop`, are the reference. If a future
 workstream's design doc, plan, or commit history looks thinner than these — fewer regression tests,
 vaguer task steps, batched commits, no live-server verification for route-wiring or frontend UI
 changes — that's the signal quality slipped, not that the work was faster.
+
+**W-G's addition:** a workstream can run entirely unattended under explicit owner delegation
+without lowering the bar — the questioning phase became "trace the code and decide as the owner
+would," not "skip deciding." The tell that this held: D-28 corrected a finding using the exact same
+method F-G's withdrawal established (read the code the claim is about before trusting the claim),
+found independently in a fresh session with no memory of F-G ever happening. When a workstream runs
+unattended, say so explicitly in the log (§'s opening Status line) rather than leaving it
+indistinguishable from a normal live session — a decision made without the owner in the room is a
+different kind of decision than one they weighed in on, even when it turns out to be the same
+answer.
