@@ -38,10 +38,10 @@ app.get('/', (req, res) => {
     name: 'Horquva OBA Core API',
     status: 'running',
     message: 'Organizational Brain backend is live. This is a JSON API, not a web page.',
+    // D-40: the brain is a library, not a service (see backend/brain/README.md)
+    // -- there is no /api/brain mount, so this used to point at 3 endpoints
+    // that never existed.
     endpoints: {
-      bootReport: '/api/brain/boot-report',
-      brainStatus: '/api/brain/status',
-      modules: '/api/brain/registry/modules',
       health: '/api/health/summary',
       authLogin: 'POST /api/auth/login',
     },
