@@ -5,8 +5,17 @@ Status: decisions D-01…D-16 approved by owner 2026-08-24; D-17…D-21/F-L deci
 W-D's brainstorming phase 2026-08-25; D-22…D-27 decided and closed during W-E's brainstorming phase
 2026-08-25; D-28…D-32 decided and closed during W-G's brainstorming phase 2026-08-25; D-33…D-36
 decided and closed during W-F's brainstorming phase 2026-08-25; D-37…D-40 decided and closed during
-W-H's brainstorming phase 2026-08-25. **All eight workstreams (W-A through W-H) have landed on
-`ocos/develop`. The remediation is complete.**
+W-H's brainstorming phase 2026-08-25. **All eight workstreams (W-A through W-H) had landed on
+`ocos/develop` as of 2026-08-25 and the remediation itself was complete.**
+
+**W-I is a ninth, later workstream, not part of the original 16-decision interrogation.** Found
+2026-08-26 while auditing the codebase fresh in preparation for an AI-agent interface layer: the
+agent's premise ("reason from one trustworthy answer per fact") turned out false specifically for
+"what happens if X leaves/fails/goes down/is disrupted" — four disagreeing implementations existed,
+plus a fifth, fully disconnected frontend engine. D-41…D-45 (decided during W-I's brainstorming phase
+2026-08-26) closed this before any agent work started. Full detail is in
+[the W-I design doc](2026-08-26-w-i-simulation-cascade-consolidation-design.md) and
+[plan](../plans/2026-08-26-w-i-simulation-cascade-consolidation.md).
 
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
@@ -456,6 +465,68 @@ last batch, closing the last workstream. Full detail is in
   itself never rendered anywhere; deleted on both ends, matching `BUILD_SPEC.md`'s own instruction
   ("write it or remove the call... don't leave it").
 
+### D-41…D-45 — decided during W-I's brainstorming phase (2026-08-26)
+
+Unlike every prior batch, D-41…D-45 don't close gaps in an earlier decision — W-I is a new
+workstream found outside the original 16-decision interrogation, so these are its own first
+decisions, not corrections to D-01…D-40. Four things independently answered "what happens if X
+leaves/fails/goes down/is disrupted" and disagreed by construction: `derived.js`'s private,
+unexported `dependencyIndex()`/`cascadeReach()` (real transitive BFS over the `dependencies` root
+table, uncallable outside the file); `brain/modules/analytics.js`'s separate graph-based BFS (kept
+deliberately distinct — see D-41); the four live `routes/simulations/*.js` endpoints, each doing a
+single direct-relationship hop and stopping, each with its own unrelated severity-bucket thresholds;
+and `frontend/lib/simulation.ts`, a fifth, fully independent client-side implementation that never
+called any of the four backend routes. Full detail, including the corrections found during planning
+and execution, is in [the W-I design doc](2026-08-26-w-i-simulation-cascade-consolidation-design.md)
+and [plan](../plans/2026-08-26-w-i-simulation-cascade-consolidation.md).
+
+- **D-41 · Export `dependencyIndex`/`cascadeReach` from `derived.js` rather than reimplementing
+  cascade traversal a third time.** Additive to `module.exports`; no behavior change to existing
+  callers. `analytics.js`'s separate graph-based traversal is deliberately left untouched — per D-12,
+  brain modules answer graph-structural questions the graph is the right substrate for, while
+  `derived.js`/`simulations.js` answer root-aggregate questions over the same underlying facts. Two
+  different computations over two different data sources by design, not an unresolved duplicate.
+- **D-42 · Add `agent_platform` and `workflow_dependencies` to `derived.js`'s `ROOT_TABLES`.**
+  These were the two link tables `platformDown.js`/`workflowDisruption.js`/`agentFails.js` queried ad
+  hoc, outside `loadRoots()`. Purely additive — `loadRoots()`'s own header comment already names this
+  exact remedy ("if a future analysis needs something not in it, the honest move is to add a root");
+  none of the six existing analyses that read `roots` are affected.
+- **D-43 · Simulation severity is computed from `definitions.js`'s shared criticality vocabulary,
+  not a sixth ad hoc bucket scheme.** New `severityFor(impactedEntities)` in
+  `backend/domain/simulations.js`, built on the existing `LEVELS`/`atOrAbove` — continuing the same
+  pattern D-03/D-06/W-C already established for criticality everywhere else in the codebase, in place
+  of the four routes' four mutually unrelated threshold schemes.
+- **D-44 · Simulated health impact is `orgHealth()` recomputed on mutated roots, not a new
+  formula.** Each scenario function clones `roots`, applies a scenario-specific mutation, and reruns
+  `derived.js`'s actual `orgHealth()` on the mutated copy versus baseline — the same formula the rest
+  of the product already trusts, applied twice, diffed, rather than a seventh proxy formula.
+  **Correction found during execution:** the first implementation had the resulting `healthDelta`'s
+  sign convention backwards in the two frontend consumers (`ScenarioSandbox.tsx`,
+  `SimulationUniverseRanking.tsx`) — fixed in the workstream's own final commit, not deferred.
+  **Correction found during planning, beyond the design doc's original problem statement:**
+  `employeeLeaves()`'s "direct hop" was not actually correct before this workstream and needed fixing,
+  not just extending — the live route found "agents owned by this employee" via `employee_agent` (an
+  operator/usage-role link used elsewhere for adoption metrics), not `agents.owner_id`, the actual
+  ownership fact every other consumer uses. The new `employeeLeaves()` filters agents by
+  `owner_id === employeeId` directly, matching `routes/ownership.js`'s existing pattern, and uses
+  `owners` only for `backup_owner` enrichment. (This is the correct join `derived.js`'s
+  `predictiveRisk()` gets wrong — see §4's Deferred entry; W-I fixed it locally in
+  `employeeLeaves()` without touching `predictiveRisk()` itself, which stays its own workstream.)
+- **D-45 · A new `GET /api/simulations/rank` bulk endpoint is added; the four single-target routes
+  are kept (fixed, not removed) for entity-specific callers.** `SimulationDashboard.tsx` ranks
+  everything up front — a shape none of the four single-target routes can serve without either a new
+  bulk endpoint or ~65 parallel requests per page load. The single-target routes remain useful
+  independently, for `voice.js` and later the AI agent, asking about one specific entity.
+  **Correction found during planning:** three frontend components consume `lib/simulation.ts`, not
+  one as first assumed, and `DepartureSim.tsx` turned out not to be a consumer at all (verified by
+  grep). `SimulationDashboard.tsx` and `SimulationUniverseRanking.tsx` both call the bulk endpoint
+  once via `page.tsx`'s shared fetch; `ScenarioSandbox.tsx` calls the matching single-target route
+  per user-picked scenario. `frontend/lib/simulation.ts` becomes types-only once all three are
+  repointed, matching the precedent `lib/decisionIntelligence.ts` already set.
+
+W-I's own final whole-branch review (spanning all 13 implementation tasks across D-41…D-45) was
+completed by the owner directly rather than through the usual automated multi-angle process.
+
 ---
 
 ## 3. Workstream map
@@ -473,6 +544,7 @@ it closes, written before the fix.
 | **W-E** | Provenance & evidence semantics | D-07, D-10b, D-22, D-23, D-24, D-25, D-26, D-27 | **DONE** — 20 commits, `2553b20`…`d5d9c7d` on `ocos/develop` |
 | **W-G** | Graph lifecycle & narrative honesty | D-14, D-28, D-29, D-30, D-31, D-32 | **DONE** — 4 tasks, 6 commits, `c0dd891`…`9b0f641` on `ocos/develop` |
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
+| **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
@@ -493,7 +565,10 @@ W-F remains genuinely independent and may run whenever, in any order relative to
 | Multi-tenancy | D-01 chose single-tenant | if a second customer appears |
 | OIS weight recalibration | D-11 kept them authored | if the owner wants measured weights |
 | `routes/workflows/spof.js` migration onto `spofVerdict()` | D-06's own affected-file list, not yet done; found during W-E that `spofVerdict()` (built W-C) still has zero callers | when D-06 itself is revisited — also unblocks SPOF `not_evaluable` UI surfacing, which W-E's D-26 left undone for exactly this reason |
-| `derived.js`'s `predictiveRisk()` joins `agent.owner_id` against `owners.id` instead of `employees.id` | found 2026-08-26 while planning W-I: confirmed against seed data (`agents.owner_id` values go up to 38, `owners` only has 10 rows) that this silently drops or misattributes ownership/backup for 14 of 15 seeded agents — same id-space trap `routes/ownership.js`'s own comment already warns about, uncaught here. `filterRootsByDepartment()`'s own doc comment (§7, used by `orgHealthByDepartment`/`departmentExposure`) documents the identical `owner_id -> owners.employee_id` chain, so the blast radius is likely wider than just `predictiveRisk()`. Out of scope for W-I (touches every agent's risk score, not just simulation) | its own focused workstream, before trusting `pillars.orgScore`/`predictiveRisk`/`orgHealthByDepartment` numbers further |
+| `derived.js`'s `predictiveRisk()` joins `agent.owner_id` against `owners.id` instead of `employees.id` | found 2026-08-26 while planning W-I: confirmed against seed data (`agents.owner_id` values go up to 38, `owners` only has 10 rows) that this silently drops or misattributes ownership/backup for 14 of 15 seeded agents — same id-space trap `routes/ownership.js`'s own comment already warns about, uncaught here. `filterRootsByDepartment()`'s own doc comment (§7, used by `orgHealthByDepartment`/`departmentExposure`) documents the identical `owner_id -> owners.employee_id` chain, so the blast radius is likely wider than just `predictiveRisk()`. Out of scope for W-I (touches every agent's risk score, not just simulation); W-I's D-44 fixed the identical bug locally inside its own new `employeeLeaves()` without touching this function | its own focused workstream, before trusting `pillars.orgScore`/`predictiveRisk`/`orgHealthByDepartment` numbers further |
+| SPOF definition unification | three disagreeing definitions found while designing W-I: `definitions.js`'s `spofVerdict()` (backup-coverage-based), `analytics.js`'s `singlePointsOfFailure()`, and `routes/risks.js`'s own bucket rule (dependent-count-based) — needs a product decision about what "SPOF" means, not a mechanical fix. Prerequisite 2 of 4 for the AI-agent interface (single-source-of-truth premise) | when the owner is ready to make the backup-coverage-vs-dependent-count call — also unblocks `routes/workflows/spof.js`'s existing pending migration onto `spofVerdict()`, above |
+| Ownership-concentration definition | four disagreeing formulas found while designing W-I, no clear survivor to promote — needs an owner decision, the same shape as D-11's pillar-weight call. Prerequisite 4 of 4 for the AI-agent interface | when the owner is ready to pick a survivor formula |
+| Frontend risk/health-score client-side recomputation (`lib/risk.ts`, `lib/riskIntelligence.ts`, `lib/knowledgeRisk.ts`, `lib/aiToolIntelligence.ts`) | found while designing W-I: these still recompute client-side from raw fetched rows instead of consuming backend-computed values, so pages can show numbers that disagree with what an agent would say about the same fact. W-I's own frontend change was scoped narrowly to the simulation dashboard only, not these four files. Prerequisite 3 of 4 for the AI-agent interface | its own frontend-truth-repointing workstream, before the AI-agent interface can trust a page's on-screen numbers |
 
 ---
 
