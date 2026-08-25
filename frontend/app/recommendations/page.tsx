@@ -64,20 +64,20 @@ export default function RecommendationsPage() {
     return generateRecommendations(dataset);
   }, [dataset]);
 
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 max-w-7xl mx-auto">
+        Failed to load recommendations environment: {error}
+      </div>
+    );
+  }
+
   if (loading || !output) {
     return (
       <div className="flex flex-col gap-5 pb-12 animate-pulse mt-8 px-6 md:px-10 max-w-7xl w-full mx-auto">
         <div className="h-48 w-full bg-[var(--border-subtle)] rounded-xl"></div>
         <div className="h-64 w-full bg-[var(--border-subtle)] rounded-xl"></div>
         <div className="h-[400px] w-full bg-[var(--border-subtle)] rounded-xl"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 max-w-7xl mx-auto">
-        Failed to load recommendations environment: {error}
       </div>
     );
   }

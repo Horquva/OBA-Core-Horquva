@@ -7,6 +7,7 @@ interface GlobalPanelsContextType {
   isSearchOpen: boolean;
   toggleNotificationPanel: () => void;
   toggleSearch: () => void;
+  openSearch: () => void;
   closeAllPanels: () => void;
 }
 
@@ -26,6 +27,11 @@ export function GlobalPanelsProvider({ children }: { children: ReactNode }) {
     setIsNotificationPanelOpen(false);
   };
 
+  const openSearch = () => {
+    setIsSearchOpen(true);
+    setIsNotificationPanelOpen(false);
+  };
+
   const closeAllPanels = () => {
     setIsNotificationPanelOpen(false);
     setIsSearchOpen(false);
@@ -38,6 +44,7 @@ export function GlobalPanelsProvider({ children }: { children: ReactNode }) {
         isSearchOpen,
         toggleNotificationPanel,
         toggleSearch,
+        openSearch,
         closeAllPanels,
       }}
     >

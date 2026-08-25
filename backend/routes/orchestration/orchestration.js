@@ -21,21 +21,24 @@ async function fetchOrchestrationWithCurrentStep() {
 
   if (error) throw new Error(error.message)
 
-  // Attach the step record matching current_step for each workflow
-  const enriched = await Promise.all(
-    orchestrations.map(async o => {
-      const { data: step } = await supabase
+  // Attach the step record matching current_step for each workflow — one
+  // batched fetch across every workflow_id involved, not one query per
+  // orchestration row.
+  const workflowIds = [...new Set(orchestrations.map(o => o.workflow_id))]
+  const { data: steps, error: stepsError } = workflowIds.length
+    ? await supabase
         .from('workflow_steps')
-        .select('step_name, actor_type, actor_name, is_required')
-        .eq('workflow_id', o.workflow_id)
-        .eq('step_number', o.current_step)
-        .single()
+        .select('workflow_id, step_number, step_name, actor_type, actor_name, is_required')
+        .in('workflow_id', workflowIds)
+    : { data: [], error: null }
+  if (stepsError) throw new Error(stepsError.message)
 
-      return { ...o, currentStepDetails: step ?? null }
-    })
-  )
+  const stepByKey = new Map((steps || []).map(s => [`${s.workflow_id}:${s.step_number}`, s]))
 
-  return enriched
+  return orchestrations.map(o => ({
+    ...o,
+    currentStepDetails: stepByKey.get(`${o.workflow_id}:${o.current_step}`) ?? null,
+  }))
 }
 
 function detectCollisions(orchestrations) {

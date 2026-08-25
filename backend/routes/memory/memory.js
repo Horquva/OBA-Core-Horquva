@@ -67,25 +67,42 @@ async function fetchAllAssets() {
   }))
 }
 
-async function resolveAssetName(assetType, assetId) {
-  const tableMap = {
-    agent:    'agents',
-    workflow: 'workflows',
-    platform: 'ai_platforms'
+const ASSET_TYPE_TABLE = {
+  agent:    'agents',
+  workflow: 'workflows',
+  platform: 'ai_platforms'
+}
+
+/**
+ * Resolves every asset's name in at most three batched queries (one per
+ * table actually referenced) instead of one query per asset — /map iterates
+ * every knowledge asset in the org, so a per-item lookup scaled with total
+ * asset count on every call.
+ */
+async function resolveAssetNames(assets) {
+  const idsByTable = {}
+  for (const a of assets) {
+    const table = ASSET_TYPE_TABLE[a.asset_type]
+    if (!table) continue
+    ;(idsByTable[table] = idsByTable[table] || new Set()).add(a.asset_id)
   }
-  const table = tableMap[assetType]
-  if (!table) return 'Unknown'
 
-  // A name lookup that fails is not worth failing the whole request over, but
-  // 'Unknown' must not be the silent answer to a broken query — that reads as a
-  // real, unnamed asset. optional() logs the actual error.
-  const data = await optional(`${table} (name for id ${assetId})`, supabase
-    .from(table)
-    .select('name')
-    .eq('id', assetId)
-    .maybeSingle())
+  const names = new Map() // `${assetType}:${assetId}` -> name
+  await Promise.all(
+    Object.entries(idsByTable).map(async ([table, idSet]) => {
+      // A name lookup that fails is not worth failing the whole request over,
+      // but 'Unknown' must not be the silent answer to a broken query — that
+      // reads as a real, unnamed asset. optional() logs the actual error.
+      const rows = await optional(`${table} (batch name lookup)`, supabase
+        .from(table)
+        .select('id, name')
+        .in('id', [...idSet]), [])
+      const assetType = Object.keys(ASSET_TYPE_TABLE).find((t) => ASSET_TYPE_TABLE[t] === table)
+      for (const row of rows) names.set(`${assetType}:${row.id}`, row.name)
+    })
+  )
 
-  return data?.name ?? 'Unknown'
+  return (assetType, assetId) => names.get(`${assetType}:${assetId}`) ?? 'Unknown'
 }
 
 // ─────────────────────────────────────────────
@@ -138,13 +155,12 @@ router.get('/employee/:name', async (req, res) => {
     if (assetError) throw new Error(assetError.message)
 
     // Resolve asset names and compute status
-    const assets = await Promise.all(
-      rawAssets.map(async a => {
-        const assetName = await resolveAssetName(a.asset_type, a.asset_id)
-        const memoryStatus = computeMemoryStatus(a)
-        return { ...a, assetName, memoryStatus }
-      })
-    )
+    const nameFor = await resolveAssetNames(rawAssets)
+    const assets = rawAssets.map(a => ({
+      ...a,
+      assetName: nameFor(a.asset_type, a.asset_id),
+      memoryStatus: computeMemoryStatus(a)
+    }))
 
     // Workflow runbooks owned by employee. This feeds both the department list
     // and the carrier-risk verdict, so a failed read must not pass as "owns no
@@ -216,23 +232,18 @@ router.get('/map', async (req, res) => {
   try {
     const assets = await fetchAllAssets()
 
-    // Resolve all asset names in parallel
-    const map = await Promise.all(
-      assets.map(async a => {
-        const assetName = await resolveAssetName(a.asset_type, a.asset_id)
-
-        return {
-          assetName,
-          assetType:    a.asset_type,
-          criticality:  a.criticality,
-          isDocumented: a.is_documented,
-          memoryStatus: a.memoryStatus,
-          owner: a.employees
-            ? { name: a.employees.name, role: a.employees.role, department: a.employees.department }
-            : null
-        }
-      })
-    )
+    // Resolve all asset names via batched lookups, not one query per asset
+    const nameFor = await resolveAssetNames(assets)
+    const map = assets.map(a => ({
+      assetName: nameFor(a.asset_type, a.asset_id),
+      assetType:    a.asset_type,
+      criticality:  a.criticality,
+      isDocumented: a.is_documented,
+      memoryStatus: a.memoryStatus,
+      owner: a.employees
+        ? { name: a.employees.name, role: a.employees.role, department: a.employees.department }
+        : null
+    }))
 
     // Group by status for quick overview
     const grouped = {

@@ -50,6 +50,7 @@ const LAYER = {
 const DEPENDENCIES = {
   M02: ['M01'],            // Dependency needs Ownership
   M03: ['M01', 'M02'],     // Risk needs Ownership + Dependency
+  M14: ['M01', 'M03'],     // Decision Intelligence needs Ownership + Risk
   M19: ['M01', 'M20'],     // Governance needs Ownership + Accountability
   M20: ['M01'],            // Accountability needs Ownership
   M28: ['M02', 'M34'],     // Universal Dependency Graph needs Dependency + Hidden Dependency
@@ -64,9 +65,9 @@ const DEPENDENCIES = {
   M49: ['M28', 'M29', 'M31'], // Digital Twin needs full graph
   M50: ['M46', 'M24'],     // Brain Core Logic
   M54: ['M05', 'M49'],     // Simulation Universe
-  M55: ['M46', 'M48', 'M50'], // Meta-Brain Orchestrator (runs last)
+  M55: ['M46', 'M48', 'M50', 'M25'], // Meta-Brain Orchestrator (runs last)
   M22: ['M01', 'M29', 'M19'], // Voice/OBA retrieves ownership/relationship/governance
-  M23: ['M25', 'M46'],     // Executive Briefing
+  M23: ['M25', 'M46', 'M48', 'M11'], // Executive Briefing
   M16: ['M08'],            // Workflow Orchestration needs Workflow Intelligence
   M51: ['M03', 'M18'],     // Self-Healing
   M52: ['M19'],            // Governance Automation

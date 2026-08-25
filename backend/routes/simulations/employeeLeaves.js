@@ -41,12 +41,14 @@ router.get('/:employee', async (req, res) => {
 
     const impactedAgents = (agentLinks || []).map(l => l.agents)
 
-    // Get workflows those agents belong to
+    // Get workflows those agents belong to. An employee who owns zero agents
+    // (e.g. non-technical staff) is the normal case, not an edge case — an
+    // empty .in() list is rejected by PostgREST, so it has to be skipped
+    // rather than queried.
     const agentIds = impactedAgents.map(a => a.id)
-    const { data: wfLinks, error: wfErr } = await supabase
-      .from('workflow_dependencies')
-      .select('workflows(id, name, status, risk)')
-      .in('agent_id', agentIds)
+    const { data: wfLinks, error: wfErr } = agentIds.length
+      ? await supabase.from('workflow_dependencies').select('workflows(id, name, status, risk)').in('agent_id', agentIds)
+      : { data: [], error: null }
     if (wfErr) return res.status(500).json({ error: wfErr.message })
 
     const impactedWorkflows = [...new Map(

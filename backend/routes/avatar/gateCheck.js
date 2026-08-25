@@ -36,11 +36,24 @@ async function detectActorCollision(orchState) {
   if (error) throw new Error(`Orchestration scan failed: ${error.message}`)
 
   const others = (inFlight || []).filter((o) => o.workflow_id !== orchState.workflow_id)
-  const competing = []
-  for (const other of others) {
-    const otherStep = await currentStepActor(other.workflow_id, other.current_step)
-    if (otherStep?.actor_name === step.actor_name) competing.push(other.workflow_id)
-  }
+  if (!others.length) return null
+
+  // One batched fetch across every competing workflow's steps instead of one
+  // query per candidate — this sits on the synchronous gate-check path that
+  // auto-escalates on failure, so its latency scales with however many
+  // workflows happen to be in flight at once.
+  const otherIds = [...new Set(others.map((o) => o.workflow_id))]
+  const { data: steps, error: stepsError } = await supabase
+    .from('workflow_steps')
+    .select('workflow_id, step_number, actor_name')
+    .in('workflow_id', otherIds)
+
+  if (stepsError) throw new Error(`Workflow step lookup failed: ${stepsError.message}`)
+
+  const stepByKey = new Map((steps || []).map((s) => [`${s.workflow_id}:${s.step_number}`, s]))
+  const competing = others
+    .filter((o) => stepByKey.get(`${o.workflow_id}:${o.current_step}`)?.actor_name === step.actor_name)
+    .map((o) => o.workflow_id)
 
   if (!competing.length) return null
   return {

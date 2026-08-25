@@ -70,7 +70,9 @@ export async function fetchLiveNotifications(): Promise<NotificationItem[]> {
       group: groupFor(e.created_at),
       time: timeAgo(e.created_at),
       acknowledged: e.status !== 'open',
-      link: '/avatar',
+      // No dedicated Avatar page exists — M21 (Executive Avatar Intelligence)
+      // surfaces on the Dashboard, per commandIndex.ts's own module mapping.
+      link: '/',
       moduleLabel: 'Avatar',
     })
   })
@@ -85,7 +87,10 @@ export async function fetchLiveNotifications(): Promise<NotificationItem[]> {
       group: groupFor(d.raised_at),
       time: timeAgo(d.raised_at),
       acknowledged: d.status !== 'pending',
-      link: '/governance',
+      // No standalone /governance route exists — governance surfaces inside
+      // Continuity & Governance (the "Governance Heatmap" / "Compliance
+      // Governance" sections).
+      link: '/continuity',
       moduleLabel: 'Governance',
     })
   })
@@ -100,7 +105,9 @@ export async function fetchLiveNotifications(): Promise<NotificationItem[]> {
       group: groupFor(i.detectedAt),
       time: timeAgo(i.detectedAt),
       acknowledged: false,
-      link: '/self-healing',
+      // No standalone /self-healing route exists — it surfaces inside
+      // Workflows' "Self-Healing Feed" section.
+      link: '/workflows',
       moduleLabel: 'Self-Healing',
     })
   })
