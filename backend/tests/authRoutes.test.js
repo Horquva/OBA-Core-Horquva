@@ -21,8 +21,6 @@ const express = require('express')
 
 // Must be set BEFORE the router is required — it reads these at module load.
 process.env.JWT_SECRET = 'test-secret-for-auth-routes'
-process.env.ORG_SLUG = 'test-org'
-process.env.DEFAULT_USER_ROLE = 'member'
 delete process.env.ADMIN_EMAIL
 delete process.env.ADMIN_PASSWORD
 
@@ -141,23 +139,19 @@ async function main() {
 		check('...and not set to the attacker value', !password.verify('attacker-chosen', rows[0].password_hash))
 	}
 
-	// ── Registration cannot grant privilege ─────────────────────────────────
-	console.log('\nRegistration:')
+	// ── Public registration is closed (D-13) ────────────────────────────────
+	// Replaced by backend/tools/provision-user.js — an admin creates accounts
+	// directly now, the same way the old reset-password endpoint was replaced
+	// by an authenticated change-password flow rather than patched in place.
+	console.log('\nThe closed registration endpoint:')
 	{
 		rows = []
 		const r = await call('POST', '/api/auth/register', {
-			body: { email: 'climber@example.com', password: 'correct-horse', name: 'C', role: 'admin', org: 'somewhere-else' },
+			body: { email: 'climber@example.com', password: 'correct-horse', name: 'C' },
 		})
-		check('register succeeds', r.status === 201, r.json)
-		check('role from the request body is ignored', r.json?.user?.role === 'member', r.json?.user?.role)
-		check('org from the request body is ignored', r.json?.user?.org === 'test-org', r.json?.user?.org)
-		check('stored row also carries the safe role', rows[0] && rows[0].role === 'member', rows[0] && rows[0].role)
-	}
-	{
-		const r = await call('POST', '/api/auth/register', {
-			body: { email: 'short@example.com', password: 'abc' },
-		})
-		check('register rejects a password under the minimum', r.status === 400, r.status)
+		check('POST /register is unrouted', r.status === 404, r.status)
+		check('...and answers with no handler body', r.json.error === undefined, r.json)
+		check('...and no account was created', rows.length === 0, rows)
 	}
 
 	// ── change-password requires a token ────────────────────────────────────
