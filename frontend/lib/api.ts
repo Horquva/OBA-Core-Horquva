@@ -602,6 +602,13 @@ export const intelligence = {
 
 // ─── Org Science Predictions (M37, M39-M45) ──────────────────────────────────
 
+export interface GraphSource {
+  live: boolean;
+  stats: Record<string, unknown> | null;
+  loadedAt: string | null;
+  error: string | null;
+}
+
 export interface IntelligenceResponse<T> {
   module: string;
   type: string;
@@ -609,6 +616,21 @@ export interface IntelligenceResponse<T> {
   payload: T;
   recommendations: string[];
   generatedAt: string;
+  /** Present on the 8 graph-backed cards (domain.graph.run) — absent elsewhere. */
+  dataSource?: GraphSource;
+}
+
+export interface GraphStatus {
+  isReady: boolean;
+  source: GraphSource;
+}
+
+export interface GraphReloadResult {
+  reloaded: boolean;
+  stats?: Record<string, unknown>;
+  loadedAt?: string;
+  error?: string;
+  source?: GraphSource;
 }
 
 export interface PatternPayload {
@@ -687,6 +709,8 @@ export const orgScience = {
   maturity: () => request<IntelligenceResponse<MaturityPayload>>('/api/intelligence/maturity'),
   behavior: () => request<IntelligenceResponse<BehaviorPayload>>('/api/intelligence/behavior'),
   benchmark: () => request<IntelligenceResponse<BenchmarkPayload>>('/api/intelligence/benchmark'),
+  graphStatus: () => request<GraphStatus>('/api/intelligence/graph/status'),
+  graphReload: () => request<GraphReloadResult>('/api/intelligence/graph/reload', { method: 'POST' }),
 };
 
 // ─── Orchestrator / M55  (/api/intelligence/orchestrator) ───────────────────
