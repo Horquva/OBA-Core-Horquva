@@ -47,7 +47,7 @@ try {
 	supabase = null
 }
 
-const SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
+const SECRET = require('../../lib/authSecret')
 const TTL = parseInt(process.env.TOKEN_TTL || '3600', 10)
 
 // OBA Core is single-tenant. Every account created through this router belongs
