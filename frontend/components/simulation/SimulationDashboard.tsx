@@ -25,7 +25,7 @@ const typeConfig: Record<ScenarioType, { icon: React.ElementType; label: string;
 export function SimulationDashboard({ agents, dependencies, tools }: Props) {
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
 
-  const baselineHealthScore = useMemo(() => calculateHealthScore(agents), [agents]);
+  const baselineHealthScore = useMemo(() => calculateHealthScore(agents) ?? 0, [agents]);
 
   const scenarios = useMemo(
     () => rankScenarios(agents, dependencies, tools),

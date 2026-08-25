@@ -1,6 +1,8 @@
 import { Agent, Dependency } from '../types';
 import { deriveRiskScore, deriveRisk, calculateHealthScore } from './risk';
 import { getDownstream, getSPOFs } from './graph';
+import { evidenceGate } from './evidenceGate';
+import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Risk Tier ───────────────────────────────────────────────────────────────
 
@@ -102,12 +104,13 @@ export interface RiskIntelligenceReport {
   highAgents: AgentRiskProfile[];
   mediumAgents: AgentRiskProfile[];
   lowAgents: AgentRiskProfile[];
-  organizationalHealthScore: number;
-  healthStatus: 'HEALTHY' | 'AT_RISK' | 'CRITICAL';
+  organizationalHealthScore: number | null;
+  healthStatus: 'HEALTHY' | 'AT_RISK' | 'CRITICAL' | null;
   totalAgents: number;
   orphanedCount: number;
   spofCount: number;
   summary: OrgHealthSummary;
+  evidence: EvidenceInfo & { sufficient: boolean };
 }
 
 export interface OrgHealthSummary {
@@ -223,12 +226,14 @@ export function computeRiskIntelligence(
   const mediumAgents   = profiles.filter(p => p.tier === 'MEDIUM');
   const lowAgents      = profiles.filter(p => p.tier === 'LOW');
 
-  const ohs = calculateHealthScore(agents);
+  const evidence = evidenceGate(agents, () => true);
+  const ohs = evidence.sufficient ? calculateHealthScore(agents) : null;
 
   let healthStatus: RiskIntelligenceReport['healthStatus'];
-  if (ohs >= 75)      healthStatus = 'HEALTHY';
-  else if (ohs >= 50) healthStatus = 'AT_RISK';
-  else               healthStatus = 'CRITICAL';
+  if (!evidence.sufficient)  healthStatus = null;
+  else if (ohs! >= 75)       healthStatus = 'HEALTHY';
+  else if (ohs! >= 50)       healthStatus = 'AT_RISK';
+  else                       healthStatus = 'CRITICAL';
 
   const orphanedNames = profiles.filter(p => p.isOrphaned).map(p => p.agent.name);
 
@@ -244,5 +249,6 @@ export function computeRiskIntelligence(
     orphanedCount: orphanedNames.length,
     spofCount: profiles.filter(p => p.isSPOF).length,
     summary: buildSummary(profiles, criticalAgents.length, highAgents.length, orphanedNames),
+    evidence,
   };
 }

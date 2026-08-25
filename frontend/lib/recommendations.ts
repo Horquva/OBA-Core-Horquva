@@ -250,7 +250,7 @@ export function generateRecommendations(dataset: Dataset): RecommendationEngineO
   const criticalCount = deduped.filter(r => r.priority === 'CRITICAL').length;
   const highCount = deduped.filter(r => r.priority === 'HIGH').length;
   const mediumCount = deduped.filter(r => r.priority === 'MEDIUM').length;
-  const healthScore = calculateHealthScore(agents);
+  const healthScore = calculateHealthScore(agents) ?? 0;
 
   return {
     recommendations: deduped,

@@ -48,9 +48,13 @@ export function deriveRisk(agent: Agent): RiskLevel {
   return 'low';
 }
 
-export function calculateHealthScore(agents: Agent[]): number {
-  if (agents.length === 0) return 100;
-  
+/**
+ * Returns null (not a fabricated 100) when there are no agents to measure —
+ * an empty population is "we don't know," not "perfectly healthy" (D-24).
+ */
+export function calculateHealthScore(agents: Agent[]): number | null {
+  if (agents.length === 0) return null;
+
   const totalRisk = agents.reduce((sum, agent) => sum + deriveRiskScore(agent), 0);
   
   // The Organizational Health Score calculation for the Sunrise Care dataset:

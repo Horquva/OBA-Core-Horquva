@@ -2,6 +2,7 @@
 
 import { RiskIntelligenceReport } from '../../lib/riskIntelligence';
 import clsx from 'clsx';
+import { EvidenceBadge } from '../ui/EvidenceBadge';
 
 interface OrgHealthBannerProps {
   report: RiskIntelligenceReport;
@@ -45,8 +46,8 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
   const borderColor = 'border-[var(--border-subtle)]';
 
   const ohsTextColor =
-    ohs >= 75 ? 'text-emerald-400' :
-    ohs >= 50 ? 'text-yellow-400' :
+    (ohs ?? 0) >= 75 ? 'text-emerald-400' :
+    (ohs ?? 0) >= 50 ? 'text-yellow-400' :
                 'text-red-400';
 
   return (
@@ -63,36 +64,42 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
                 {totalAgents} agents analysed across all departments
               </p>
             </div>
-            <div className="text-right">
-              <div className="flex items-baseline gap-1 justify-end">
-                <span className={clsx('text-4xl font-bold tracking-tight', ohsTextColor)}>{ohs}</span>
-                <span className="text-[color:var(--text-tertiary)] text-sm">/ 100</span>
+            {report.evidence.status === 'insufficient_evidence' ? (
+              <EvidenceBadge evidence={report.evidence} />
+            ) : (
+              <div className="text-right">
+                <div className="flex items-baseline gap-1 justify-end">
+                  <span className={clsx('text-4xl font-bold tracking-tight', ohsTextColor)}>{ohs}</span>
+                  <span className="text-[color:var(--text-tertiary)] text-sm">/ 100</span>
+                </div>
+                <p className={clsx('text-xs font-semibold uppercase tracking-widest mt-0.5', ohsTextColor)}>
+                  {healthStatus === 'HEALTHY'  ? 'Healthy'   :
+                   healthStatus === 'AT_RISK'  ? '⚠ At Risk' :
+                                                '🔴 Critical State'}
+                </p>
               </div>
-              <p className={clsx('text-xs font-semibold uppercase tracking-widest mt-0.5', ohsTextColor)}>
-                {healthStatus === 'HEALTHY'  ? 'Healthy'   :
-                 healthStatus === 'AT_RISK'  ? '⚠ At Risk' :
-                                              '🔴 Critical State'}
-              </p>
-            </div>
+            )}
           </div>
 
           {/* OHS progress bar */}
-          <div className="mt-4">
-            <div className="w-full h-2 bg-[var(--border-subtle)] rounded-full overflow-hidden">
-              <div 
-                className={clsx(
-                  'h-full rounded-full transition-all duration-1000',
-                  ohs >= 75 ? 'bg-emerald-400' : ohs >= 50 ? 'bg-yellow-400' : 'bg-red-400'
-                )}
-                style={{ width: `${ohs}%`, boxShadow: `0 0 8px ${ohs >= 75 ? 'rgba(52,211,153,0.4)' : ohs >= 50 ? 'rgba(250,204,21,0.4)' : 'rgba(248,113,113,0.4)'}` }}
-              />
+          {report.evidence.status !== 'insufficient_evidence' && (
+            <div className="mt-4">
+              <div className="w-full h-2 bg-[var(--border-subtle)] rounded-full overflow-hidden">
+                <div
+                  className={clsx(
+                    'h-full rounded-full transition-all duration-1000',
+                    (ohs ?? 0) >= 75 ? 'bg-emerald-400' : (ohs ?? 0) >= 50 ? 'bg-yellow-400' : 'bg-red-400'
+                  )}
+                  style={{ width: `${ohs ?? 0}%`, boxShadow: `0 0 8px ${(ohs ?? 0) >= 75 ? 'rgba(52,211,153,0.4)' : (ohs ?? 0) >= 50 ? 'rgba(250,204,21,0.4)' : 'rgba(248,113,113,0.4)'}` }}
+                />
+              </div>
+              <div className="flex justify-between mt-1.5">
+                <span className="text-[10px] text-slate-600">0 — Critical</span>
+                <span className="text-[10px] text-slate-600">50 — At Risk</span>
+                <span className="text-[10px] text-slate-600">100 — Healthy</span>
+              </div>
             </div>
-            <div className="flex justify-between mt-1.5">
-              <span className="text-[10px] text-slate-600">0 — Critical</span>
-              <span className="text-[10px] text-slate-600">50 — At Risk</span>
-              <span className="text-[10px] text-slate-600">100 — Healthy</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Insight columns */}

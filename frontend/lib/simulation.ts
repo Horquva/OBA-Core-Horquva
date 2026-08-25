@@ -41,7 +41,7 @@ export function simulatePersonLeaving(
   agents: Agent[],
   dependencies: Dependency[]
 ): ScenarioResult {
-  const baselineHealthScore = calculateHealthScore(agents);
+  const baselineHealthScore = calculateHealthScore(agents) ?? 0;
 
   const simulatedAgents: SimulatedAgent[] = agents.map(a => ({
     ...a,
@@ -77,7 +77,7 @@ export function simulatePersonLeaving(
     }
   });
 
-  const simulatedHealthScore = calculateHealthScore(simulatedAgents);
+  const simulatedHealthScore = calculateHealthScore(simulatedAgents) ?? 0;
 
   return {
     id: `person_leaves_${personName}`,
@@ -101,7 +101,7 @@ export function simulateAgentFailing(
   agents: Agent[],
   dependencies: Dependency[]
 ): ScenarioResult {
-  const baselineHealthScore = calculateHealthScore(agents);
+  const baselineHealthScore = calculateHealthScore(agents) ?? 0;
   const targetAgent = agents.find(a => a.id === agentId);
 
   const simulatedAgents: SimulatedAgent[] = agents.map(a => ({
@@ -139,7 +139,7 @@ export function simulateAgentFailing(
     }
   });
 
-  const simulatedHealthScore = calculateHealthScore(simulatedAgents);
+  const simulatedHealthScore = calculateHealthScore(simulatedAgents) ?? 0;
 
   return {
     id: `agent_fails_${agentId}`,
@@ -163,7 +163,7 @@ export function simulateToolUnavailable(
   agents: Agent[],
   dependencies: Dependency[]
 ): ScenarioResult {
-  const baselineHealthScore = calculateHealthScore(agents);
+  const baselineHealthScore = calculateHealthScore(agents) ?? 0;
 
   const simulatedAgents: SimulatedAgent[] = agents.map(a => ({
     ...a,
@@ -189,7 +189,7 @@ export function simulateToolUnavailable(
     }
   });
 
-  const simulatedHealthScore = calculateHealthScore(simulatedAgents);
+  const simulatedHealthScore = calculateHealthScore(simulatedAgents) ?? 0;
 
   return {
     id: `tool_unavailable_${tool.id}`,

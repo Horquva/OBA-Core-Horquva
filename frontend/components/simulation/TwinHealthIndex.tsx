@@ -9,7 +9,7 @@ interface TwinHealthIndexProps {
 }
 
 export function TwinHealthIndex({ agents = [] }: TwinHealthIndexProps) {
-  const score = calculateHealthScore(agents);
+  const score = calculateHealthScore(agents) ?? 0;
 
   // Derive trend by comparing full-owner agents vs a "stressed" baseline
   const criticalCount = agents.filter(
