@@ -199,27 +199,17 @@ export function ImpactSummary({ scenario }: Props) {
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>
-                    {impact.agentName}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
-                    {impact.reason}
+                    {impact.name}
                   </div>
                 </div>
 
-                {/* Before → After risk */}
+                {/* Risk badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
                   <span
-                    className={riskBadgeClass[impact.beforeRisk]}
+                    className={riskBadgeClass[impact.risk]}
                     style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', padding: '2px 7px', borderRadius: '4px' }}
                   >
-                    {impact.beforeRisk.toUpperCase()}
-                  </span>
-                  <ArrowRight size={12} style={{ color: 'var(--text-tertiary)' }} />
-                  <span
-                    className={riskBadgeClass[impact.afterRisk]}
-                    style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', padding: '2px 7px', borderRadius: '4px' }}
-                  >
-                    {impact.afterRisk.toUpperCase()}
+                    {impact.risk.toUpperCase()}
                   </span>
                 </div>
               </div>
@@ -228,8 +218,8 @@ export function ImpactSummary({ scenario }: Props) {
         )}
       </div>
 
-      {/* ── Workflow impact (Tool scenarios only) ──────────────── */}
-      {scenario.type === 'TOOL_UNAVAILABLE' && scenario.impactedWorkflowNames && scenario.impactedWorkflowNames.length > 0 && (
+      {/* ── Workflow impact ─────────────────────────────────────── */}
+      {scenario.impactedWorkflowNames.length > 0 && (
         <div className="card" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
             <GitBranch size={15} style={{ color: 'var(--accent)' }} />

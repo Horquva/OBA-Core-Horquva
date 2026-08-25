@@ -32,7 +32,7 @@ const GROUP_LABELS: Record<GroupKey, string> = {
 };
 
 export function ScenarioRanking({ scenarios, activeScenarioId, onSelectScenario }: Props) {
-  // Already sorted by worst impact from rankScenarios()
+  // Already sorted by worst impact (backend /api/simulations/rank returns worst-first)
   const worstId = scenarios[0]?.id;
 
   const byGroup: Record<GroupKey, ScenarioResult[]> = {
