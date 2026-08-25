@@ -4,8 +4,9 @@ Date opened: 2026-08-24
 Status: decisions D-01…D-16 approved by owner 2026-08-24; D-17…D-21/F-L decided and closed during
 W-D's brainstorming phase 2026-08-25; D-22…D-27 decided and closed during W-E's brainstorming phase
 2026-08-25; D-28…D-32 decided and closed during W-G's brainstorming phase 2026-08-25; D-33…D-36
-decided and closed during W-F's brainstorming phase 2026-08-25. W-A, W-B, W-C, W-D, W-E, W-G, W-F
-landed. W-H is next and last.
+decided and closed during W-F's brainstorming phase 2026-08-25; D-37…D-40 decided and closed during
+W-H's brainstorming phase 2026-08-25. **All eight workstreams (W-A through W-H) have landed on
+`ocos/develop`. The remediation is complete.**
 
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
@@ -21,6 +22,15 @@ hard `process.exit(1)` or a soft 503 (hard exit, matching D-01's literal wording
 writes in this workstream (the consolidation itself, and creating/removing a verification account
 via the new provisioning tool) were run only after an explicit go-ahead at the moment each one
 executed, separate from the general plan approval.
+
+**W-H ran with the owner present**, like W-F — D-09b's table drop is a genuinely destructive
+live-database action and got its own explicit go-ahead at execution time. Unlike every prior
+workstream, W-H's endpoint census (177 endpoints) was delegated to a background agent for pure,
+non-destructive discovery — the agent produced evidence only; every classification, every
+adjudication of the 9 ambiguous cases, and every deletion decision was made by tracing that evidence
+directly, the same rigor as if the tracing had been done inline. The census's own conclusion (zero
+provably-dead endpoints across all 177) held up under that scrutiny rather than being second-guessed
+into finding deletions that would look more thorough — see D-39.
 
 This file is the source of truth for the remediation. Session memory is a pointer to it, not a
 substitute. If memory and this file disagree, **this file wins**.
@@ -403,6 +413,49 @@ non-`'horquva'` stragglers, and the hard-exit boot behavior. Both live-database 
 consolidation UPDATE, and creating/removing a `provision-user.js` verification account) ran only
 after an explicit go-ahead at the moment each one executed.
 
+### D-37…D-40 — decided during W-H's brainstorming phase (2026-08-25)
+
+D-09b, D-15, and F-I named the work but not every gap; these four close what tracing found — the
+last batch, closing the last workstream. Full detail is in
+[the W-H design doc](2026-08-25-w-h-cleanup-final-audit-design.md) and
+[plan](../plans/2026-08-25-w-h-cleanup-final-audit.md); the full 177-endpoint census evidence is in
+[the raw census](w-h-endpoint-census-raw.md).
+
+- **D-37 · `governance_assessments`/`continuity_assessments` were never migrated, and don't need to
+  be.** D-09's own sequencing ("derive live → migrate consumers → verify equivalence → then drop")
+  was completed for 3 of the 5 DROP-list tables during W-B/W-D, but never for these two —
+  `governance.js`/`continuity.js` read them live, unconditionally, on every request, frozen at seed
+  time (no write loop, D-04) — the exact F-C pattern this whole remediation exists to close, missed
+  by every prior workstream's affected-file list. Traced every possible consumer and found zero real
+  ones (only the admin health-check ping) — so rather than building a live replacement nobody asked
+  for, both route files were deleted outright as a direct consequence of D-09b dropping their only
+  data source, not as a D-15 finding (D-15's own census found these two DISCOVERY/AMBIGUOUS on
+  caller-count grounds alone — see D-39).
+- **D-38 · F-I closed by removing the genuinely-dead half of the duplication, documenting the
+  genuinely-used half.** `dependencies.js`'s `agent_source`/`agent_target` embedding computed a join
+  and sent it over the wire; nothing ever read it (zero frontend references) — removed.
+  `agentFails.js`'s use of the same columns is real (builds the "if this agent fails" simulation's
+  impacted-agents list) and can't drift (no write path touches `dependencies`, D-04) — kept, with a
+  comment explaining why it's the deliberate exception rather than an oversight.
+- **D-39 · The 177-endpoint census found zero DEAD; D-15 deletes nothing on its own criterion.**
+  Delegated to a background agent for pure discovery (evidence only, no verdicts), then adjudicated
+  by hand: 51 ACTIVE, 20 ADMIN, 97 DISCOVERY, 9 AMBIGUOUS, 0 DEAD. Manufacturing deletions to look
+  more thorough would have contradicted D-15's own conservatism ("delete only proven-dead") — every
+  zero-caller endpoint found is a real, working route with a plausible manual or future use. All 9
+  AMBIGUOUS cases were adjudicated individually and resolved to "leave as-is" (a recurring
+  client-bypasses-server-endpoint pattern across 4 routes, `workflows/spof`'s known-pending D-06
+  migration, a `self-healing/run` wiring gap, and an `auth/me` session-restoration gap) — none
+  deleted. The 176-vs-177 count discrepancy the census found (W-G's two graph routes postdating when
+  "176" was last written) is noted for the record, not chased further.
+- **D-40 · Two real bugs found during the audit, fixed.** `index.js`'s own `/` self-description and
+  the opt-in `api.smoke.test.js` both referenced 3 `/api/brain/*` endpoints that never existed (the
+  brain is a library, not a service) — the self-description corrected, the test repaired with a
+  login step (it had never authenticated, so it could not have passed a single check in its previous
+  form) rather than deleted. `frontend/components/dashboard/RelationshipHealthStrip.tsx` called a
+  route that has never existed and — checked one level further than the census's own scope — is
+  itself never rendered anywhere; deleted on both ends, matching `BUILD_SPEC.md`'s own instruction
+  ("write it or remove the call... don't leave it").
+
 ---
 
 ## 3. Workstream map
@@ -419,7 +472,7 @@ it closes, written before the fix.
 | **W-D** | Truth layer consolidation | D-02, D-09a, D-11, D-12, D-17, D-18, D-19, D-20, D-21, F-L | **DONE** — 16 commits, `c66d871`…`9c15daf` on `ocos/develop` |
 | **W-E** | Provenance & evidence semantics | D-07, D-10b, D-22, D-23, D-24, D-25, D-26, D-27 | **DONE** — 20 commits, `2553b20`…`d5d9c7d` on `ocos/develop` |
 | **W-G** | Graph lifecycle & narrative honesty | D-14, D-28, D-29, D-30, D-31, D-32 | **DONE** — 4 tasks, 6 commits, `c0dd891`…`9b0f641` on `ocos/develop` |
-| **W-H** | Cleanup & final audit | D-09b, D-15, F-I | last |
+| **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
@@ -443,7 +496,7 @@ W-F remains genuinely independent and may run whenever, in any order relative to
 
 ---
 
-## 5. Process notes for the next workstream (read this before starting W-H)
+## 5. Process notes (this remediation is complete — kept as a record for the next remediation-style effort)
 
 Each workstream from here on runs in its **own fresh session** — no shared conversation memory with
 W-C, W-D, or W-E. This section is what carried W-C's rigor into W-D and then W-E with nothing but
@@ -561,8 +614,9 @@ already made."
 (11 commits, `387bd42`…`687a659`), [W-D plan](../plans/2026-08-25-w-d-truth-layer-consolidation.md)
 (16 commits, `c66d871`…`9c15daf`), [W-E plan](../plans/2026-08-25-w-e-provenance-evidence-semantics.md)
 (19 tasks, 20 commits, `2553b20`…`d5d9c7d`), [W-G plan](../plans/2026-08-25-w-g-graph-lifecycle.md)
-(4 tasks, 6 commits, `c0dd891`…`9b0f641`), and [W-F plan](../plans/2026-08-25-w-f-tenancy-auth-cleanup.md)
-(6 tasks, 11 commits, `a3acd57`…`df2edd0`), all on `ocos/develop`, are the reference. If a future
+(4 tasks, 6 commits, `c0dd891`…`9b0f641`), [W-F plan](../plans/2026-08-25-w-f-tenancy-auth-cleanup.md)
+(6 tasks, 11 commits, `a3acd57`…`df2edd0`), and [W-H plan](../plans/2026-08-25-w-h-cleanup-final-audit.md)
+(5 tasks, 8 commits, `4430ace`…`8108669`), all on `ocos/develop`, are the reference. If a future
 workstream's design doc, plan, or commit history looks thinner than these — fewer regression tests,
 vaguer task steps, batched commits, no live-server verification for route-wiring or frontend UI
 changes — that's the signal quality slipped, not that the work was faster.
@@ -587,3 +641,18 @@ whether to remove — and both got their own confirmation rather than being fold
 yes. The unplanned one is the more useful lesson: a "verify live" step that writes to a real table
 is itself a decision point the plan should flag in advance, not one to notice only after the write
 already happened.
+
+**W-H's addition, closing the remediation:** a conservative deletion criterion is only trustworthy
+if it's allowed to conclude "delete nothing." D-15 said "delete only proven-dead"; the honest result
+of actually checking all 177 endpoints was zero DEAD, and the temptation — never acted on — was to
+quietly loosen the bar so a "final audit" would have more to show for itself. It didn't; the 97
+DISCOVERY-classified, real-but-uncalled routes stayed exactly as they were. The one large batch of
+deletions that did happen (`governance.js`/`continuity.js`, 10 endpoints) came from a different,
+stronger justification entirely — their data source disappearing under D-09b, not their caller count
+— and D-37/D-39 are careful to say so explicitly rather than let the two get blurred together after
+the fact. Delegating the census itself to a background agent worked because the delegation was
+scoped to *discovery*, not *judgment* — the agent was explicitly told to flag ambiguity rather than
+resolve it, and every one of its 9 flagged cases still got traced and decided by hand before this
+file called any of them closed. That boundary — an agent may gather evidence at scale; a human (or
+this workstream's own reasoning, held to the same standard) still weighs it — is the one process note
+from eight workstreams worth carrying into whatever comes after this remediation.
