@@ -85,6 +85,13 @@ console.log('\nworkflowsUsingAgents:')
 // ── healthDelta reuses orgHealth(), never a second formula ─────────────────
 console.log('\nhealthDelta:')
 {
+	// orgHealth()'s healthIndex is gated on FIVE evidenceGate()s all being
+	// sufficient (documentation, continuity, ownershipSpread, criticalSafety,
+	// incidentLoad — derived.js:1008-1023), each requiring a non-empty
+	// population (definitions.js's evidenceGate: "an EMPTY population is
+	// always insufficient"). This fixture deliberately carries >=1 row in
+	// knowledge_assets, owners, and workflows (agents already has 2) so
+	// healthIndex resolves to a real number instead of null.
 	const base = roots({
 		agents: [
 			{ id: 1, name: 'A', status: 'active', risk: 'high', owner_id: 10 },
@@ -92,8 +99,8 @@ console.log('\nhealthDelta:')
 		],
 		employees: [{ id: 10, name: 'Owner1' }, { id: 20, name: 'Owner2' }],
 		owners: [{ id: 10, name: 'Owner1', employee_id: 10, backup_owner: 'Owner2' }],
-		knowledge_assets: [],
-		workflows: [],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 1, is_documented: true }],
+		workflows: [{ id: 1, name: 'Wf', status: 'active', risk: 'low' }],
 		workflow_runbooks: [],
 		workflow_failures: [],
 	})
