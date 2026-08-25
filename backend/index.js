@@ -10,7 +10,26 @@ console.log("2. Packages loaded")
 
 const app = express()
 
-app.use(cors())
+// Every /api route below requires a bearer token, but a default cors() sends
+// Access-Control-Allow-Origin: * on every response — any site can then read
+// an authenticated response from a browser holding a token (e.g. leaked via
+// an unrelated XSS bug, or pasted into devtools). Restrict to the frontend's
+// own origin(s) instead. CORS_ORIGINS is a comma-separated allowlist; unset
+// falls back to the local dev ports so `npm run dev` keeps working out of
+// the box — a production deployment must set it to its real frontend origin.
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3001,http://localhost:3000')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+app.use(cors({
+  origin(origin, callback) {
+    // No Origin header — server-to-server, curl, health checks. Not a browser
+    // CORS scenario, so there is nothing to restrict.
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true)
+    callback(new Error('Not allowed by CORS'))
+  },
+}))
 app.use(express.json())
 
 // Root route — friendly service metadata (prevents "Cannot GET /")
