@@ -110,6 +110,40 @@ console.log('\nhealthDelta:')
 	check('removing an agent produces a numeric delta, not null', typeof delta === 'number', delta)
 }
 
+// ── employeeLeaves ───────────────────────────────────────────────────────────
+console.log('\nemployeeLeaves:')
+{
+	// knowledge_assets + owners are populated (in addition to the existing
+	// workflows row) purely so orgHealth()'s five evidenceGate()s are all
+	// sufficient and healthDelta resolves to a real number, not null — see
+	// the note on the same pattern in Task 2's healthDelta test above.
+	const r = roots({
+		employees: [{ id: 1, name: 'Sarah', department: 'Eng' }],
+		agents: [
+			{ id: 10, name: 'DeployBot', status: 'active', risk: 'critical', owner_id: 1 },
+			{ id: 11, name: 'Downstream', status: 'active', risk: 'high', owner_id: 2 },
+		],
+		dependencies: [
+			{ source_id: 11, target_id: 10, source_type: 'agent', target_type: 'agent', dependency_type: 'critical' },
+		],
+		workflow_dependencies: [{ id: 1, workflow_id: 100, agent_id: 10, is_critical: true }],
+		workflows: [{ id: 100, name: 'Release', status: 'active', risk: 'high' }],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 10, is_documented: true }],
+		owners: [{ id: 1, name: 'Sarah', employee_id: 1, backup_owner: null }],
+	})
+
+	const unknown = s.employeeLeaves(999, r)
+	check('unknown employee returns null', unknown === null)
+
+	const result = s.employeeLeaves(1, r)
+	check('scenario names the employee', result.scenario === 'If Sarah leaves', result.scenario)
+	const agentIds = result.impactedAgents.map((a) => a.id).sort()
+	check('owned agent AND its transitive dependent are both impacted', agentIds.length === 2 && agentIds[0] === 10 && agentIds[1] === 11, agentIds)
+	check('the workflow using the owned agent is impacted', result.impactedWorkflows.length === 1 && result.impactedWorkflows[0].id === 100, result.impactedWorkflows)
+	check('severity reflects the critical owned agent', result.severity === 'critical', result.severity)
+	check('healthDelta is a number', typeof result.healthDelta === 'number', result.healthDelta)
+}
+
 console.log('\n========================================')
 console.log(`${passed} passed, ${failed} failed`)
 console.log('========================================\n')

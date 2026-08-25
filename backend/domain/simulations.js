@@ -98,6 +98,62 @@ function healthDelta(baselineRoots, mutatedRoots) {
   return before - after
 }
 
+// ─── Scenarios ───────────────────────────────────────────────────────────────
+
+function impactedEntitiesFor(agentIds, workflows) {
+  return [
+    ...[...agentIds].map((id) => ({ type: 'agent', id })),
+    ...workflows.map((w) => ({ type: 'workflow', id: w.id })),
+  ]
+}
+
+function resolveCriticality(entities, roots) {
+  const agentsById = new Map(roots.agents.map((a) => [a.id, a]))
+  const workflowsById = new Map(roots.workflows.map((w) => [w.id, w]))
+  return entities.map((e) => ({
+    ...e,
+    criticality: e.type === 'agent'
+      ? entityCriticality('agent', agentsById.get(e.id))
+      : entityCriticality('workflow', workflowsById.get(e.id)),
+  }))
+}
+
+function employeeLeaves(employeeId, roots) {
+  const employee = roots.employees.find((e) => e.id === employeeId)
+  if (!employee) return null
+
+  const ownedAgents = roots.agents.filter((a) => a.owner_id === employeeId)
+  const index = buildDependencyIndex(roots)
+
+  const impactedAgentIds = new Set(ownedAgents.map((a) => a.id))
+  for (const agent of ownedAgents) {
+    for (const hit of cascadeFrom('agent', agent.id, index)) {
+      if (hit.type === 'agent') impactedAgentIds.add(hit.id)
+    }
+  }
+
+  const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
+  const impactedWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
+  const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  const mutated = cloneRoots(roots)
+  mutated.employees = mutated.employees.filter((e) => e.id !== employeeId)
+  mutated.agents = mutated.agents.map((a) => (a.owner_id === employeeId ? { ...a, owner_id: null } : a))
+  recount(mutated)
+
+  return {
+    scenario: `If ${employee.name} leaves`,
+    targetType: 'employee',
+    targetId: employeeId,
+    targetName: employee.name,
+    impactedAgents,
+    impactedWorkflows,
+    impactedPeople: [employee],
+    severity: severityFor(entities),
+    healthDelta: healthDelta(roots, mutated),
+  }
+}
+
 module.exports = {
   buildDependencyIndex,
   cascadeFrom,
@@ -106,4 +162,5 @@ module.exports = {
   cloneRoots,
   recount,
   healthDelta,
+  employeeLeaves,
 }
