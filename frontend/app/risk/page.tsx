@@ -26,9 +26,13 @@ export default function RiskPage() {
       fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load dependencies');
         return r.json();
+      }),
+      fetch(`${base}/api/dependencies/agent-spofs`, { headers: authHeader() }).then(r => {
+        if (!r.ok) throw new Error('Failed to load SPOF data');
+        return r.json();
       })
     ])
-    .then(([agentsData, depsData]) => {
+    .then(([agentsData, depsData, spofData]) => {
       const agents: Agent[] = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
         ...a,
         id: a.id?.toString() || '',
@@ -45,7 +49,10 @@ export default function RiskPage() {
         type: d.dependency_type || 'sequential',
       })) : [];
 
-      const calculatedReport = computeRiskIntelligence(agents, dependencies);
+      const spofAgentIds = new Set<string>(
+        (spofData.spofs || []).map((s: any) => s.agentId?.toString() || '')
+      );
+      const calculatedReport = computeRiskIntelligence(agents, dependencies, spofAgentIds);
       setReport(calculatedReport);
     })
     .catch((err) => {

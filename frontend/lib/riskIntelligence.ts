@@ -1,6 +1,6 @@
 import { Agent, Dependency } from '../types';
 import { deriveRiskScore, deriveRisk, calculateHealthScore } from './risk';
-import { getDownstream, getSPOFs } from './graph';
+import { getDownstream } from './graph';
 import { evidenceGate } from './evidenceGate';
 import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
@@ -176,9 +176,10 @@ function buildSummary(
 
 export function computeRiskIntelligence(
   agents: Agent[],
-  dependencies: Dependency[]
+  dependencies: Dependency[],
+  spofAgentIds: Set<string>
 ): RiskIntelligenceReport {
-  const spofs = new Set(getSPOFs(agents, dependencies).map(s => s.agentId));
+  const spofs = spofAgentIds;
 
   const profiles: AgentRiskProfile[] = agents.map(agent => {
     const downstream = getDownstream(agent.id, dependencies);
