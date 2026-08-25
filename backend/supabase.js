@@ -10,9 +10,7 @@ const supabase = createClient(
   process.env.SUPABASE_KEY,
   {
     realtime: {
-      params: {
-        transport: ws,
-      },
+      transport: ws,
     },
   }
 )
