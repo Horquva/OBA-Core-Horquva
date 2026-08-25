@@ -25,19 +25,19 @@ const domain = require('../../domain')
 // relative ratios. (The score itself renormalizes by the verified subset's
 // total weight regardless, so this rescaling doesn't change any computed score.)
 const MODULE_REGISTRY = [
-  { key: 'governance',        label: 'Governance Intelligence',        weight: 0.15 },
-  { key: 'continuity',        label: 'Continuity Resilience',          weight: 0.15 },
-  { key: 'orgHealth',         label: 'Organizational Health',          weight: 0.12 },
-  { key: 'predictiveRisk',    label: 'Predictive Risk Intelligence',   weight: 0.12 },
-  { key: 'memory',            label: 'Memory Intelligence',            weight: 0.10 },
-  { key: 'collaboration',     label: 'Human-AI Collaboration',         weight: 0.09 },
-  { key: 'accountability',    label: 'Accountability Intelligence',    weight: 0.09 },
-  { key: 'domainInt',         label: 'Domain Intelligence',            weight: 0.07 },
-  { key: 'decisionQuality',   label: 'Decision Quality',               weight: 0.05 },
-  { key: 'aiAdoption',        label: 'AI Adoption Score',              weight: 0.02 },
-  { key: 'executiveBriefing', label: 'Executive Briefing',             weight: 0.02 },
-  { key: 'executiveMemory',   label: 'Executive Memory',               weight: 0.01 },
-  { key: 'healthTrend',       label: 'Health Trend',                   weight: 0.01 }
+  { key: 'governance', label: 'Governance Intelligence', weight: 0.15 },
+  { key: 'continuity', label: 'Continuity Resilience', weight: 0.15 },
+  { key: 'orgHealth', label: 'Organizational Health', weight: 0.12 },
+  { key: 'predictiveRisk', label: 'Predictive Risk Intelligence', weight: 0.12 },
+  { key: 'memory', label: 'Memory Intelligence', weight: 0.10 },
+  { key: 'collaboration', label: 'Human-AI Collaboration', weight: 0.09 },
+  { key: 'accountability', label: 'Accountability Intelligence', weight: 0.09 },
+  { key: 'domainInt', label: 'Domain Intelligence', weight: 0.07 },
+  { key: 'decisionQuality', label: 'Decision Quality', weight: 0.05 },
+  { key: 'aiAdoption', label: 'AI Adoption Score', weight: 0.02 },
+  { key: 'executiveBriefing', label: 'Executive Briefing', weight: 0.02 },
+  { key: 'executiveMemory', label: 'Executive Memory', weight: 0.01 },
+  { key: 'healthTrend', label: 'Health Trend', weight: 0.01 }
 ]
 
 // ─────────────────────────────────────────────
@@ -54,10 +54,10 @@ async function readBrainCore() {
     .limit(1).maybeSingle())
 
   return {
-    score:    data?.brain_index ?? 0,
+    score: data?.brain_index ?? 0,
     verified: !!data,
-    source:   'brain_core_snapshots',
-    meta:     { posture: data?.posture }
+    source: 'brain_core_snapshots',
+    meta: { posture: data?.posture }
   }
 }
 
@@ -74,8 +74,8 @@ function pillar(intel, key) {
     : { score: 0, verified: false, source: `domain.intelligence.pillars(${key})` }
 }
 
-const readGovernance         = (intel) => pillar(intel, 'GI')
-const readMemory             = (intel) => pillar(intel, 'MI')
+const readGovernance = (intel) => pillar(intel, 'GI')
+const readMemory = (intel) => pillar(intel, 'MI')
 const readDomainIntelligence = (intel) => pillar(intel, 'DI')
 
 const readContinuity = (intel) => ({
@@ -175,19 +175,19 @@ async function readExecutiveBriefing() {
 }
 
 const MODULE_READERS = {
-  governance:        readGovernance,
-  continuity:        readContinuity,
-  orgHealth:         readOrgHealth,
-  predictiveRisk:    readPredictiveRisk,
-  memory:            readMemory,
-  collaboration:     readCollaboration,
-  accountability:    readAccountability,
-  domainInt:         readDomainIntelligence,
-  decisionQuality:   readDecisionQuality,
-  aiAdoption:        readAIAdoption,
+  governance: readGovernance,
+  continuity: readContinuity,
+  orgHealth: readOrgHealth,
+  predictiveRisk: readPredictiveRisk,
+  memory: readMemory,
+  collaboration: readCollaboration,
+  accountability: readAccountability,
+  domainInt: readDomainIntelligence,
+  decisionQuality: readDecisionQuality,
+  aiAdoption: readAIAdoption,
   executiveBriefing: readExecutiveBriefing,
-  executiveMemory:   readExecutiveMemory,
-  healthTrend:       readHealthTrend
+  executiveMemory: readExecutiveMemory,
+  healthTrend: readHealthTrend
 }
 
 // ─────────────────────────────────────────────
@@ -195,26 +195,33 @@ const MODULE_READERS = {
 // ─────────────────────────────────────────────
 
 function generateVerdict(score, rating, modules) {
-  const sorted    = [...modules].sort((a, b) => a.score - b.score)
-  const weakest   = sorted.slice(0, 3).map(m => m.label.toLowerCase())
+  const sorted = [...modules].sort((a, b) => a.score - b.score)
+  const weakest = sorted.slice(0, 3).map(m => m.label.toLowerCase())
   const strongest = sorted.slice(-2).map(m => m.label.toLowerCase())
 
+  // Keys must match what band() returns: STRONG | PARTIAL | WEAK | CRITICAL
   const openers = {
-    'HIGHLY INTELLIGENT':    'The organization demonstrates strong intelligence across most dimensions.',
-    'MODERATELY INTELLIGENT':'The organization demonstrates moderate intelligence but remains constrained',
-    'DEVELOPING':            'The organization demonstrates developing intelligence but remains constrained',
-    'AT RISK':               'The organization is at significant risk of intelligence failure, constrained'
+    'STRONG': 'The organization demonstrates strong intelligence across most dimensions.',
+    'PARTIAL': 'The organization demonstrates moderate intelligence but remains constrained',
+    'WEAK': 'The organization demonstrates developing intelligence but remains constrained',
+    'CRITICAL': 'The organization is at significant risk of intelligence failure, constrained'
   }
 
+  const opener = openers[rating] ?? 'The organization\'s intelligence posture is being assessed.'
+  // STRONG is already a full sentence — don't append "by weaknesses in..."
+  const intro = rating === 'STRONG'
+    ? opener
+    : `${opener} by weaknesses in ${weakest.join(', ')}.`
+
   return [
-    `${openers[rating]} by weaknesses in ${weakest.join(', ')}.`,
+    intro,
     `Verified signals from ${modules.filter(m => m.verified).length} of ${modules.length} modules confirm this assessment.`,
     `Strongest performing dimensions are ${strongest.join(' and ')}.`,
     score < 60
       ? 'Immediate executive intervention is required to prevent further posture degradation.'
       : score < 80
-      ? 'Targeted remediation of the weakest dimensions is recommended.'
-      : 'Continue monitoring. No immediate intervention required.'
+        ? 'Targeted remediation of the weakest dimensions is recommended.'
+        : 'Continue monitoring. No immediate intervention required.'
   ].join(' ')
 }
 
@@ -223,22 +230,22 @@ function generateRecommendations(modules) {
   const byKey = {}
   modules.forEach(m => { byKey[m.key] = m })
 
-  if ((byKey.continuity?.score   ?? 100) < 40)
+  if ((byKey.continuity?.score ?? 100) < 40)
     recommendations.push('Assign backup owners to all critical agents and workflows immediately')
 
-  if ((byKey.governance?.score   ?? 100) < 60)
+  if ((byKey.governance?.score ?? 100) < 60)
     recommendations.push('Resolve all separation-of-duty violations and governance gaps')
 
   if ((byKey.predictiveRisk?.score ?? 100) < 50)
     recommendations.push('Address all CRITICAL predicted agents before they escalate to incidents')
 
-  if ((byKey.orgHealth?.score    ?? 100) < 40)
+  if ((byKey.orgHealth?.score ?? 100) < 40)
     recommendations.push('Launch an executive-mandated documentation sprint to reach 60% coverage')
 
   if ((byKey.collaboration?.score ?? 100) < 50)
     recommendations.push('Redistribute ownership concentration to reduce single-person dependency')
 
-  if ((byKey.memory?.score       ?? 100) < 60)
+  if ((byKey.memory?.score ?? 100) < 60)
     recommendations.push('Strengthen institutional memory through structured knowledge transfer')
 
   if ((byKey.accountability?.score ?? 100) < 70)
@@ -254,10 +261,10 @@ function generateRecommendations(modules) {
 }
 
 function computeTrustScore(modules) {
-  const verified  = modules.filter(m => m.verified).length
-  const total     = modules.length
-  const coverage  = Math.round((verified / total) * 100)
-  const avgScore  = modules
+  const verified = modules.filter(m => m.verified).length
+  const total = modules.length
+  const coverage = Math.round((verified / total) * 100)
+  const avgScore = modules
     .filter(m => m.verified)
     .reduce((s, m) => s + m.score, 0) / (verified || 1)
 
@@ -307,15 +314,15 @@ async function orchestrateFrom(intel) {
       MODULE_REGISTRY.map(async cfg => {
         const result = await readModule(cfg.key, MODULE_READERS[cfg.key], intel)
         return {
-          key:         cfg.key,
-          label:       cfg.label,
-          weight:      cfg.weight,
-          score:       result.score,
-          verified:    result.verified,
-          source:      result.source,
-          meta:        result.meta ?? null,
+          key: cfg.key,
+          label: cfg.label,
+          weight: cfg.weight,
+          score: result.score,
+          verified: result.verified,
+          source: result.source,
+          meta: result.meta ?? null,
           unavailable: !!result.unavailable,
-          error:       result.error ?? null
+          error: result.error ?? null
         }
       })
     ),
@@ -351,10 +358,10 @@ async function orchestrateFrom(intel) {
     }
   }
 
-  const score   = intel.pillars.orgScore.score
-  const rating  = intel.pillars.orgScore.rating
+  const score = intel.pillars.orgScore.score
+  const rating = intel.pillars.orgScore.rating
   const verdict = generateVerdict(score, rating, results)
-  const recs    = generateRecommendations(results)
+  const recs = generateRecommendations(results)
 
   return { score, rating, verdict, recs, trust, brainPosture, modules: results, dataIntegrity, evidence: orgScoreEvidence }
 }
@@ -399,16 +406,16 @@ async function getOrComputeOrchestration() {
     }
     return {
       organizational_intelligence_score: result.score,
-      rating:        result.rating,
+      rating: result.rating,
       final_verdict: result.verdict,
       brain_posture: result.brainPosture,
-      trust_score:   result.trust,
+      trust_score: result.trust,
       executive_recommendations: result.recs,
-      modules:       result.modules,
+      modules: result.modules,
       dataIntegrity: result.dataIntegrity,
-      evidence:      result.evidence,
-      computed_at:   new Date().toISOString(),
-      fromCache:     false
+      evidence: result.evidence,
+      computed_at: new Date().toISOString(),
+      fromCache: false
     }
   }
 
@@ -424,12 +431,12 @@ async function getOrComputeOrchestration() {
     .from('orchestrator_snapshots')
     .insert({
       organizational_intelligence_score: result.score,
-      rating:                            result.rating,
-      final_verdict:                     result.verdict,
-      brain_posture:                     result.brainPosture,
-      trust_score:                       result.trust,
-      executive_recommendations:         result.recs,
-      module_breakdown:                  moduleBreakdown
+      rating: result.rating,
+      final_verdict: result.verdict,
+      brain_posture: result.brainPosture,
+      trust_score: result.trust,
+      executive_recommendations: result.recs,
+      module_breakdown: moduleBreakdown
     })
     .select().single()
 
@@ -441,10 +448,10 @@ async function getOrComputeOrchestration() {
   return {
     ...(saved ?? {}),
     organizational_intelligence_score: result.score,
-    rating:      result.rating,
+    rating: result.rating,
     final_verdict: result.verdict,
     brain_posture: result.brainPosture,
-    trust_score:   result.trust,
+    trust_score: result.trust,
     executive_recommendations: result.recs,
     modules: result.modules,
     dataIntegrity: result.dataIntegrity,
@@ -463,15 +470,15 @@ router.get('/', async (req, res) => {
 
     res.json({
       organizationalIntelligenceScore: snap.organizational_intelligence_score,
-      rating:          snap.rating,
-      finalVerdict:    snap.final_verdict,
-      brainPosture:    snap.brain_posture,
-      trustScore:      snap.trust_score,
-      generatedAt:     snap.computed_at ?? new Date().toISOString(),
-      fromCache:       snap.fromCache,
+      rating: snap.rating,
+      finalVerdict: snap.final_verdict,
+      brainPosture: snap.brain_posture,
+      trustScore: snap.trust_score,
+      generatedAt: snap.computed_at ?? new Date().toISOString(),
+      fromCache: snap.fromCache,
       // Absent on a cache hit — a snapshot is only ever persisted when every
       // module read cleanly, so there is no degradation to report.
-      dataIntegrity:   snap.dataIntegrity ?? null
+      dataIntegrity: snap.dataIntegrity ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -488,9 +495,9 @@ router.get('/summary', async (req, res) => {
 
     res.json({
       organizationalIntelligenceScore: snap.organizational_intelligence_score,
-      rating:       snap.rating,
+      rating: snap.rating,
       brainPosture: snap.brain_posture,
-      trustScore:   snap.trust_score,
+      trustScore: snap.trust_score,
       finalVerdict: snap.final_verdict,
       topRecommendations: (
         snap.executive_recommendations ?? []
@@ -514,7 +521,7 @@ router.get('/verdict', async (req, res) => {
 
     res.json({
       finalVerdict: snap.final_verdict,
-      rating:       snap.rating,
+      rating: snap.rating,
       brainPosture: snap.brain_posture,
       dataIntegrity: snap.dataIntegrity ?? null
     })
@@ -538,7 +545,7 @@ router.get('/recommendations', async (req, res) => {
       totalRecommendations: result.recs.length,
       dataIntegrity: result.dataIntegrity,
       recommendations: result.recs.map((r, i) => ({
-        rank:           i + 1,
+        rank: i + 1,
         recommendation: r
       }))
     })
@@ -559,19 +566,19 @@ router.get('/modules', async (req, res) => {
     const sorted = [...result.modules].sort((a, b) => a.score - b.score)
 
     res.json({
-      totalModules:    result.modules.length,
+      totalModules: result.modules.length,
       verifiedModules: result.modules.filter(m => m.verified).length,
-      dataIntegrity:   result.dataIntegrity,
+      dataIntegrity: result.dataIntegrity,
       modules: sorted.map(m => ({
-        name:     m.label,
-        key:      m.key,
+        name: m.label,
+        key: m.key,
         verified: m.verified,
-        score:    m.score,
-        weight:   `${Math.round(m.weight * 100)}%`,
-        source:   m.source,
+        score: m.score,
+        weight: `${Math.round(m.weight * 100)}%`,
+        source: m.source,
         // Separates "no row seeded" from "this query failed".
         unavailable: m.unavailable,
-        error:       m.error
+        error: m.error
       }))
     })
   } catch (err) {
