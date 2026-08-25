@@ -1026,16 +1026,20 @@ unclear; it is the established precedent for testing a route without a live data
 
 - [ ] **Step 1: Write the failing test**
 
-Create `backend/tests/simulationRoutes.test.js`:
+Create `backend/tests/simulationRoutes.test.js`. This follows `backend/tests/graphRoutes.test.js`'s
+established stubbing pattern exactly — `require.resolve()` the real module's path, then overwrite
+`require.cache[path]` with a fake `exports` **before** requiring anything that transitively requires
+it. Read `graphRoutes.test.js` first if this is unfamiliar; do not invent a different mocking
+mechanism (no `Module._resolveFilename` patching, no writing temp files to disk):
 
 ```js
 /*
  * OBA Core — Simulation routes HTTP-level test.
- * Stubs Supabase so this runs offline, same pattern as graphRoutes.test.js.
+ * Stubs Supabase so this runs offline, same require.cache pattern as
+ * graphRoutes.test.js.
  * Run from backend/:  node tests/simulationRoutes.test.js
  */
 
-const Module = require('module')
 const path = require('path')
 
 let passed = 0
@@ -1045,7 +1049,8 @@ function check(name, cond, detail) {
 	else { failed++; console.error('  ✗', name, detail !== undefined ? '\n      got: ' + JSON.stringify(detail) : '') }
 }
 
-// ── Stub supabase so domain.simulations.loadRoots() resolves from fixtures ──
+// ── Fake supabase — domain.simulations.loadRoots() reads every root table
+// from this fixture instead of a real database ──────────────────────────────
 const FIXTURE_ROOTS = {
 	employees: [{ id: 1, name: 'Sarah', department: 'Eng' }],
 	agents: [{ id: 10, name: 'DeployBot', status: 'active', risk: 'critical', owner_id: 1 }],
@@ -1069,25 +1074,21 @@ const FIXTURE_ROOTS = {
 	workflow_dependencies: [],
 }
 
-const originalResolve = Module._resolveFilename
-Module._resolveFilename = function (request, ...rest) {
-	if (request === '../../supabase' || request === '../supabase') {
-		return path.join(__dirname, 'fixtures', 'stubSupabase.js')
-	}
-	return originalResolve.call(this, request, ...rest)
+const supabasePath = require.resolve(path.join(__dirname, '..', 'supabase.js'))
+require.cache[supabasePath] = {
+	id: supabasePath,
+	filename: supabasePath,
+	loaded: true,
+	exports: {
+		from: (table) => ({
+			select: () => Promise.resolve({ data: FIXTURE_ROOTS[table] || [], error: null }),
+		}),
+	},
 }
-
-require('fs').mkdirSync(path.join(__dirname, 'fixtures'), { recursive: true })
-require('fs').writeFileSync(
-	path.join(__dirname, 'fixtures', 'stubSupabase.js'),
-	`module.exports = { from: (table) => ({ select: () => Promise.resolve({ data: ${JSON.stringify(Object.values(FIXTURE_ROOTS))}[${JSON.stringify(Object.keys(FIXTURE_ROOTS))}.indexOf(table)] || [], error: null }) }) }`,
-)
 
 const express = require('express')
 const employeeLeavesRoute = require('../routes/simulations/employeeLeaves')
 const agentFailsRoute = require('../routes/simulations/agentFails')
-
-Module._resolveFilename = originalResolve
 
 const app = express()
 app.use('/api/simulations/employee-leaves', employeeLeavesRoute)
@@ -1305,11 +1306,9 @@ router.get('/:workflow', async (req, res) => {
 module.exports = router
 ```
 
-If Task 9's Step 1 test still fails because the stub's `.find()`-based lookup doesn't match how
-`domain.simulations.loadRoots()` is memoized/cached elsewhere, check whether `derived.js`'s
-`computeAllCached` memo (`MEMO_TTL_MS`) applies to `loadRoots` directly — it does not (only
-`computeAllCached` memoizes; `loadRoots` itself re-queries every call), so no cache-busting is needed
-between test cases.
+`loadRoots` itself is not memoized (only `derived.js`'s separate `computeAllCached` wrapper is, via
+`MEMO_TTL_MS`) — `domain.simulations.loadRoots()` re-reads the stub fresh on every call, so no
+cache-busting is needed between the two requests this test makes.
 
 - [ ] **Step 4: Run test to verify it passes**
 
