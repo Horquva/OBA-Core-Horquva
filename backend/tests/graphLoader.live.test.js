@@ -128,9 +128,13 @@ function check(name, condition) {
 		check('every system/process/vendor/customer entity has provenance',
 			[...systems, ...processes, ...vendors, ...customers].every((e) => e.metadata.sourceTable && e.metadata.sourceId != null))
 
-		const systemDeps = dependsOn.filter((r) => r.metadata && r.metadata.source === 'company.json:systems')
+		const systemDeps = dependsOn.filter((r) => r.metadata && r.metadata.source === 'systems')
 		check('inter-system depends_on edges exist (Billing/Warehouse/Admin -> Core Platform, Admin -> Billing = 4)',
 			systemDeps.length === 4, systemDeps.length)
+
+		const systemUsage = dependsOn.filter((r) => r.metadata && r.metadata.source === 'system_agent_usage')
+		check('agent-to-system usage edges exist (12: 5 Core Platform, 1 Billing, 4 CDW, 2 Admin Portal)',
+			systemUsage.length === 12, systemUsage.length)
 
 		const systemOwnership = owns.filter((r) => systems.some((s) => s.id === r.to))
 		check('every system has an owner', systemOwnership.length === systems.length, systemOwnership.length)
@@ -138,7 +142,7 @@ function check(name, condition) {
 		const produces = g.relationships.list('produces')
 		check('at least one vendor produces edge resolves to a real platform (supplies a tracked tool)', produces.length > 0, produces.length)
 
-		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department', 'company.json:systems', 'company.json:processes', 'company.json:external_entities'])
+		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department', 'systems', 'company.json:processes', 'company.json:external_entities'])
 		const actual = new Set(owns.map((r) => r.metadata.source))
 		check('owns provenance names only real source tables',
 			[...actual].every((s) => expected.has(s)))

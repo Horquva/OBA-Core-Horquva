@@ -89,6 +89,9 @@ async function loadFromSupabase(graph) {
     { data: toolBackups, error: e15 },
     { data: agentPlatform, error: e16 },
     { data: workflowToolDeps, error: e17 },
+    { data: systemsRows, error: e18 },
+    { data: systemDeps, error: e19 },
+    { data: systemAgentUsage, error: e20 },
   ] = await Promise.all([
     supabase.from('employees').select('*'),
     supabase.from('agents').select('*'),
@@ -106,8 +109,11 @@ async function loadFromSupabase(graph) {
     supabase.from('tool_backups').select('*'),
     supabase.from('agent_platform').select('*, agents ( name )'),
     supabase.from('workflow_tool_dependencies').select('*, workflows ( name )'),
+    supabase.from('systems').select('*'),
+    supabase.from('system_dependencies').select('*'),
+    supabase.from('system_agent_usage').select('*'),
   ])
-  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e15 || e16 || e17
+  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e15 || e16 || e17 || e18 || e19 || e20
   if (firstError) throw new Error(`graphLoader: ${firstError.message}`)
 
   // ─── Cross-cutting lookups ───
@@ -339,43 +345,38 @@ async function loadFromSupabase(graph) {
   if (companyData) {
     const platformByName = Object.fromEntries(platforms.map((p) => [p.name, platformEntities[p.id]]))
     const agentByName = Object.fromEntries(agents.map((a) => [a.name, agentEntities[a.id]]))
+    const employeeById = Object.fromEntries(employees.map((e) => [e.id, employeeEntities[e.id]]))
 
-    // Systems: owner + inter-system depends_on chains (Billing System ->
-    // Core Platform, etc.) — real dependency data, not approximated.
-    const systemEntities = {} // company.json systems[].name -> entity
-    for (const s of companyData.systems || []) {
-      systemEntities[s.name] = E({
+    // ─── Systems (systems / system_dependencies / system_agent_usage tables) ───
+    const systemEntities = {} // systems.id -> entity
+    for (const s of systemsRows || []) {
+      systemEntities[s.id] = E({
         type: 'system',
         name: s.name,
-        // company.json's arrays carry no numeric id; the name is the only
-        // stable key within each section, so it doubles as sourceId here.
         metadata: {
-          sourceTable: 'company.json:systems', sourceId: s.name, department: s.department,
+          sourceTable: 'systems', sourceId: s.id, department: s.department,
           criticality: s.criticality, documented: s.documented, description: s.description,
         },
       })
-      if (employeeByName[s.owner]) {
-        R(employeeByName[s.owner], 'owns', systemEntities[s.name], {
-          criticality: s.criticality || 'medium', metadata: { source: 'company.json:systems' },
+      if (s.owner_id && employeeById[s.owner_id]) {
+        R(employeeById[s.owner_id], 'owns', systemEntities[s.id], {
+          criticality: s.criticality || 'medium', metadata: { source: 'systems' },
         })
       }
     }
-    for (const s of companyData.systems || []) {
-      for (const depName of s.depends_on || []) {
-        if (systemEntities[depName]) {
-          R(systemEntities[s.name], 'depends_on', systemEntities[depName], { metadata: { source: 'company.json:systems' } })
-        }
+    for (const sd of systemDeps || []) {
+      if (systemEntities[sd.system_id] && systemEntities[sd.depends_on_system_id]) {
+        R(systemEntities[sd.system_id], 'depends_on', systemEntities[sd.depends_on_system_id], { metadata: { source: 'systems' } })
       }
-      // Agents that actually run against/deploy to/monitor this system. Without
-      // this, no agent ever depends_on a system, so a system's real usage is
-      // invisible to fan-in — M38 (Opportunity Intelligence) then reads that as
-      // "underused" for any system nothing else in the graph happens to lean on,
-      // which is wrong for e.g. Customer Data Warehouse ("behind every dashboard
-      // and forecast") rather than genuinely idle.
-      for (const agentName of s.used_by || []) {
-        if (agentByName[agentName]) {
-          R(agentByName[agentName], 'depends_on', systemEntities[s.name], { metadata: { source: 'company.json:systems.used_by' } })
-        }
+    }
+    // Agents that actually run against/deploy to/monitor a system. Without this, no
+    // agent ever depends_on a system, so a system's real usage is invisible to
+    // fan-in — M38 (Opportunity Intelligence) then reads that as "underused" for
+    // any system nothing else in the graph happens to lean on, which is wrong for
+    // e.g. Customer Data Warehouse rather than genuinely idle.
+    for (const su of systemAgentUsage || []) {
+      if (agentEntities[su.agent_id] && systemEntities[su.system_id]) {
+        R(agentEntities[su.agent_id], 'depends_on', systemEntities[su.system_id], { metadata: { source: 'system_agent_usage' } })
       }
     }
 
