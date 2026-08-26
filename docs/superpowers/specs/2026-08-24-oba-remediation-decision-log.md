@@ -606,6 +606,37 @@ contract is fully verified live. Commit `550d14f` on `ocos/develop`.
 
 **W-K is now fully closed — all thirteen decisions (D-52 through D-64) plus the D-65 bonus fix landed.**
 
+**Post-W-K duplication audit (2026-08-26) — dispatched two parallel, skeptical re-audits** (frontend/lib
+files fresh again, and frontend/components for inline intelligence) after W-K closed, specifically
+instructed to verify every claim by reading the actual code rather than trusting either the design
+doc's now-stale inventory or the audits' own first-pass framing. One flagged item (`lib/graph.ts`'s
+`getSPOFs()`, still called by `ScenarioSandbox.tsx` with a stale ≥3-victims rule) was checked against
+the decision log and found to already be a deliberately reviewed exemption (same entry as the SPOF fix
+above, `getSPOFs`/D-53, commit `aef3109` — internal ranking only, never asserted as a verdict) — not a
+new bug, and not reported as one. Three genuine findings survived verification:
+
+**Decision D-66 — the Executive Command Center's "Priority Actions" panel served frozen data through
+two independent paths, neither of which was M04.** `components/dashboard/RiskSplit.tsx` fetched
+`GET /api/briefing/recommendations`, which SELECTed from the `recommendations` SQL table — seeded once,
+zero writers anywhere in the codebase, confirmed by grep — so it answered the same list every day
+regardless of what had changed. When that call was empty (including simply being pre-login, the state
+most sessions start in), the component fell back to a THIRD, hand-authored implementation: a static
+"Review Single-Point Dependencies" card plus a bare `!owner && criticality === 'critical'` check.
+Neither path called brain module M04 (D-62), the real, comprehensive 7-rule recommendation engine this
+app already has. Fixed both ends: `RiskSplit.tsx` now fetches `GET /api/intelligence/recommendations`
+directly (same source `app/recommendations/page.tsx` uses) and the now-dead fallback branch is deleted
+(an empty result renders "No priority actions — good standing" instead of a fabricated hint).
+`routes/briefing/briefing.js`'s `/recommendations` handler is also repointed to M04 rather than left as
+an orphaned frozen-table endpoint that could get wired back up later — same fix-at-the-source precedent
+as D-59/D-60/D-61. The now-unused `briefingApi.recommendations()` wrapper is removed from `lib/api.ts`.
+`tsc --noEmit` clean, full backend suite clean (18 suites). Live-verified in an actual logged-in browser
+session: the panel shows real M04 output ("Document SecurityScanner", "Document KnowledgeIndexer",
+"Document critical workflow Incident Response", "Assign owner to Data Retention Policy"), matching the
+exact top items already confirmed live over curl for D-62. Commit `445fa63` on `ocos/develop`. D-67
+(`routes/dashboard.js`'s dead route serving the same frozen-table class of bug, plus its own duplicate
+`riskScore` formula) and D-68 (`ExternalEcosystemTab.tsx`'s fabricated per-vendor "Org concentration %")
+are next.
+
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
 backend the frontend should get it from backend... either from graph or derived... a systematic
