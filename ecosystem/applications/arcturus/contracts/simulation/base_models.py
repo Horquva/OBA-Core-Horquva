@@ -1,5 +1,5 @@
-"""
-Simulation Runtime & Experiment Platform — Contracts
+﻿"""
+Simulation Runtime & Experiment Platform â€” Contracts
 Owner: Muhammad Maaz Khan
 
 SimulationContext + ContractEnvelope now live in
@@ -9,9 +9,9 @@ not redefined, per the architecture directive.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -34,7 +34,7 @@ class ExecutionStatus(str, Enum):
 
 
 # ---------------------------------------------------------------------------
-# INBOUND — what the Runtime consumes from other platforms
+# INBOUND â€” what the Runtime consumes from other platforms
 # ---------------------------------------------------------------------------
 
 class EnterpriseStateContract(BaseModel):
@@ -122,7 +122,7 @@ class WorkforceAgentRoster(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# OUTBOUND — what the Runtime produces for other platforms
+# OUTBOUND â€” what the Runtime produces for other platforms
 # ---------------------------------------------------------------------------
 
 class ExperimentResultPackage(ContractEnvelope):
@@ -148,7 +148,7 @@ class WorkflowExecutionMetrics(BaseModel):
 
 
 class RunHistoryRecord(BaseModel):
-    """Internal — written to Maaz's own run registry."""
+    """Internal â€” written to Maaz's own run registry."""
 
     run_id: UUID
     seed: int = Field(..., ge=0)
@@ -162,3 +162,18 @@ class RunHistoryRecord(BaseModel):
         if self.ended_at is not None and self.ended_at < self.started_at:
             raise ValueError("ended_at must be on or after started_at")
         return self
+
+
+class SimulationEventStream(BaseModel):
+    """
+    Canonical shape for events published to the WebSocket/SSE stream during
+    a simulation run. One instance per tick/status/stage/error event.
+    Consumed by Ahmed's Synthetic Data platform and the frontend.
+    """
+
+    event_type: Literal["TICK", "STAGE_CHANGE", "STATUS_UPDATE", "ERROR"]
+    experiment_id: str
+    run_id: UUID
+    tick: int | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+    emitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
