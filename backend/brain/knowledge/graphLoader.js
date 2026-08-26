@@ -15,13 +15,15 @@
  * distinguishes which table an entity came from.
  *
  * ─── What this loader deliberately does NOT emit ───
- * The ontology defines `system`, `team`, `customer`, `process` and `project`,
- * and modules query them. No Supabase table sources any of the five, so they
- * are absent rather than approximated. `data/company.json` carries hand-authored
- * `systems` (4) and `external_entities` (10) which would fill `system` and
- * `vendor`/`customer` — wiring that file in is BUILD_SPEC's W2, not this file's
- * job. Until then M39's `systemCapabilities` and M31's `externalActors` are
- * legitimately empty, and must not be read as "this organization has none".
+ * The ontology defines `system`, `team`, `customer`, `process` and `project`.
+ * No Supabase table sources any of the five. Three of them — `system`,
+ * `process`, `vendor`/`customer` — are now wired in below from
+ * `data/company.json`'s hand-authored `systems` (4), `processes` (2) and
+ * `external_entities` (10) sections (BUILD_SPEC's W2, done 2026-08-26).
+ * `team` and `project` have no data source anywhere in this codebase, seed or
+ * hand-authored, so they remain genuinely empty — that absence must still not
+ * be read as "this organization has none", and inventing data for them would
+ * violate D-07 (never fabricate).
  *
  * `collaborates_with` IS derived here (never invented — R-1, metadata.source =
  * 'derived'), because BUILD_SPEC Part 0 records that its absence makes M42
@@ -315,6 +317,90 @@ async function loadFromSupabase(graph) {
     const subject = subjectFor(k.asset_type, k.asset_id)
     if (subject) R(knowledge, 'supports', subject)
     if (k.owner_id && employeeEntities[k.owner_id]) R(employeeEntities[k.owner_id], 'owns', knowledge, { metadata: { source: 'knowledge_assets' } })
+  }
+
+  // ─── Systems, processes, and external entities (data/company.json) ───
+  // No Supabase table sources these three ontology types (see header note).
+  // A missing or unreadable file degrades to "none of these three exist" —
+  // the same legitimate-absence handling as team/project — rather than
+  // throwing and failing the whole graph load over optional supplementary
+  // data.
+  let companyData = null
+  try {
+    companyData = require('../../../data/company.json')
+  } catch (_) {
+    companyData = null
+  }
+
+  if (companyData) {
+    const platformByName = Object.fromEntries(platforms.map((p) => [p.name, platformEntities[p.id]]))
+
+    // Systems: owner + inter-system depends_on chains (Billing System ->
+    // Core Platform, etc.) — real dependency data, not approximated.
+    const systemEntities = {} // company.json systems[].name -> entity
+    for (const s of companyData.systems || []) {
+      systemEntities[s.name] = E({
+        type: 'system',
+        name: s.name,
+        // company.json's arrays carry no numeric id; the name is the only
+        // stable key within each section, so it doubles as sourceId here.
+        metadata: {
+          sourceTable: 'company.json:systems', sourceId: s.name, department: s.department,
+          criticality: s.criticality, documented: s.documented, description: s.description,
+        },
+      })
+      if (employeeByName[s.owner]) {
+        R(employeeByName[s.owner], 'owns', systemEntities[s.name], {
+          criticality: s.criticality || 'medium', metadata: { source: 'company.json:systems' },
+        })
+      }
+    }
+    for (const s of companyData.systems || []) {
+      for (const depName of s.depends_on || []) {
+        if (systemEntities[depName]) {
+          R(systemEntities[s.name], 'depends_on', systemEntities[depName], { metadata: { source: 'company.json:systems' } })
+        }
+      }
+    }
+
+    // Processes: accountable owns it (RACI accountable, same reading `owns`
+    // already carries elsewhere in this file); responsible executes it.
+    for (const p of companyData.processes || []) {
+      const processEntity = E({
+        type: 'process',
+        name: p.name,
+        metadata: { sourceTable: 'company.json:processes', sourceId: p.name, department: p.department },
+      })
+      if (employeeByName[p.accountable]) {
+        R(employeeByName[p.accountable], 'owns', processEntity, { metadata: { source: 'company.json:processes', raci: 'accountable' } })
+      }
+      if (employeeByName[p.responsible]) {
+        R(employeeByName[p.responsible], 'executes', processEntity, { metadata: { source: 'company.json:processes', raci: 'responsible' } })
+      }
+    }
+
+    // External entities: `kind` is already 'vendor' or 'customer', both real
+    // ontology types. `supplies` names a platform/tool this vendor produces —
+    // a name with no matching platform (e.g. "AWS" supplying "Core Platform
+    // hosting", which isn't a tracked ai_platforms row) is skipped rather
+    // than invented, same convention as unmatched collaboration names below.
+    for (const ext of companyData.external_entities || []) {
+      const extEntity = E({
+        type: ext.kind === 'customer' ? 'customer' : 'vendor',
+        name: ext.name,
+        metadata: { sourceTable: 'company.json:external_entities', sourceId: ext.name, criticality: ext.criticality },
+      })
+      if (employeeByName[ext.relationship_owner]) {
+        R(employeeByName[ext.relationship_owner], 'owns', extEntity, {
+          criticality: ext.criticality || 'medium', metadata: { source: 'company.json:external_entities' },
+        })
+      }
+      for (const suppliedName of ext.supplies || []) {
+        if (platformByName[suppliedName]) {
+          R(extEntity, 'produces', platformByName[suppliedName], { metadata: { source: 'company.json:external_entities' } })
+        }
+      }
+    }
   }
 
   // ─── Collaboration (derived — no source table; see the header note) ───

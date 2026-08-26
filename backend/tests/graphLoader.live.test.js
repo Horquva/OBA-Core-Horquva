@@ -116,7 +116,29 @@ function check(name, condition) {
 		check('a platform with an agent dependent is reachable via dependents()',
 			agentToPlatform.length > 0 && g.relationships.to(agentToPlatform[0].to).some((r) => r.type === 'depends_on'))
 
-		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department'])
+		// ─── 6. systems/processes/external_entities wired from company.json (2026-08-26) ───
+		const systems = g.entities.list('system')
+		const processes = g.entities.list('process')
+		const vendors = g.entities.list('vendor')
+		const customers = g.entities.list('customer')
+		check('systems loaded from company.json (4)', systems.length === 4, systems.length)
+		check('processes loaded from company.json (2)', processes.length === 2, processes.length)
+		check('vendors loaded from company.json (6)', vendors.length === 6, vendors.length)
+		check('customers loaded from company.json (4)', customers.length === 4, customers.length)
+		check('every system/process/vendor/customer entity has provenance',
+			[...systems, ...processes, ...vendors, ...customers].every((e) => e.metadata.sourceTable && e.metadata.sourceId != null))
+
+		const systemDeps = dependsOn.filter((r) => r.metadata && r.metadata.source === 'company.json:systems')
+		check('inter-system depends_on edges exist (Billing/Warehouse/Admin -> Core Platform, Admin -> Billing = 4)',
+			systemDeps.length === 4, systemDeps.length)
+
+		const systemOwnership = owns.filter((r) => systems.some((s) => s.id === r.to))
+		check('every system has an owner', systemOwnership.length === systems.length, systemOwnership.length)
+
+		const produces = g.relationships.list('produces')
+		check('at least one vendor produces edge resolves to a real platform (supplies a tracked tool)', produces.length > 0, produces.length)
+
+		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department', 'company.json:systems', 'company.json:processes', 'company.json:external_entities'])
 		const actual = new Set(owns.map((r) => r.metadata.source))
 		check('owns provenance names only real source tables',
 			[...actual].every((s) => expected.has(s)))
