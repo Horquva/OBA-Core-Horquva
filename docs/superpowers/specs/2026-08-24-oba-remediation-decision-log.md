@@ -218,10 +218,25 @@ would silently undercount with no error. Fixed by calling `resolveCriticality()`
 the convention the earlier 12-file dedup already established for every other reader of this field.
 `tsc --noEmit` clean. Commit `907c5cf` on `ocos/develop`.
 
-One finding from the same sweep remains open, not yet fixed: `DecisionSupportQueue.tsx`
-**recomputes a priority score from its own already-derived output** (`rec.priority`) with its own
-`0.6/0.4` weights, while a real `computePriorityScore()` exists server-side (`decisionSupport.js`,
-weights `0.40/0.35/0.15/0.10` over genuine `decision_queue` fields) that the frontend never calls.
+**`DecisionSupportQueue.tsx`'s fabricated scores — fixed, closing this sweep.** The component derived
+`impactScore`/`urgencyScore`/`effortScore`/`blastRadius` from `rec.priority`/`rec.effort`/
+`rec.targetType` via made-up arithmetic (e.g. priority CRITICAL → `impactScore` 95), then recombined
+those fabricated numbers into a `priorityScore` with its own `0.6/0.4` weights — manufactured numeric
+precision layered on a genuine 3-tier signal, sorted by a score that was circular (derived from the
+very priority label it claimed to refine). A real, differently-weighted `computePriorityScore()` does
+exist server-side (`decisionSupport.js`, `0.40/0.35/0.15/0.10` over genuine `decision_queue` columns)
+— investigated wiring the component to that endpoint instead, and ruled against it: `decision_queue`
+is a separate, independently-authored table of real per-row decisions with its own scores, not the
+same entity as `generateRecommendations()`'s auto-computed suggestions (the data source
+`app/recommendations/page.tsx` already establishes for this page). Swapping data sources would
+silently change what the page shows — a real feature call, not a dedup fix, same reasoning as leaving
+the knowledge-risk endpoint unwired earlier in this sweep. Fixed by dropping the fabricated numbers
+and displaying the real `priority`/`effort`/`targetType` fields directly (badges, not gauges), sorted
+by the same priority-then-effort order `generateRecommendations()` itself establishes. `tsc --noEmit`
+clean. Commit `b449fe3` on `ocos/develop`.
+
+All four findings from the fifth same-day duplication sweep are now closed: M18/M53 (`6d92fa3`),
+vendor/tool risk (`1aa8a1b`), department-rollup criticality (`907c5cf`), and this one (`b449fe3`).
 
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
