@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
 const { spofVerdict } = require('../domain/definitions')
+const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 
 // GET /api/risks — comprehensive risk intelligence
 router.get('/', async (req, res) => {
@@ -29,16 +30,10 @@ router.get('/', async (req, res) => {
   // SPOF detection — D-06: sole owner AND no backup AND criticality >= high,
   // via the canonical spofVerdict() rather than this route's own ad hoc rule
   // (which used to require owner present + risk high/critical + >=2 dependents,
-  // and never checked backup coverage at all).
-  const { data: owners, error: ownersErr } = await supabase
-    .from('owners')
-    .select('employee_id, backup_owner')
-
-  if (ownersErr) return res.status(500).json({ error: ownersErr.message })
-
-  const hasBackupByEmployee = new Map(
-    owners.filter(o => o.employee_id != null).map(o => [o.employee_id, Boolean(o.backup_owner)])
-  )
+  // and never checked backup coverage at all). Backup lookup goes through the
+  // shared lib/ownerBackups.js rather than a second hand-rolled owners query —
+  // same table/columns, previously duplicated by hand.
+  const backupByEmployee = await loadOwnerBackupByEmployee()
 
   // Dependents are informational display data only here — D-06 deliberately
   // does not gate the verdict on them (an incomplete dependency graph must
@@ -62,7 +57,7 @@ router.get('/', async (req, res) => {
     .filter(a => spofVerdict({
       criticality: a.risk,
       ownerCount: a.owner_id != null ? 1 : 0,
-      hasBackup: a.owner_id != null ? Boolean(hasBackupByEmployee.get(a.owner_id)) : false,
+      hasBackup: a.owner_id != null ? Boolean(backupByEmployee[a.owner_id]) : false,
     }).status === 'spof')
     .map(a => ({
       name:            a.name,
