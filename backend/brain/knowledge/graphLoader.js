@@ -25,7 +25,16 @@
  * `team` and `project` have no data source anywhere in this codebase, seed or
  * hand-authored, so they remain genuinely empty — that absence must still not
  * be read as "this organization has none", and inventing data for them would
- * violate D-07 (never fabricate).
+ * violate D-07 (never fabricate). `asset` and `capability` are also empty by
+ * design, not omission: `asset` is a category label already satisfied by
+ * analytics.js's ASSET_TYPES union, and `capability` describes the Brain's
+ * own module catalog, not organizational data.
+ *
+ * `decision` is now wired from `decision_queue` (below) — real per-row
+ * ownership and subject data existed the whole time, just never reached the
+ * graph. `decision_history` (a second, separate decisions table, read only by
+ * derived.js's decisionQuality() for its aggregate score) has no owner column
+ * at all and stays out of the graph for that reason.
  *
  * `collaborates_with` IS derived here (never invented — R-1, metadata.source =
  * 'derived'), because BUILD_SPEC Part 0 records that its absence makes M42
@@ -96,6 +105,7 @@ async function loadFromSupabase(graph) {
     { data: systemAgentUsage, error: e20 },
     { data: externalEntities, error: e21 },
     { data: externalEntitySupplies, error: e22 },
+    { data: decisionQueue, error: e23 },
   ] = await Promise.all([
     supabase.from('employees').select('*'),
     supabase.from('agents').select('*'),
@@ -118,8 +128,9 @@ async function loadFromSupabase(graph) {
     supabase.from('system_agent_usage').select('*'),
     supabase.from('external_entities').select('*'),
     supabase.from('external_entity_supplies').select('*'),
+    supabase.from('decision_queue').select('*'),
   ])
-  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e15 || e16 || e17 || e18 || e19 || e20 || e21 || e22
+  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e15 || e16 || e17 || e18 || e19 || e20 || e21 || e22 || e23
   if (firstError) throw new Error(`graphLoader: ${firstError.message}`)
 
   // ─── Cross-cutting lookups ───
@@ -407,6 +418,40 @@ async function loadFromSupabase(graph) {
     }
     if (responsibleName && employeeByName[responsibleName]) {
       R(employeeByName[responsibleName], 'executes', processEntity, { metadata: { source: 'accountability_entities', raci: 'responsible' } })
+    }
+  }
+
+  // ─── Decisions (decision_queue table) ───
+  // decision_queue carries real per-row identity — a responsible owner
+  // (`responsible_person`) and a named subject (`entity_name`) — unlike
+  // decision_history (the table decisionQuality() in derived.js reads for its
+  // aggregate score), which has no owner column at all. This loader never
+  // wired decision_queue in before: the ontology's `decision` type sat at 0
+  // entities despite this real, relationally-rich table already being read
+  // live by six route files (voice.js, briefing.js, decisionSupport.js,
+  // constitutional.js, context.js, automation/index.js).
+  //
+  // `entity_name` carries no type alongside it, so it is resolved against
+  // every named entity type this loader builds, in a fixed order. A name
+  // that doesn't resolve anywhere is skipped, not invented (D-07).
+  const workflowByName = Object.fromEntries(workflows.map((w) => [w.name, workflowEntities[w.id]]))
+  const agentByName = Object.fromEntries(agents.map((a) => [a.name, agentEntities[a.id]]))
+  const platformByName = Object.fromEntries(platforms.map((p) => [p.name, platformEntities[p.id]]))
+  const resolveByName = (name) =>
+    employeeByName[name] || agentByName[name] || workflowByName[name] || platformByName[name] || null
+
+  for (const d of decisionQueue || []) {
+    const decisionEntity = E({
+      type: 'decision',
+      name: d.title,
+      metadata: rowMeta('decision_queue', d, { omit: ['title'] }),
+    })
+    if (d.responsible_person && employeeByName[d.responsible_person]) {
+      R(employeeByName[d.responsible_person], 'owns', decisionEntity, { metadata: { source: 'decision_queue' } })
+    }
+    const subject = d.entity_name ? resolveByName(d.entity_name) : null
+    if (subject) {
+      R(decisionEntity, 'concerns', subject, { metadata: { source: 'decision_queue' } })
     }
   }
 

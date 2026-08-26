@@ -142,7 +142,22 @@ function check(name, condition) {
 		const produces = g.relationships.list('produces')
 		check('at least one vendor produces edge resolves to a real platform (supplies a tracked tool)', produces.length > 0, produces.length)
 
-		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department', 'systems', 'accountability_entities', 'external_entities'])
+		// ─── 7. decisions wired from decision_queue (2026-08-26) ───
+		const decisions = g.entities.list('decision')
+		check('decisions loaded from decision_queue (10)', decisions.length === 10, decisions.length)
+		check('every decision entity has provenance',
+			decisions.every((e) => e.metadata.sourceTable === 'decision_queue' && e.metadata.sourceId != null))
+
+		const decisionOwnership = owns.filter((r) => decisions.some((d) => d.id === r.to))
+		check('every decision has an owner', decisionOwnership.length === decisions.length, decisionOwnership.length)
+
+		const concerns = g.relationships.list('concerns')
+		check('every decision concerns a real subject entity (10)', concerns.length === 10, concerns.length)
+		check('concerns edges resolve across entity types, not just one kind',
+			new Set(concerns.map((r) => g.entities.get(r.to).type)).size > 1,
+			[...new Set(concerns.map((r) => g.entities.get(r.to).type))].join(','))
+
+		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department', 'systems', 'accountability_entities', 'external_entities', 'decision_queue'])
 		const actual = new Set(owns.map((r) => r.metadata.source))
 		check('owns provenance names only real source tables',
 			[...actual].every((s) => expected.has(s)))
