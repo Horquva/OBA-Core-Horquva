@@ -8,6 +8,9 @@ from ecosystem.applications.arcturus.contracts.execution.workforce.base_models i
     WorkforceAgentRoster,
     WorkforceRoleContract,
 )
+from ecosystem.applications.arcturus.contracts.enterprise.base_models import (
+    EnterpriseInstancePayload,
+)
 from ecosystem.applications.arcturus.contracts.shared.base_models import (
     SimulationContext,
 )
@@ -43,7 +46,6 @@ class WorkforceAdapter:
             enterprise_instance_id=enterprise_instance_id,
             agent_count=agent_count,
         )
-
     def assign_roles(
         self,
         context: SimulationContext,
@@ -69,6 +71,7 @@ class WorkforceAdapter:
             assignments=assignments,
         )
 
+
     def build_roster(
         self,
         context: SimulationContext,
@@ -85,4 +88,14 @@ class WorkforceAdapter:
             enterprise_instance_id=enterprise_instance_id,
             agents=agents,
             roles=roles,
+        )
+    def materialize_from_enterprise(
+        self,
+        context: SimulationContext,
+        enterprise: EnterpriseInstancePayload,
+    ) -> List[AgentProfileContract]:
+        """ Materialize workforce agents directly from an enterprise instance."""
+        return self.service.materialize_from_enterprise(
+            context=context,
+            enterprise=enterprise,
         )
