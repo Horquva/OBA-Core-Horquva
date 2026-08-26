@@ -105,9 +105,8 @@ fixed the same way. `HiddenDependencyOverlay.tsx`'s similar-looking pattern was 
 unrelated (finds implicit transitive edges, correctly forward). `tsc --noEmit` clean. Commit
 `7333439` on `ocos/develop`.
 
-One finding from the same audit remains open, not yet fixed: **governance/continuity scores**
-re-diverged after the old backend routes were deleted — `frontend/lib/continuityRisk.ts` now computes
-both client-side with a formula matching no backend equivalent by that name.
+One finding from the same audit was not simple duplication and needed its own investigation — see
+the governance/continuity entry below, after the backup-owner fix.
 
 **Knowledge-risk scoring — investigated, turned out not to be the same bug pattern.** Read both
 implementations in full before touching anything: `backend/routes/knowledge/intelligence.js` reads
@@ -137,6 +136,47 @@ explicit `Number()` coercion on `Object.keys()` before merging with `agents.owne
 dedup `Set` — object keys are always strings, `Set` dedup is strict-equality, so this needed to be
 exact. Live-verified against the running endpoint (17 owners, `undeclared: 7` matching the file's own
 header comment) and the full test suite. Commit `d69c886` on `ocos/develop`.
+
+**Governance/continuity — investigated deeper than the first read, then fixed architecture-wide per
+explicit owner instruction ("completely fixed and verified").** The first pass concluded there was no
+backend equivalent at all; continuing to trace rather than stopping there — prompted by the frontend
+page's own "M18"/"M19" section badges — found real brain modules `IMPL.M18`
+(Organizational Continuity Intelligence) and `IMPL.M19` (Governance Intelligence) in
+`brain/modules/implementations.js`, computed all along but never exposed via any HTTP route. This is
+unrelated to D-37's deletion of the old `governance.js`/`continuity.js` route files — those read
+different tables (`governance_assessments`/`continuity_assessments`, frozen at seed time, D-04) that
+genuinely had no live consumer; M18/M19 are graph-computed and had simply never been wired to a route
+at all. `app/continuity/page.tsx` badged its sections "M18"/"M19" and rendered
+`<TruthBadge verified />` while the numbers shown came entirely from `continuityRisk.ts`, a local
+per-asset heuristic with no relation to either module — a false-provenance bug, not just duplication.
+Tracing `TruthBadge.tsx` itself found the root cause: `verified` defaulted to `true`, so any call site
+that passed nothing still rendered a confident checkmark — the exact D-07 anti-pattern ("insufficient
+evidence, never a fabricated number") applied to a UI trust signal instead of a number. 15+ call sites
+across the app hardcoded `<TruthBadge verified />` with no real backing signal; the worst,
+`VerifiedAdvisorPanel.tsx`, fabricated a per-item "confidence score" via arithmetic
+(`99 - i - (strategic ? 10 : 0)`) under a header claiming "sourced only from Truth-verified data."
+Given the owner's explicit instruction to fix this so it sits well with the MVP's architecture —
+completely, not a narrow patch — fixed the whole surface in one pass: `TruthBadge.tsx` no longer
+defaults `verified`, deriving it from a real `confidence` score when one is supplied; added
+`GET /api/intelligence/continuity` and `/governance` to `prediction.js`, mirroring the existing
+`moduleEndpoint()` pattern used by the other 8 exposed modules (live-verified over real HTTP through a
+mini Express app: 200 with real payload — `continuityScore: 0.91`, `confidence: 0.96`,
+`survivability: "resilient"`; `governanceCoverage: 0.08`, `confidence: 0.59` — when the graph is
+loaded, 503 when it isn't, same contract as the other 8); `ContinuityTab.tsx`/`GovernanceTab.tsx` now
+show the real M18/M19 score as their primary KPI with a real `TruthBadge confidence`, keeping
+`continuityRisk.ts`'s per-asset breakdown (department map, must-protect list, governance heatmap,
+worst-offenders) as explicitly-labeled local-heuristic detail rather than implicitly claimed verified;
+~14 other call sites gated `verified` on actual fetched-data presence; three components computing a
+genuine local heuristic with no backend equivalent (`ExternalEcosystemTab.tsx`,
+`KnowledgeConcentrationGauge.tsx`, `OpportunityBacklogTab.tsx`) were marked `verified={false}` with a
+comment, rather than invented a confidence they don't have; `VerifiedAdvisorPanel.tsx`'s fabricated
+confidence arithmetic and "Confidence: X%" UI were removed outright and the panel renamed Priority
+Advisor Panel, since its CRITICAL/HIGH ranking is real (backed by the canonical `predictiveRisk` tier)
+but there is no per-item Truth-layer verdict to show. `DependencyPipeline.tsx` and
+`ScenarioSandbox.tsx`'s use of `deriveRisk()` deliberately left alone — same precedent as
+`getSPOFs()`, internal ranking only, never asserted as a verdict. `tsc --noEmit` clean, full backend
+test suite clean, M18/M19 live-verified both via `domain.graph.run()` directly and over real HTTP.
+Commit `e53acef` on `ocos/develop`.
 
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
