@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { generateRecommendations, RecommendationEngineOutput } from '../../lib/recommendations';
+import { useEffect, useState } from 'react';
+import { mapRecommendationsResponse, RecommendationEngineOutput } from '../../lib/recommendations';
 import RecommendationHeader from '../../components/recommendations/RecommendationHeader';
 import Top5Urgent from '../../components/recommendations/Top5Urgent';
 import RecommendationList from '../../components/recommendations/RecommendationList';
@@ -9,15 +9,11 @@ import DemoSummary from '../../components/recommendations/DemoSummary';
 import { DecisionSupportQueue } from '../../components/recommendations/DecisionSupportQueue';
 import { OpportunityBacklogTab } from '../../components/recommendations/OpportunityBacklogTab';
 import { authHeader } from '../../lib/authFetch';
-import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
 import { VerifiedAdvisorPanel } from '../../components/recommendations/VerifiedAdvisorPanel';
-import { Dataset } from '../../types';
-import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 
 export default function RecommendationsPage() {
-  const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [orgHealthIndex, setOrgHealthIndex] = useState<number>(0);
-  const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
+  const [output, setOutput] = useState<RecommendationEngineOutput | null>(null);
+  const [agentCount, setAgentCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,42 +21,18 @@ export default function RecommendationsPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => r.ok ? r.json() : { dependencies: [] }),
-      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      // D-62 -- brain module M04, expanded to all 7 rules.
+      fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() }).then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${r.statusText}`))),
       fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => r.ok ? r.json() : { healthIndex: 0 }),
-      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
-    .then(([agentsData, depsData, toolsData, wData, healthData, predictiveData]) => {
-      setOrgHealthIndex(healthData.healthIndex ?? 0);
-      setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
-      setDataset({
-        company: 'Organizational Intelligence',
-        agents: Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [],
-        dependencies: Array.isArray(depsData.dependencies) ? depsData.dependencies.filter((d: any) => d.source_type === 'agent' && d.target_type === 'agent').map((d: any) => ({
-          from: d.source_id?.toString() || '',
-          to: d.target_id?.toString() || '',
-          type: d.dependency_type || 'sequential',
-        })) : [],
-        ai_tools: Array.isArray(toolsData) ? toolsData.map((t: any) => ({
-          ...t,
-          access_owner: t.owner || t.access_owner || 'Unassigned',
-          backup_tool: t.backupAssigned ? 'Yes' : null,
-          users: [],
-        })) : [],
-        workflows: Array.isArray(wData) ? wData.map(normalizeWorkflow) : [],
-        employees: 156,
-      });
+    .then(([recJson, healthData, agentsData]) => {
+      setOutput(mapRecommendationsResponse(recJson, healthData.healthIndex ?? 0));
+      setAgentCount(Array.isArray(agentsData) ? agentsData.length : 0);
     })
     .catch((err) => setError(err.message))
     .finally(() => setLoading(false));
   }, []);
-
-  const output: RecommendationEngineOutput | null = useMemo(() => {
-    if (!dataset) return null;
-    return generateRecommendations(dataset, orgHealthIndex, riskByAgentName);
-  }, [dataset, orgHealthIndex, riskByAgentName]);
 
   if (error) {
     return (
@@ -90,8 +62,8 @@ export default function RecommendationsPage() {
       <RecommendationList recommendations={output.prioritized} />
       <DemoSummary
         output={output}
-        company={dataset!.company}
-        agentCount={dataset!.agents.length}
+        company="Organizational Intelligence"
+        agentCount={agentCount}
       />
     </div>
   );

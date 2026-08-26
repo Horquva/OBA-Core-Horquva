@@ -15,7 +15,7 @@ export function VerifiedAdvisorPanel({ recommendations }: Props) {
   // every item verified: true unconditionally, under a header claiming
   // "sourced only from Truth-verified data" -- none of which was true. There
   // is no per-recommendation Truth-layer verdict to show. What's real: these
-  // are the CRITICAL/HIGH-priority items from generateRecommendations(),
+  // are the CRITICAL/HIGH-priority items from brain module M04 (D-62),
   // which is itself now driven by the backend's canonical predictiveRisk()
   // tier (see lib/recommendations.ts), not a local heuristic -- so the
   // ranking is real, the fabricated per-item confidence number was not.

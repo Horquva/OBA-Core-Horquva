@@ -42,12 +42,12 @@ interface Props {
 export function DecisionSupportQueue({ recommendations }: Props) {
   const [filter, setFilter] = useState<string>('ALL');
 
-  // driverKey is a genuine grouping of rec.category (real, generateRecommendations()-derived).
+  // driverKey is a genuine grouping of rec.category (real, brain module M04-derived, D-62).
   // Previously this component also fabricated per-item impactScore/urgencyScore/effortScore/
   // blastRadius numbers from rec.priority/effort/targetType via arithmetic with no real basis,
   // then re-derived a "priorityScore" from those fabricated numbers -- displaying manufactured
   // precision on top of a genuine 3-tier signal. Now it just groups and sorts by the real
-  // `priority`/`effort` fields generateRecommendations() already computed.
+  // `priority`/`effort` fields brain module M04 already computed (D-62).
   const mappedItems = recommendations.map(rec => {
     let driverKey = 'other';
     if (rec.category === 'OWNERSHIP' || rec.category === 'CONCENTRATION') driverKey = 'spof';

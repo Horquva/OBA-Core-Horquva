@@ -17,6 +17,7 @@
  *   CapabilityByDeptCard   -> M39 Capability Intelligence
  *   ContinuityTab          -> M18 Organizational Continuity Intelligence
  *   GovernanceTab          -> M19 Governance Intelligence
+ *   RecommendationsPage    -> M04 Recommendation Engine (D-62)
  *
  * Mounted at /api/intelligence (see backend/index.js).
  */
@@ -85,6 +86,7 @@ router.get('/strategic-alignment', moduleEndpoint('strategic-alignment')) // Str
 router.get('/capability-by-dept', moduleEndpoint('capability')) // CapabilityByDeptCard
 router.get('/continuity', moduleEndpoint('organizational-continuity')) // ContinuityTab (M18)
 router.get('/governance', moduleEndpoint('governance')) // GovernanceTab (M19)
+router.get('/recommendations', moduleEndpoint('recommendation-engine')) // RecommendationsPage (M04, D-62)
 
 // ── Graph lifecycle (D-14) ───────────────────────────────────────
 // loadGraph() otherwise runs exactly once, at backend/index.js boot — nothing

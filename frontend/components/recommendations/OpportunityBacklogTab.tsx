@@ -23,7 +23,7 @@ export function OpportunityBacklogTab({ recommendations }: Props) {
   // with no real basis) used for both the displayed number and sort order --
   // same anti-pattern already fixed in DecisionSupportQueue.tsx. `recommendations`
   // arrives already sorted CRITICAL->HIGH->MEDIUM then by effort
-  // (generateRecommendations()'s own order), and filtering preserves that
+  // (brain module M04's own priority/effort sort, D-62), and filtering preserves that
   // order, so no re-sort is needed once the fake score is gone.
   const items = recommendations.map(rec => {
     // Quick if effort is quick/medium, strategic if strategic

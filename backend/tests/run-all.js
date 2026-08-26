@@ -11,6 +11,7 @@ const tests = [
 	'brain.smoke.test.js',
 	'graph.unit.test.js',
 	'culture.unit.test.js',
+	'recommendationEngine.unit.test.js', // pure; asserts M04's 7 rule classes (W-K D-62)
 	'orgAnalyses.unit.test.js',
 	'dataset.unit.test.js', // pure/offline; stubs Supabase + brain, exercises the incidents mapping (W-J)
 	'graphLoader.live.test.js', // self-skips when SUPABASE_URL is unset

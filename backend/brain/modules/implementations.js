@@ -334,20 +334,195 @@ IMPL.M35 = (rt) => {
 
 // ══════════════ KAMRAN — REASONING LAYER ══════════════
 
-// M04 — Recommendation Engine: prioritized actions from ownership + risk.
+// M04 — Recommendation Engine: prioritized actions across ownership, backup
+// coverage, documentation, concentration, tool governance, and dependency
+// structure.
+//
+// D-62: previously covered 3 rule classes (unowned assets, SPOF redundancy,
+// dependency cycles) against frontend/lib/recommendations.ts's 7 hand-authored
+// rules (orphaned owner / no backup owner / owner concentration / undocumented,
+// crossed over agents + workflows, plus tools without a backup). Expanded here
+// to genuinely cover all 7, computed once from the same Knowledge Graph every
+// other module reads instead of a second, client-side reimplementation. The
+// pre-existing cycle-detection rule is kept -- real intelligence the frontend
+// version never had, not something D-62 asks to remove.
+//
+// Backup-owner coverage for agents AND workflows is the SAME question this
+// module already answered via A.singlePointsOfFailure() (D-06's spofVerdict:
+// sole owner, no backup, criticality >= high) -- one pass covers both asset
+// types rather than two near-identical loops. Tool governance is NOT folded
+// into that call: a tool's "backup" is a fallback PLATFORM
+// (ai_platforms.metadata.backupTool), not a backup human owner -- a genuinely
+// different signal spofVerdict was never built to read (the same distinction
+// domain/derived.js's orgMemory() draws for D-60).
+//
+// Criticality is read off each entity's OWN metadata -- agents/workflows carry
+// their source row's `risk` column verbatim via graphLoader's rowMeta();
+// platforms carry `assetCriticality` from knowledge_assets, since
+// ai_platforms has no risk column of its own -- never off the `owns` edge,
+// which tool-ownership edges never set and would silently exclude every tool
+// from a criticality-gated rule.
+const REC_PRIORITY_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2 }
+const REC_EFFORT_ORDER = { Quick: 0, Medium: 1, Strategic: 2 }
+const CONCENTRATION_THRESHOLD = 4
+
 IMPL.M04 = (rt, context) => {
   const g = rt.graph
   const recs = []
+  let nextId = 0
+
+  const priorityFor = (level) => (level === 'critical' ? 'CRITICAL' : level === 'high' ? 'HIGH' : 'MEDIUM')
+  const kindOf = (id) => { const e = A.entity(g, id); return e && e.metadata ? e.metadata.kind : null }
+  const push = (rec) => recs.push({ id: `rec_${++nextId}`, ...rec })
+
+  // ── 1. Unowned assets ──
   const unowned = A.assets(g).filter((a) => A.owners(g, a.id).length === 0)
-  const spofs = A.singlePointsOfFailure(g)
-  unowned.forEach((a) => recs.push({ priority: 'high', action: `Assign owner to "${a.name}"`, rationale: 'Unowned critical asset' }))
-  spofs.slice(0, 5).forEach((s) => recs.push({ priority: 'high', action: `Add redundancy for "${s.name}"`, rationale: `${s.dependents} entities depend on it with ${s.owners} owner` }))
-  const cycles = A.detectCycles(g)
-  cycles.forEach((c) => recs.push({ priority: 'medium', action: `Break dependency cycle ${c.join(' → ')}`, rationale: 'Circular dependency' }))
-  const evidence = [ev('module', 'M01', 'ownership'), ev('module', 'M03', 'risk')]
+  unowned.forEach((a) => {
+    const targetType = a.type === 'workflow' ? 'workflow' : kindOf(a.id) === 'ai-platform' ? 'tool' : kindOf(a.id) === 'automation-agent' ? 'agent' : a.type
+    push({
+      priority: 'HIGH', category: 'OWNERSHIP', effort: 'Quick',
+      title: `Assign owner to "${a.name}"`,
+      description: `"${a.name}" has no owner recorded in the ownership graph.`,
+      impact: 'An unowned asset has no accountable person to recover, audit, or hand it off.',
+      action: `Assign a primary owner (and a backup, if this asset is critical) for "${a.name}".`,
+      rationale: 'Unowned critical asset',
+      targetType, targetId: a.id, targetName: a.name,
+    })
+  })
+
+  // ── 2 & 5. Sole-owned, no backup, criticality >= high (agents + workflows) ──
+  A.singlePointsOfFailure(g).forEach((s) => {
+    const kind = kindOf(s.id)
+    const targetType = kind === 'ai-platform' ? 'tool' : s.type === 'workflow' ? 'workflow' : 'agent'
+    push({
+      priority: 'HIGH', category: 'OWNERSHIP', effort: 'Quick',
+      title: `Add a backup owner for "${s.name}"`,
+      description: `"${s.name}" is owned by a single person with no backup; ${s.dependents} thing(s) depend on it directly.`,
+      impact: `If the sole owner of "${s.name}" is unavailable, there is no covered path to recovery.`,
+      action: `Designate a backup owner for "${s.name}".`,
+      rationale: `Sole-owned ${targetType} with no backup owner; ${s.dependents} thing(s) depend on it directly`,
+      targetType, targetId: s.id, targetName: s.name,
+    })
+  })
+
+  // ── 3. Owner concentration -- agents only, mirroring the frontend's own scope ──
+  const agentOwnerLoad = new Map() // ownerId -> { name, agentIds: [] }
+  A.byType(g, 'ai_agent').filter((e) => kindOf(e.id) === 'automation-agent').forEach((agent) => {
+    A.owners(g, agent.id).forEach((r) => {
+      const slot = agentOwnerLoad.get(r.from) || { name: A.nameOf(g, r.from), agentIds: [] }
+      slot.agentIds.push(agent.id)
+      agentOwnerLoad.set(r.from, slot)
+    })
+  })
+  ;[...agentOwnerLoad.entries()]
+    .filter(([, slot]) => slot.agentIds.length >= CONCENTRATION_THRESHOLD)
+    .forEach(([ownerId, slot]) => {
+      const n = slot.agentIds.length
+      push({
+        priority: n >= 5 ? 'CRITICAL' : 'HIGH', category: 'CONCENTRATION', effort: 'Strategic',
+        title: `Redistribute ${slot.name}'s ${n} agents`,
+        description: `${slot.name} owns ${n} agents -- the highest ownership concentration recorded.`,
+        impact: `If ${slot.name} leaves, ${n} agents would lose their owner at once.`,
+        action: `Redistribute some of ${slot.name}'s agents to other qualified owners.`,
+        rationale: `Highest ownership concentration in the organization -- a single departure would orphan ${n} agents at once`,
+        targetType: 'person', targetId: `person_${ownerId}`, targetName: slot.name,
+      })
+    })
+
+  // ── 4. Undocumented agents, criticality >= high ──
+  A.byType(g, 'ai_agent').filter((e) => kindOf(e.id) === 'automation-agent').forEach((agent) => {
+    const level = agent.metadata.risk
+    if (agent.metadata.documented !== true && atOrAbove(level, 'high')) {
+      push({
+        priority: priorityFor(level), category: 'DOCUMENTATION', effort: 'Medium',
+        title: `Document "${agent.name}"`,
+        description: `${level} agent with no documentation on record.`,
+        impact: `"${agent.name}" cannot be handed off, recovered, or audited without documentation.`,
+        action: `Write a runbook for "${agent.name}" covering purpose, inputs/outputs, and recovery steps.`,
+        rationale: `${level} agent with no documentation -- cannot be handed off, recovered, or audited`,
+        targetType: 'agent', targetId: agent.id, targetName: agent.name,
+      })
+    }
+  })
+
+  // ── 6. Tools with no backup platform, criticality >= high ──
+  A.byType(g, 'ai_agent').filter((e) => kindOf(e.id) === 'ai-platform').forEach((tool) => {
+    const level = tool.metadata.assetCriticality
+    if (!tool.metadata.backupTool && atOrAbove(level, 'high')) {
+      const agentsUsing = (tool.metadata.agentsUsing || []).length
+      const workflowsUsing = (tool.metadata.workflowsUsing || []).length
+      push({
+        priority: priorityFor(level), category: 'TOOL_GOVERNANCE', effort: 'Strategic',
+        title: `Establish a fallback for "${tool.name}"`,
+        description: `${level} tool with no backup platform, powers ${agentsUsing} agent(s) and ${workflowsUsing} workflow(s).`,
+        impact: `An outage of "${tool.name}" has no alternative pathway for its dependents.`,
+        action: `Identify and document a backup platform for "${tool.name}".`,
+        rationale: `${level} tool with no backup platform, powers ${agentsUsing} agent(s) and ${workflowsUsing} workflow(s)`,
+        targetType: 'tool', targetId: tool.id, targetName: tool.name,
+      })
+    }
+  })
+
+  // ── 7. Undocumented CRITICAL workflows ──
+  A.byType(g, 'workflow').forEach((wf) => {
+    if (wf.metadata.documented !== true && wf.metadata.risk === 'critical') {
+      push({
+        priority: 'CRITICAL', category: 'DOCUMENTATION', effort: 'Medium',
+        title: `Document critical workflow "${wf.name}"`,
+        description: 'CRITICAL workflow with zero documentation on record.',
+        impact: `Audit trail and continuity for "${wf.name}" are impossible without documentation.`,
+        action: `Document "${wf.name}"'s steps, owner, and escalation path.`,
+        rationale: 'CRITICAL workflow with zero documentation -- audit trail and continuity are impossible',
+        targetType: 'workflow', targetId: wf.id, targetName: wf.name,
+      })
+    }
+  })
+
+  // ── Dependency cycles -- real intelligence beyond the frontend's 7 rules ──
+  A.detectCycles(g).forEach((c) => push({
+    priority: 'MEDIUM', category: 'DEPENDENCY', effort: 'Medium',
+    title: 'Break a dependency cycle',
+    description: `Circular dependency: ${c.join(' → ')}.`,
+    impact: 'A cycle can cause unbounded cascade or re-trigger behavior in impact analysis.',
+    action: `Remove or redirect one edge in the cycle ${c.join(' → ')}.`,
+    rationale: 'Circular dependency',
+    targetType: null, targetId: null, targetName: c[0] || null,
+  }))
+
+  recs.sort((a, b) =>
+    (REC_PRIORITY_ORDER[a.priority] - REC_PRIORITY_ORDER[b.priority]) ||
+    (REC_EFFORT_ORDER[a.effort] - REC_EFFORT_ORDER[b.effort]),
+  )
+
+  // Explicit summary fields, computed once here rather than left for a
+  // frontend caller to re-derive by pattern-matching recommendation prose.
+  const orphanedAgentCount = unowned.filter((a) => kindOf(a.id) === 'automation-agent').length
+  const undocumentedCriticalAgentCount = recs.filter((r) => r.category === 'DOCUMENTATION' && r.targetType === 'agent').length
+  const topConcentration = [...agentOwnerLoad.values()]
+    .filter((slot) => slot.agentIds.length >= CONCENTRATION_THRESHOLD)
+    .sort((a, b) => b.agentIds.length - a.agentIds.length)[0]
+  const ownerConcentrationWarning = topConcentration
+    ? { owner: topConcentration.name, agentCount: topConcentration.agentIds.length }
+    : null
+
+  const evidence = [
+    ev('module', 'M01', 'ownership'),
+    ev('module', 'M03', 'risk'),
+    ev('graph', 'knowledge_assets', 'documentation'),
+    ev('graph', 'tool_backups', 'tool governance'),
+  ]
   return {
     type: 'recommendation',
-    payload: { recommendationCount: recs.length, recommendations: recs },
+    payload: {
+      recommendationCount: recs.length,
+      criticalCount: recs.filter((r) => r.priority === 'CRITICAL').length,
+      highCount: recs.filter((r) => r.priority === 'HIGH').length,
+      mediumCount: recs.filter((r) => r.priority === 'MEDIUM').length,
+      orphanedAgentCount,
+      undocumentedCriticalAgentCount,
+      ownerConcentrationWarning,
+      recommendations: recs,
+    },
     confidence: A.confidence(recs.length, recs.length ? 1 : 0.5),
     evidence,
     recommendations: recs.map((r) => r.action),
