@@ -9,6 +9,7 @@ import { DependencyEvolutionTab } from '../../components/map/DependencyEvolution
 import { HiddenDependencyOverlay } from '../../components/map/HiddenDependencyOverlay';
 import { authHeader } from '../../lib/authFetch';
 import { normalizeAgent } from '../../lib/normalize';
+import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { Agent, Dependency } from '../../types';
 
 interface AgentSpofsResponse {
@@ -21,6 +22,7 @@ export default function DependencyMapPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [spofData, setSpofData] = useState<AgentSpofsResponse | null>(null);
+  const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,8 +46,10 @@ export default function DependencyMapPage() {
         if (!r.ok) throw new Error('Failed to load SPOF analysis');
         return r.json();
       }),
+      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
-    .then(([agentsData, depsData, spofsData]) => {
+    .then(([agentsData, depsData, spofsData, predictiveData]) => {
+      setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
       const mappedDeps: Dependency[] = Array.isArray(depsData.dependencies)
@@ -119,7 +123,7 @@ export default function DependencyMapPage() {
 
       {/* Blast Radius Simulator — click any agent, see impact cascade */}
       <div className="mb-8">
-        <BlastRadiusSimulator agents={agents} dependencies={dependencies} />
+        <BlastRadiusSimulator agents={agents} dependencies={dependencies} riskByAgentName={riskByAgentName} />
       </div>
 
       {/* Hidden Dependency Overlay — transitive / shared-resource / shared-owner edges */}
