@@ -68,6 +68,26 @@ exactly one line — the single pair whose only shared context is a workflow, no
 confirming this was live drift, not a hypothetical risk. Pair count (51) and people covered (24)
 unchanged. Commit `d9f7d25` on `ocos/develop`.
 
+**A third same-day fix** (2026-08-26): verified a claim that agent risk is calculated three
+different ways — true. `domain/derived.js`'s `predictiveRisk()` (canonical, `threatLevel()` bands
+35/55/75, served via `/api/predictive-risk/*`) was already the real backend definition — the SPOF
+fix earlier today established the pattern, this closes the equivalent gap for risk. Two frontend
+implementations disagreed with it and each other: `frontend/lib/risk.ts`'s `deriveRisk()` (a fully
+independent client-side formula, own 20/40/70 bands, still driving `AgentTable.tsx`,
+`recommendations.ts`, `OwnershipList.tsx`, and one call site in `HumanDependencyRisks.tsx`), and
+`frontend/lib/riskIntelligence.ts`'s `computeRiskIntelligence()` (drives the `/risk` page — received
+the backend's real score but re-banded it with a *third* set of thresholds, 20/40/70, and applied a
+hard CRITICAL override the canonical score's own NO_OWNER/SINGLE_OWNER factors already account for).
+Confirmed concretely, not just structurally: the same predictedScore of 50 read MEDIUM under the
+backend's bands and HIGH under the old `riskIntelligence.ts` bands. Fixed by adding
+`frontend/lib/predictiveRisk.ts` as the one place a component turns
+`GET /api/predictive-risk/agents` into a tier, and repointing every consumer that actually asserts a
+risk verdict to a user. `DependencyPipeline.tsx` and `ScenarioSandbox.tsx`'s use of `deriveRisk()`
+were deliberately left alone — both use it only as a private input to an internal ranking/selection,
+never rendered as an asserted verdict, matching this codebase's own precedent for
+`frontend/lib/graph.ts`'s `getSPOFs()` during the SPOF fix. `tsc --noEmit` clean; browser-verified by
+the owner directly. Commit `1cac30f` on `ocos/develop`.
+
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
 continue through the normal process regardless. Every decision below still carries its own
