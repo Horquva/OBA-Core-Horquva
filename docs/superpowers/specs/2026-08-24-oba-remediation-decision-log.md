@@ -440,7 +440,32 @@ outage list's sort score were left alone — display banding over real counts, n
 backend unit test (`tools.unit.test.js`) hand-verifies every factor, both thresholds, the 100-point
 cap, and cross-checks the formula against the live-verified Tableau AI case — 11/11 assertions pass.
 `tsc --noEmit` clean, full backend test suite clean (12 suites). Commit `09fec14` on `ocos/develop`.
-D-59, D-60, D-61, D-62 remain open.
+**W-K, decision D-59 — knowledge-concentration score moves to the backend, ported not redesigned.**
+`lib/knowledgeRisk.ts`'s `concentrationScore` computed a criticality-weighted share of org-wide assets
+(agents+workflows+tools) an owner holds, entirely client-side — deliberately distinct from
+`routes/knowledge/intelligence.js`'s `knowledgeRiskScore`, an absolute per-person score over that
+person's own knowledge_assets holdings, not normalized against org totals (the two shared a name by
+coincidence pre-dating this session's D-07-era rename, not because they answer the same question).
+Ported verbatim into `domain/derived.js`'s `knowledgeConcentration(roots)` — same weight table
+(`critical:4, high:2, medium:1, low:0.5`), same tier bands (90/55/30) — reusing `loadRoots()` (zero new
+queries) and `definitions.js`'s `entityCriticality()` as the canonical per-type criticality resolver
+(agent/workflow via their own `risk` column, platform via its `knowledge_assets` rows) instead of each
+asset type reading a differently-named raw field, which is what the frontend version did.
+
+Exposed via a new `concentration` array on `GET /api/knowledge/intelligence`, computed alongside (not
+merged into) that route's existing `knowledgeRiskScore` employees array — the two stay visibly separate
+fields on the same response, matching D-57/D-58's "expose on the existing endpoint" pattern rather than
+adding a new route. `frontend/app/knowledge/page.tsx` fetches it and passes it into
+`computeKnowledgeRisk()`, which now looks the score up by owner name instead of recomputing its own
+weighted share; the frontend's local `tier()` function is deleted, its band logic now living only in
+`concentrationTier()` on the backend. `components/knowledge/KnowledgeConcentrationGauge.tsx`'s
+bus-factor/HHI statistics were left alone — out of scope for D-59, a distinct not-yet-assigned gap the
+design doc's inventory table flagged separately.
+
+New unit test hand-verifies the exact formula against a constructed fixture (7 assertions, including
+that shares sum to 100% of the weighted whole and that an unassessed platform still weighs 1, never 0,
+matching the frontend's old `?? 1` fallback). `tsc --noEmit` clean, full backend test suite clean.
+Commit `14b8b87` on `ocos/develop`. D-60, D-61, D-62 remain open.
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -984,7 +1009,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change; D-59, D-60, D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-59 done (`14b8b87`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change; D-60, D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
