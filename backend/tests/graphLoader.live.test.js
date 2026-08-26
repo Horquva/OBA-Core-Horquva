@@ -142,7 +142,7 @@ function check(name, condition) {
 		const produces = g.relationships.list('produces')
 		check('at least one vendor produces edge resolves to a real platform (supplies a tracked tool)', produces.length > 0, produces.length)
 
-		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department', 'systems', 'company.json:processes', 'company.json:external_entities'])
+		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department', 'systems', 'accountability_entities', 'company.json:external_entities'])
 		const actual = new Set(owns.map((r) => r.metadata.source))
 		check('owns provenance names only real source tables',
 			[...actual].every((s) => expected.has(s)))

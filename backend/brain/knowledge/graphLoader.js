@@ -380,22 +380,6 @@ async function loadFromSupabase(graph) {
       }
     }
 
-    // Processes: accountable owns it (RACI accountable, same reading `owns`
-    // already carries elsewhere in this file); responsible executes it.
-    for (const p of companyData.processes || []) {
-      const processEntity = E({
-        type: 'process',
-        name: p.name,
-        metadata: { sourceTable: 'company.json:processes', sourceId: p.name, department: p.department },
-      })
-      if (employeeByName[p.accountable]) {
-        R(employeeByName[p.accountable], 'owns', processEntity, { metadata: { source: 'company.json:processes', raci: 'accountable' } })
-      }
-      if (employeeByName[p.responsible]) {
-        R(employeeByName[p.responsible], 'executes', processEntity, { metadata: { source: 'company.json:processes', raci: 'responsible' } })
-      }
-    }
-
     // External entities: `kind` is already 'vendor' or 'customer', both real
     // ontology types. `supplies` names a platform/tool this vendor produces —
     // a name with no matching platform (e.g. "AWS" supplying "Core Platform
@@ -417,6 +401,27 @@ async function loadFromSupabase(graph) {
           R(extEntity, 'produces', platformByName[suppliedName], { metadata: { source: 'company.json:external_entities' } })
         }
       }
+    }
+  }
+
+  // ─── Processes (accountability_entities, entity_type='process') ───
+  // Same source `export-company.js`'s outProcesses already derives from — no
+  // company.json round-trip needed, graphLoader already has both tables loaded.
+  const raciFor = (entityId, role) =>
+    (acctLinks || []).find((l) => l.entity_id === entityId && l.raci_role === role)?.person_name ?? null
+  for (const e of (acctEntities || []).filter((x) => x.entity_type === 'process')) {
+    const processEntity = E({
+      type: 'process',
+      name: e.entity_name,
+      metadata: { sourceTable: 'accountability_entities', sourceId: e.id, department: e.department },
+    })
+    const accountableName = raciFor(e.id, 'Accountable')
+    const responsibleName = raciFor(e.id, 'Responsible')
+    if (accountableName && employeeByName[accountableName]) {
+      R(employeeByName[accountableName], 'owns', processEntity, { metadata: { source: 'accountability_entities', raci: 'accountable' } })
+    }
+    if (responsibleName && employeeByName[responsibleName]) {
+      R(employeeByName[responsibleName], 'executes', processEntity, { metadata: { source: 'accountability_entities', raci: 'responsible' } })
     }
   }
 
