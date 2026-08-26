@@ -18,6 +18,9 @@ export interface ScenarioResult {
   healthDelta: number;
   impactedAgents: ImpactedAgent[];
   impactedWorkflowNames: string[];
+  /** domain/simulations.js's severityFor() -- based on the real criticality
+   *  of impacted entities, not a health-score-drop-magnitude guess. */
+  severity: RiskLevel;
 }
 
 const TARGET_TYPE_TO_SCENARIO_TYPE: Record<string, ScenarioType> = {
@@ -38,5 +41,6 @@ export function mapScenario(raw: any): ScenarioResult {
     healthDelta: raw.healthDelta ?? 0,
     impactedAgents: (raw.impactedAgents ?? []).map((a: any) => ({ id: String(a.id), name: a.name, risk: a.risk })),
     impactedWorkflowNames: (raw.impactedWorkflows ?? []).map((w: any) => w.name),
+    severity: (raw.severity ?? 'low') as RiskLevel,
   };
 }

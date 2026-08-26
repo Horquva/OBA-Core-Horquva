@@ -24,16 +24,24 @@ const typeConfig: Record<ScenarioType, { icon: React.ElementType; verb: string; 
   TOOL_UNAVAILABLE: { icon: Cpu,       verb: 'goes offline', color: 'var(--risk-medium-text)'   },
 };
 
+// Was a health-score-drop-magnitude banding (>=7/3/1) duplicated verbatim in
+// ScenarioRanking.tsx, and less meaningful than what the backend already
+// computes -- domain/simulations.js's severityFor() looks at the real
+// criticality of the entities impacted, not just how many health points
+// moved. Now a lookup on the real scenario.severity value.
+const SEVERITY_META: Record<RiskLevel, { label: string; color: string; bg: string; border: string }> = {
+  critical: { label: 'CRITICAL IMPACT', color: 'var(--risk-critical-text)', bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.22)' },
+  high:     { label: 'HIGH IMPACT',     color: 'var(--risk-high-text)',     bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.22)' },
+  medium:   { label: 'MEDIUM IMPACT',   color: 'var(--risk-medium-text)',   bg: 'rgba(202,138,4,0.08)', border: 'rgba(202,138,4,0.22)' },
+  low:      { label: 'LOW IMPACT',      color: 'var(--risk-low-text)',      bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.22)' },
+};
+
 export function ImpactSummary({ scenario }: Props) {
   const drop = scenario.baselineHealthScore - scenario.simulatedHealthScore;
   const tc = typeConfig[scenario.type];
   const Icon = tc.icon;
 
-  const severity =
-    drop >= 7 ? { label: 'CRITICAL IMPACT', color: 'var(--risk-critical-text)', bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.22)' } :
-    drop >= 3 ? { label: 'HIGH IMPACT',     color: 'var(--risk-high-text)',     bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.22)' } :
-    drop >= 1 ? { label: 'MEDIUM IMPACT',   color: 'var(--risk-medium-text)',   bg: 'rgba(202,138,4,0.08)', border: 'rgba(202,138,4,0.22)' } :
-                { label: 'LOW IMPACT',      color: 'var(--risk-low-text)',      bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.22)' };
+  const severity = SEVERITY_META[scenario.severity];
 
   const afterScore = scenario.simulatedHealthScore;
   const afterColor =
