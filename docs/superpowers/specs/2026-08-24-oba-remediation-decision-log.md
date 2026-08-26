@@ -316,7 +316,26 @@ came from the real backend score while the rows came from invented numbers. Fixe
 and building the display list from them directly (`factorsFromRisk()`); per-factor severity (badge color
 only, doesn't feed back into anything) derived from the real point value via a small documented banding.
 Live-verified over HTTP: 5 keys, 5 reasons, matching order. `tsc --noEmit` clean. Commit `bf10628` on
-`ocos/develop`. D-54 through D-64 remain open, per the design doc's recommended phasing.
+`ocos/develop`.
+
+**W-K, decision D-54 — the last two fabricated numbers, same anti-pattern already fixed twice this
+session.** `OpportunityBacklogTab.tsx`'s `leverageScore` started at 50 and added fixed points for
+CRITICAL/HIGH priority and Quick/Medium effort, capped at 99 — the same point-arithmetic-with-no-real-
+basis pattern already fixed in `VerifiedAdvisorPanel.tsx` and `DecisionSupportQueue.tsx`. Removed; the
+badge now shows the real `rec.priority` label, and the list relies on `generateRecommendations()`'s
+own ordering (filtering an already-sorted array preserves order, so no re-sort was needed once the
+fake score was gone) — `TruthBadge` moved from a hardcoded `verified={false}` to
+`verified={items.length > 0}`, since what remains is an honest relabeling of real fields, not
+fabrication. `TwinSyncStatus.tsx` was worse in kind: it framed itself as a live replication process —
+"Synchronized"/"Out of Sync" states plus a "Replication Lag" computed as
+`max(8, round(totalNodes*0.4))`, pure invention with nothing to back it. Traced why before fixing:
+there is no async twin/replica in this architecture to have a lag — the brain graph (M49, "Digital
+Twin") recomputes synchronously from the same live data on every request, so "synchronized" was always
+true by construction, never a measured fact. The underlying signal (unowned-agent ratio) was real,
+just mislabeled as something it wasn't — relabeled honestly as ownership coverage ("Fully Owned"/
+"Partial Coverage"/"Coverage Gap"), lag row dropped entirely since nothing real exists to replace it
+with. `tsc --noEmit` clean. Commit `241968a` on `ocos/develop`. D-55 through D-64 remain open, per the
+design doc's recommended phasing.
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -860,7 +879,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — D-52 done (`3af87ba`), D-53 done (`bf10628`); D-54…D-64 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — D-52 done (`3af87ba`), D-53 done (`bf10628`), D-54 done (`241968a`); D-55…D-64 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
