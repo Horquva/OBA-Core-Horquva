@@ -47,6 +47,7 @@
 
 const supabase = require('../../supabase')
 const { loadOwnerBackupByEmployee } = require('../../lib/ownerBackups')
+const { deriveCollaborations } = require('../../lib/deriveCollaborations')
 
 const EXEC_TITLE = /^(VP|COO|CFO|CEO|CTO|Head of|Chief|President|Director)/i
 
@@ -455,52 +456,13 @@ async function loadFromSupabase(graph) {
     }
   }
 
-  // ─── Collaboration (derived — no source table; see the header note) ───
-  // Two people collaborate if they share an entity's RACI in
-  // `accountability_links`, or both act as `human` in the same workflow's
-  // steps. Identical to backend/tools/export-company.js's derivation, so this
-  // graph and data/company.json's `collaborations` section cannot drift apart.
-  // RACI runs first so the stronger basis wins when a pair appears in both.
-  const collabPairs = new Map() // 'A|B' (sorted) -> { basis, on }
-  const addPair = (a, b, basis, on) => {
-    if (!a || !b || a === b) return
-    const key = [a, b].sort().join('|')
-    if (!collabPairs.has(key)) collabPairs.set(key, { basis, on })
-  }
-
-  const acctEntityById = Object.fromEntries(acctEntities.map((e) => [e.id, e]))
-  const peopleByAcctEntity = {}
-  for (const link of acctLinks) {
-    (peopleByAcctEntity[link.entity_id] ||= new Set()).add(link.person_name)
-  }
-  for (const [entityId, people] of Object.entries(peopleByAcctEntity)) {
-    const names = [...people]
-    const on = (acctEntityById[entityId] || {}).entity_name || null
-    for (let i = 0; i < names.length; i++) {
-      for (let j = i + 1; j < names.length; j++) addPair(names[i], names[j], 'raci', on)
-    }
-  }
-
-  const humansByWorkflow = {}
-  for (const step of workflowSteps) {
-    if (step.actor_type !== 'human' || !step.actor_name) continue
-    (humansByWorkflow[step.workflow_id] ||= new Set()).add(step.actor_name)
-  }
-  for (const [workflowId, people] of Object.entries(humansByWorkflow)) {
-    const names = [...people]
-    const on = (workflows.find((w) => String(w.id) === String(workflowId)) || {}).name || null
-    for (let i = 0; i < names.length; i++) {
-      for (let j = i + 1; j < names.length; j++) addPair(names[i], names[j], 'workflow_step', on)
-    }
-  }
-
+  // ─── Collaboration (derived — no source table; see deriveCollaborations.js) ───
   // One edge per pair: M42 and M29 read `neighbors()`, which is direction-blind,
   // so a second reciprocal edge would double the count without adding meaning.
   // A name that resolves to no employee is skipped rather than invented.
-  for (const [key, { basis, on }] of collabPairs) {
-    const [a, b] = key.split('|')
+  for (const { a, b, basis, on, weight } of deriveCollaborations({ acctEntities, acctLinks, workflows, workflowSteps })) {
     R(employeeByName[a], 'collaborates_with', employeeByName[b], {
-      metadata: { source: 'derived', basis, on },
+      metadata: { source: 'derived', basis, on, weight },
     })
   }
 

@@ -3,6 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 const { maxLevel } = require('../domain/definitions')
+const { deriveCollaborations } = require('../lib/deriveCollaborations')
 
 const ROOT = process.argv[2]
 const sql = fs.readFileSync(path.join(ROOT, 'backend/sql/02_seed_data.sql'), 'utf8')
@@ -349,33 +350,13 @@ outWorkflows.forEach((w) => { w.accountable = wfAcct.get(w.name) ?? null })
 // ── collaborations ──────────────────────────────────────────────────────────
 // `collaborates_with` is READ BY MODULES — implementations.js:1007 marks every
 // human with no such edge as "siloed", so an empty set makes the brain report
-// all 40 people isolated. Derived, never invented: two people collaborate if they
-// share an entity's RACI, or act in the same workflow. R-1 source = 'derived'.
-
-const collabPairs = new Map()
-const addPair = (a, b, basis, on) => {
-  if (!a || !b || a === b) return
-  const [x, y] = [a, b].sort()
-  const key = `${x}|${y}`
-  if (!collabPairs.has(key)) collabPairs.set(key, { from: x, to: y, basis, on, weight: 0 })
-  collabPairs.get(key).weight++
-}
-
-for (const e of acctEntities) {
-  const people = [...new Set(acctLinks.filter((l) => l.entity_id === e.id).map((l) => l.person_name))]
-  for (let i = 0; i < people.length; i++) {
-    for (let j = i + 1; j < people.length; j++) addPair(people[i], people[j], 'raci', e.entity_name)
-  }
-}
-for (const w of workflows) {
-  const people = [...new Set(
-    wfSteps.filter((s) => s.workflow_id === w.id && s.actor_type === 'human').map((s) => s.actor_name),
-  )].filter(Boolean)
-  for (let i = 0; i < people.length; i++) {
-    for (let j = i + 1; j < people.length; j++) addPair(people[i], people[j], 'workflow', w.name)
-  }
-}
-const outCollaborations = [...collabPairs.values()].sort((a, b) => b.weight - a.weight)
+// all 40 people isolated. Derived, never invented, via the same
+// deriveCollaborations() graphLoader.js calls — one algorithm, not two kept in
+// sync by hand (that comment used to promise "identical" without enforcing it,
+// and had already drifted on the basis label and weight tracking).
+const outCollaborations = deriveCollaborations({ acctEntities, acctLinks, workflows, workflowSteps: wfSteps })
+  .map(({ a, b, basis, on, weight }) => ({ from: a, to: b, basis, on, weight }))
+  .sort((a, b) => b.weight - a.weight)
 
 const outHistory = snapshots.map((s) => ({
   month: s.snapshot_date,

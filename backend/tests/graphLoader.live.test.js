@@ -65,6 +65,10 @@ function check(name, condition) {
 		check('collaboration covers 24 of 40 people', people.size === 24)
 		check('every collaboration edge records its basis',
 			collab.every((r) => r.metadata && r.metadata.source === 'derived' && !!r.metadata.basis))
+		check('every collaboration edge records a real weight (>=1)',
+			collab.every((r) => Number.isInteger(r.metadata.weight) && r.metadata.weight >= 1))
+		check('basis vocabulary is raci/workflow_step only (shared deriveCollaborations.js)',
+			[...new Set(collab.map((r) => r.metadata.basis))].every((b) => b === 'raci' || b === 'workflow_step'))
 
 		// ─── 3. ownership provenance (BUILD_SPEC D1) ───
 		const owns = g.relationships.list('owns')

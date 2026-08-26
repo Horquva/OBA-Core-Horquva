@@ -2173,7 +2173,7 @@
     {
       "from": "Daniel Murphy",
       "to": "Mia Johnson",
-      "basis": "workflow",
+      "basis": "workflow_step",
       "on": "Content Publishing",
       "weight": 1
     }
