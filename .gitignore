@@ -26,3 +26,6 @@ FRONTEND_PLAN.md
 
 # Git worktrees for isolated workstream execution (SDD)
 .worktrees/
+
+# SDD scratch workspace (ledger, briefs, review packages)
+.superpowers/
