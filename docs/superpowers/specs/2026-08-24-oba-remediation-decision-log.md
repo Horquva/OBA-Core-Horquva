@@ -206,13 +206,22 @@ page. No backend equivalent exists for either (confirmed by grep across `backend
 instead of recomputing risk from raw `AITool` fields, keeping its per-vendor worst-tier escalation
 logic unchanged. `tsc --noEmit` clean. Commit `1aa8a1b` on `ocos/develop`.
 
-Two findings from the same sweep remain open, not yet fixed: **department-level critical-agent
-counts disagree** between `Heatmap.tsx` (uses `resolveCriticality()` with its `risk`-field fallback)
-and `OrgRelationshipMap.tsx`'s `deptMap` (raw `a.criticality === 'critical'`, no fallback); and
-`DecisionSupportQueue.tsx` **recomputes a priority score from its own already-derived output**
-(`rec.priority`) with its own `0.6/0.4` weights, while a real `computePriorityScore()` exists
-server-side (`decisionSupport.js`, weights `0.40/0.35/0.15/0.10` over genuine `decision_queue` fields)
-that the frontend never calls.
+**Department-level critical-agent counts — fixed same day, traced first.** `OrgRelationshipMap.tsx`'s
+`deptMap` counted critical agents with a raw `a.criticality === 'critical'` check instead of the
+shared `resolveCriticality()` helper `Heatmap.tsx` uses for the identical rollup. Traced before
+fixing: this was not a live discrepancy today — `OrgRelationshipMap.tsx` has exactly one caller
+(`app/ownership/page.tsx`), which already normalizes every agent's `criticality` via
+`resolveCriticality()` before building the `Dataset` passed down, so the raw check was reading an
+already-resolved value. But it was a fragile implicit dependency — nothing in the component itself
+enforced that its caller pre-normalizes, so a future or different caller passing less-normalized data
+would silently undercount with no error. Fixed by calling `resolveCriticality()` directly, matching
+the convention the earlier 12-file dedup already established for every other reader of this field.
+`tsc --noEmit` clean. Commit `907c5cf` on `ocos/develop`.
+
+One finding from the same sweep remains open, not yet fixed: `DecisionSupportQueue.tsx`
+**recomputes a priority score from its own already-derived output** (`rec.priority`) with its own
+`0.6/0.4` weights, while a real `computePriorityScore()` exists server-side (`decisionSupport.js`,
+weights `0.40/0.35/0.15/0.10` over genuine `decision_queue` fields) that the frontend never calls.
 
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
