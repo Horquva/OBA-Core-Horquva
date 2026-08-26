@@ -299,9 +299,24 @@ anywhere. Fixed by threading the existing `riskByAgentName` map (`predictiveRisk
 weight) stays client-side, unchanged in kind — it's internal ranking that picks what to simulate/how to
 sort, never rendered as an asserted verdict, matching this session's own established precedent (the
 SPOF/`getSPOFs()` and original `deriveRisk`-for-ranking calls). `lib/risk.ts` deleted entirely — zero
-remaining imports. `tsc --noEmit` clean. Commit `3af87ba` on `ocos/develop`. D-53 through D-64 remain
-open, per the design doc's recommended phasing (routing fixes next, then fabricated-number cleanup,
-then threshold dedup, then the eight real backend migrations as their own sequenced sub-workstreams).
+remaining imports. `tsc --noEmit` clean. Commit `3af87ba` on `ocos/develop`.
+
+**W-K, decision D-53 — the two routing fixes, one already done, one landed today.** Verified live
+before touching anything, rather than trusting the design doc's own inventory: `getSPOFs()` routing
+turned out to already be fixed by an earlier commit (`aef3109`, see §4's SPOF-unification entry) —
+`risk/page.tsx` already fetches `/api/dependencies/agent-spofs` and passes the real `spofAgentIds` Set
+into `computeRiskIntelligence()`; `getSPOFs()` itself stays in `lib/graph.ts` for `ScenarioSandbox.tsx`'s
+internal scenario-selection only, matching established precedent. The second half was genuinely open:
+`riskIntelligence.ts`'s `buildFactors()` re-derived the risk-factor breakdown with its own point scheme
+(No Owner +40, No Backup +30, etc.) completely disconnected from `predictiveRisk()`'s real weights
+(`contributingFactors`, already shipped on `/api/predictive-risk/agents` but never read) — the displayed
+"Total Risk Score" never actually equalled the sum of the factor rows shown above it, since the total
+came from the real backend score while the rows came from invented numbers. Fixed by extending
+`PredictiveRiskEntry` to carry `contributingFactors`/`reasons` from the same response already fetched,
+and building the display list from them directly (`factorsFromRisk()`); per-factor severity (badge color
+only, doesn't feed back into anything) derived from the real point value via a small documented banding.
+Live-verified over HTTP: 5 keys, 5 reasons, matching order. `tsc --noEmit` clean. Commit `bf10628` on
+`ocos/develop`. D-54 through D-64 remain open, per the design doc's recommended phasing.
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -845,7 +860,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — D-52 done (commit `3af87ba`); D-53…D-64 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — D-52 done (`3af87ba`), D-53 done (`bf10628`); D-54…D-64 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
