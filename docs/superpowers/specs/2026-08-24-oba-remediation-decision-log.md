@@ -367,8 +367,19 @@ from the real formula. `tsc --noEmit` clean, no backend changes needed (`severit
 existed from W-I; this only stops discarding its output). Commit `fc43a22` on `ocos/develop`.
 
 This closes the design doc's Phase 1-3 (D-52 through D-56: the active bug, the two routing fixes, the
-two fabricated numbers, and both duplicated thresholds). D-57 through D-64 — the eight real backend
-migrations — remain open, recommended as their own sequenced sub-workstreams given the combined scope.
+two fabricated numbers, and both duplicated thresholds).
+
+**W-K, decision D-63 — rescoped smaller than planned after closer inspection.** The design doc's plan
+was to add a blast-radius function to `domain/simulations.js`. Closer look found the BFS cascade
+traversal itself in `BlastRadiusSimulator.tsx` is graph-traversal utility, not a judgment — the same
+class as `lib/graph.ts`'s `getDownstream`/`getUpstream`, already established this session as acceptable
+client-side. What was actually fabricated was the "impact %" number (`Math.pow(0.65, hop) * 100`, a
+pure narrative assumption with no measured basis) — nothing worth building a new backend endpoint for.
+Fixed by keeping the real BFS + hop distance and replacing the invented decay curve with the real
+`predictedScore`/`threatLevel` already computed by `predictiveRisk()`, for whichever agent is actually
+hit at each hop — no new backend endpoint needed, just wiring `map/page.tsx` to fetch
+`/api/predictive-risk/agents` like every other page already does. `tsc --noEmit` clean. Commit
+`c7f0e50` on `ocos/develop`. D-57 through D-62 and D-64 remain open.
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -912,7 +923,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done: D-52 (`3af87ba`), D-53 (`bf10628`), D-54 (`241968a`), D-55 (`a6b8fd4`), D-56 (`fc43a22`); D-57…D-64 (Phase 4, real backend migrations) open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-63 done (`c7f0e50`, rescoped smaller); D-57, D-58, D-59, D-60, D-61, D-62, D-64 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
