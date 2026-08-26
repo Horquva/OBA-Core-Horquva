@@ -1,13 +1,13 @@
-# Part J & K — Security Findings Lifecycle Automation
-# Converts SARIF results from the security gate into tracked GitHub Issues
-# automatically (Detect -> Normalize -> Classify -> Assign), so findings are
-# never only visible in a workflow log.
-
 name: Finding Ingestion (SARIF -> Tracked Issue)
 
 on:
   workflow_run:
-    workflows: ["Reusable Security Gate"]
+    # FIX: was listening for "Reusable Security Gate", which is a called
+    # workflow (on: workflow_call only) and never runs standalone, so this
+    # trigger never fired. Now listens for the actual top-level workflows
+    # that call it as a sub-job (their SARIF artifacts are still attached
+    # to these run IDs).
+    workflows: ["CI - Build, Test & Security Gate", "Scheduled Security Rescan"]
     types: [completed]
 
 permissions:
@@ -54,14 +54,9 @@ jobs:
               for (const run of sarif.runs || []) {
                 for (const result of run.results || []) {
                   const level = result.level || 'warning';
-                  // Map SARIF level to Sentinel severity — only Critical/High auto-open issues
                   const severity = level === 'error' ? 'high' : (level === 'warning' ? 'medium' : 'low');
                   if (severity !== 'high') continue;
 
-                  // Build a stable fingerprint from rule + exact location, NOT ruleId alone.
-                  // ruleId alone would treat every finding of the same rule (e.g. the same
-                  // SAST rule firing in 10 different files/lines) as "the same" finding,
-                  // silently suppressing all but the first. Location makes each occurrence unique.
                   const loc = result.locations?.[0]?.physicalLocation;
                   const filePath = loc?.artifactLocation?.uri || file;
                   const startLine = loc?.region?.startLine ?? 0;
@@ -77,10 +72,9 @@ jobs:
                     `**Commit:** ${context.sha}`,
                     `**Pipeline run:** ${context.runId}`,
                     ``,
-                    `_Automatically created by Part J Finding Ingestion. Assign an owner and update status per the finding lifecycle: detected -> classified -> assigned -> in_remediation -> remediated -> validated -> closed._`
+                    `_Automatically created by Part J Finding Ingestion._`
                   ].join('\n');
 
-                  // De-dup by fingerprint (rule + file + line), not by rule alone.
                   const existing = await github.rest.search.issuesAndPullRequests({
                     q: `repo:${context.repo.owner}/${context.repo.repo} is:issue in:body "${fingerprint}"`
                   });

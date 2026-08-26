@@ -1,5 +1,3 @@
-# Part C — Secure CI/CD Pipeline Implementation
-# Stage: Commit -> Build -> Test -> (calls Security Gate reusable workflow)
 name: CI - Build, Test & Security Gate
 
 on:
@@ -8,7 +6,6 @@ on:
   push:
     branches: [main, develop]
 
-# Least Privilege: default token permissions are read-only; jobs elevate only where required
 permissions:
   contents: read
 
@@ -39,7 +36,7 @@ jobs:
           else
             echo "found=false" >> "$GITHUB_OUTPUT"
             echo "dir=." >> "$GITHUB_OUTPUT"
-            echo "::notice::No package.json found at repo root or frontend/ — skipping npm build/test. Update this workflow's detection step once the app's real location is confirmed with the owning team."
+            echo "::notice::No package.json found at repo root or frontend/ — skipping npm build/test."
           fi
 
       - name: Setup Node.js
@@ -80,11 +77,6 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # Security Gates run as a centrally-owned reusable workflow (One Source of Truth).
-  # This job only calls it — it never re-implements gate logic locally.
-  # Deliberately NOT dependent on build-and-test: security scanning must run
-  # even if the application build is broken or not yet wired up, since the
-  # scans operate on source code, not build output.
   security-gates:
     name: Security Gates
     uses: ./.github/workflows/security-gate.yml

@@ -1,12 +1,3 @@
-# Part D & E — Security Gate Engineering, Policy Enforcement & Security Scanning
-# This is Sentinel's ONE централized security gate. Every repository calls this —
-# no repository re-implements its own scanning logic (One Source of Truth).
-#
-# Blocking behaviour:
-#   Critical / High  -> pipeline fails (job exits non-zero)
-#   Medium           -> pipeline fails unless a logged, unexpired waiver exists
-#   Low / Info       -> recorded only, does not block
-
 name: Reusable Security Gate
 
 on:
@@ -25,13 +16,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # FIX: semgrep-action has no "SEMGREP_RULES" env var — that was never
+      # a real input, so our custom rules were silently never loaded, and
+      # only community registry configs ran. Fixed by passing every config
+      # (registry + local custom rules) directly via the action's own
+      # "config" input, which accepts a comma-separated list.
       - name: Run Semgrep
         uses: semgrep/semgrep-action@v1
         with:
-          config: security-gates/sast/config/semgrep.yml
-        env:
-          SEMGREP_RULES: security-gates/sast/semgrep-rules/
-          # Fails the step (blocking) on findings at/above policy threshold defined in semgrep.yml
+          config: >-
+            p/security-audit,p/secrets,p/owasp-top-ten,p/nodejsscan,security-gates/sast/semgrep-rules/
 
       - name: Upload SAST results (evidence)
         if: always()
@@ -48,12 +42,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history — catches secrets in prior commits, not just HEAD
+          fetch-depth: 0
 
       # Using the gitleaks CLI directly (not gitleaks/gitleaks-action) —
       # the Action wrapper now requires a paid license for GitHub
       # organizations. The underlying gitleaks tool itself is free/open
-      # source (MIT licensed); running it directly avoids that requirement.
+      # source; running it directly avoids that requirement.
       - name: Install Gitleaks CLI
         run: |
           GITLEAKS_VERSION="8.18.4"
@@ -71,9 +65,11 @@ jobs:
             --report-format sarif \
             --report-path gitleaks-report.sarif \
             --redact
-        # Any detected secret is treated as compromised — this step blocks unconditionally
-        # (gitleaks exits non-zero on any finding), per Part G (Secret Management):
-        # detection = automatic rotation required, no waiver path.
+        # Any detected secret is treated as compromised — blocks unconditionally.
+        # The production config (.gitleaks.toml) excludes the known,
+        # deliberately-fake test fixture value used by negative-test.yml
+        # (via value-based allowlist, proven reliable) so it doesn't
+        # perpetually block real PRs while still genuinely detecting anything else.
 
       - name: Upload secret scan results (evidence)
         if: always()
@@ -91,13 +87,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ROLLOUT NOTE: continue-on-error is temporary. This repository has
-      # pre-existing dependencies with Critical/High findings (tracked in
-      # governance/exception-register-template.csv) that predate this gate's
-      # introduction. Blocking every future PR on legacy debt isn't useful —
-      # standard practice is to roll a new gate out in report-only mode,
-      # remediate the existing debt on its own timeline, THEN flip this gate
-      # back to blocking (remove continue-on-error) once the register is clear.
+      # ROLLOUT NOTE: continue-on-error is temporary and formally logged as
+      # PLATFORM-EXC-2026-001 in governance/PLATFORM-ROLLOUT-EXCEPTIONS.md.
+      # This repository has pre-existing Critical/High dependency findings
+      # that predate this gate's introduction. Standard rollout practice:
+      # report-only mode, remediate legacy debt, THEN flip to blocking.
       - name: Run OWASP Dependency-Check
         id: depcheck
         continue-on-error: true
@@ -121,7 +115,7 @@ jobs:
       - name: Surface findings even though gate is in report-only mode
         if: steps.depcheck.outcome == 'failure'
         run: |
-          echo "::warning::Dependency scan found Critical/High findings — see dependency-check-report artifact. This gate is currently non-blocking (rollout mode); findings must still be logged in governance/exception-register-template.csv and remediated on the SLA defined in security-gates/dependency-scan/policies/severity-policy.json."
+          echo "::warning::Dependency scan found Critical/High findings — see dependency-check-report artifact. Gate is currently non-blocking (rollout mode); findings must be logged in governance/exception-register-template.csv and remediated on the SLA defined in security-gates/dependency-scan/policies/severity-policy.json."
 
   iac-scan:
     name: Infrastructure-as-Code Scan (Checkov)
@@ -137,7 +131,7 @@ jobs:
           config_file: infra/terraform/policies/checkov-config.yaml
           output_format: sarif
           output_file_path: checkov-results.sarif
-          soft_fail: false   # blocking — hard fail on policy violation
+          soft_fail: false
 
       - name: Upload IaC scan results (evidence)
         if: always()
@@ -161,7 +155,7 @@ jobs:
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No Dockerfile at repo root — this repository isn't containerized yet, skipping container scan."
+            echo "::notice::No Dockerfile at repo root — skipping container scan."
           fi
 
       - name: Build image for scanning
@@ -176,7 +170,7 @@ jobs:
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"
-          exit-code: "1"          # blocking
+          exit-code: "1"
           trivyignores: "container-security/image-scanning/trivy-config/.trivyignore"
 
       - name: Upload container scan results (evidence)
