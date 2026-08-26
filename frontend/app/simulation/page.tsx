@@ -10,6 +10,7 @@ import { Agent, Dependency, AITool } from '../../types';
 import { authHeader } from '../../lib/authFetch';
 import { ScenarioResult, mapScenario } from '../../lib/simulation';
 import { normalizeAgent } from '../../lib/normalize';
+import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 
 export default function SimulationPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -17,6 +18,7 @@ export default function SimulationPage() {
   const [tools, setTools] = useState<AITool[]>([]);
   const [scenarios, setScenarios] = useState<ScenarioResult[]>([]);
   const [healthIndex, setHealthIndex] = useState<number>(0);
+  const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +45,12 @@ export default function SimulationPage() {
       fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load org health');
         return r.json();
-      })
+      }),
+      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : [])
     ])
-    .then(([agentsData, depsData, toolsData, rankData, healthData]) => {
+    .then(([agentsData, depsData, toolsData, rankData, healthData, predictiveData]) => {
       setHealthIndex(healthData.healthIndex ?? 0);
+      setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
       const mappedDeps: Dependency[] = Array.isArray(depsData.dependencies) 
@@ -113,7 +117,7 @@ export default function SimulationPage() {
       <div className="px-6 md:px-10 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
         <TwinHealthIndex agents={agents} healthIndex={healthIndex} />
         <TwinSyncStatus agents={agents} tools={tools} />
-        <ScenarioSandbox agents={agents} dependencies={dependencies} tools={tools} />
+        <ScenarioSandbox agents={agents} dependencies={dependencies} tools={tools} riskByAgentName={riskByAgentName} />
       </div>
 
       {/* Full universe ranking — every entity ranked by survivability */}

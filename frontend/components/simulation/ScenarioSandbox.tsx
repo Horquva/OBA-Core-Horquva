@@ -5,14 +5,17 @@ import { useState } from "react";
 import { Agent, Dependency, AITool } from "../../types";
 import { ScenarioResult, mapScenario } from "../../lib/simulation";
 import { authHeader } from "../../lib/authFetch";
-import { deriveRisk } from "../../lib/risk";
+import { PredictiveRiskEntry } from "../../lib/predictiveRisk";
 import { getSPOFs } from "../../lib/graph";
 
 interface Props {
   agents?: Agent[];
   dependencies?: Dependency[];
   tools?: AITool[];
+  riskByAgentName?: Map<string, PredictiveRiskEntry>;
 }
+
+const TIER_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 
 type ScenarioKey = "stress" | "node_outage" | "data_breach";
 
@@ -44,7 +47,7 @@ const RISK_COLORS: Record<string, string> = {
   low: "text-emerald-400",
 };
 
-export function ScenarioSandbox({ agents = [], dependencies = [], tools = [] }: Props) {
+export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], riskByAgentName }: Props) {
   const [activeKey, setActiveKey] = useState<ScenarioKey>("stress");
   const [status, setStatus] = useState<"idle" | "executing" | "done">("idle");
   const [result, setResult] = useState<ScenarioResult | null>(null);
@@ -83,10 +86,10 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [] }: 
         // Fail the highest-risk agent
         const spofs = getSPOFs(agents, dependencies).map(s => s.agentId);
         const ranked = [...agents].sort((a, b) => {
-          const aScore = (spofs.includes(a.id) ? 100 : 0) +
-            (deriveRisk(a) === "critical" ? 4 : deriveRisk(a) === "high" ? 3 : deriveRisk(a) === "medium" ? 2 : 1);
-          const bScore = (spofs.includes(b.id) ? 100 : 0) +
-            (deriveRisk(b) === "critical" ? 4 : deriveRisk(b) === "high" ? 3 : deriveRisk(b) === "medium" ? 2 : 1);
+          const aTier = riskByAgentName?.get(a.name)?.threatLevel ?? "low";
+          const bTier = riskByAgentName?.get(b.name)?.threatLevel ?? "low";
+          const aScore = (spofs.includes(a.id) ? 100 : 0) + TIER_WEIGHT[aTier];
+          const bScore = (spofs.includes(b.id) ? 100 : 0) + TIER_WEIGHT[bTier];
           return bScore - aScore;
         });
         if (ranked[0]) {

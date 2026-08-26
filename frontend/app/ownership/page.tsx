@@ -96,7 +96,7 @@ export default function OwnershipPage() {
       </div>
 
       <ConcentrationBar agents={dataset.agents} />
-      <DependencyPipeline dataset={dataset} />
+      <DependencyPipeline dataset={dataset} riskByAgentName={riskByAgentName} />
       <HumanDependencyRisks dataset={dataset} riskByAgentName={riskByAgentName} />
       <OrgRelationshipMap dataset={dataset} />
       <OwnershipList agents={dataset.agents} riskByAgentName={riskByAgentName} />
