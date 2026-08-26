@@ -477,7 +477,15 @@ const RECORDED_RISK_AS_THREAT = { low: 'LOW', medium: 'MEDIUM', high: 'HIGH', cr
 function predictiveRisk(roots) {
   const depIndex = dependencyIndex(roots)
   const backups = backupIndex(roots)
-  const ownerRowById = new Map(roots.owners.map((o) => [o.id, o]))
+  // agents.owner_id references employees.id directly, NOT owners.id (see
+  // routes/ownership.js's header comment — both id spaces start at 1, so a
+  // join on the wrong one never errors, it silently returns a different,
+  // plausible person). owners is a small subset of employees carrying
+  // role/backup/risk, so a declared-owner row is looked up by employee_id,
+  // falling back to the employees table for the name when no such row exists
+  // (7 of 15 seeded agents are owned by employees absent from owners).
+  const ownerRowByEmployeeId = new Map(roots.owners.filter((o) => o.employee_id != null).map((o) => [o.employee_id, o]))
+  const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
   const workflowById = new Map(roots.workflows.map((w) => [w.id, w]))
 
   const docByAgent = new Map()
@@ -493,18 +501,19 @@ function predictiveRisk(roots) {
     const factors = {}
     const reasons = []
 
-    const owner = agent.owner_id != null ? ownerRowById.get(agent.owner_id) : null
-    const ownerBackup = owner && owner.employee_id != null ? backups.get(owner.employee_id) : null
+    const ownerEmployee = agent.owner_id != null ? employeeById.get(agent.owner_id) : null
+    const ownerBackup = agent.owner_id != null ? backups.get(agent.owner_id) : null
+    const ownerName = ownerEmployee ? ownerEmployee.name : (ownerRowByEmployeeId.get(agent.owner_id) || {}).name
     // No owner at all is a worse condition than an owner with no backup — there
     // is no single point of failure to name, there is no coverage whatsoever —
     // so it must not score lower on this dimension than the owned-and-unbacked
     // case just because the `owner &&` guard made it fall through to nothing.
-    if (!owner) {
+    if (agent.owner_id == null) {
       factors.single_owner = RISK_FACTORS.NO_OWNER
       reasons.push('has no named owner at all')
     } else if (!(ownerBackup && ownerBackup.hasBackup)) {
       factors.single_owner = RISK_FACTORS.SINGLE_OWNER
-      reasons.push(`${owner.name} is the only named owner and has no backup`)
+      reasons.push(`${ownerName || 'the owner'} is the only named owner and has no backup`)
     }
 
     const directDependents = (depIndex.dependentsOf.get(depIndex.key('agent', agent.id)) || [])

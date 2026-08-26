@@ -200,10 +200,13 @@ console.log('\nCollaboration — evidence gate:')
 console.log('\nPredictive risk — factors and emergence:')
 {
 	const r = roots({
+		// agents.owner_id references employees.id directly, NOT owners.id (see
+		// routes/ownership.js's header comment) -- owner_id here is 1/2 to match
+		// owners.employee_id below, not owners.id (10/11).
 		agents: [
-			{ id: 1, name: 'Fragile', risk: 'low', status: 'active', owner_id: 10 },
-			{ id: 2, name: 'Safe', risk: 'low', status: 'active', owner_id: 11 },
-			{ id: 3, name: 'Downstream', risk: 'low', status: 'active', owner_id: 11 },
+			{ id: 1, name: 'Fragile', risk: 'low', status: 'active', owner_id: 1 },
+			{ id: 2, name: 'Safe', risk: 'low', status: 'active', owner_id: 2 },
+			{ id: 3, name: 'Downstream', risk: 'low', status: 'active', owner_id: 2 },
 		],
 		owners: [
 			{ id: 10, name: 'Solo', employee_id: 1, backup_owner: null },
