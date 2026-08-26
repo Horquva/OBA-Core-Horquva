@@ -7,6 +7,7 @@ import { AutomationStatusStrip } from '../../components/continuity/AutomationSta
 import { ContinuityTab } from '../../components/continuity/ContinuityTab';
 import { GovernanceTab } from '../../components/continuity/GovernanceTab';
 import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 
 export default function ContinuityPage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
@@ -30,7 +31,7 @@ export default function ContinuityPage() {
         name: a.name || 'Unknown Agent',
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : (a.owner || null),
         backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : (a.backup_owner || null),
-        criticality: a.risk || a.criticality || 'low',
+        criticality: resolveCriticality(a),
         department: a.department || 'Operations',
         documented: Boolean(a.documented ?? false),
       }));

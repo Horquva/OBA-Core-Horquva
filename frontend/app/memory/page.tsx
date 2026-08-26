@@ -7,6 +7,7 @@ import { MemoryHeader } from '../../components/memory/MemoryHeader';
 import { MemoryCarriersPanel } from '../../components/memory/MemoryCarriersPanel';
 import { LostAssetsPanel } from '../../components/memory/LostAssetsPanel';
 import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 
 export default function MemoryPage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
@@ -30,7 +31,7 @@ export default function MemoryPage() {
         name: a.name || 'Unknown Agent',
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : (a.owner || null),
         backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : (a.backup_owner || null),
-        criticality: a.risk || a.criticality || 'low',
+        criticality: resolveCriticality(a),
         department: a.department || 'Operations',
         documented: Boolean(a.documented ?? false),
       }));

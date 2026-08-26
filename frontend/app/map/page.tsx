@@ -8,6 +8,7 @@ import { BlastRadiusSimulator } from '../../components/map/BlastRadiusSimulator'
 import { DependencyEvolutionTab } from '../../components/map/DependencyEvolutionTab';
 import { HiddenDependencyOverlay } from '../../components/map/HiddenDependencyOverlay';
 import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 import { Agent, Dependency } from '../../types';
 
 interface AgentSpofsResponse {
@@ -50,7 +51,7 @@ export default function DependencyMapPage() {
         id: a.id?.toString() || '',
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
         backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-        criticality: a.risk || a.criticality || 'low',
+        criticality: resolveCriticality(a),
         department: a.department || (a.owner?.department) || 'Unassigned',
         documented: Boolean(a.documented ?? false),
       })) : [];

@@ -9,6 +9,7 @@ import { OrgHealthBanner } from '../../components/risk/OrgHealthBanner';
 import { PredictedRiskPanel } from '../../components/risk/PredictedRiskPanel';
 import { Agent, Dependency } from '../../types';
 import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 
 export default function RiskPage() {
   const [report, setReport] = useState<RiskIntelligenceReport | null>(null);
@@ -46,7 +47,7 @@ export default function RiskPage() {
         id: a.id?.toString() || '',
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
         backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-        criticality: a.risk || a.criticality || 'low',
+        criticality: resolveCriticality(a),
         department: a.department || (a.owner?.department) || 'Unassigned',
         documented: Boolean(a.documented ?? false),
       })) : [];

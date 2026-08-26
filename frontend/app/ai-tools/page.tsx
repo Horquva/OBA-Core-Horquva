@@ -9,6 +9,7 @@ import { ToolRiskTable } from '../../components/ai-tools/ToolRiskTable';
 import { OutageImpactPanel } from '../../components/ai-tools/OutageImpactPanel';
 import { DeptExposureTable } from '../../components/ai-tools/DeptExposureTable';
 import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 import { ExternalEcosystemTab } from '../../components/ai-tools/ExternalEcosystemTab';
 
 export default function AIToolsPage() {
@@ -50,7 +51,7 @@ export default function AIToolsPage() {
         name: a.name || 'Unknown Agent',
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : (a.owner || null),
         backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : (a.backup_owner || null),
-        criticality: a.risk || a.criticality || 'low',
+        criticality: resolveCriticality(a),
         department: a.department || 'Operations',
         documented: Boolean(a.documented ?? false),
       }));

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, FileText, UserPlus, ShieldAlert } from 'lucide-react';
 import { briefingApi } from '../../lib/api';
 import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 
 interface AgentRow {
   id: string;
@@ -38,7 +39,7 @@ export function RiskSplit() {
       const agentList: AgentRow[] = Array.isArray(agentData) ? agentData.map(a => ({
         ...a,
         department: a.department || (a.owner && a.owner.department) || 'Unassigned',
-        criticality: a.risk || a.criticality || 'low',
+        criticality: resolveCriticality(a),
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner
       })) : [];
       setAgents(agentList);

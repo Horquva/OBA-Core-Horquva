@@ -9,6 +9,7 @@ import DemoSummary from '../../components/recommendations/DemoSummary';
 import { DecisionSupportQueue } from '../../components/recommendations/DecisionSupportQueue';
 import { OpportunityBacklogTab } from '../../components/recommendations/OpportunityBacklogTab';
 import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 import { VerifiedAdvisorPanel } from '../../components/recommendations/VerifiedAdvisorPanel';
 import { Dataset } from '../../types';
 
@@ -37,7 +38,7 @@ export default function RecommendationsPage() {
           id: a.id?.toString() || '',
           owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
           backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-          criticality: a.risk || a.criticality || 'low',
+          criticality: resolveCriticality(a),
           department: a.department || 'Operations',
         })) : [],
         dependencies: Array.isArray(depsData.dependencies) ? depsData.dependencies.filter((d: any) => d.source_type === 'agent' && d.target_type === 'agent').map((d: any) => ({

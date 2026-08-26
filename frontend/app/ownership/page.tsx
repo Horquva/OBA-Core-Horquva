@@ -9,6 +9,7 @@ import { HumanDependencyRisks } from '../../components/ownership/HumanDependency
 import { OrgRelationshipMap } from '../../components/ownership/OrgRelationshipMap';
 import { AccountabilityChainTable } from '../../components/dashboard/AccountabilityChainTable';
 import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 import { Dataset } from '../../types';
 
 export default function OwnershipPage() {
@@ -34,7 +35,7 @@ export default function OwnershipPage() {
         ...a,
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
         backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-        criticality: a.risk || a.criticality || 'low',
+        criticality: resolveCriticality(a),
         department: a.department || (a.owner?.department) || 'Unassigned',
         documented: Boolean(a.documented ?? false),
       })) : [];

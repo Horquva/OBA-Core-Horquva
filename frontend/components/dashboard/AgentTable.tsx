@@ -7,6 +7,7 @@ import { RiskBadge } from '../ui/RiskBadge';
 import { deriveRisk } from '../../lib/risk';
 import type { Agent, RiskLevel } from '../../types';
 import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 
 export function AgentTable() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -21,7 +22,7 @@ export function AgentTable() {
           setAgents(data.map(a => ({
             ...a,
             department: a.department || (a.owner && a.owner.department) || 'Unassigned',
-            criticality: a.risk || a.criticality || 'low',
+            criticality: resolveCriticality(a),
             owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
             backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner
           })));
