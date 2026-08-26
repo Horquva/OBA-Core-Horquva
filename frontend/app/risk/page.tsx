@@ -30,9 +30,17 @@ export default function RiskPage() {
       fetch(`${base}/api/dependencies/agent-spofs`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load SPOF data');
         return r.json();
+      }),
+      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => {
+        if (!r.ok) throw new Error('Failed to load predictive risk scores');
+        return r.json();
+      }),
+      fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => {
+        if (!r.ok) throw new Error('Failed to load org health');
+        return r.json();
       })
     ])
-    .then(([agentsData, depsData, spofData]) => {
+    .then(([agentsData, depsData, spofData, predictiveData, healthData]) => {
       const agents: Agent[] = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
         ...a,
         id: a.id?.toString() || '',
@@ -52,7 +60,19 @@ export default function RiskPage() {
       const spofAgentIds = new Set<string>(
         (spofData.spofs || []).map((s: any) => s.agentId?.toString() || '')
       );
-      const calculatedReport = computeRiskIntelligence(agents, dependencies, spofAgentIds);
+      const predictedScoreByAgentName = new Map<string, number>(
+        (Array.isArray(predictiveData) ? predictiveData : []).map((p: any) => [p.agentName, p.predictedScore])
+      );
+      const orgHealth = healthData
+        ? { healthIndex: healthData.healthIndex ?? null, healthStatus: healthData.healthStatus ?? null }
+        : null;
+      const calculatedReport = computeRiskIntelligence(
+        agents,
+        dependencies,
+        spofAgentIds,
+        predictedScoreByAgentName,
+        orgHealth
+      );
       setReport(calculatedReport);
     })
     .catch((err) => {

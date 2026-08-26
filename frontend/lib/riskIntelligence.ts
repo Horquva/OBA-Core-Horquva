@@ -1,5 +1,4 @@
 import { Agent, Dependency } from '../types';
-import { deriveRiskScore, deriveRisk, calculateHealthScore } from './risk';
 import { getDownstream } from './graph';
 import { evidenceGate } from './evidenceGate';
 import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
@@ -177,7 +176,9 @@ function buildSummary(
 export function computeRiskIntelligence(
   agents: Agent[],
   dependencies: Dependency[],
-  spofAgentIds: Set<string>
+  spofAgentIds: Set<string>,
+  predictedScoreByAgentName: Map<string, number>,
+  orgHealth: { healthIndex: number | null; healthStatus: 'STABLE' | 'WARNING' | 'CRITICAL' | null } | null
 ): RiskIntelligenceReport {
   const spofs = spofAgentIds;
 
@@ -187,7 +188,7 @@ export function computeRiskIntelligence(
     const isSPOF = spofs.has(agent.id);
     const isOrphaned = !agent.owner;
 
-    const compositeScore = deriveRiskScore(agent);
+    const compositeScore = predictedScoreByAgentName.get(agent.name) ?? 0;
 
     // CRITICAL hard rule: orphaned OR (SPOF + no backup owner)
     const isCriticalByRule = isOrphaned || (isSPOF && !agent.backup_owner);
@@ -228,13 +229,15 @@ export function computeRiskIntelligence(
   const lowAgents      = profiles.filter(p => p.tier === 'LOW');
 
   const evidence = evidenceGate(agents, () => true);
-  const ohs = evidence.sufficient ? calculateHealthScore(agents) : null;
+  const ohs = orgHealth?.healthIndex ?? null;
 
-  let healthStatus: RiskIntelligenceReport['healthStatus'];
-  if (!evidence.sufficient)  healthStatus = null;
-  else if (ohs! >= 75)       healthStatus = 'HEALTHY';
-  else if (ohs! >= 50)       healthStatus = 'AT_RISK';
-  else                       healthStatus = 'CRITICAL';
+  const statusMap: Record<string, RiskIntelligenceReport['healthStatus']> = {
+    STABLE: 'HEALTHY',
+    WARNING: 'AT_RISK',
+    CRITICAL: 'CRITICAL',
+  };
+  const healthStatus: RiskIntelligenceReport['healthStatus'] =
+    orgHealth?.healthStatus ? (statusMap[orgHealth.healthStatus] ?? null) : null;
 
   const orphanedNames = profiles.filter(p => p.isOrphaned).map(p => p.agent.name);
 
