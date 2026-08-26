@@ -38,7 +38,16 @@ router.get('/', async (req, res) => {
     if (asset.criticality === 'high')     e.highAssets++
   }
 
-  // Score each employee
+  // Score each employee. This is NOT a concentration/share metric (nothing
+  // here is normalized against other employees or org totals) -- it's an
+  // absolute score over what THIS person's own knowledge holdings look like:
+  // how much of what they hold is critical, undocumented, or unbacked. A
+  // sole owner of one critical, undocumented item scores the same whether
+  // the org has 10 knowledge assets or 10,000. The unrelated, genuinely
+  // share-based metric lives in frontend/lib/knowledgeRisk.ts's
+  // concentrationScore (weighted share of org-wide assets an owner holds) --
+  // was previously named the same thing here by coincidence, not because
+  // they compute the same thing.
   const weights = { critical: 40, high: 20, undocumented: 15, singleOwner: 10 }
 
   const result = Object.values(map).map(e => {
@@ -61,12 +70,12 @@ router.get('/', async (req, res) => {
       totalAssets:        e.totalAssets,
       undocumentedAssets: e.undocumentedAssets,
       criticalAssets:     e.criticalAssets,
-      concentrationScore: score,
+      knowledgeRiskScore: score,
       riskLevel
     }
   })
 
-  result.sort((a, b) => b.concentrationScore - a.concentrationScore)
+  result.sort((a, b) => b.knowledgeRiskScore - a.knowledgeRiskScore)
   res.json({ total: result.length, employees: result })
 })
 
