@@ -105,13 +105,25 @@ fixed the same way. `HiddenDependencyOverlay.tsx`'s similar-looking pattern was 
 unrelated (finds implicit transitive edges, correctly forward). `tsc --noEmit` clean. Commit
 `7333439` on `ocos/develop`.
 
-Two findings from the same audit remain open, not yet fixed: **governance/continuity scores**
+One finding from the same audit remains open, not yet fixed: **governance/continuity scores**
 re-diverged after the old backend routes were deleted — `frontend/lib/continuityRisk.ts` now computes
-both client-side with a formula matching no backend equivalent by that name. **Knowledge-risk
-scoring** — `backend/routes/knowledge/intelligence.js` computes a real per-person score the
-`/knowledge` page never fetches, instead computing a differently-defined (arguably legitimately
-different — concentration share vs. absolute risk) score in `frontend/lib/knowledgeRisk.ts`; worth an
-owner call before touching.
+both client-side with a formula matching no backend equivalent by that name.
+
+**Knowledge-risk scoring — investigated, turned out not to be the same bug pattern.** Read both
+implementations in full before touching anything: `backend/routes/knowledge/intelligence.js` reads
+`knowledge_assets` (a separate tracking table for documented knowledge *topics*, each with its own
+`owner_id`/`criticality`/`is_documented` that can differ from the underlying asset's) and answers "who
+holds undocumented, critical tacit knowledge." `frontend/lib/knowledgeRisk.ts` reads
+agents/workflows/tools' own fields directly and answers "who owns a large share of the org's
+weighted-critical assets" — a genuinely different, share-based question, same class of legitimate
+non-duplication as the earlier ownership-concentration finding. What was actually wrong: the backend
+field was named `concentrationScore` despite computing a per-person *absolute* score with nothing
+normalized against org totals — not concentration at all, and the coincidental name collision is what
+made this look like duplication on first read. Renamed to `knowledgeRiskScore` (zero consumers,
+confirmed by grep — pure clarity fix). Deliberately did not build new UI to surface this endpoint on
+`/knowledge` — that's a real feature addition (where it goes, how it's visually distinguished from the
+existing concentration panel) needing a product call, not something to decide unilaterally while
+auditing for duplication. Commit `5ab6757` on `ocos/develop`.
 
 **Backup-owner lookups — fixed, same day.** `routes/risks.js` was hand-rolling its own
 `owners.employee_id/backup_owner` query instead of calling the shared `lib/ownerBackups.js` — fixed by
