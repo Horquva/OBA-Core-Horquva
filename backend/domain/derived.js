@@ -1073,7 +1073,9 @@ function orgHealth(roots, { accountability: acc, predictiveRisk: risk }) {
  * value present in employees.department; an entity belongs to a department by:
  *
  *   workflows            -> workflows.department directly
- *   agents                -> owner_id -> owners.employee_id -> employees.department
+ *   agents                -> owner_id -> employees.department directly (owner_id
+ *                            IS an employees.id, not an owners.id -- see
+ *                            routes/ownership.js's header comment)
  *   knowledge_assets      -> owner_id -> employees.department directly
  *   accountability_entities -> its own .department column
  *
@@ -1087,9 +1089,7 @@ function filterRootsByDepartment(roots, department) {
 	const employeeIds = new Set(employees.map((e) => e.id))
 
 	const owners = roots.owners.filter((o) => employeeIds.has(o.employee_id))
-	const ownerIds = new Set(owners.map((o) => o.id))
-
-	const agents = roots.agents.filter((a) => ownerIds.has(a.owner_id))
+	const agents = roots.agents.filter((a) => employeeIds.has(a.owner_id))
 	const workflows = roots.workflows.filter((w) => w.department === department)
 	const workflowIds = new Set(workflows.map((w) => w.id))
 

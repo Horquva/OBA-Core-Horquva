@@ -579,13 +579,16 @@ console.log('\nOrg health by department — same formula, narrower population (D
 			{ id: 1, name: 'Ana', department: 'Eng' },
 			{ id: 2, name: 'Ben', department: 'Ops' },
 		],
+		// agents.owner_id references employees.id directly, NOT owners.id (see
+		// routes/ownership.js's header comment) -- owner_id here is 1/2 to match
+		// employees.id above, not owners.id (10/11).
 		owners: [
 			{ id: 10, name: 'Ana', employee_id: 1, backup_owner: 'Cal' },
 			{ id: 11, name: 'Ben', employee_id: 2, backup_owner: null },
 		],
 		agents: [
-			{ id: 1, name: 'EngAgent', risk: 'low', status: 'active', owner_id: 10 },
-			{ id: 2, name: 'OpsAgent', risk: 'low', status: 'active', owner_id: 11 },
+			{ id: 1, name: 'EngAgent', risk: 'low', status: 'active', owner_id: 1 },
+			{ id: 2, name: 'OpsAgent', risk: 'low', status: 'active', owner_id: 2 },
 		],
 		workflows: [
 			{ id: 1, name: 'EngFlow', risk: 'low', department: 'Eng' },
