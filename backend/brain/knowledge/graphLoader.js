@@ -16,10 +16,12 @@
  *
  * ─── What this loader deliberately does NOT emit ───
  * The ontology defines `system`, `team`, `customer`, `process` and `project`.
- * No Supabase table sources any of the five. Three of them — `system`,
- * `process`, `vendor`/`customer` — are now wired in below from
- * `data/company.json`'s hand-authored `systems` (4), `processes` (2) and
- * `external_entities` (10) sections (BUILD_SPEC's W2, done 2026-08-26).
+ * Three of the five now have real Supabase tables of their own: `system` from
+ * `systems`/`system_dependencies`/`system_agent_usage`, `process` from
+ * `accountability_entities` (entity_type='process', same source
+ * export-company.js's outProcesses already derives from), and `vendor`/
+ * `customer` from `external_entities`/`external_entity_supplies` (W-J,
+ * done 2026-08-26 — this loader no longer reads `data/company.json` at all).
  * `team` and `project` have no data source anywhere in this codebase, seed or
  * hand-authored, so they remain genuinely empty — that absence must still not
  * be read as "this organization has none", and inventing data for them would
@@ -92,6 +94,8 @@ async function loadFromSupabase(graph) {
     { data: systemsRows, error: e18 },
     { data: systemDeps, error: e19 },
     { data: systemAgentUsage, error: e20 },
+    { data: externalEntities, error: e21 },
+    { data: externalEntitySupplies, error: e22 },
   ] = await Promise.all([
     supabase.from('employees').select('*'),
     supabase.from('agents').select('*'),
@@ -112,8 +116,10 @@ async function loadFromSupabase(graph) {
     supabase.from('systems').select('*'),
     supabase.from('system_dependencies').select('*'),
     supabase.from('system_agent_usage').select('*'),
+    supabase.from('external_entities').select('*'),
+    supabase.from('external_entity_supplies').select('*'),
   ])
-  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e15 || e16 || e17 || e18 || e19 || e20
+  const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e15 || e16 || e17 || e18 || e19 || e20 || e21 || e22
   if (firstError) throw new Error(`graphLoader: ${firstError.message}`)
 
   // ─── Cross-cutting lookups ───
@@ -329,78 +335,57 @@ async function loadFromSupabase(graph) {
     if (k.owner_id && employeeEntities[k.owner_id]) R(employeeEntities[k.owner_id], 'owns', knowledge, { metadata: { source: 'knowledge_assets' } })
   }
 
-  // ─── Systems, processes, and external entities (data/company.json) ───
-  // No Supabase table sources these three ontology types (see header note).
-  // A missing or unreadable file degrades to "none of these three exist" —
-  // the same legitimate-absence handling as team/project — rather than
-  // throwing and failing the whole graph load over optional supplementary
-  // data.
-  let companyData = null
-  try {
-    companyData = require('../../../data/company.json')
-  } catch (_) {
-    companyData = null
+  // ─── Systems (systems / system_dependencies / system_agent_usage tables) ───
+  const employeeById = Object.fromEntries(employees.map((e) => [e.id, employeeEntities[e.id]]))
+  const systemEntities = {} // systems.id -> entity
+  for (const s of systemsRows || []) {
+    systemEntities[s.id] = E({
+      type: 'system',
+      name: s.name,
+      metadata: {
+        sourceTable: 'systems', sourceId: s.id, department: s.department,
+        criticality: s.criticality, documented: s.documented, description: s.description,
+      },
+    })
+    if (s.owner_id && employeeById[s.owner_id]) {
+      R(employeeById[s.owner_id], 'owns', systemEntities[s.id], {
+        criticality: s.criticality || 'medium', metadata: { source: 'systems' },
+      })
+    }
+  }
+  for (const sd of systemDeps || []) {
+    if (systemEntities[sd.system_id] && systemEntities[sd.depends_on_system_id]) {
+      R(systemEntities[sd.system_id], 'depends_on', systemEntities[sd.depends_on_system_id], { metadata: { source: 'systems' } })
+    }
+  }
+  // Agents that actually run against/deploy to/monitor a system. Without this, no
+  // agent ever depends_on a system, so a system's real usage is invisible to
+  // fan-in — M38 (Opportunity Intelligence) then reads that as "underused" for
+  // any system nothing else in the graph happens to lean on, which is wrong for
+  // e.g. Customer Data Warehouse rather than genuinely idle.
+  for (const su of systemAgentUsage || []) {
+    if (agentEntities[su.agent_id] && systemEntities[su.system_id]) {
+      R(agentEntities[su.agent_id], 'depends_on', systemEntities[su.system_id], { metadata: { source: 'system_agent_usage' } })
+    }
   }
 
-  if (companyData) {
-    const platformByName = Object.fromEntries(platforms.map((p) => [p.name, platformEntities[p.id]]))
-    const agentByName = Object.fromEntries(agents.map((a) => [a.name, agentEntities[a.id]]))
-    const employeeById = Object.fromEntries(employees.map((e) => [e.id, employeeEntities[e.id]]))
-
-    // ─── Systems (systems / system_dependencies / system_agent_usage tables) ───
-    const systemEntities = {} // systems.id -> entity
-    for (const s of systemsRows || []) {
-      systemEntities[s.id] = E({
-        type: 'system',
-        name: s.name,
-        metadata: {
-          sourceTable: 'systems', sourceId: s.id, department: s.department,
-          criticality: s.criticality, documented: s.documented, description: s.description,
-        },
+  // ─── External entities (external_entities / external_entity_supplies tables) ───
+  const extEntities = {} // external_entities.id -> entity
+  for (const ext of externalEntities || []) {
+    extEntities[ext.id] = E({
+      type: ext.kind === 'customer' ? 'customer' : 'vendor',
+      name: ext.name,
+      metadata: { sourceTable: 'external_entities', sourceId: ext.id, criticality: ext.criticality },
+    })
+    if (ext.relationship_owner_id && employeeById[ext.relationship_owner_id]) {
+      R(employeeById[ext.relationship_owner_id], 'owns', extEntities[ext.id], {
+        criticality: ext.criticality || 'medium', metadata: { source: 'external_entities' },
       })
-      if (s.owner_id && employeeById[s.owner_id]) {
-        R(employeeById[s.owner_id], 'owns', systemEntities[s.id], {
-          criticality: s.criticality || 'medium', metadata: { source: 'systems' },
-        })
-      }
     }
-    for (const sd of systemDeps || []) {
-      if (systemEntities[sd.system_id] && systemEntities[sd.depends_on_system_id]) {
-        R(systemEntities[sd.system_id], 'depends_on', systemEntities[sd.depends_on_system_id], { metadata: { source: 'systems' } })
-      }
-    }
-    // Agents that actually run against/deploy to/monitor a system. Without this, no
-    // agent ever depends_on a system, so a system's real usage is invisible to
-    // fan-in — M38 (Opportunity Intelligence) then reads that as "underused" for
-    // any system nothing else in the graph happens to lean on, which is wrong for
-    // e.g. Customer Data Warehouse rather than genuinely idle.
-    for (const su of systemAgentUsage || []) {
-      if (agentEntities[su.agent_id] && systemEntities[su.system_id]) {
-        R(agentEntities[su.agent_id], 'depends_on', systemEntities[su.system_id], { metadata: { source: 'system_agent_usage' } })
-      }
-    }
-
-    // External entities: `kind` is already 'vendor' or 'customer', both real
-    // ontology types. `supplies` names a platform/tool this vendor produces —
-    // a name with no matching platform (e.g. "AWS" supplying "Core Platform
-    // hosting", which isn't a tracked ai_platforms row) is skipped rather
-    // than invented, same convention as unmatched collaboration names below.
-    for (const ext of companyData.external_entities || []) {
-      const extEntity = E({
-        type: ext.kind === 'customer' ? 'customer' : 'vendor',
-        name: ext.name,
-        metadata: { sourceTable: 'company.json:external_entities', sourceId: ext.name, criticality: ext.criticality },
-      })
-      if (employeeByName[ext.relationship_owner]) {
-        R(employeeByName[ext.relationship_owner], 'owns', extEntity, {
-          criticality: ext.criticality || 'medium', metadata: { source: 'company.json:external_entities' },
-        })
-      }
-      for (const suppliedName of ext.supplies || []) {
-        if (platformByName[suppliedName]) {
-          R(extEntity, 'produces', platformByName[suppliedName], { metadata: { source: 'company.json:external_entities' } })
-        }
-      }
+  }
+  for (const sup of externalEntitySupplies || []) {
+    if (extEntities[sup.external_entity_id] && platformEntities[sup.platform_id]) {
+      R(extEntities[sup.external_entity_id], 'produces', platformEntities[sup.platform_id], { metadata: { source: 'external_entities' } })
     }
   }
 
