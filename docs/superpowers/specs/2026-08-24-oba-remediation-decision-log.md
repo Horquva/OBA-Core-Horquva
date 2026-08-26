@@ -564,6 +564,48 @@ D-65's fix took effect. Frontend rendering not visually verified in a browser th
 Next.js dev-server lock as D-60; backend contract is fully verified live. Commit `149f2e3` on
 `ocos/develop`. D-62 remains open — the largest item in W-K, and the last one.
 
+**W-K, decision D-62 — recommendation engine moves to the backend; brain module M04 expanded from 3
+rule classes to all 7.** `lib/recommendations.ts`'s `generateRecommendations()` (7 hand-authored rules:
+unowned agent / agent no backup / owner concentration / undocumented critical-high agent, the same four
+crossed onto workflows where applicable, plus tools with no backup) was entirely client-side. M04
+(Recommendation Engine) already existed as a brain module but covered only 3 rule classes (unowned
+assets, SPOF redundancy, dependency cycles) — the largest single gap identified in this workstream.
+
+Expanded M04 by reusing analytics the brain already had rather than reimplementing: rule 1 (unowned)
+was already broader than the frontend's agent-only scope, kept as-is. Rules 2 and 5 (agent/workflow, no
+backup owner, criticality ≥ high) turned out to be the SAME question `A.singlePointsOfFailure()`
+already answered (D-06's `spofVerdict`) for both types in one pass — M04 was calling it but not reading
+it richly; no new analytics needed. Rule 3 (owner concentration, ≥4 agents) is new, built from
+`A.owners()` per agent, deliberately agent-scoped to match the frontend's own semantics rather than
+`A.ownershipConcentration()`'s broader all-asset-types count. Rule 4 (undocumented agent, criticality ≥
+high) is new, reading `entity.metadata.documented`/`.risk`, both carried verbatim off the source row by
+graphLoader's `rowMeta()`. Rule 6 (tool no backup platform, criticality ≥ high) is new and deliberately
+NOT folded into `singlePointsOfFailure()`, whose owner-backup edges are never set for `tool_ownership`
+rows — a tool's backup is a fallback PLATFORM, not a person, the same distinction D-60's `orgMemory()`
+draws for tools; reads `metadata.assetCriticality`/`backupTool` instead. Rule 7 (undocumented CRITICAL,
+not merely high, workflow) is new, porting the frontend's exact critical-only asymmetry rather than
+"fixing" it to ≥high. The pre-existing dependency-cycle rule was kept — real intelligence outside the
+frontend's 7, not something D-62 asks to remove.
+
+Also addressed the design doc's own "no prose, no effort estimate" gap: every recommendation now
+carries `title`/`description`/`impact`/`action`/`effort`/`id`, computed from real graph data. Added
+explicit `orphanedAgentCount`/`undocumentedCriticalAgentCount`/`ownerConcentrationWarning` summary
+fields so the frontend doesn't need to re-derive them by pattern-matching prose client-side.
+
+New route `GET /api/intelligence/recommendations`. `frontend/lib/recommendations.ts` no longer
+generates anything; it fetches that endpoint and shapes the JSON. `app/recommendations/page.tsx` now
+fetches it plus `/api/health/summary` (org health, genuinely separate — M04 doesn't compute it) instead
+of pulling agents/dependencies/tools/workflows/predictive-risk and generating locally.
+
+New unit test hand-verifies all 7 rules plus the cycle rule plus the summary fields against a
+constructed graph fixture (33 assertions). `tsc --noEmit` clean, full backend suite clean (18 suites).
+Live-verified over HTTP: 23 recommendations, category and summary-field counts self-consistent across
+two independent live checks taken before and after the prose/id enrichment. Frontend rendering not
+visually verified in a browser this session, same Next.js dev-server lock as D-60/D-61 — backend
+contract is fully verified live. Commit `550d14f` on `ocos/develop`.
+
+**W-K is now fully closed — all thirteen decisions (D-52 through D-64) plus the D-65 bonus fix landed.**
+
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
 backend the frontend should get it from backend... either from graph or derived... a systematic
@@ -1106,7 +1148,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64, D-65 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-59 done (`14b8b87`), D-60 done (`d20132b`), D-61 done (`149f2e3`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change, D-65 done (`2e356b5`, found while starting D-61); D-62 open (largest item, last one), see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64, D-65 | **DONE** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-59 done (`14b8b87`), D-60 done (`d20132b`), D-61 done (`149f2e3`), D-62 done (`550d14f`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change, D-65 done (`2e356b5`, found while starting D-61), see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
