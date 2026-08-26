@@ -1,5 +1,5 @@
 import { Agent, Dependency, AITool, Workflow, Dataset, RiskLevel } from '../types';
-import { deriveRisk } from './risk';
+import { PredictiveRiskEntry } from './predictiveRisk';
 
 
 
@@ -60,15 +60,20 @@ function nextId(prefix: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Core engine
 // ─────────────────────────────────────────────────────────────────────────────
-export function generateRecommendations(dataset: Dataset, orgHealthIndex: number): RecommendationEngineOutput {
+export function generateRecommendations(
+  dataset: Dataset,
+  orgHealthIndex: number,
+  riskByAgentName: Map<string, PredictiveRiskEntry>
+): RecommendationEngineOutput {
   _idCounter = 0;
   const { agents, dependencies, ai_tools, workflows } = dataset;
   const recs: Recommendation[] = [];
+  const riskOf = (agent: Agent): RiskLevel => riskByAgentName.get(agent.name)?.threatLevel ?? 'low';
 
   // ── 1. ORPHANED AGENTS (no owner) ────────────────────────────────────────
   const orphaned = agents.filter(a => !a.owner);
   orphaned.forEach(agent => {
-    const risk = deriveRisk(agent);
+    const risk = riskOf(agent);
     recs.push({
       id: nextId('rec'),
       priority: riskToPriority(risk),
@@ -87,7 +92,7 @@ export function generateRecommendations(dataset: Dataset, orgHealthIndex: number
   // ── 2. AGENTS WITH NO BACKUP OWNER ───────────────────────────────────────
   const noBackup = agents.filter(a => a.owner && !a.backup_owner);
   noBackup.forEach(agent => {
-    const risk = deriveRisk(agent);
+    const risk = riskOf(agent);
     if (risk === 'critical' || risk === 'high') {
       recs.push({
         id: nextId('rec'),
@@ -137,7 +142,7 @@ export function generateRecommendations(dataset: Dataset, orgHealthIndex: number
     a => !a.documented && (a.criticality === 'critical' || a.criticality === 'high')
   );
   undocumentedCritical.forEach(agent => {
-    const risk = deriveRisk(agent);
+    const risk = riskOf(agent);
     recs.push({
       id: nextId('rec'),
       priority: riskToPriority(risk),

@@ -12,10 +12,12 @@ import { authHeader } from '../../lib/authFetch';
 import { resolveCriticality } from '../../lib/criticality';
 import { VerifiedAdvisorPanel } from '../../components/recommendations/VerifiedAdvisorPanel';
 import { Dataset } from '../../types';
+import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 
 export default function RecommendationsPage() {
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [orgHealthIndex, setOrgHealthIndex] = useState<number>(0);
+  const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,9 +30,11 @@ export default function RecommendationsPage() {
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
       fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => r.ok ? r.json() : { healthIndex: 0 }),
+      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
-    .then(([agentsData, depsData, toolsData, wData, healthData]) => {
+    .then(([agentsData, depsData, toolsData, wData, healthData, predictiveData]) => {
       setOrgHealthIndex(healthData.healthIndex ?? 0);
+      setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       setDataset({
         company: 'Organizational Intelligence',
         agents: Array.isArray(agentsData) ? agentsData.map((a: any) => ({
@@ -65,8 +69,8 @@ export default function RecommendationsPage() {
 
   const output: RecommendationEngineOutput | null = useMemo(() => {
     if (!dataset) return null;
-    return generateRecommendations(dataset, orgHealthIndex);
-  }, [dataset, orgHealthIndex]);
+    return generateRecommendations(dataset, orgHealthIndex, riskByAgentName);
+  }, [dataset, orgHealthIndex, riskByAgentName]);
 
   if (error) {
     return (

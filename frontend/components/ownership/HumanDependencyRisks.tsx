@@ -2,13 +2,13 @@
 
 import { useMemo } from 'react';
 import { Dataset, Agent, RiskLevel } from '../../types';
-import { deriveRisk } from '../../lib/risk';
+import { PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { AlertTriangle, TrendingUp, UserX, FileX, Zap } from 'lucide-react';
 import clsx from 'clsx';
 
 interface HumanDependencyRisksProps {
   dataset: Dataset;
-  predictedScoreByAgentName: Map<string, number>;
+  riskByAgentName: Map<string, PredictiveRiskEntry>;
 }
 
 type HumanRiskProfile = {
@@ -40,7 +40,7 @@ const tierConfig = {
   low:      { label: 'Low',      color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', barColor: 'bg-emerald-500', topBorder: 'border-t-[var(--border-strong)]' },
 };
 
-export function HumanDependencyRisks({ dataset, predictedScoreByAgentName }: HumanDependencyRisksProps) {
+export function HumanDependencyRisks({ dataset, riskByAgentName }: HumanDependencyRisksProps) {
   const { agents, ai_tools, workflows } = dataset;
 
   const profiles = useMemo<HumanRiskProfile[]>(() => {
@@ -60,7 +60,7 @@ export function HumanDependencyRisks({ dataset, predictedScoreByAgentName }: Hum
       const unbackedTools = toolsOwned.filter(t => !t.backup_tool).length;
 
       // Weighted risk score
-      const agentRisk = ownedAgents.reduce((acc, a) => acc + (predictedScoreByAgentName.get(a.name) ?? 0), 0);
+      const agentRisk = ownedAgents.reduce((acc, a) => acc + (riskByAgentName.get(a.name)?.predictedScore ?? 0), 0);
       const workflowRisk = unbackedWorkflows * 12 + criticalWorkflows * 8;
       const toolRisk = unbackedTools * 10;
       const totalRiskScore = Math.round((agentRisk / (ownedAgents.length || 1)) + workflowRisk + toolRisk);
@@ -80,7 +80,7 @@ export function HumanDependencyRisks({ dataset, predictedScoreByAgentName }: Hum
         tier: riskTierFromScore(totalRiskScore),
       };
     }).sort((a, b) => b.totalRiskScore - a.totalRiskScore);
-  }, [agents, ai_tools, workflows, predictedScoreByAgentName]);
+  }, [agents, ai_tools, workflows, riskByAgentName]);
 
   const maxScore = Math.max(...profiles.map(p => p.totalRiskScore), 1);
 
@@ -176,7 +176,7 @@ export function HumanDependencyRisks({ dataset, predictedScoreByAgentName }: Hum
                     <div className="text-[9px] uppercase tracking-widest text-[color:var(--text-tertiary)] font-bold mb-2">Exposed Agents (No Backup)</div>
                     <div className="flex flex-wrap gap-1.5">
                       {profile.exposedAgents.map(a => {
-                        const risk = deriveRisk(a);
+                        const risk = riskByAgentName.get(a.name)?.threatLevel ?? 'low';
                         return (
                           <span
                             key={a.id}

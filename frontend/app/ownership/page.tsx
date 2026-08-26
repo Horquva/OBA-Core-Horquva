@@ -11,10 +11,11 @@ import { AccountabilityChainTable } from '../../components/dashboard/Accountabil
 import { authHeader } from '../../lib/authFetch';
 import { resolveCriticality } from '../../lib/criticality';
 import { Dataset } from '../../types';
+import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 
 export default function OwnershipPage() {
   const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [predictedScoreByAgentName, setPredictedScoreByAgentName] = useState<Map<string, number>>(new Map());
+  const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,9 +29,7 @@ export default function OwnershipPage() {
       fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : [])
     ])
     .then(([agentsData, toolsData, wfsData, predictiveData]) => {
-      setPredictedScoreByAgentName(new Map(
-        (Array.isArray(predictiveData) ? predictiveData : []).map((p: any) => [p.agentName, p.predictedScore])
-      ));
+      setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const agents = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
         ...a,
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
@@ -111,9 +110,9 @@ export default function OwnershipPage() {
 
       <ConcentrationBar agents={dataset.agents} />
       <DependencyPipeline dataset={dataset} />
-      <HumanDependencyRisks dataset={dataset} predictedScoreByAgentName={predictedScoreByAgentName} />
+      <HumanDependencyRisks dataset={dataset} riskByAgentName={riskByAgentName} />
       <OrgRelationshipMap dataset={dataset} />
-      <OwnershipList agents={dataset.agents} />
+      <OwnershipList agents={dataset.agents} riskByAgentName={riskByAgentName} />
     </div>
   );
 }

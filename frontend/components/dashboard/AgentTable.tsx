@@ -4,20 +4,24 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { RiskBadge } from '../ui/RiskBadge';
-import { deriveRisk } from '../../lib/risk';
+import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import type { Agent, RiskLevel } from '../../types';
 import { authHeader } from '../../lib/authFetch';
 import { resolveCriticality } from '../../lib/criticality';
 
 export function AgentTable() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    fetch(`${base}/api/agents`, { headers: authHeader() })
-      .then(r => r.json())
-      .then(data => {
+    Promise.all([
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.json()),
+      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+    ])
+      .then(([data, predictiveData]) => {
+        setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
         if (Array.isArray(data)) {
           setAgents(data.map(a => ({
             ...a,
@@ -34,9 +38,11 @@ export function AgentTable() {
       .finally(() => setLoading(false));
   }, []);
 
+  const riskOf = (agent: Agent): RiskLevel => riskByAgentName.get(agent.name)?.threatLevel ?? 'low';
+
   const sortedAgents = [...agents].sort((a, b) => {
     const w: Record<RiskLevel, number> = { critical: 4, high: 3, medium: 2, low: 1 };
-    return w[deriveRisk(b)] - w[deriveRisk(a)];
+    return w[riskOf(b)] - w[riskOf(a)];
   });
 
   return (
@@ -76,7 +82,7 @@ export function AgentTable() {
             </thead>
             <tbody className="divide-y divide-[var(--border-subtle)]">
               {sortedAgents.map((agent) => {
-                const risk = deriveRisk(agent);
+                const risk = riskOf(agent);
                 return (
                   <tr key={agent.id} className="hover:bg-[var(--bg-hover)] transition-colors group">
                     <td className="px-6 py-4">

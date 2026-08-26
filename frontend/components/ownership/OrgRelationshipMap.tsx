@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { Dataset } from '../../types';
-import { deriveRisk } from '../../lib/risk';
 import { Network, Users, Bot, Cpu, GitBranch, ChevronDown, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
 

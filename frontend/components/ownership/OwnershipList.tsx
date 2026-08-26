@@ -1,11 +1,12 @@
 import { Agent } from '../../types';
-import { deriveRisk } from '../../lib/risk';
+import { PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { RiskBadge } from '../ui/RiskBadge';
 import { AlertCircle, CheckCircle2, ShieldAlert, XCircle, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 
 interface OwnershipListProps {
   agents: Agent[];
+  riskByAgentName: Map<string, PredictiveRiskEntry>;
 }
 
 type OwnerGroup = {
@@ -17,7 +18,7 @@ type OwnerGroup = {
   coverageScore: number;
 };
 
-export function OwnershipList({ agents }: OwnershipListProps) {
+export function OwnershipList({ agents, riskByAgentName }: OwnershipListProps) {
   // Group agents by owner
   const groupsRecord: Record<string, OwnerGroup> = {};
 
@@ -149,7 +150,7 @@ export function OwnershipList({ agents }: OwnershipListProps) {
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {group.agents.map((agent) => {
-                  const risk = deriveRisk(agent);
+                  const risk = riskByAgentName.get(agent.name)?.threatLevel ?? 'low';
                   return (
                     <tr key={agent.id} className="hover:bg-[var(--bg-hover)] transition-colors group/row">
                       <td className="px-6 py-4">

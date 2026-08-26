@@ -2,6 +2,7 @@ import { Agent, Dependency } from '../types';
 import { getDownstream } from './graph';
 import { evidenceGate } from './evidenceGate';
 import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
+import type { PredictiveRiskEntry } from './predictiveRisk';
 
 // ─── Risk Tier ───────────────────────────────────────────────────────────────
 
@@ -19,10 +20,12 @@ export interface AgentRiskProfile {
   /** Combined raw score (ownership + dependency penalties) */
   compositeScore: number;
 
-  /** Tier derived from composite score */
+  /** Canonical tier — domain/derived.js's threatLevel(), never re-banded locally */
   tier: RiskTier;
 
-  /** Is CRITICAL by the hard rule? */
+  /** Orphaned, or a SPOF with no backup — informational only; no longer
+   *  overrides `tier`, since that duplicated a definition the backend's
+   *  factor-weighted score already accounts for (NO_OWNER/SINGLE_OWNER). */
   isCriticalByRule: boolean;
 
   /** Is orphaned (no owner)? */
@@ -36,15 +39,6 @@ export interface AgentRiskProfile {
 
   /** How many downstream agents this one can cascade into */
   downstreamCount: number;
-}
-
-// ─── Score → Tier mapping ─────────────────────────────────────────────────────
-
-function scoreToTier(score: number): RiskTier {
-  if (score >= 70) return 'CRITICAL';
-  if (score >= 40) return 'HIGH';
-  if (score >= 20) return 'MEDIUM';
-  return 'LOW';
 }
 
 // ─── Build factor list for an agent ──────────────────────────────────────────
@@ -177,7 +171,7 @@ export function computeRiskIntelligence(
   agents: Agent[],
   dependencies: Dependency[],
   spofAgentIds: Set<string>,
-  predictedScoreByAgentName: Map<string, number>,
+  riskByAgentName: Map<string, PredictiveRiskEntry>,
   orgHealth: { healthIndex: number | null; healthStatus: 'STABLE' | 'WARNING' | 'CRITICAL' | null } | null
 ): RiskIntelligenceReport {
   const spofs = spofAgentIds;
@@ -188,18 +182,16 @@ export function computeRiskIntelligence(
     const isSPOF = spofs.has(agent.id);
     const isOrphaned = !agent.owner;
 
-    const compositeScore = predictedScoreByAgentName.get(agent.name) ?? 0;
+    const risk = riskByAgentName.get(agent.name);
+    const compositeScore = risk?.predictedScore ?? 0;
 
-    // CRITICAL hard rule: orphaned OR (SPOF + no backup owner)
+    // Informational only — see isCriticalByRule's doc comment.
     const isCriticalByRule = isOrphaned || (isSPOF && !agent.backup_owner);
 
-    // Final tier
-    let tier: RiskTier;
-    if (isCriticalByRule) {
-      tier = 'CRITICAL';
-    } else {
-      tier = scoreToTier(compositeScore);
-    }
+    // Canonical tier straight from the backend's threatLevel() — no local
+    // re-banding, no override. An agent's tier is the same value everywhere
+    // it's shown, not whatever this page used to compute on its own.
+    const tier: RiskTier = risk ? (risk.threatLevel.toUpperCase() as RiskTier) : 'LOW';
 
     const factors = buildFactors(agent, isSPOF, downstreamCount);
 

@@ -10,6 +10,7 @@ import { PredictedRiskPanel } from '../../components/risk/PredictedRiskPanel';
 import { Agent, Dependency } from '../../types';
 import { authHeader } from '../../lib/authFetch';
 import { resolveCriticality } from '../../lib/criticality';
+import { buildPredictiveRiskByAgentName } from '../../lib/predictiveRisk';
 
 export default function RiskPage() {
   const [report, setReport] = useState<RiskIntelligenceReport | null>(null);
@@ -61,9 +62,7 @@ export default function RiskPage() {
       const spofAgentIds = new Set<string>(
         (spofData.spofs || []).map((s: any) => s.agentId?.toString() || '')
       );
-      const predictedScoreByAgentName = new Map<string, number>(
-        (Array.isArray(predictiveData) ? predictiveData : []).map((p: any) => [p.agentName, p.predictedScore])
-      );
+      const riskByAgentName = buildPredictiveRiskByAgentName(predictiveData);
       const orgHealth = healthData
         ? { healthIndex: healthData.healthIndex ?? null, healthStatus: healthData.healthStatus ?? null }
         : null;
@@ -71,7 +70,7 @@ export default function RiskPage() {
         agents,
         dependencies,
         spofAgentIds,
-        predictedScoreByAgentName,
+        riskByAgentName,
         orgHealth
       );
       setReport(calculatedReport);
@@ -111,19 +110,19 @@ export default function RiskPage() {
       <RiskScoreTable
         agents={report.highAgents}
         title="High Risk Agents"
-        subtitle="Score ≥ 40 — Escalate to department heads"
+        subtitle="Score ≥ 55 — Escalate to department heads"
         tier="HIGH"
       />
       <RiskScoreTable
         agents={report.mediumAgents}
         title="Medium Risk Agents"
-        subtitle="Score ≥ 20 — Monitor and schedule review"
+        subtitle="Score ≥ 35 — Monitor and schedule review"
         tier="MEDIUM"
       />
       <RiskScoreTable
         agents={report.lowAgents}
         title="Low Risk Agents"
-        subtitle="Score < 20 — Well-governed, continue maintaining"
+        subtitle="Score < 35 — Well-governed, continue maintaining"
         tier="LOW"
       />
       <OrgHealthBanner report={report} />
