@@ -246,7 +246,11 @@ class ScenarioEngine:
                 continue
             value = payload.variables[key]
             if isinstance(value, bool) or not isinstance(value, (int, float)):
-                continue
+                raise ArcturusValidationError(
+                    f"scenario '{payload.scenario_id}' variable '{key}'={value!r} is not "
+                    f"numeric, but hard_limits['{key}']={limit} requires a numeric comparison",
+                    PLATFORM_SOURCE,
+                )
             if value > limit:
                 raise ArcturusValidationError(
                     f"scenario '{payload.scenario_id}' variable '{key}'={value} exceeds "
