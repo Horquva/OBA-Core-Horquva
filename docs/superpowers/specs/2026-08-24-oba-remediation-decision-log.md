@@ -36,6 +36,23 @@ duplicate, and wire incidents into live scoring for the first time. Full detail 
 [the W-J design doc](2026-08-26-w-j-authored-entities-migration-design.md). See §3 for the finished
 workstream's task and commit count.
 
+**A same-day follow-on fix, not its own workstream** (2026-08-26): closing W-J prompted an audit of
+which of the ontology's 18 entity types actually populate the graph. Six sat at zero — `team`,
+`project`, `asset`, `risk`, `decision`, `capability`. Checked each one against `derived.js` and the
+rest of the codebase rather than assuming: `team`/`project` are genuinely empty by design (no data
+source exists, per `graphLoader.js`'s own header); `asset` is a category label already satisfied by
+`analytics.js`'s `ASSET_TYPES` union; `capability` describes the Brain's own module catalog, not
+organizational data; `risk` is correctly represented as a computed score on existing `ai_agent`
+entities (`derived.js`'s `predictiveRisk()`), not a type nothing else needs. `decision` was the one
+real gap: `decision_queue` — a table with real per-row ownership (`responsible_person`) and subject
+(`entity_name`), already read live by six route files — had never been wired into the graph, unlike
+`decision_history` (the table `derived.js`'s `decisionQuality()` reads for its aggregate score, which
+has no owner column and stays out of the graph for that reason). Fixed directly, same scale as the
+earlier `manages`-edge fix: added a `concerns` relationship type to the ontology, wired
+`decision_queue` into `graphLoader.js` with cross-namespace subject resolution (employee/agent/
+workflow/platform), and added live test coverage. Verified: all 10 rows resolve cleanly, including a
+decision concerning an employee rather than an operational asset. Commit `b5b8e7c` on `ocos/develop`.
+
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
 continue through the normal process regardless. Every decision below still carries its own
