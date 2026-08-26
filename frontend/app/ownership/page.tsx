@@ -16,6 +16,7 @@ import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/p
 export default function OwnershipPage() {
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
+  const [humanSpofOwners, setHumanSpofOwners] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,10 +27,16 @@ export default function OwnershipPage() {
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : [])
+      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/ownership`, { headers: authHeader() }).then(r => r.ok ? r.json() : { owners: [] })
     ])
-    .then(([agentsData, toolsData, wfsData, predictiveData]) => {
+    .then(([agentsData, toolsData, wfsData, predictiveData, ownershipData]) => {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
+      setHumanSpofOwners(new Set(
+        (Array.isArray(ownershipData.owners) ? ownershipData.owners : [])
+          .filter((o: any) => o.isHumanSpof)
+          .map((o: any) => o.name)
+      ));
       const agents = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
       const ai_tools = Array.isArray(toolsData) ? toolsData.map((t: any) => ({
@@ -89,17 +96,17 @@ export default function OwnershipPage() {
         <p className="text-[color:var(--text-secondary)] mt-1">Human-agent dependency map identifying single points of failure and coverage gaps.</p>
       </div>
 
-      <OwnershipOverview agents={dataset.agents} />
+      <OwnershipOverview agents={dataset.agents} humanSpofOwners={humanSpofOwners} />
 
       <div className="mt-8">
         <AccountabilityChainTable />
       </div>
 
       <ConcentrationBar agents={dataset.agents} />
-      <DependencyPipeline dataset={dataset} riskByAgentName={riskByAgentName} />
+      <DependencyPipeline dataset={dataset} riskByAgentName={riskByAgentName} humanSpofOwners={humanSpofOwners} />
       <HumanDependencyRisks dataset={dataset} riskByAgentName={riskByAgentName} />
       <OrgRelationshipMap dataset={dataset} />
-      <OwnershipList agents={dataset.agents} riskByAgentName={riskByAgentName} />
+      <OwnershipList agents={dataset.agents} riskByAgentName={riskByAgentName} humanSpofOwners={humanSpofOwners} />
     </div>
   );
 }

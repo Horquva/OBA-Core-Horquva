@@ -3,6 +3,15 @@ const router = express.Router()
 const supabase = require('../supabase')
 const { loadOwners } = require('../lib/ownerBackups')
 
+// A "human SPOF": one person carrying so much unbacked ownership that their
+// own absence is a single point of failure, distinct from an individual
+// agent's SPOF status. Previously computed independently (and, by
+// coincidence of backup_owner being owner-level not per-agent -- see
+// loadEnrichedAgents()'s comment in agents.js -- mathematically identically)
+// in three frontend components: OwnershipOverview.tsx, OwnershipList.tsx,
+// DependencyPipeline.tsx. One canonical threshold now.
+const HUMAN_SPOF_MIN_AGENTS = 3
+
 // GET /api/ownership — all owners with their agents and concentration detection.
 //
 // `agents.owner_id` references `employees.id`, NOT `owners.id`. Both id spaces
@@ -44,6 +53,7 @@ router.get('/', async (req, res) => {
         .filter((a) => a.owner_id === employeeId)
         .map((a) => ({ id: a.id, name: a.name, status: a.status, risk: a.risk }))
       const agentCount = ownedAgents.length
+      const hasBackup = !!(declared && declared.backup_owner)
       return {
         id: declared ? declared.id : null,
         employeeId,
@@ -55,9 +65,10 @@ router.get('/', async (req, res) => {
         declaredOwner: !!declared,
         agents: ownedAgents,
         agentCount,
-        hasBackup: !!(declared && declared.backup_owner),
+        hasBackup,
         concentrationRisk:
           agentCount >= 4 ? 'high' : agentCount >= 2 ? 'medium' : 'low',
+        isHumanSpof: !hasBackup && agentCount >= HUMAN_SPOF_MIN_AGENTS,
       }
     })
 
@@ -67,6 +78,7 @@ router.get('/', async (req, res) => {
     const noBackup = enriched.filter((o) => !o.hasBackup && o.agentCount > 0)
     const overloaded = enriched.filter((o) => o.concentrationRisk === 'high')
     const undeclared = enriched.filter((o) => !o.declaredOwner && o.agentCount > 0)
+    const humanSpofs = enriched.filter((o) => o.isHumanSpof)
 
     res.json({
       owners: enriched,
@@ -84,6 +96,11 @@ router.get('/', async (req, res) => {
         })),
         // Own agents but have no `owners` row, so no backup is recorded for them.
         undeclaredOwners: undeclared.map((o) => ({
+          name: o.name,
+          role: o.role,
+          agentCount: o.agentCount,
+        })),
+        humanSpofs: humanSpofs.map((o) => ({
           name: o.name,
           role: o.role,
           agentCount: o.agentCount,

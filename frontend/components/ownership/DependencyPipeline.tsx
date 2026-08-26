@@ -9,6 +9,10 @@ import { PredictiveRiskEntry } from '../../lib/predictiveRisk';
 interface DependencyPipelineProps {
   dataset: Dataset;
   riskByAgentName: Map<string, PredictiveRiskEntry>;
+  /** Owner names flagged by the backend's isHumanSpof (>=3 unbacked agents,
+   *  GET /api/ownership) -- replaces this component's own independently-coded
+   *  `noBackupAgents.length >= 3` check. */
+  humanSpofOwners: Set<string>;
 }
 
 const TIER_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
@@ -22,7 +26,7 @@ type PersonNode = {
   riskScore: number;
 };
 
-export function DependencyPipeline({ dataset, riskByAgentName }: DependencyPipelineProps) {
+export function DependencyPipeline({ dataset, riskByAgentName, humanSpofOwners }: DependencyPipelineProps) {
   const { agents, ai_tools, workflows } = dataset;
 
   const peopleMap = useMemo(() => {
@@ -55,13 +59,13 @@ export function DependencyPipeline({ dataset, riskByAgentName }: DependencyPipel
         agentCount: ownedAgents.length,
         toolCount: ownedTools.length,
         workflowCount: ownedWorkflows.length,
-        isSpof: noBackupAgents.length >= 3,
+        isSpof: humanSpofOwners.has(name),
         riskScore,
       };
     });
 
     return Object.values(map).sort((a, b) => b.riskScore - a.riskScore);
-  }, [agents, ai_tools, workflows, riskByAgentName]);
+  }, [agents, ai_tools, workflows, riskByAgentName, humanSpofOwners]);
 
   // Column totals
   const uniqueAgents = agents.length;
