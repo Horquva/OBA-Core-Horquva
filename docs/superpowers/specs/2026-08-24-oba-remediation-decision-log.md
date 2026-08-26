@@ -504,6 +504,30 @@ lock blocked starting a second instance alongside another active session's; the 
 page consumes is fully verified live, so the remaining risk is presentational only. Commit `d20132b`
 on `ocos/develop`. D-61, D-62 remain open.
 
+**Decision D-65 (found mid-W-K, while starting D-61) — `definitions.js`'s `LEVELS` was missing
+'medium', silently un-known-ing every medium-risk entity.** `LEVELS` recognized
+`'low'/'normal'/'high'/'critical'`; the real data (`agents.risk`, `workflows.risk`,
+`knowledge_assets.criticality`) uses `'medium'` for that tier instead — `'normal'` is exclusively a
+`dependencies.dependency_type` value, never an entity's own criticality (confirmed against seed data:
+59 rows across those four columns, 46 say `'medium'`, 5 say `'normal'`, never overlapping).
+`normalizeLevel('medium')` fell through to `UNKNOWN`, so `atOrAbove()`/`entityCriticality()` silently
+read every medium-risk agent/workflow/knowledge_asset as unmeasured. Checked the blast radius on
+already-shipped work before fixing: D-58's `tools.js` compares raw strings directly, unaffected.
+`predictiveRisk`/`humanDependencyRisk`'s `atOrAbove(risk,'high')` calls were unaffected in OUTCOME
+(medium correctly fails a 'high' bar either way). D-59's concentration weight table has `medium:1` and
+`unknown:1` — the same number by coincidence, so those scores were numerically fine, but every
+medium-risk asset was mislabeled `'unknown'` in the output. D-60's `orgMemory()` has the identical
+cosmetic mislabeling on its criticality display field only (status/tier logic never reads criticality).
+No shipped SCORE was wrong; the label was, everywhere `'medium'` could occur.
+
+Fix: `RANK.medium = RANK.normal` — an alias sharing the same rank, not a rename. `normalizeLevel` keeps
+each value's own spelling (`'medium'` stays `'medium'`, `'normal'` stays `'normal'`); only their RANK,
+not their label, is shared, so `entityCriticality`/`edgeCriticality` output both stay accurate to their
+source column's real vocabulary. New regression test (10 assertions) locks in the alias in every
+`atOrAbove` direction, including the previously-broken `atOrAbove('medium','medium')`. Full backend
+suite clean (146+95 assertions across the two directly affected files, 17 suites, no regressions in
+D-57–D-60's existing assertions). Commit `2e356b5` on `ocos/develop`.
+
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
 backend the frontend should get it from backend... either from graph or derived... a systematic
@@ -1046,7 +1070,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-59 done (`14b8b87`), D-60 done (`d20132b`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change; D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64, D-65 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-59 done (`14b8b87`), D-60 done (`d20132b`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change, D-65 done (`2e356b5`, found while starting D-61); D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
