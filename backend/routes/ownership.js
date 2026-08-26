@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { loadOwners } = require('../lib/ownerBackups')
 
 // GET /api/ownership — all owners with their agents and concentration detection.
 //
@@ -14,39 +15,30 @@ const supabase = require('../supabase')
 // employees who have no `owners` row, and keying on `owners` alone drops them.
 router.get('/', async (req, res) => {
   try {
-    const { data: owners, error: ownersErr } = await supabase
-      .from('owners')
-      .select('id, name, role, backup_owner, risk, employee_id')
+    const [ownerByEmployee, agentsRes, employeesRes] = await Promise.all([
+      // Same owners row loadOwnerBackupByEmployee() narrows for its own
+      // callers -- one query behind lib/ownerBackups.js, not a second
+      // hand-rolled copy.
+      loadOwners(),
+      supabase.from('agents').select('id, name, status, risk, owner_id'),
+      supabase.from('employees').select('id, name, role'),
+    ])
 
-    if (ownersErr) return res.status(500).json({ error: ownersErr.message })
+    if (agentsRes.error) return res.status(500).json({ error: agentsRes.error.message })
+    if (employeesRes.error) return res.status(500).json({ error: employeesRes.error.message })
 
-    const { data: agents, error: agentsErr } = await supabase
-      .from('agents')
-      .select('id, name, status, risk, owner_id')
-
-    if (agentsErr) return res.status(500).json({ error: agentsErr.message })
-
-    const { data: employees, error: employeesErr } = await supabase
-      .from('employees')
-      .select('id, name, role')
-
-    if (employeesErr) return res.status(500).json({ error: employeesErr.message })
-
-    const agentList = agents || []
-    const employeeById = new Map((employees || []).map((e) => [e.id, e]))
-    const ownerByEmployee = new Map(
-      (owners || []).filter((o) => o.employee_id != null).map((o) => [o.employee_id, o])
-    )
+    const agentList = agentsRes.data || []
+    const employeeById = new Map((employeesRes.data || []).map((e) => [e.id, e]))
 
     // Declared owners, plus anyone who owns an agent without being listed as one.
     const employeeIds = [
       ...new Set(
-        [...ownerByEmployee.keys(), ...agentList.map((a) => a.owner_id)].filter((id) => id != null)
+        [...Object.keys(ownerByEmployee).map(Number), ...agentList.map((a) => a.owner_id)].filter((id) => id != null)
       ),
     ]
 
     const enriched = employeeIds.map((employeeId) => {
-      const declared = ownerByEmployee.get(employeeId) || null
+      const declared = ownerByEmployee[employeeId] || null
       const employee = employeeById.get(employeeId) || null
       const ownedAgents = agentList
         .filter((a) => a.owner_id === employeeId)
