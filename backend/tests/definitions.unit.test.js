@@ -40,6 +40,26 @@ console.log('Criticality scale — four distinct levels (D-03):')
 	check('empty string is unknown', D.normalizeLevel('') === D.UNKNOWN, D.normalizeLevel(''))
 }
 
+console.log("\nRegression D-65 — 'medium' must rank alongside 'normal', not fall to unknown:")
+{
+	// agents.risk / workflows.risk / knowledge_assets.criticality all use
+	// 'medium'; dependencies.dependency_type uses 'normal' for the identical
+	// tier. Before D-65, LEVELS only recognized 'normal', so every medium-risk
+	// entity silently normalized to UNKNOWN everywhere atOrAbove/entityCriticality
+	// was used — found while building D-61, confirmed against real seed data
+	// (46 of 59 'medium'/'normal' rows across those columns use 'medium').
+	check("'medium' is a recognized level, not unknown", D.normalizeLevel('medium') === 'medium', D.normalizeLevel('medium'))
+	check("'medium' keeps its own spelling, not silently renamed to 'normal'", D.normalizeLevel('medium') !== 'normal', D.normalizeLevel('medium'))
+	check("'medium' and 'normal' rank equally", D.RANK.medium === D.RANK.normal, [D.RANK.medium, D.RANK.normal])
+	check("medium is at or above medium (a value must meet its own bar)", D.atOrAbove('medium', 'medium') === true)
+	check("medium is at or above normal (same tier, different spelling)", D.atOrAbove('medium', 'normal') === true)
+	check("normal is at or above medium (same tier, different spelling)", D.atOrAbove('normal', 'medium') === true)
+	check("medium is at or above low", D.atOrAbove('medium', 'low') === true)
+	check("medium is NOT at or above high", D.atOrAbove('medium', 'high') === false)
+	check("entityCriticality reads a medium-risk agent as 'medium', not unknown", D.entityCriticality('agent', { risk: 'medium' }) === 'medium', D.entityCriticality('agent', { risk: 'medium' }))
+	check("the old bug would have produced unknown here", D.entityCriticality('agent', { risk: 'medium' }) !== D.UNKNOWN)
+}
+
 console.log('\nThreshold comparison — unknown never qualifies (D-07):')
 {
 	check('critical is at or above high', D.atOrAbove('critical', 'high') === true)

@@ -29,13 +29,27 @@ const LEVELS = ['low', 'normal', 'high', 'critical']
 
 const RANK = Object.fromEntries(LEVELS.map((level, i) => [level, i]))
 
+// D-65: two vocabularies share this middle tier under different names.
+// `dependencies.dependency_type` uses 'normal'; `agents.risk`, `workflows.risk`,
+// and `knowledge_assets.criticality` all use 'medium' instead (46 of 59 total
+// seed rows across those three columns) — 'normal' never appears on an entity,
+// only on an edge. Without this alias, `normalizeLevel('medium')` fell through
+// to UNKNOWN, so every medium-risk agent/workflow/asset silently read as
+// "unmeasured" everywhere `atOrAbove`/`entityCriticality` was used — found
+// while building D-61, confirmed against real seed data, fixed here rather
+// than left to compound into a further consumer.
+RANK.medium = RANK.normal
+
 /**
  * Not a level. A sentinel meaning "no signal was recorded for this".
  * It has no rank and never compares true against a threshold.
  */
 const UNKNOWN = 'unknown'
 
-/** Coerces whatever the database held into a level, or UNKNOWN. */
+/** Coerces whatever the database held into a level, or UNKNOWN. Preserves
+ *  the caller's own spelling ('medium' stays 'medium', 'normal' stays
+ *  'normal') rather than collapsing aliases to one canonical word — only
+ *  their RANK, not their label, is shared. */
 function normalizeLevel(raw) {
 	if (typeof raw !== 'string') return UNKNOWN
 	const v = raw.trim().toLowerCase()
