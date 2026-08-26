@@ -1,4 +1,4 @@
-title = "Sentinel Gitleaks Configuration — Part G: Secret Management"
+title = "Sentinel Gitleaks Configuration — Part G: Secret Management (PRODUCTION)"
 
 # Extend Gitleaks' default, well-maintained ruleset (AWS keys, GCP keys,
 # private keys, generic API key patterns, etc.) rather than reinventing it.
@@ -18,22 +18,32 @@ description = "Sentinel internal machine identity credential"
 regex = '''sntl-svc-[a-z0-9]{16}\.[A-Za-z0-9+/=]{40,}'''
 tags = ["sentinel", "secret", "critical"]
 
-# --- Allowlist: reduce false positives without disabling detection entirely ---
+# --- Allowlist ---
 #
-# IMPORTANT: this allowlist must never contain the literal fake secret values
-# used by testing/negative-test-fixtures/ — doing so silently defeats the
-# Part R negative test (it makes the "known-bad" fixture invisible to the
-# scanner, which is the opposite of what that test exists to prove).
-# A previous version of this file exempted "AKIAIOSFODNN7EXAMPLE" and
-# "fake-credential" directly, which caused exactly that failure. Removed.
+# IMPORTANT: This is the PRODUCTION config, used by the real security-gate.yml
+# that scans the whole repository on every PR. testing/negative-test-fixtures/
+# permanently contains a deliberately fake, known-bad credential used to
+# PROVE the scanner works (see .github/workflows/negative-test.yml).
+#
+# Path-based exclusion (excluding the whole folder by path regex) was tried
+# first and did NOT reliably suppress the finding in production runs —
+# root cause unconfirmed. Value-based exclusion (naming the exact fake
+# secret string here) was already empirically proven to work reliably
+# (this is literally how the original detection bug was diagnosed and
+# fixed earlier — removing a value from this list restored detection).
+# Using that same proven mechanism here instead.
+#
+# The dedicated proof test in negative-test.yml does NOT use this config —
+# it uses .gitleaks-negative-test.toml (no exclusion at all), so detection
+# is still genuinely exercised and verified there.
 [allowlist]
 description = "Known safe test fixtures only — never production paths"
 paths = [
   '''(.*)/safe-fixtures/(.*)''',
-  '''(.*)/negative-test-fixtures/(.*)''',
   '''(.*)\.md$''',
 ]
 regexes = [
-  # Placeholder example values explicitly marked as fake in docs (not in negative-test-fixtures)
   '''EXAMPLE_(KEY|TOKEN|SECRET)_DO_NOT_USE''',
+  '''AKIAZ9X4Q7T2R8M5N1K3''',
+  '''zK9mQ2wRfPxT7Lb3VnJhY6sD1cA4eG8uH5oI0pW''',
 ]
