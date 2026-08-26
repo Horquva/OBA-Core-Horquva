@@ -150,14 +150,16 @@ console.log('\nCollaboration — adoption, dependency, concentration:')
 			{ employee_id: 2, platform_id: 1, usage_level: 'rare' },
 		],
 		employee_agent: [{ employee_id: 1, agent_id: 1, role: 'operator' }],
+		// agents.owner_id references employees.id directly, NOT owners.id --
+		// owner_id here is 1/2 to match employees.id, not owners.id (10/11).
 		owners: [
 			{ id: 10, name: 'Power', employee_id: 1, backup_owner: null },
 			{ id: 11, name: 'Light', employee_id: 2, backup_owner: 'Someone' },
 		],
 		agents: [
-			{ id: 1, name: 'Critical1', risk: 'critical', owner_id: 10 },
-			{ id: 2, name: 'Critical2', risk: 'high', owner_id: 10 },
-			{ id: 3, name: 'Minor', risk: 'low', owner_id: 11 },
+			{ id: 1, name: 'Critical1', risk: 'critical', owner_id: 1 },
+			{ id: 2, name: 'Critical2', risk: 'high', owner_id: 1 },
+			{ id: 3, name: 'Minor', risk: 'low', owner_id: 2 },
 		],
 	})
 	const c = d.collaboration(r)
@@ -257,11 +259,13 @@ console.log('\nExecutive memory — four types, four roots:')
 			{ workflow_id: 2, failure_type: 'tool_failure', severity: 'medium' },
 			{ workflow_id: 3, failure_type: 'human_spof', severity: 'high' },
 		],
+		// agents.owner_id references employees.id directly, NOT owners.id --
+		// owner_id here is 1 to match employees.id, not owners.id (10).
 		employees: [{ id: 1, name: 'Hero', department: 'Eng' }],
 		owners: [{ id: 10, name: 'Hero', employee_id: 1, backup_owner: null }],
 		agents: [
-			{ id: 1, name: 'A1', risk: 'critical', owner_id: 10 },
-			{ id: 2, name: 'A2', risk: 'high', owner_id: 10 },
+			{ id: 1, name: 'A1', risk: 'critical', owner_id: 1 },
+			{ id: 2, name: 'A2', risk: 'high', owner_id: 1 },
 		],
 		decision_history: [
 			{ id: 1, title: 'Bad call', outcome: 'negative', description: 'went wrong', should_revisit: false },
@@ -296,8 +300,8 @@ console.log('\nExecutive memory — four types, four roots:')
 		employees: [{ id: 1, name: 'Covered', department: 'Eng' }],
 		owners: [{ id: 10, name: 'Covered', employee_id: 1, backup_owner: 'Deputy' }],
 		agents: [
-			{ id: 1, name: 'A1', risk: 'critical', owner_id: 10 },
-			{ id: 2, name: 'A2', risk: 'critical', owner_id: 10 },
+			{ id: 1, name: 'A1', risk: 'critical', owner_id: 1 },
+			{ id: 2, name: 'A2', risk: 'critical', owner_id: 1 },
 		],
 	})
 	const m = d.executiveMemory(r)
@@ -511,7 +515,7 @@ console.log('\nDecision quality and org health:')
 		workflow_runbooks: [{ workflow_id: 1, is_documented: true }],
 		workflow_failures: [],
 		owners: [{ id: 10, name: 'A', employee_id: 1, backup_owner: 'B' }],
-		agents: [{ id: 1, name: 'A1', risk: 'low', status: 'active', owner_id: 10 }],
+		agents: [{ id: 1, name: 'A1', risk: 'low', status: 'active', owner_id: 1 }],
 		knowledge_assets: [{ asset_type: 'agent', asset_id: 1, is_documented: true, owner_id: 1 }],
 	})
 	const h = d.orgHealth(r, { accountability: d.accountability(r), predictiveRisk: d.predictiveRisk(r) })

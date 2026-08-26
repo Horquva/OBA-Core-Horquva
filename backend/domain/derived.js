@@ -309,15 +309,13 @@ function collaboration(roots) {
     agentsByEmployee.get(ea.employee_id).push(ea)
   }
 
-  // agents.owner_id points at an owners row, which in turn names an employee.
-  const ownerRowToEmployee = new Map(roots.owners.map((o) => [o.id, o.employee_id]))
+  // agents.owner_id IS an employees.id directly, not an owners.id (see
+  // routes/ownership.js's header comment for the id-space trap this avoids).
   const criticalOwnedByEmployee = new Map()
   for (const a of roots.agents) {
     if (a.owner_id == null) continue
     if (!atOrAbove(a.risk, 'high')) continue
-    const employeeId = ownerRowToEmployee.get(a.owner_id)
-    if (employeeId == null) continue
-    criticalOwnedByEmployee.set(employeeId, (criticalOwnedByEmployee.get(employeeId) || 0) + 1)
+    criticalOwnedByEmployee.set(a.owner_id, (criticalOwnedByEmployee.get(a.owner_id) || 0) + 1)
   }
 
   // Only people who actually touch AI get a row. Scoring the other ~12
@@ -669,12 +667,12 @@ function executiveMemory(roots) {
   // ── hero risks ────────────────────────────────────────────────────────────
   const backups = backupIndex(roots)
   const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
-  const ownerRowToEmployee = new Map(roots.owners.map((o) => [o.id, o.employee_id]))
+  // agents.owner_id IS an employees.id directly, not an owners.id (see
+  // routes/ownership.js's header comment for the id-space trap this avoids).
   const criticalOwned = new Map()
   for (const a of roots.agents) {
     if (a.owner_id == null || !atOrAbove(a.risk, 'high')) continue
-    const employeeId = ownerRowToEmployee.get(a.owner_id)
-    if (employeeId == null) continue
+    const employeeId = a.owner_id
     if (!criticalOwned.has(employeeId)) criticalOwned.set(employeeId, [])
     criticalOwned.get(employeeId).push(a.name)
   }
