@@ -3,6 +3,12 @@ import { RiskLevel } from '../types';
 export interface PredictiveRiskEntry {
   predictedScore: number;
   threatLevel: RiskLevel;
+  /** domain/derived.js's predictiveRisk() per-factor point breakdown (e.g.
+   *  single_owner, high_dependency_count) -- the backend's real weights, not
+   *  a locally re-derived set. Object key order matches `reasons` order. */
+  contributingFactors: Record<string, number>;
+  /** Human-readable, same order as contributingFactors' keys. */
+  reasons: string[];
 }
 
 const THREAT_TO_RISK_LEVEL: Record<string, RiskLevel> = {
@@ -29,6 +35,8 @@ export function buildPredictiveRiskByAgentName(predictiveData: unknown): Map<str
     map.set(p.agentName, {
       predictedScore: typeof p.predictedScore === 'number' ? p.predictedScore : 0,
       threatLevel: THREAT_TO_RISK_LEVEL[p.threatLevel] ?? 'low',
+      contributingFactors: (p.contributingFactors && typeof p.contributingFactors === 'object') ? p.contributingFactors : {},
+      reasons: Array.isArray(p.reasons) ? p.reasons : [],
     });
   }
   return map;

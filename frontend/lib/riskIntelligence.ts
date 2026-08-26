@@ -41,52 +41,32 @@ export interface AgentRiskProfile {
   downstreamCount: number;
 }
 
-// ─── Build factor list for an agent ──────────────────────────────────────────
+// ─── Factor list for an agent ─────────────────────────────────────────────────
 
-function buildFactors(
-  agent: Agent,
-  isSPOF: boolean,
-  downstreamCount: number
-): RiskFactor[] {
-  const factors: RiskFactor[] = [];
+/** Display-only severity banding for a real backend-computed point value --
+ *  colors the badge, never changes the number or feeds back into a score.
+ *  Thresholds sit between derived.js's own RISK_FACTORS values (10-35) so
+ *  every real factor lands somewhere, not a re-derivation of risk itself. */
+function severityForPoints(points: number): RiskFactor['severity'] {
+  if (points >= 25) return 'critical';
+  if (points >= 15) return 'high';
+  if (points >= 8)  return 'medium';
+  return 'low';
+}
 
-  if (!agent.owner) {
-    factors.push({ label: 'No Owner Assigned', points: 40, severity: 'critical' });
-  }
-
-  if (!agent.backup_owner) {
-    factors.push({ label: 'No Backup Owner', points: 30, severity: 'high' });
-  }
-
-  if (!agent.documented) {
-    factors.push({ label: 'Not Documented', points: 15, severity: 'medium' });
-  }
-
-  const critWeights: Record<string, { points: number; severity: 'critical' | 'high' | 'medium' | 'low' }> = {
-    critical: { points: 15, severity: 'critical' },
-    high:     { points: 10, severity: 'high' },
-    medium:   { points: 5,  severity: 'medium' },
-    low:      { points: 0,  severity: 'low' },
-  };
-
-  const cw = critWeights[agent.criticality];
-  if (cw && cw.points > 0) {
-    factors.push({
-      label: `Business Criticality: ${agent.criticality.toUpperCase()}`,
-      points: cw.points,
-      severity: cw.severity,
-    });
-  }
-
-  if (isSPOF) {
-    factors.push({
-      label: `Single Point of Failure (${downstreamCount} downstream agents)`,
-      points: 0, // already reflected in no-backup penalty; shown for clarity
-      severity: 'critical',
-    });
-  }
-
-  return factors;
+/** Builds the display factor list straight from predictiveRisk()'s own
+ *  contributingFactors/reasons (via /api/predictive-risk/agents) -- this used
+ *  to be a second, locally-invented point scheme (40/30/15/15) that didn't
+ *  even sum to the same compositeScore shown next to it. Object key order
+ *  matches `reasons` order by construction in derived.js's predictiveRisk(). */
+function factorsFromRisk(risk: PredictiveRiskEntry | undefined): RiskFactor[] {
+  if (!risk) return [];
+  const keys = Object.keys(risk.contributingFactors);
+  return keys.map((key, i) => ({
+    label: risk.reasons[i] ?? key,
+    points: risk.contributingFactors[key],
+    severity: severityForPoints(risk.contributingFactors[key]),
+  }));
 }
 
 // ─── Main computation ─────────────────────────────────────────────────────────
@@ -193,7 +173,7 @@ export function computeRiskIntelligence(
     // it's shown, not whatever this page used to compute on its own.
     const tier: RiskTier = risk ? (risk.threatLevel.toUpperCase() as RiskTier) : 'LOW';
 
-    const factors = buildFactors(agent, isSPOF, downstreamCount);
+    const factors = factorsFromRisk(risk);
 
     return {
       agent,
