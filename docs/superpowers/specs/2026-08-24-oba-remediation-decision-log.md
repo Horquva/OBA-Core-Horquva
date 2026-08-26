@@ -88,6 +88,34 @@ never rendered as an asserted verdict, matching this codebase's own precedent fo
 `frontend/lib/graph.ts`'s `getSPOFs()` during the SPOF fix. `tsc --noEmit` clean; browser-verified by
 the owner directly. Commit `1cac30f` on `ocos/develop`.
 
+**A fourth same-day fix — a real correctness bug, not just duplication** (2026-08-26): a broader
+audit for remaining duplication (dispatched after the risk-tier fix, covering org health/OIS,
+documentation coverage, governance/continuity, cascade/BFS direction, knowledge-risk scoring, and
+backup coverage) surfaced that `frontend/lib/graph.ts`'s `getDownstream()` walked the wrong direction
+— it returned what an agent itself depends on (its prerequisites), not what breaks when it fails
+(its victims), the inverse of `backend/domain/derived.js`'s `cascadeReach()`, which has its own
+comment explaining the correct direction. `getUpstream()` in the same file already had the correct
+backward-walking logic under the wrong name, with zero callers anywhere in the frontend — confirmed
+dead code, so the fix was swapping the two functions' bodies, safe with nothing else to break. This
+was live, not theoretical: `DependencyTable.tsx`'s "Cascade Impact" column, `FlowCanvas.tsx`'s
+downstream count, `riskIntelligence.ts`'s `downstreamCount`, and `getSPOFs()`'s victim-count criterion
+(still used by `ScenarioSandbox.tsx`) were all showing the inverse of what they claimed.
+`BlastRadiusSimulator.tsx` had a fifth, separately hand-rolled copy of the same forward adjacency —
+fixed the same way. `HiddenDependencyOverlay.tsx`'s similar-looking pattern was checked and is
+unrelated (finds implicit transitive edges, correctly forward). `tsc --noEmit` clean. Commit
+`7333439` on `ocos/develop`.
+
+Three findings from the same audit remain open, not yet fixed: **governance/continuity scores**
+re-diverged after the old backend routes were deleted — `frontend/lib/continuityRisk.ts` now computes
+both client-side with a formula matching no backend equivalent by that name. **Knowledge-risk
+scoring** — `backend/routes/knowledge/intelligence.js` computes a real per-person score the
+`/knowledge` page never fetches, instead computing a differently-defined (arguably legitimately
+different — concentration share vs. absolute risk) score in `frontend/lib/knowledgeRisk.ts`; worth an
+owner call before touching. **Backup-owner lookups** are hand-rolled a second and third time in
+`routes/risks.js` and `routes/ownership.js` instead of calling the shared `lib/ownerBackups.js` —
+outputs currently agree since it's the same table, but it's the same failure shape that produced the
+SPOF mess.
+
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
 continue through the normal process regardless. Every decision below still carries its own
