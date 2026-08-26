@@ -393,7 +393,33 @@ but answers a different question for a different purpose (visualization of impli
 relationships vs. impact/reachability analysis) — not a duplicate needing reconciliation, matching the
 precedent W-I set for `analytics.js`'s separate graph-based traversal. No migration needed; closed by
 inspection rather than by building new backend infrastructure for something that wasn't actually
-violating the mandate. D-57 through D-62 remain open.
+violating the mandate.
+
+**W-K, decision D-57 — human-dependency-risk score moves to the backend, one real formula, owner
+delegated the weighting call.** `HumanDependencyRisks.tsx` computed a displayed per-person
+`totalRiskScore` as (real agentRisk average) + (`unbackedWorkflows*12 + criticalWorkflows*8`) +
+(`unbackedTools*10`) — two invented point weights layered onto one real signal, tiered against a third
+invented scheme (50/25/10, disagreeing with `predictiveRisk()`'s own 35/55/75 bands).
+`DependencyPipeline.tsx`'s similarly-shaped `riskScore` was left alone — internal sort-only, never
+displayed, same exemption as `getSPOFs()`/`ScenarioSandbox`'s selection logic. The design doc flagged
+this needing an owner call on the weighting formula; the owner delegated the decision back with
+instructions to decide and document. Decision: reuse `RISK_FACTORS`' existing point scale instead of
+inventing new numbers, and `threatLevel()`'s existing bands instead of a third tier scheme. Workflow
+backup coverage is deliberately NOT counted as its own factor — it's the same owner-level fact
+`predictiveRisk()`'s `SINGLE_OWNER` factor for their agents already prices in (a workflow's
+`backup_owner` resolves from its owner's own `backup_owner` row, per `routes/workflows/index.js`);
+counting it twice would double-weight one signal, not add a second one. Critical-workflow load and
+tool-backup coverage are independent real facts, contributing as a *fraction* of owned
+workflows/tools (not a raw count) times the matching existing weight, so owning many workflows doesn't
+mechanically inflate the score.
+
+Added `domain/derived.js`'s `humanDependencyRisk(roots)` — all inputs were already-loaded root tables
+except `tool_backups`, added to `ROOT_TABLES` (zero new queries beyond one more parallel select).
+Exposed via new fields on `GET /api/ownership`, merged into the existing D-55 enriched owner objects —
+no new endpoint, no new frontend fetch needed. New unit test hand-verifies the exact formula against a
+constructed fixture (all 7 assertions pass). Live-verified over HTTP against real data (5 distinct
+scores/tiers). `tsc --noEmit` clean, full backend test suite clean. Commit `4fe155e` on `ocos/develop`.
+D-58 through D-62 remain open.
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -937,7 +963,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change (not actually intelligence); D-57, D-58, D-59, D-60, D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change; D-58, D-59, D-60, D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
