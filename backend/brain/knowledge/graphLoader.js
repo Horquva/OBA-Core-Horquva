@@ -189,6 +189,10 @@ async function loadFromSupabase(graph) {
   for (const emp of employees) {
     if (emp.manager && employeeByName[emp.manager]) {
       R(employeeEntities[emp.id], 'reports_to', employeeByName[emp.manager])
+      // Inverse of reports_to, same source column. M20's managementLinks and
+      // M26's per-executive `manages` list both read this edge type and were
+      // silently always empty without it — the data was already here.
+      R(employeeByName[emp.manager], 'manages', employeeEntities[emp.id], { metadata: { source: 'employees.manager' } })
     }
   }
 
@@ -334,6 +338,7 @@ async function loadFromSupabase(graph) {
 
   if (companyData) {
     const platformByName = Object.fromEntries(platforms.map((p) => [p.name, platformEntities[p.id]]))
+    const agentByName = Object.fromEntries(agents.map((a) => [a.name, agentEntities[a.id]]))
 
     // Systems: owner + inter-system depends_on chains (Billing System ->
     // Core Platform, etc.) — real dependency data, not approximated.
@@ -359,6 +364,17 @@ async function loadFromSupabase(graph) {
       for (const depName of s.depends_on || []) {
         if (systemEntities[depName]) {
           R(systemEntities[s.name], 'depends_on', systemEntities[depName], { metadata: { source: 'company.json:systems' } })
+        }
+      }
+      // Agents that actually run against/deploy to/monitor this system. Without
+      // this, no agent ever depends_on a system, so a system's real usage is
+      // invisible to fan-in — M38 (Opportunity Intelligence) then reads that as
+      // "underused" for any system nothing else in the graph happens to lean on,
+      // which is wrong for e.g. Customer Data Warehouse ("behind every dashboard
+      // and forecast") rather than genuinely idle.
+      for (const agentName of s.used_by || []) {
+        if (agentByName[agentName]) {
+          R(agentByName[agentName], 'depends_on', systemEntities[s.name], { metadata: { source: 'company.json:systems.used_by' } })
         }
       }
     }
