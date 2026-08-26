@@ -528,6 +528,42 @@ source column's real vocabulary. New regression test (10 assertions) locks in th
 suite clean (146+95 assertions across the two directly affected files, 17 suites, no regressions in
 D-57–D-60's existing assertions). Commit `2e356b5` on `ocos/develop`.
 
+**W-K, decision D-61 — per-asset continuity survival/governance moves to the backend.**
+`lib/continuityRisk.ts`'s `computeContinuityRisk()` (survivalStatus/governanceScore/
+complianceViolations per agent+workflow+tool, department rollups, must-protect/worst-offenders lists)
+was genuinely missing backend-side — unlike D-57 through D-60, `GET /api/intelligence/continuity` (M18)
+and `/governance` (M19) answer a different question (org/department AGGREGATES over a different
+formula; see `orgHealth()`'s own `continuityScore` and its D-21 comment), so this isn't a
+reconciliation of two disagreeing formulas, just a migration of the one real per-asset computation that
+existed. The `/continuity` page already labeled this heuristic "Estimated ... not M18/M19" rather than
+claiming it was either module.
+
+Ported verbatim into `domain/derived.js`'s `assetContinuity(roots)`: same four-way survival rule
+(no owner + high-stakes → LOST; no owner, low-stakes → DEGRADED; no backup + high-stakes → FAILS; no
+backup, low-stakes → DEGRADED; undocumented → DEGRADED; else SURVIVES), same governance deductions
+(-40 no owner / -25 no backup / -20 undocumented), same compliance-violation count, same top-10
+must-protect/worst-offenders selection. Factored owner/backup/documented/criticality/department
+resolution out of `orgMemory()` into a shared `ownedAssetBase(roots)` helper — this is the fifth
+D-57…D-61 consumer of those four signals, reusing one resolution instead of reimplementing it a fifth
+time; `orgMemory()`'s own behavior is unchanged (verified against its existing D-60 test, unaffected).
+One departure, the same call D-59/D-60 already made: criticality via `entityCriticality()` (real
+`'unknown'`) instead of the frontend's fabricated `'low'`/`'medium'` defaults — behavior-preserving
+here too, since `atOrAbove('unknown','high')` and `atOrAbove('low','high')` both fail the same way, so
+`highStakes`/`mustProtect`'s boolean outcome is unchanged.
+
+New route `GET /api/continuity`. `frontend/lib/continuityRisk.ts` no longer computes anything; it
+fetches that endpoint and shapes the JSON. `app/continuity/page.tsx` now fetches it alongside the
+existing M18/M19 module fetches instead of computing locally from `/api/agents`, `/workflows`, `/tools`.
+
+New unit test hand-verifies every survival-status branch, the governance formula, department rollups,
+and both top-10 lists against a constructed fixture (15 assertions). `tsc --noEmit` clean, full backend
+suite clean (161 derived + 95 definitions assertions, 17 suites). Live-verified over HTTP: 37 assets,
+status breakdown self-consistent with `mustProtect`'s count (8 FAILS + 0 LOST = 8 `mustProtect`,
+exactly), 14 medium-criticality assets correctly labeled `'medium'` rather than `'unknown'`, confirming
+D-65's fix took effect. Frontend rendering not visually verified in a browser this session — same
+Next.js dev-server lock as D-60; backend contract is fully verified live. Commit `149f2e3` on
+`ocos/develop`. D-62 remains open — the largest item in W-K, and the last one.
+
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
 backend the frontend should get it from backend... either from graph or derived... a systematic
@@ -1070,7 +1106,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64, D-65 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-59 done (`14b8b87`), D-60 done (`d20132b`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change, D-65 done (`2e356b5`, found while starting D-61); D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64, D-65 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-59 done (`14b8b87`), D-60 done (`d20132b`), D-61 done (`149f2e3`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change, D-65 done (`2e356b5`, found while starting D-61); D-62 open (largest item, last one), see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
