@@ -655,7 +655,26 @@ Also removed an `owners` query that was fetched, error-checked, and never read �
 this fix. Full backend suite clean (18 suites). Live-verified over HTTP: `riskScore` (55) exactly
 matches `predictiveRisk()`'s live mean across the same 15 agents; `openRecommendations`/
 `criticalRecommendations` (23/3) exactly match M04's live output. Commit `d61b2a4` on `ocos/develop`.
-D-68 is next.
+
+**Decision D-68 — `ExternalEcosystemTab.tsx`'s "Org concentration %" was fabricated.** The vendor
+cards' concentration bar came from `agents_using.length*12 + departments.length*8` (+6 per merged tool
+from the same vendor), capped at 100 — three constants with no stated basis, the same fabricated-number
+pattern already fixed elsewhere (D-54/D-58/D-63). This file was partially fixed before (commit
+`1aa8a1b`) for its risk TIER, which correctly reads `profile.tier` from the backend — but that fix
+didn't touch this separate concentration metric, and nobody caught it since. Replaced with a real
+ratio: this vendor's share of the org's total agent-tool usage (sum of `agents_using.length` across the
+vendor's tools, divided by that same sum across every tool) — no invented weights, a genuine
+share-of-total over counts already present on `profiles`, matching `knowledgeConcentration()`'s own
+methodology (D-59). No new backend endpoint needed: this is aggregation over already-real per-tool
+data, the same kind of client-side grouping `buildDeptExposure()` in the same file already does without
+objection — the violation was the invented weights, not the aggregation itself. `tsc --noEmit` clean.
+Live-verified in an actual logged-in browser session: every vendor's displayed percentage (OpenAI 32%,
+GitHub 16%, Anthropic/Salesforce/Notion 11%, Google/Jasper/Anysphere/Grammarly 5%, Midjourney/
+Perplexity/DataRobot 0%) matches a hand-computed share-of-total from raw `GET /api/tools` data exactly,
+and all twelve percentages sum to ~100% (the old formula never summed to anything meaningful). Commit
+`c91e9e3` on `ocos/develop`.
+
+**All three post-W-K duplication-audit findings (D-66, D-67, D-68) are now closed.**
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
