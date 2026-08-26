@@ -1269,11 +1269,16 @@ IMPL.M52 = (rt, context) => {
 }
 
 // M53 — Autonomous Continuity: keep the org operational during disruption.
-IMPL.M53 = (rt) => {
+// continuityScore comes from M18 (its declared dependsOn) rather than being
+// recomputed here — the two modules independently ran the identical
+// `1 - spofs/assets` formula until this fix, with nothing to stop them
+// drifting apart if it ever changed in only one place.
+IMPL.M53 = (rt, context) => {
   const g = rt.graph
   const spofs = A.singlePointsOfFailure(g)
   const assets = A.assets(g)
-  const continuityScore = A.round(1 - Math.min(1, spofs.length / Math.max(1, assets.length)))
+  const continuity = A.prior(context, 'M18')
+  const continuityScore = continuity ? continuity.payload.continuityScore : A.round(1 - Math.min(1, spofs.length / Math.max(1, assets.length)))
   const plans = spofs.map((s) => ({
     asset: s.name,
     dependents: s.dependents,
