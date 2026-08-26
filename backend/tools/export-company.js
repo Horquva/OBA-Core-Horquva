@@ -20,21 +20,28 @@ const AUTHORED = {
     {
       name: 'Core Platform', owner: 'Omar Hassan', department: 'Engineering',
       criticality: 'critical', documented: true, depends_on: [],
+      // used_by: which agents actually run against/deploy to/monitor this
+      // system. Authored like the rest of this section (no source table),
+      // not computed — same convention as depends_on above.
+      used_by: ['DeployBot', 'CodeReviewAgent', 'SecurityScanner', 'TestRunner', 'LogAnalyzer'],
       description: 'Multi-tenant application runtime. Everything else runs on it.',
     },
     {
       name: 'Billing System', owner: 'Aisha Patel', department: 'Engineering',
       criticality: 'critical', documented: false, depends_on: ['Core Platform'],
+      used_by: ['BudgetTracker'],
       description: 'Subscription billing, invoicing and dunning.',
     },
     {
       name: 'Customer Data Warehouse', owner: 'Sophia Chen', department: 'Data',
       criticality: 'high', documented: true, depends_on: ['Core Platform'],
+      used_by: ['DataPipeline', 'CustomerInsightBot', 'SalesForecaster', 'KnowledgeIndexer'],
       description: 'Analytical store behind every dashboard and forecast.',
     },
     {
       name: 'Internal Admin Portal', owner: 'Marcus Rodriguez', department: 'Engineering',
       criticality: 'medium', documented: false, depends_on: ['Core Platform', 'Billing System'],
+      used_by: ['ComplianceChecker', 'OnboardingAssistant'],
       description: 'Support and account administration tooling.',
     },
   ],
@@ -570,6 +577,9 @@ if (badIncident.length) {
 const badSysDep = AUTHORED.systems.flatMap((s) =>
   s.depends_on.filter((n) => !entityIndex.system.has(n)).map((n) => `${s.name}→${n}`))
 if (badSysDep.length) errs.push(`systems — depends_on not found: ${badSysDep.join(', ')}`)
+const badSysUsedBy = AUTHORED.systems.flatMap((s) =>
+  (s.used_by || []).filter((n) => !entityIndex.agent.has(n)).map((n) => `${s.name}→${n}`))
+if (badSysUsedBy.length) errs.push(`systems — used_by agent not found: ${badSysUsedBy.join(', ')}`)
 
 console.log('organization      1')
 console.log('departments      ', outDepartments.length, '· head resolved:', outDepartments.filter((d) => d.head).length)

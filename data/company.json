@@ -743,8 +743,7 @@
       "documented": true,
       "type": "automation",
       "status": "active",
-      "monthly_cost_usd": 350,
-      "id": "agent_001"
+      "monthly_cost_usd": 350
     },
     {
       "name": "CodeReviewAgent",
@@ -755,8 +754,7 @@
       "documented": true,
       "type": "analysis",
       "status": "active",
-      "monthly_cost_usd": 200,
-      "id": "agent_002"
+      "monthly_cost_usd": 200
     },
     {
       "name": "SecurityScanner",
@@ -767,8 +765,7 @@
       "documented": false,
       "type": "monitoring",
       "status": "active",
-      "monthly_cost_usd": 500,
-      "id": "agent_003"
+      "monthly_cost_usd": 500
     },
     {
       "name": "DataPipeline",
@@ -779,8 +776,7 @@
       "documented": true,
       "type": "automation",
       "status": "active",
-      "monthly_cost_usd": 400,
-      "id": "agent_004"
+      "monthly_cost_usd": 400
     },
     {
       "name": "CustomerInsightBot",
@@ -791,8 +787,7 @@
       "documented": false,
       "type": "analysis",
       "status": "active",
-      "monthly_cost_usd": 150,
-      "id": "agent_005"
+      "monthly_cost_usd": 150
     },
     {
       "name": "IncidentResponder",
@@ -803,8 +798,7 @@
       "documented": false,
       "type": "monitoring",
       "status": "active",
-      "monthly_cost_usd": 250,
-      "id": "agent_006"
+      "monthly_cost_usd": 250
     },
     {
       "name": "ContentGenerator",
@@ -815,8 +809,7 @@
       "documented": null,
       "type": "assistant",
       "status": "active",
-      "monthly_cost_usd": 100,
-      "id": "agent_007"
+      "monthly_cost_usd": 100
     },
     {
       "name": "ComplianceChecker",
@@ -827,8 +820,7 @@
       "documented": true,
       "type": "monitoring",
       "status": "active",
-      "monthly_cost_usd": 300,
-      "id": "agent_008"
+      "monthly_cost_usd": 300
     },
     {
       "name": "OnboardingAssistant",
@@ -839,8 +831,7 @@
       "documented": null,
       "type": "assistant",
       "status": "active",
-      "monthly_cost_usd": 80,
-      "id": "agent_009"
+      "monthly_cost_usd": 80
     },
     {
       "name": "SalesForecaster",
@@ -851,8 +842,7 @@
       "documented": null,
       "type": "analysis",
       "status": "active",
-      "monthly_cost_usd": 180,
-      "id": "agent_010"
+      "monthly_cost_usd": 180
     },
     {
       "name": "LogAnalyzer",
@@ -863,8 +853,7 @@
       "documented": null,
       "type": "monitoring",
       "status": "inactive",
-      "monthly_cost_usd": 120,
-      "id": "agent_011"
+      "monthly_cost_usd": 120
     },
     {
       "name": "TestRunner",
@@ -875,8 +864,7 @@
       "documented": null,
       "type": "automation",
       "status": "active",
-      "monthly_cost_usd": 160,
-      "id": "agent_012"
+      "monthly_cost_usd": 160
     },
     {
       "name": "BudgetTracker",
@@ -887,8 +875,7 @@
       "documented": null,
       "type": "analysis",
       "status": "active",
-      "monthly_cost_usd": 90,
-      "id": "agent_013"
+      "monthly_cost_usd": 90
     },
     {
       "name": "KnowledgeIndexer",
@@ -899,8 +886,7 @@
       "documented": false,
       "type": "automation",
       "status": "failed",
-      "monthly_cost_usd": 220,
-      "id": "agent_014"
+      "monthly_cost_usd": 220
     },
     {
       "name": "MeetingSummarizer",
@@ -911,8 +897,7 @@
       "documented": null,
       "type": "assistant",
       "status": "active",
-      "monthly_cost_usd": 70,
-      "id": "agent_015"
+      "monthly_cost_usd": 70
     }
   ],
   "ai_tools": [
@@ -946,11 +931,7 @@
       ],
       "monthly_cost_usd": 4500,
       "access_owner": "Robert Chen",
-      "backup_tool": null,
-      "id": "tool_001",
-      "criticality": "critical",
-      "documented": true,
-      "category": "LLM"
+      "backup_tool": null
     },
     {
       "name": "Claude Pro",
@@ -970,11 +951,7 @@
       ],
       "monthly_cost_usd": 2800,
       "access_owner": "Aisha Patel",
-      "backup_tool": null,
-      "id": "tool_002",
-      "criticality": "critical",
-      "documented": false,
-      "category": "LLM"
+      "backup_tool": null
     },
     {
       "name": "GitHub Copilot",
@@ -994,11 +971,7 @@
       ],
       "monthly_cost_usd": 1900,
       "access_owner": "Yuki Tanaka",
-      "backup_tool": null,
-      "id": "tool_003",
-      "criticality": "high",
-      "documented": false,
-      "category": "Code Assistant"
+      "backup_tool": null
     },
     {
       "name": "Gemini Advanced",
@@ -1015,11 +988,7 @@
       ],
       "monthly_cost_usd": 1200,
       "access_owner": "Priya Sharma",
-      "backup_tool": null,
-      "id": "tool_004",
-      "criticality": "high",
-      "documented": true,
-      "category": "LLM"
+      "backup_tool": null
     },
     {
       "name": "Midjourney",
@@ -1036,11 +1005,7 @@
       ],
       "monthly_cost_usd": 600,
       "access_owner": "Nina Petrov",
-      "backup_tool": null,
-      "id": "tool_005",
-      "criticality": "medium",
-      "documented": false,
-      "category": "Image Generation"
+      "backup_tool": null
     },
     {
       "name": "Jasper AI",
@@ -1056,11 +1021,7 @@
       ],
       "monthly_cost_usd": 850,
       "access_owner": "Daniel Murphy",
-      "backup_tool": null,
-      "id": "tool_006",
-      "criticality": "medium",
-      "documented": false,
-      "category": "Content Generation"
+      "backup_tool": null
     },
     {
       "name": "Cursor",
@@ -1076,11 +1037,7 @@
       ],
       "monthly_cost_usd": 960,
       "access_owner": "Aisha Patel",
-      "backup_tool": null,
-      "id": "tool_007",
-      "criticality": "high",
-      "documented": true,
-      "category": "Code Assistant"
+      "backup_tool": null
     },
     {
       "name": "Tableau AI",
@@ -1099,11 +1056,7 @@
       ],
       "monthly_cost_usd": 2200,
       "access_owner": "Nathan Wright",
-      "backup_tool": null,
-      "id": "tool_008",
-      "criticality": "critical",
-      "documented": false,
-      "category": "Analytics"
+      "backup_tool": null
     },
     {
       "name": "Notion AI",
@@ -1127,11 +1080,7 @@
       ],
       "monthly_cost_usd": 780,
       "access_owner": "Carlos Mendez",
-      "backup_tool": null,
-      "id": "tool_009",
-      "criticality": "medium",
-      "documented": false,
-      "category": "Productivity"
+      "backup_tool": null
     },
     {
       "name": "Grammarly Business",
@@ -1153,11 +1102,7 @@
       ],
       "monthly_cost_usd": 450,
       "access_owner": "Daniel Murphy",
-      "backup_tool": null,
-      "id": "tool_010",
-      "criticality": "medium",
-      "documented": true,
-      "category": "Writing Assistant"
+      "backup_tool": null
     },
     {
       "name": "Perplexity Pro",
@@ -1172,11 +1117,7 @@
       ],
       "monthly_cost_usd": 300,
       "access_owner": "Priya Sharma",
-      "backup_tool": null,
-      "id": "tool_011",
-      "criticality": "low",
-      "documented": false,
-      "category": "Search & Research"
+      "backup_tool": null
     },
     {
       "name": "DataRobot",
@@ -1190,11 +1131,7 @@
       ],
       "monthly_cost_usd": 5500,
       "access_owner": "Nathan Wright",
-      "backup_tool": null,
-      "id": "tool_012",
-      "criticality": "critical",
-      "documented": false,
-      "category": "Analytics"
+      "backup_tool": null
     }
   ],
   "workflows": [
@@ -1212,49 +1149,38 @@
           "actor": "agent",
           "actor_name": "CodeReviewAgent",
           "required": true,
-          "duration_minutes": 15,
-          "name": "CodeReviewAgent",
-          "action": "CodeReviewAgent performs \"Code Review\""
+          "duration_minutes": 15
         },
         {
           "step": "Run Tests",
           "actor": "agent",
           "actor_name": "TestRunner",
           "required": true,
-          "duration_minutes": 10,
-          "name": "TestRunner",
-          "action": "TestRunner performs \"Run Tests\""
+          "duration_minutes": 10
         },
         {
           "step": "Security Scan",
           "actor": "agent",
           "actor_name": "SecurityScanner",
           "required": true,
-          "duration_minutes": 8,
-          "name": "SecurityScanner",
-          "action": "SecurityScanner performs \"Security Scan\""
+          "duration_minutes": 8
         },
         {
           "step": "Deploy to Staging",
           "actor": "agent",
           "actor_name": "DeployBot",
           "required": true,
-          "duration_minutes": 5,
-          "name": "DeployBot",
-          "action": "DeployBot performs \"Deploy to Staging\""
+          "duration_minutes": 5
         },
         {
           "step": "Manual QA Sign-off",
           "actor": "human",
           "actor_name": "James O'Brien",
           "required": true,
-          "duration_minutes": 30,
-          "name": "James O'Brien",
-          "action": "James O'Brien performs \"Manual QA Sign-off\""
+          "duration_minutes": 30
         }
       ],
-      "accountable": "Robert Chen",
-      "id": "wf_001"
+      "accountable": "Robert Chen"
     },
     {
       "name": "Security Audit Process",
@@ -1270,40 +1196,31 @@
           "actor": "agent",
           "actor_name": "SecurityScanner",
           "required": true,
-          "duration_minutes": 60,
-          "name": "SecurityScanner",
-          "action": "SecurityScanner performs \"Automated Scan\""
+          "duration_minutes": 60
         },
         {
           "step": "Compliance Check",
           "actor": "agent",
           "actor_name": "ComplianceChecker",
           "required": true,
-          "duration_minutes": 30,
-          "name": "ComplianceChecker",
-          "action": "ComplianceChecker performs \"Compliance Check\""
+          "duration_minutes": 30
         },
         {
           "step": "Review Findings",
           "actor": "human",
           "actor_name": "Sarah Mitchell",
           "required": true,
-          "duration_minutes": 120,
-          "name": "Sarah Mitchell",
-          "action": "Sarah Mitchell performs \"Review Findings\""
+          "duration_minutes": 120
         },
         {
           "step": "Publish Report",
           "actor": "human",
           "actor_name": "Sarah Mitchell",
           "required": true,
-          "duration_minutes": 60,
-          "name": "Sarah Mitchell",
-          "action": "Sarah Mitchell performs \"Publish Report\""
+          "duration_minutes": 60
         }
       ],
-      "accountable": "Sarah Mitchell",
-      "id": "wf_002"
+      "accountable": "Sarah Mitchell"
     },
     {
       "name": "Customer Onboarding",
@@ -1319,40 +1236,31 @@
           "actor": "human",
           "actor_name": "Amara Diallo",
           "required": true,
-          "duration_minutes": 45,
-          "name": "Amara Diallo",
-          "action": "Amara Diallo performs \"Account Setup\""
+          "duration_minutes": 45
         },
         {
           "step": "Product Demo",
           "actor": "human",
           "actor_name": "Chris Anderson",
           "required": true,
-          "duration_minutes": 60,
-          "name": "Chris Anderson",
-          "action": "Chris Anderson performs \"Product Demo\""
+          "duration_minutes": 60
         },
         {
           "step": "CRM Data Entry",
           "actor": "agent",
           "actor_name": "CustomerInsightBot",
           "required": true,
-          "duration_minutes": 10,
-          "name": "CustomerInsightBot",
-          "action": "CustomerInsightBot performs \"CRM Data Entry\""
+          "duration_minutes": 10
         },
         {
           "step": "Welcome Sequence",
           "actor": "agent",
           "actor_name": "OnboardingAssistant",
           "required": true,
-          "duration_minutes": 5,
-          "name": "OnboardingAssistant",
-          "action": "OnboardingAssistant performs \"Welcome Sequence\""
+          "duration_minutes": 5
         }
       ],
-      "accountable": "Rebecca Stone",
-      "id": "wf_003"
+      "accountable": "Rebecca Stone"
     },
     {
       "name": "Data Ingestion Pipeline",
@@ -1368,31 +1276,24 @@
           "actor": "agent",
           "actor_name": "DataPipeline",
           "required": true,
-          "duration_minutes": 20,
-          "name": "DataPipeline",
-          "action": "DataPipeline performs \"Extract Sources\""
+          "duration_minutes": 20
         },
         {
           "step": "Transform & Load",
           "actor": "agent",
           "actor_name": "DataPipeline",
           "required": true,
-          "duration_minutes": 30,
-          "name": "DataPipeline",
-          "action": "DataPipeline performs \"Transform & Load\""
+          "duration_minutes": 30
         },
         {
           "step": "Quality Validation",
           "actor": "human",
           "actor_name": "Sophia Chen",
           "required": true,
-          "duration_minutes": 15,
-          "name": "Sophia Chen",
-          "action": "Sophia Chen performs \"Quality Validation\""
+          "duration_minutes": 15
         }
       ],
-      "accountable": "Nathan Wright",
-      "id": "wf_004"
+      "accountable": "Nathan Wright"
     },
     {
       "name": "Incident Response",
@@ -1408,49 +1309,38 @@
           "actor": "agent",
           "actor_name": "IncidentResponder",
           "required": true,
-          "duration_minutes": 2,
-          "name": "IncidentResponder",
-          "action": "IncidentResponder performs \"Detect & Alert\""
+          "duration_minutes": 2
         },
         {
           "step": "Triage & Classify",
           "actor": "human",
           "actor_name": "Yuki Tanaka",
           "required": true,
-          "duration_minutes": 10,
-          "name": "Yuki Tanaka",
-          "action": "Yuki Tanaka performs \"Triage & Classify\""
+          "duration_minutes": 10
         },
         {
           "step": "Investigate",
           "actor": "human",
           "actor_name": "Yuki Tanaka",
           "required": true,
-          "duration_minutes": 60,
-          "name": "Yuki Tanaka",
-          "action": "Yuki Tanaka performs \"Investigate\""
+          "duration_minutes": 60
         },
         {
           "step": "Resolve",
           "actor": "agent",
           "actor_name": "DeployBot",
           "required": false,
-          "duration_minutes": 15,
-          "name": "DeployBot",
-          "action": "DeployBot performs \"Resolve\""
+          "duration_minutes": 15
         },
         {
           "step": "Post-mortem",
           "actor": "human",
           "actor_name": "Robert Chen",
           "required": true,
-          "duration_minutes": 120,
-          "name": "Robert Chen",
-          "action": "Robert Chen performs \"Post-mortem\""
+          "duration_minutes": 120
         }
       ],
-      "accountable": "Yuki Tanaka",
-      "id": "wf_005"
+      "accountable": "Yuki Tanaka"
     },
     {
       "name": "Sprint Planning & Execution",
@@ -1466,31 +1356,24 @@
           "actor": "human",
           "actor_name": "Carlos Mendez",
           "required": true,
-          "duration_minutes": 60,
-          "name": "Carlos Mendez",
-          "action": "Carlos Mendez performs \"Backlog Grooming\""
+          "duration_minutes": 60
         },
         {
           "step": "Capacity Planning",
           "actor": "human",
           "actor_name": "Lisa Wang",
           "required": true,
-          "duration_minutes": 30,
-          "name": "Lisa Wang",
-          "action": "Lisa Wang performs \"Capacity Planning\""
+          "duration_minutes": 30
         },
         {
           "step": "Summarize Action Items",
           "actor": "agent",
           "actor_name": "MeetingSummarizer",
           "required": false,
-          "duration_minutes": 5,
-          "name": "MeetingSummarizer",
-          "action": "MeetingSummarizer performs \"Summarize Action Items\""
+          "duration_minutes": 5
         }
       ],
-      "accountable": null,
-      "id": "wf_006"
+      "accountable": null
     },
     {
       "name": "Financial Reporting",
@@ -1506,40 +1389,31 @@
           "actor": "agent",
           "actor_name": "BudgetTracker",
           "required": true,
-          "duration_minutes": 30,
-          "name": "BudgetTracker",
-          "action": "BudgetTracker performs \"Data Collection\""
+          "duration_minutes": 30
         },
         {
           "step": "Consolidation",
           "actor": "human",
           "actor_name": "Emily Chang",
           "required": true,
-          "duration_minutes": 120,
-          "name": "Emily Chang",
-          "action": "Emily Chang performs \"Consolidation\""
+          "duration_minutes": 120
         },
         {
           "step": "CFO Review",
           "actor": "human",
           "actor_name": "Victoria Adams",
           "required": true,
-          "duration_minutes": 60,
-          "name": "Victoria Adams",
-          "action": "Victoria Adams performs \"CFO Review\""
+          "duration_minutes": 60
         },
         {
           "step": "Board Prep",
           "actor": "human",
           "actor_name": "Victoria Adams",
           "required": true,
-          "duration_minutes": 90,
-          "name": "Victoria Adams",
-          "action": "Victoria Adams performs \"Board Prep\""
+          "duration_minutes": 90
         }
       ],
-      "accountable": "Victoria Adams",
-      "id": "wf_007"
+      "accountable": "Victoria Adams"
     },
     {
       "name": "Employee Offboarding",
@@ -1555,31 +1429,24 @@
           "actor": "human",
           "actor_name": "Thomas Garcia",
           "required": true,
-          "duration_minutes": 240,
-          "name": "Thomas Garcia",
-          "action": "Thomas Garcia performs \"Knowledge Transfer\""
+          "duration_minutes": 240
         },
         {
           "step": "Access Revocation",
           "actor": "human",
           "actor_name": "Alex Novak",
           "required": true,
-          "duration_minutes": 30,
-          "name": "Alex Novak",
-          "action": "Alex Novak performs \"Access Revocation\""
+          "duration_minutes": 30
         },
         {
           "step": "Exit Interview",
           "actor": "human",
           "actor_name": "Thomas Garcia",
           "required": true,
-          "duration_minutes": 60,
-          "name": "Thomas Garcia",
-          "action": "Thomas Garcia performs \"Exit Interview\""
+          "duration_minutes": 60
         }
       ],
-      "accountable": "Thomas Garcia",
-      "id": "wf_008"
+      "accountable": "Thomas Garcia"
     },
     {
       "name": "Content Publishing",
@@ -1595,40 +1462,31 @@
           "actor": "agent",
           "actor_name": "ContentGenerator",
           "required": true,
-          "duration_minutes": 20,
-          "name": "ContentGenerator",
-          "action": "ContentGenerator performs \"Draft Content\""
+          "duration_minutes": 20
         },
         {
           "step": "Edit & Review",
           "actor": "human",
           "actor_name": "Mia Johnson",
           "required": true,
-          "duration_minutes": 45,
-          "name": "Mia Johnson",
-          "action": "Mia Johnson performs \"Edit & Review\""
+          "duration_minutes": 45
         },
         {
           "step": "SEO Optimization",
           "actor": "human",
           "actor_name": "Daniel Murphy",
           "required": true,
-          "duration_minutes": 30,
-          "name": "Daniel Murphy",
-          "action": "Daniel Murphy performs \"SEO Optimization\""
+          "duration_minutes": 30
         },
         {
           "step": "Publish",
           "actor": "human",
           "actor_name": "Daniel Murphy",
           "required": true,
-          "duration_minutes": 10,
-          "name": "Daniel Murphy",
-          "action": "Daniel Murphy performs \"Publish\""
+          "duration_minutes": 10
         }
       ],
-      "accountable": null,
-      "id": "wf_009"
+      "accountable": null
     },
     {
       "name": "Compliance Review",
@@ -1644,40 +1502,31 @@
           "actor": "agent",
           "actor_name": "ComplianceChecker",
           "required": true,
-          "duration_minutes": 45,
-          "name": "ComplianceChecker",
-          "action": "ComplianceChecker performs \"Policy Scan\""
+          "duration_minutes": 45
         },
         {
           "step": "Gap Analysis",
           "actor": "human",
           "actor_name": "Grace Okonkwo",
           "required": true,
-          "duration_minutes": 120,
-          "name": "Grace Okonkwo",
-          "action": "Grace Okonkwo performs \"Gap Analysis\""
+          "duration_minutes": 120
         },
         {
           "step": "Risk Assessment",
           "actor": "human",
           "actor_name": "Jennifer Foster",
           "required": true,
-          "duration_minutes": 60,
-          "name": "Jennifer Foster",
-          "action": "Jennifer Foster performs \"Risk Assessment\""
+          "duration_minutes": 60
         },
         {
           "step": "Report & Remediate",
           "actor": "human",
           "actor_name": "Grace Okonkwo",
           "required": true,
-          "duration_minutes": 90,
-          "name": "Grace Okonkwo",
-          "action": "Grace Okonkwo performs \"Report & Remediate\""
+          "duration_minutes": 90
         }
       ],
-      "accountable": "Jennifer Foster",
-      "id": "wf_010"
+      "accountable": "Jennifer Foster"
     }
   ],
   "processes": [
@@ -1704,8 +1553,7 @@
       ],
       "department": null,
       "accountable": null,
-      "status": "active",
-      "id": "policy_001"
+      "status": "active"
     },
     {
       "name": "Usage Guidelines",
@@ -1715,8 +1563,7 @@
       ],
       "department": null,
       "accountable": null,
-      "status": "active",
-      "id": "policy_002"
+      "status": "active"
     },
     {
       "name": "Code Ownership Policy",
@@ -1727,8 +1574,7 @@
       ],
       "department": null,
       "accountable": null,
-      "status": "active",
-      "id": "policy_003"
+      "status": "active"
     },
     {
       "name": "Security Review Policy",
@@ -1738,8 +1584,7 @@
       ],
       "department": null,
       "accountable": null,
-      "status": "active",
-      "id": "policy_004"
+      "status": "active"
     },
     {
       "name": "Data Access Policy",
@@ -1749,8 +1594,7 @@
       ],
       "department": null,
       "accountable": null,
-      "status": "active",
-      "id": "policy_005"
+      "status": "active"
     },
     {
       "name": "Content Governance",
@@ -1760,8 +1604,7 @@
       ],
       "department": null,
       "accountable": null,
-      "status": "active",
-      "id": "policy_006"
+      "status": "active"
     },
     {
       "name": "Communication Standards",
@@ -1771,8 +1614,7 @@
       ],
       "department": null,
       "accountable": null,
-      "status": "active",
-      "id": "policy_007"
+      "status": "active"
     },
     {
       "name": "AI Tool Governance",
@@ -1780,8 +1622,7 @@
       "governs": [],
       "department": "Engineering",
       "accountable": "Jennifer Foster",
-      "status": "active",
-      "id": "policy_008"
+      "status": "active"
     },
     {
       "name": "Data Privacy & GDPR",
@@ -1789,191 +1630,190 @@
       "governs": [],
       "department": "Operations",
       "accountable": "Jennifer Foster",
-      "status": "active",
-      "id": "policy_009"
+      "status": "active"
     }
   ],
   "dependencies": [
     {
-      "from": "agent_001",
+      "from": "DeployBot",
       "from_type": "agent",
-      "to": "agent_002",
+      "to": "CodeReviewAgent",
       "to_type": "agent",
       "type": "critical",
       "strength": 90
     },
     {
-      "from": "agent_001",
+      "from": "DeployBot",
       "from_type": "agent",
-      "to": "agent_012",
+      "to": "TestRunner",
       "to_type": "agent",
       "type": "critical",
       "strength": 85
     },
     {
-      "from": "agent_001",
+      "from": "DeployBot",
       "from_type": "agent",
-      "to": "agent_003",
+      "to": "SecurityScanner",
       "to_type": "agent",
       "type": "high",
       "strength": 75
     },
     {
-      "from": "agent_003",
+      "from": "SecurityScanner",
       "from_type": "agent",
-      "to": "agent_008",
+      "to": "ComplianceChecker",
       "to_type": "agent",
       "type": "normal",
       "strength": 50
     },
     {
-      "from": "agent_004",
+      "from": "DataPipeline",
       "from_type": "agent",
-      "to": "agent_014",
+      "to": "KnowledgeIndexer",
       "to_type": "agent",
       "type": "high",
       "strength": 70
     },
     {
-      "from": "agent_005",
+      "from": "CustomerInsightBot",
       "from_type": "agent",
-      "to": "agent_010",
+      "to": "SalesForecaster",
       "to_type": "agent",
       "type": "normal",
       "strength": 45
     },
     {
-      "from": "agent_006",
+      "from": "IncidentResponder",
       "from_type": "agent",
-      "to": "agent_003",
+      "to": "SecurityScanner",
       "to_type": "agent",
       "type": "critical",
       "strength": 88
     },
     {
-      "from": "agent_006",
+      "from": "IncidentResponder",
       "from_type": "agent",
-      "to": "agent_001",
+      "to": "DeployBot",
       "to_type": "agent",
       "type": "high",
       "strength": 65
     },
     {
-      "from": "agent_006",
+      "from": "IncidentResponder",
       "from_type": "agent",
-      "to": "agent_011",
+      "to": "LogAnalyzer",
       "to_type": "agent",
       "type": "normal",
       "strength": 40
     },
     {
-      "from": "agent_007",
+      "from": "ContentGenerator",
       "from_type": "agent",
-      "to": "agent_015",
+      "to": "MeetingSummarizer",
       "to_type": "agent",
       "type": "low",
       "strength": 30
     },
     {
-      "from": "agent_008",
+      "from": "ComplianceChecker",
       "from_type": "agent",
-      "to": "agent_003",
+      "to": "SecurityScanner",
       "to_type": "agent",
       "type": "high",
       "strength": 72
     },
     {
-      "from": "agent_012",
+      "from": "TestRunner",
       "from_type": "agent",
-      "to": "agent_002",
+      "to": "CodeReviewAgent",
       "to_type": "agent",
       "type": "normal",
       "strength": 55
     },
     {
-      "from": "agent_014",
+      "from": "KnowledgeIndexer",
       "from_type": "agent",
-      "to": "agent_004",
+      "to": "DataPipeline",
       "to_type": "agent",
       "type": "high",
       "strength": 68
     },
     {
-      "from": "wf_001",
+      "from": "Code Deployment Pipeline",
       "from_type": "workflow",
-      "to": "agent_001",
+      "to": "DeployBot",
       "to_type": "agent",
       "type": "critical",
       "strength": 95
     },
     {
-      "from": "wf_001",
+      "from": "Code Deployment Pipeline",
       "from_type": "workflow",
-      "to": "agent_002",
+      "to": "CodeReviewAgent",
       "to_type": "agent",
       "type": "critical",
       "strength": 90
     },
     {
-      "from": "wf_001",
+      "from": "Code Deployment Pipeline",
       "from_type": "workflow",
-      "to": "agent_003",
+      "to": "SecurityScanner",
       "to_type": "agent",
       "type": "high",
       "strength": 80
     },
     {
-      "from": "wf_002",
+      "from": "Security Audit Process",
       "from_type": "workflow",
-      "to": "agent_003",
+      "to": "SecurityScanner",
       "to_type": "agent",
       "type": "critical",
       "strength": 95
     },
     {
-      "from": "wf_002",
+      "from": "Security Audit Process",
       "from_type": "workflow",
-      "to": "agent_008",
+      "to": "ComplianceChecker",
       "to_type": "agent",
       "type": "high",
       "strength": 75
     },
     {
-      "from": "wf_004",
+      "from": "Data Ingestion Pipeline",
       "from_type": "workflow",
-      "to": "agent_004",
+      "to": "DataPipeline",
       "to_type": "agent",
       "type": "critical",
       "strength": 92
     },
     {
-      "from": "wf_005",
+      "from": "Incident Response",
       "from_type": "workflow",
-      "to": "agent_006",
+      "to": "IncidentResponder",
       "to_type": "agent",
       "type": "critical",
       "strength": 95
     },
     {
-      "from": "wf_005",
+      "from": "Incident Response",
       "from_type": "workflow",
-      "to": "agent_003",
+      "to": "SecurityScanner",
       "to_type": "agent",
       "type": "high",
       "strength": 85
     },
     {
-      "from": "wf_009",
+      "from": "Content Publishing",
       "from_type": "workflow",
-      "to": "agent_007",
+      "to": "ContentGenerator",
       "to_type": "agent",
       "type": "normal",
       "strength": 60
     },
     {
-      "from": "wf_010",
+      "from": "Compliance Review",
       "from_type": "workflow",
-      "to": "agent_008",
+      "to": "ComplianceChecker",
       "to_type": "agent",
       "type": "critical",
       "strength": 88
@@ -2353,7 +2193,7 @@
         "Aisha Patel"
       ],
       "documented": true,
-      "criticality": "medium"
+      "criticality": "unknown"
     },
     {
       "area": "Security scanning configuration",
@@ -2377,7 +2217,7 @@
         "Rebecca Stone"
       ],
       "documented": false,
-      "criticality": "medium"
+      "criticality": "unknown"
     },
     {
       "area": "Incident detection rules",
@@ -2465,7 +2305,7 @@
         "Robert Chen"
       ],
       "documented": true,
-      "criticality": "medium"
+      "criticality": "unknown"
     },
     {
       "area": "Copilot workspace settings",
@@ -2473,7 +2313,7 @@
         "Yuki Tanaka"
       ],
       "documented": true,
-      "criticality": "medium"
+      "criticality": "unknown"
     },
     {
       "area": "Tableau data connections",
@@ -2489,7 +2329,7 @@
         "Nathan Wright"
       ],
       "documented": false,
-      "criticality": "medium"
+      "criticality": "unknown"
     },
     {
       "area": "AWS infrastructure architecture",
@@ -2513,7 +2353,7 @@
         "Aisha Patel"
       ],
       "documented": true,
-      "criticality": "medium"
+      "criticality": "unknown"
     },
     {
       "area": "SOC2 compliance procedures",
@@ -2529,7 +2369,7 @@
         "Michael Torres"
       ],
       "documented": false,
-      "criticality": "medium"
+      "criticality": "unknown"
     },
     {
       "area": "Customer data handling policy",
@@ -2553,7 +2393,7 @@
         "Rebecca Stone"
       ],
       "documented": true,
-      "criticality": "medium"
+      "criticality": "unknown"
     },
     {
       "area": "Hiring pipeline process",
@@ -2561,7 +2401,7 @@
         "Thomas Garcia"
       ],
       "documented": true,
-      "criticality": "medium"
+      "criticality": "unknown"
     },
     {
       "area": "Disaster recovery plan",
@@ -2593,7 +2433,7 @@
         "Lisa Wang"
       ],
       "documented": true,
-      "criticality": "medium"
+      "criticality": "unknown"
     }
   ],
   "history": [
@@ -2604,11 +2444,7 @@
       "tool_cost_usd": 17440,
       "risk_index": 38.5,
       "continuity_score": 52,
-      "governance_score": 55,
-      "documented_pct": 22,
-      "backup_pct": 15,
-      "knowledge_capture": 22,
-      "open_incidents": 2
+      "governance_score": 55
     },
     {
       "month": "2026-02-01",
@@ -2617,11 +2453,7 @@
       "tool_cost_usd": 18190,
       "risk_index": 41.2,
       "continuity_score": 50,
-      "governance_score": 54,
-      "documented_pct": 24,
-      "backup_pct": 17,
-      "knowledge_capture": 24,
-      "open_incidents": 3
+      "governance_score": 54
     },
     {
       "month": "2026-03-01",
@@ -2630,11 +2462,7 @@
       "tool_cost_usd": 18830,
       "risk_index": 44.8,
       "continuity_score": 48,
-      "governance_score": 52,
-      "documented_pct": 26,
-      "backup_pct": 18,
-      "knowledge_capture": 26,
-      "open_incidents": 3
+      "governance_score": 52
     },
     {
       "month": "2026-04-01",
@@ -2643,11 +2471,7 @@
       "tool_cost_usd": 19530,
       "risk_index": 47.3,
       "continuity_score": 47,
-      "governance_score": 51,
-      "documented_pct": 27,
-      "backup_pct": 19,
-      "knowledge_capture": 27,
-      "open_incidents": 4
+      "governance_score": 51
     },
     {
       "month": "2026-05-01",
@@ -2656,11 +2480,7 @@
       "tool_cost_usd": 19685,
       "risk_index": 45.6,
       "continuity_score": 49,
-      "governance_score": 53,
-      "documented_pct": 29,
-      "backup_pct": 21,
-      "knowledge_capture": 29,
-      "open_incidents": 2
+      "governance_score": 53
     },
     {
       "month": "2026-06-01",
@@ -2669,11 +2489,7 @@
       "tool_cost_usd": 19940,
       "risk_index": 43.2,
       "continuity_score": 51,
-      "governance_score": 55,
-      "documented_pct": 41,
-      "backup_pct": 22,
-      "knowledge_capture": 41,
-      "open_incidents": 1
+      "governance_score": 55
     }
   ],
   "systems": [
@@ -2684,6 +2500,13 @@
       "criticality": "critical",
       "documented": true,
       "depends_on": [],
+      "used_by": [
+        "DeployBot",
+        "CodeReviewAgent",
+        "SecurityScanner",
+        "TestRunner",
+        "LogAnalyzer"
+      ],
       "description": "Multi-tenant application runtime. Everything else runs on it."
     },
     {
@@ -2694,6 +2517,9 @@
       "documented": false,
       "depends_on": [
         "Core Platform"
+      ],
+      "used_by": [
+        "BudgetTracker"
       ],
       "description": "Subscription billing, invoicing and dunning."
     },
@@ -2706,6 +2532,12 @@
       "depends_on": [
         "Core Platform"
       ],
+      "used_by": [
+        "DataPipeline",
+        "CustomerInsightBot",
+        "SalesForecaster",
+        "KnowledgeIndexer"
+      ],
       "description": "Analytical store behind every dashboard and forecast."
     },
     {
@@ -2717,6 +2549,10 @@
       "depends_on": [
         "Core Platform",
         "Billing System"
+      ],
+      "used_by": [
+        "ComplianceChecker",
+        "OnboardingAssistant"
       ],
       "description": "Support and account administration tooling."
     }
