@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { computeAIToolIntelligence, AIToolReport } from '../../lib/aiToolIntelligence';
+import { computeAIToolIntelligence, AIToolReport, ToolScoreInput } from '../../lib/aiToolIntelligence';
 import { AITool, Agent, Workflow } from '../../types';
 import { AIToolHeader } from '../../components/ai-tools/AIToolHeader';
 import { CriticalToolPanel } from '../../components/ai-tools/CriticalToolPanel';
@@ -16,6 +16,7 @@ export default function AIToolsPage() {
   const [tools, setTools]       = useState<AITool[]>([]);
   const [agents, setAgents]     = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [scoreByToolId, setScoreByToolId] = useState<Map<string, ToolScoreInput>>(new Map());
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
@@ -28,8 +29,10 @@ export default function AIToolsPage() {
       fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
     .then(([toolsData, agentsData, wData]) => {
+      const rawTools = Array.isArray(toolsData) ? toolsData : [];
+
       // Normalize tools
-      const normalizedTools: AITool[] = (Array.isArray(toolsData) ? toolsData : []).map((t: any) => ({
+      const normalizedTools: AITool[] = rawTools.map((t: any) => ({
         id: t.id?.toString() || '',
         name: t.name || 'Unknown Tool',
         vendor: t.vendor || t.provider || 'Unknown',
@@ -45,22 +48,37 @@ export default function AIToolsPage() {
         access_owner: t.access_owner || t.owner || 'Unassigned',
       }));
 
+      // Real score/tier/factors from backend/routes/tools.js's
+      // computeToolRiskScore() -- captured separately from AITool since the
+      // shared type is used by pages that don't need it.
+      const scoreMap = new Map<string, ToolScoreInput>(
+        rawTools
+          .filter((t: any) => t.id != null && typeof t.compositeScore === 'number')
+          .map((t: any) => [t.id.toString(), {
+            compositeScore: t.compositeScore,
+            tier: t.tier,
+            isCriticalByRule: Boolean(t.isCriticalByRule),
+            factors: Array.isArray(t.riskFactors) ? t.riskFactors : [],
+          }])
+      );
+
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
       const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
 
       setTools(normalizedTools);
       setAgents(normalizedAgents);
       setWorkflows(normalizedWorkflows);
+      setScoreByToolId(scoreMap);
     })
     .catch(err => setError(err.message))
     .finally(() => setLoading(false));
   }, []);
 
   const report: AIToolReport | null = useMemo(() => {
-    if (tools.length === 0 && !loading) return computeAIToolIntelligence([], [], []);
+    if (tools.length === 0 && !loading) return computeAIToolIntelligence([], [], [], scoreByToolId);
     if (loading) return null;
-    return computeAIToolIntelligence(tools, workflows, agents);
-  }, [tools, agents, workflows, loading]);
+    return computeAIToolIntelligence(tools, workflows, agents, scoreByToolId);
+  }, [tools, agents, workflows, scoreByToolId, loading]);
 
   if (loading || !report) {
     return (

@@ -100,6 +100,72 @@ async function loadPlatformWorkflows() {
   return byPlatform
 }
 
+/**
+ * Composite tool-risk score (0-100) and tier -- was independently computed
+ * client-side in frontend/lib/aiToolIntelligence.ts's buildToolScore()/
+ * scoreToTier(), over exactly this same enriched-tool shape. Ported verbatim
+ * (same weights, same thresholds) rather than redesigned: this migration is
+ * about WHERE the computation runs, not changing what it outputs. Every
+ * input (criticality/documented/backup_tool/departments/agents_using) is
+ * already computed above with zero new queries.
+ */
+const TOOL_RISK_WEIGHTS = {
+  NO_POLICY: 25,
+  NO_BACKUP: 30,
+  CRITICALITY: { critical: 20, high: 12, medium: 6, low: 2 },
+  ORG_WIDE_DEPTS: 20,   // >= 6 departments
+  CROSS_DEPT: 12,       // >= 4 departments
+  MANY_AGENTS: 15,      // >= 3 agents
+  SOME_AGENTS: 8,        // >= 1 agent
+}
+
+/** Returns { score, factors } -- factors is the same shape the frontend's
+ *  UI breakdown (CriticalToolPanel.tsx) already renders, computed once here
+ *  instead of the score being computed here and the "why" reconstructed
+ *  again client-side. */
+function computeToolRiskScore(tool) {
+  const factors = []
+  let score = 0
+
+  if (!tool.documented) {
+    factors.push({ label: 'No Usage Policy Documented', points: TOOL_RISK_WEIGHTS.NO_POLICY, severity: 'high' })
+    score += TOOL_RISK_WEIGHTS.NO_POLICY
+  }
+  if (!tool.backup_tool) {
+    factors.push({ label: 'No Backup / Fallback Tool', points: TOOL_RISK_WEIGHTS.NO_BACKUP, severity: 'critical' })
+    score += TOOL_RISK_WEIGHTS.NO_BACKUP
+  }
+  const critPoints = TOOL_RISK_WEIGHTS.CRITICALITY[tool.criticality]
+  if (critPoints) {
+    const severity = tool.criticality === 'critical' ? 'critical' : tool.criticality === 'high' ? 'high' : tool.criticality === 'medium' ? 'medium' : 'low'
+    factors.push({ label: `Business Criticality: ${String(tool.criticality).toUpperCase()}`, points: critPoints, severity })
+    score += critPoints
+  }
+  if (tool.departments.length >= 6) {
+    factors.push({ label: `Org-Wide Exposure (${tool.departments.length} departments)`, points: TOOL_RISK_WEIGHTS.ORG_WIDE_DEPTS, severity: 'critical' })
+    score += TOOL_RISK_WEIGHTS.ORG_WIDE_DEPTS
+  } else if (tool.departments.length >= 4) {
+    factors.push({ label: `Cross-Dept Exposure (${tool.departments.length} departments)`, points: TOOL_RISK_WEIGHTS.CROSS_DEPT, severity: 'high' })
+    score += TOOL_RISK_WEIGHTS.CROSS_DEPT
+  }
+  if (tool.agents_using.length >= 3) {
+    factors.push({ label: `Powers ${tool.agents_using.length} Critical Agents`, points: TOOL_RISK_WEIGHTS.MANY_AGENTS, severity: 'high' })
+    score += TOOL_RISK_WEIGHTS.MANY_AGENTS
+  } else if (tool.agents_using.length >= 1) {
+    factors.push({ label: `Used by ${tool.agents_using.length} Agent(s)`, points: TOOL_RISK_WEIGHTS.SOME_AGENTS, severity: 'medium' })
+    score += TOOL_RISK_WEIGHTS.SOME_AGENTS
+  }
+
+  return { score: Math.min(score, 100), factors }
+}
+
+function toolRiskTier(score) {
+  if (score >= 70) return 'CRITICAL'
+  if (score >= 45) return 'HIGH'
+  if (score >= 20) return 'MEDIUM'
+  return 'LOW'
+}
+
 /** The enriched tool list — pulled out so other routes (decisionIntelligence.js)
  *  can reuse this exact computation instead of re-deriving it. */
 async function loadEnrichedTools() {
@@ -118,7 +184,7 @@ async function loadEnrichedTools() {
   return platforms.map((t) => {
     const u = users[t.id] || { users: [], departments: new Set() }
     const k = knowledge[t.id]
-    return {
+    const tool = {
       id: String(t.id),
       name: t.name,
       vendor: t.vendor || null,
@@ -133,6 +199,19 @@ async function loadEnrichedTools() {
       backup_tool: backups[t.id] || null,
       access_owner: owners[t.id] || null,
     }
+    const { score: compositeScore, factors } = computeToolRiskScore(tool)
+    // A hard override, not a re-banding: undocumented + unbacked + already
+    // high/critical is CRITICAL regardless of where the weighted score
+    // lands, matching the frontend's original isCriticalByRule.
+    const isCriticalByRule = !tool.documented && !tool.backup_tool &&
+      (tool.criticality === 'critical' || tool.criticality === 'high')
+    return {
+      ...tool,
+      compositeScore,
+      tier: isCriticalByRule ? 'CRITICAL' : toolRiskTier(compositeScore),
+      isCriticalByRule,
+      riskFactors: factors,
+    }
   })
 }
 
@@ -146,3 +225,6 @@ router.get('/', async (req, res) => {
 
 module.exports = router
 module.exports.loadEnrichedTools = loadEnrichedTools
+module.exports.computeToolRiskScore = computeToolRiskScore
+module.exports.toolRiskTier = toolRiskTier
+module.exports.TOOL_RISK_WEIGHTS = TOOL_RISK_WEIGHTS
