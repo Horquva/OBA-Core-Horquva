@@ -105,16 +105,26 @@ fixed the same way. `HiddenDependencyOverlay.tsx`'s similar-looking pattern was 
 unrelated (finds implicit transitive edges, correctly forward). `tsc --noEmit` clean. Commit
 `7333439` on `ocos/develop`.
 
-Three findings from the same audit remain open, not yet fixed: **governance/continuity scores**
+Two findings from the same audit remain open, not yet fixed: **governance/continuity scores**
 re-diverged after the old backend routes were deleted — `frontend/lib/continuityRisk.ts` now computes
 both client-side with a formula matching no backend equivalent by that name. **Knowledge-risk
 scoring** — `backend/routes/knowledge/intelligence.js` computes a real per-person score the
 `/knowledge` page never fetches, instead computing a differently-defined (arguably legitimately
 different — concentration share vs. absolute risk) score in `frontend/lib/knowledgeRisk.ts`; worth an
-owner call before touching. **Backup-owner lookups** are hand-rolled a second and third time in
-`routes/risks.js` and `routes/ownership.js` instead of calling the shared `lib/ownerBackups.js` —
-outputs currently agree since it's the same table, but it's the same failure shape that produced the
-SPOF mess.
+owner call before touching.
+
+**Backup-owner lookups — fixed, same day.** `routes/risks.js` was hand-rolling its own
+`owners.employee_id/backup_owner` query instead of calling the shared `lib/ownerBackups.js` — fixed by
+switching to it directly (commit `cb8e84b`). `routes/ownership.js` turned out to need the *full*
+`owners` row (id/name/role/risk, not just backup_owner), so the same fix would have meant querying the
+table twice — instead widened `loadOwnerBackupByEmployee()` into `loadOwners()` (full row), with the
+narrow helper becoming a thin wrapper on top of it, so its four existing callers (`graphLoader.js`,
+`agents.js`, `dependencies.js`, `decisionIntelligence.js`) needed zero changes. Converting
+`ownership.js`'s `ownerByEmployee` from a `Map` to the plain object `loadOwners()` returns required
+explicit `Number()` coercion on `Object.keys()` before merging with `agents.owner_id` into a
+dedup `Set` — object keys are always strings, `Set` dedup is strict-equality, so this needed to be
+exact. Live-verified against the running endpoint (17 owners, `undeclared: 7` matching the file's own
+header comment) and the full test suite. Commit `d69c886` on `ocos/develop`.
 
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
