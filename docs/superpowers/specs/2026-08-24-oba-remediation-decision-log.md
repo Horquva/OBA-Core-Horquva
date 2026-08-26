@@ -53,6 +53,21 @@ earlier `manages`-edge fix: added a `concerns` relationship type to the ontology
 workflow/platform), and added live test coverage. Verified: all 10 rows resolve cleanly, including a
 decision concerning an employee rather than an operational asset. Commit `b5b8e7c` on `ocos/develop`.
 
+**A second same-day fix** (2026-08-26): verified a claim that `collaborates_with` is the clearest
+duplication in the codebase — true, and worse than claimed. `graphLoader.js` and
+`export-company.js` each independently reimplemented the identical RACI/workflow-step pairing
+algorithm over the same two Supabase tables (unlike the graph-vs-`derived.js` split, which W-I
+correctly ruled is *not* duplication — different substrates, different questions; this was the same
+question, same substrate, twice). `graphLoader.js`'s own comment claimed "identical... cannot drift
+apart" with nothing enforcing it, and live verification found it had already drifted: different basis
+label for the workflow signal (`'workflow_step'` vs `'workflow'`), and no weight/multiplicity
+tracking on the graph side despite `export-company.js` already computing and sorting by it. Fixed by
+extracting `backend/lib/deriveCollaborations.js` as the one implementation both files now call. Graph
+edges gain `metadata.weight` (previously silently discarded). Regenerating `company.json` changed
+exactly one line — the single pair whose only shared context is a workflow, now correctly labeled —
+confirming this was live drift, not a hypothetical risk. Pair count (51) and people covered (24)
+unchanged. Commit `d9f7d25` on `ocos/develop`.
+
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
 continue through the normal process regardless. Every decision below still carries its own
