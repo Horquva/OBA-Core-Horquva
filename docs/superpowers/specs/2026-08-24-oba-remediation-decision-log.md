@@ -379,7 +379,21 @@ Fixed by keeping the real BFS + hop distance and replacing the invented decay cu
 `predictedScore`/`threatLevel` already computed by `predictiveRisk()`, for whichever agent is actually
 hit at each hop — no new backend endpoint needed, just wiring `map/page.tsx` to fetch
 `/api/predictive-risk/agents` like every other page already does. `tsc --noEmit` clean. Commit
-`c7f0e50` on `ocos/develop`. D-57 through D-62 and D-64 remain open.
+`c7f0e50` on `ocos/develop`.
+
+**W-K, decision D-64 — closed with no code change: not actually a migration candidate.**
+`HiddenDependencyOverlay.tsx`'s three edge-inference functions (transitive, shared-owner,
+shared-resource) compute no score, tier, or verdict — they trace which pairwise edges are implied by
+already-fetched `agents`/`dependencies` data for an exploratory "what might be hidden" visualization,
+the same class as `lib/graph.ts`'s `getDownstream`/`getUpstream` BFS traversal, already established
+this session as acceptable client-side utility, not intelligence. `TruthBadge` is already correctly
+gated on real data presence (fixed earlier this session), not claiming high confidence. The component's
+shallow 2-hop transitive check is cruder than `derived.js`'s real unlimited-depth transitive closure,
+but answers a different question for a different purpose (visualization of implied pairwise
+relationships vs. impact/reachability analysis) — not a duplicate needing reconciliation, matching the
+precedent W-I set for `analytics.js`'s separate graph-based traversal. No migration needed; closed by
+inspection rather than by building new backend infrastructure for something that wasn't actually
+violating the mandate. D-57 through D-62 remain open.
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -923,7 +937,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-63 done (`c7f0e50`, rescoped smaller); D-57, D-58, D-59, D-60, D-61, D-62, D-64 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change (not actually intelligence); D-57, D-58, D-59, D-60, D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
