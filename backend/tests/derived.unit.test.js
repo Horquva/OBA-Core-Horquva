@@ -335,6 +335,64 @@ console.log('\nKnowledge concentration — criticality-weighted share across age
 	check('sorted worst-first', profiles[0].concentrationScore >= profiles[1].concentrationScore, profiles)
 }
 
+// ── Org memory (D-60) ──────────────────────────────────────────────────────────
+console.log('\nOrg memory — backup_owner + documentation status, per-asset and per-carrier (D-60):')
+{
+	const r = roots({
+		employees: [
+			{ id: 1, name: 'Alice', department: 'Eng' },
+			{ id: 2, name: 'Bob', department: 'Ops' },
+			{ id: 3, name: 'Cara', department: 'Sales' },
+		],
+		owners: [
+			{ id: 1, employee_id: 1, backup_owner: 'Zed' },
+			{ id: 2, employee_id: 2, backup_owner: 'Zed' },
+			// Cara has no owners row at all -> no backup, same as an owners row
+			// with a null backup_owner.
+		],
+		agents: [
+			{ id: 1, name: 'AgentA', risk: 'high', owner_id: 1 },
+			{ id: 2, name: 'OrphanAgent', risk: 'low', owner_id: null },
+		],
+		workflows: [{ id: 10, name: 'FlowB', risk: 'medium', department: 'Ops' }],
+		workflow_runbooks: [{ workflow_id: 10, owner_id: 2, is_documented: false }],
+		ai_platforms: [{ id: 100, name: 'ToolC' }],
+		tool_ownership: [{ platform_id: 100, employee_id: 3 }],
+		tool_users: [{ platform_id: 100, employee_id: 3 }],
+		// AgentA is documented; OrphanAgent has no knowledge_assets row at all
+		// (documented defaults to false, never null-as-truthy); ToolC is
+		// documented and separately assessed critical.
+		knowledge_assets: [
+			{ asset_type: 'agent', asset_id: 1, is_documented: true },
+			{ asset_type: 'platform', asset_id: 100, is_documented: true, criticality: 'critical' },
+		],
+		// No tool_backups row for ToolC -> Cara has no backup for it.
+	})
+	const report = d.orgMemory(r)
+	const by = Object.fromEntries(report.assets.map((a) => [a.name, a]))
+
+	check('AgentA: documented + owner has a backup -> PRESERVED', by.AgentA.memoryStatus === 'PRESERVED', by.AgentA)
+	check('OrphanAgent: no owner + no documentation -> LOST', by.OrphanAgent.memoryStatus === 'LOST', by.OrphanAgent)
+	check('FlowB: undocumented but owner has a backup -> AT_RISK', by.FlowB.memoryStatus === 'AT_RISK', by.FlowB)
+	check('ToolC: documented but no backup tool -> VULNERABLE', by.ToolC.memoryStatus === 'VULNERABLE', by.ToolC)
+	check('ToolC criticality resolved via entityCriticality, not fabricated', by.ToolC.criticality === 'critical', by.ToolC.criticality)
+	check('FlowB department comes from the workflow row itself', by.FlowB.department === 'Ops', by.FlowB.department)
+
+	check('4 status buckets partition all 4 assets', report.preserved.length === 1 && report.atRisk.length === 1 && report.vulnerable.length === 1 && report.lost.length === 1, report)
+
+	// IMHS = (1*1.0 + 1*0.5 + 1*0.25) / 4 * 100 = 43.75 -> rounds to 44.
+	check('IMHS = round((preserved*1.0 + vulnerable*0.5 + atRisk*0.25) / total * 100)', report.imhs === 44, report.imhs)
+	check('44 lands below the 45 AT_RISK floor -> CRITICAL', report.imhsVerdict === 'CRITICAL', report.imhsVerdict)
+
+	const carriers = Object.fromEntries(report.carriers.map((c) => [c.name, c]))
+	check('Alice: fully preserved, no undocumented/unbacked load -> LOW tier', carriers.Alice.tier === 'LOW', carriers.Alice)
+	check('Bob: 1 undocumented (weight 2) but backed -> MEDIUM tier, not a critical carrier', carriers.Bob.tier === 'MEDIUM' && !carriers.Bob.isCriticalCarrier, carriers.Bob)
+	check('Cara: 1 unbacked (weight 1) but documented -> stays LOW, below the MEDIUM floor', carriers.Cara.tier === 'LOW', carriers.Cara)
+	check('carrier healthScore uses the same IMHS formula, scoped to their own assets', carriers.Bob.healthScore === 25, carriers.Bob.healthScore)
+	check('sorted worst tier first: MEDIUM (Bob) before the two LOWs', report.carriers[0].name === 'Bob', report.carriers.map((c) => c.name))
+	check('evidence is sufficient over 4 real assets', report.evidence.sufficient === true, report.evidence)
+}
+
 // ── Executive memory ─────────────────────────────────────────────────────────
 console.log('\nExecutive memory — four types, four roots:')
 {

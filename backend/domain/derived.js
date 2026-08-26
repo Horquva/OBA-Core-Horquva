@@ -742,6 +742,218 @@ function knowledgeConcentration(roots) {
   return profiles
 }
 
+/**
+ * Institutional memory status per asset (agent/workflow/tool) and per owner
+ * ("carrier"), plus an org-wide Institutional Memory Health Score (IMHS).
+ * Was frontend/lib/orgMemory.ts's computeOrgMemory(), computed client-side --
+ * the live formula behind the /memory page today.
+ *
+ * D-60 (owner decision, 2026-08-26): `routes/memory/memory.js` already had its
+ * own same-named `computeMemoryStatus()`/IMHS -- but a DIFFERENT formula (undocumented
+ * + high/critical criticality, ignoring backup_owner entirely) that nothing
+ * actually consumed for data (only a health pinger touched `/health`; `/map`
+ * and `/employee/:name` had zero callers). The owner picked the frontend's
+ * formula as canonical -- it's the one actually live today, and it matches
+ * this module's own "memory carrier" framing (would this survive the owner
+ * leaving?) rather than a general risk-exposure question mislabeled as
+ * memory status. Ported verbatim: same 4-status rules, same carrier-tier
+ * weights (undocumented*2 + noBackup), same IMHS weights (1.0/0.5/0.25/0).
+ *
+ * Two deliberate departures from a byte-for-byte port, both display-only
+ * fields that never feed the status/tier logic above:
+ *   - criticality resolved via definitions.js's entityCriticality() (real
+ *     'unknown' sentinel) instead of the frontend's resolveCriticality()
+ *     (silently defaults unassessed to 'low' -- a separate, already-flagged
+ *     issue this doesn't fix, just doesn't propagate into new code).
+ *   - "documented" for agents/tools is a conjunction across every matching
+ *     knowledge_assets row (one undocumented row means not fully documented),
+ *     matching tools.js's own fix for the same "last write wins" bug class
+ *     (F-K) rather than routes/agents.js's older order-dependent version.
+ *
+ * Roots: employees, agents, workflows, workflow_runbooks, ai_platforms,
+ * tool_ownership, tool_backups, tool_users, knowledge_assets, owners.
+ */
+function memoryStatus(hasOwner, isDocumented, hasBackup) {
+  if (!hasOwner && !isDocumented) return 'LOST'
+  if (isDocumented && hasBackup) return 'PRESERVED'
+  if (!isDocumented && hasBackup) return 'AT_RISK'
+  return 'VULNERABLE'
+}
+
+function memoryCarrierTier(undocumentedCount, noBackupCount) {
+  const riskWeight = undocumentedCount * 2 + noBackupCount
+  if (riskWeight >= 10 || (undocumentedCount >= 5 && noBackupCount >= 5)) return 'CRITICAL'
+  if (riskWeight >= 5 || (undocumentedCount >= 3 && noBackupCount >= 3)) return 'HIGH'
+  if (riskWeight >= 2 || undocumentedCount >= 2) return 'MEDIUM'
+  return 'LOW'
+}
+
+function calcIMHS(preserved, vulnerable, atRisk, total) {
+  return round(((preserved * 1.0 + vulnerable * 0.5 + atRisk * 0.25) / total) * 100)
+}
+
+function orgMemory(roots) {
+  const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
+  const platformById = new Map(roots.ai_platforms.map((p) => [p.id, p]))
+  const backups = backupIndex(roots)
+  const ownerName = (employeeId) => (employeeId != null ? employeeById.get(employeeId)?.name ?? null : null)
+  const ownerDept = (employeeId) => (employeeId != null ? employeeById.get(employeeId)?.department ?? 'Unassigned' : 'Unassigned')
+
+  // Conjunction across every knowledge_assets row for a given asset --
+  // one undocumented row means the asset isn't fully documented. No matching
+  // row at all -> false (mirrors normalizeAgent()'s `Boolean(documented ?? false)`
+  // coercion of "unassessed" into "not documented", the behavior the live
+  // frontend formula already applies).
+  const documentedByAsset = { agent: new Map(), platform: new Map() }
+  for (const ka of roots.knowledge_assets) {
+    const bucket = documentedByAsset[ka.asset_type]
+    if (!bucket) continue
+    const prev = bucket.has(ka.asset_id) ? bucket.get(ka.asset_id) : true
+    bucket.set(ka.asset_id, prev && Boolean(ka.is_documented))
+  }
+
+  const runbookByWorkflow = new Map(roots.workflow_runbooks.map((r) => [r.workflow_id, r]))
+  const platformOwnerEmployeeId = new Map(roots.tool_ownership.map((t) => [t.platform_id, t.employee_id]))
+  const platformBackupName = new Map(
+    roots.tool_backups.map((b) => [b.primary_platform, platformById.get(b.backup_platform)?.name ?? null]),
+  )
+  const platformDepts = new Map()
+  for (const u of roots.tool_users) {
+    const dept = employeeById.get(u.employee_id)?.department
+    if (!dept) continue
+    if (!platformDepts.has(u.platform_id)) platformDepts.set(u.platform_id, dept)
+  }
+
+  const assets = []
+
+  for (const a of roots.agents) {
+    const hasOwner = a.owner_id != null
+    const ownerBackup = hasOwner ? backups.get(a.owner_id) : null
+    const documented = documentedByAsset.agent.get(a.id) ?? false
+    const hasBackup = Boolean(ownerBackup?.hasBackup)
+    assets.push({
+      id: a.id, name: a.name, type: 'agent',
+      ownerEmployeeId: hasOwner ? a.owner_id : null,
+      owner: ownerName(a.owner_id),
+      backup_owner: ownerBackup?.backupOwner ?? null,
+      criticality: entityCriticality('agent', a),
+      department: ownerDept(a.owner_id),
+      documented,
+      memoryStatus: memoryStatus(hasOwner, documented, hasBackup),
+    })
+  }
+
+  for (const w of roots.workflows) {
+    const rb = runbookByWorkflow.get(w.id)
+    const hasOwner = rb?.owner_id != null
+    const ownerBackup = hasOwner ? backups.get(rb.owner_id) : null
+    const documented = rb ? Boolean(rb.is_documented) : false
+    const hasBackup = Boolean(ownerBackup?.hasBackup)
+    assets.push({
+      id: w.id, name: w.name, type: 'workflow',
+      ownerEmployeeId: hasOwner ? rb.owner_id : null,
+      owner: hasOwner ? ownerName(rb.owner_id) : null,
+      backup_owner: ownerBackup?.backupOwner ?? null,
+      criticality: entityCriticality('workflow', w),
+      department: w.department || 'Unassigned',
+      documented,
+      memoryStatus: memoryStatus(hasOwner, documented, hasBackup),
+    })
+  }
+
+  for (const p of roots.ai_platforms) {
+    const ownerEmployeeId = platformOwnerEmployeeId.get(p.id) ?? null
+    const hasOwner = ownerEmployeeId != null
+    const documented = documentedByAsset.platform.get(p.id) ?? false
+    const backupName = platformBackupName.get(p.id) ?? null
+    const hasBackup = Boolean(backupName)
+    assets.push({
+      id: p.id, name: p.name, type: 'tool',
+      ownerEmployeeId,
+      owner: ownerName(ownerEmployeeId),
+      backup_owner: backupName,
+      criticality: entityCriticality('platform', p, { knowledgeAssets: roots.knowledge_assets }),
+      department: platformDepts.get(p.id) || 'General',
+      documented,
+      memoryStatus: memoryStatus(hasOwner, documented, hasBackup),
+    })
+  }
+
+  const preserved = assets.filter((a) => a.memoryStatus === 'PRESERVED')
+  const atRisk = assets.filter((a) => a.memoryStatus === 'AT_RISK')
+  const vulnerable = assets.filter((a) => a.memoryStatus === 'VULNERABLE')
+  const lost = assets.filter((a) => a.memoryStatus === 'LOST')
+
+  const evidence = evidenceGate(assets, () => true)
+  const imhs = evidence.sufficient ? calcIMHS(preserved.length, vulnerable.length, atRisk.length, assets.length) : null
+  const imhsVerdict = !evidence.sufficient ? null : imhs >= 75 ? 'HEALTHY' : imhs >= 45 ? 'AT_RISK' : 'CRITICAL'
+
+  const ownerIds = new Set(assets.map((a) => a.ownerEmployeeId).filter((id) => id != null))
+  const carriers = [...ownerIds].map((employeeId) => {
+    const owned = assets.filter((a) => a.ownerEmployeeId === employeeId)
+    const undocumented = owned.filter((a) => !a.documented)
+    const noBackup = owned.filter((a) => !a.backup_owner)
+    const undocumentedCount = undocumented.length
+    const noBackupCount = noBackup.length
+
+    const preservedCount = owned.filter((a) => a.memoryStatus === 'PRESERVED').length
+    const vulnerableCount = owned.filter((a) => a.memoryStatus === 'VULNERABLE').length
+    const atRiskCount = owned.filter((a) => a.memoryStatus === 'AT_RISK').length
+    const lostCount = owned.filter((a) => a.memoryStatus === 'LOST').length
+
+    return {
+      employeeId,
+      name: ownerName(employeeId),
+      totalOwned: owned.length,
+      preservedCount,
+      vulnerableCount,
+      atRiskCount,
+      lostCount,
+      undocumentedCount,
+      noBackupCount,
+      assets: owned,
+      tier: memoryCarrierTier(undocumentedCount, noBackupCount),
+      // Same IMHS formula as the org-wide score, scoped to just this person's
+      // holdings -- the number routes/memory/memory.js's per-employee route
+      // needs and used to recompute with its own (wrong, D-60) formula.
+      healthScore: owned.length ? calcIMHS(preservedCount, vulnerableCount, atRiskCount, owned.length) : null,
+      isCriticalCarrier: undocumented.some((a) => !a.backup_owner),
+    }
+  })
+
+  const tierOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+  carriers.sort((a, b) =>
+    tierOrder[a.tier] !== tierOrder[b.tier] ? tierOrder[a.tier] - tierOrder[b.tier] : b.undocumentedCount - a.undocumentedCount,
+  )
+
+  return {
+    assets,
+    preserved,
+    atRisk,
+    vulnerable,
+    lost,
+    carriers,
+    criticalCarriers: carriers.filter((c) => c.tier === 'CRITICAL'),
+    highCarriers: carriers.filter((c) => c.tier === 'HIGH'),
+    imhs,
+    imhsVerdict,
+    evidence,
+    totalAssets: assets.length,
+    ...provenance({
+      employees: roots._counts.employees,
+      agents: roots._counts.agents,
+      workflows: roots._counts.workflows,
+      workflow_runbooks: roots._counts.workflow_runbooks,
+      ai_platforms: roots._counts.ai_platforms,
+      tool_ownership: roots._counts.tool_ownership,
+      tool_backups: roots._counts.tool_backups,
+      tool_users: roots._counts.tool_users,
+      knowledge_assets: roots._counts.knowledge_assets,
+      owners: roots._counts.owners,
+    }),
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // 4. EXECUTIVE MEMORY
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1442,6 +1654,7 @@ module.exports = {
   predictiveRisk,
   humanDependencyRisk,
   knowledgeConcentration,
+  orgMemory,
   executiveMemory,
   pillars,
   decisionQuality,

@@ -101,6 +101,7 @@ module.exports = {
       predictiveRisk: derived.predictiveRisk,
       humanDependencyRisk: derived.humanDependencyRisk,
       knowledgeConcentration: derived.knowledgeConcentration,
+      orgMemory: derived.orgMemory,
       executiveMemory: derived.executiveMemory,
       pillars: derived.pillars,
       orgHealth: derived.orgHealth,
