@@ -637,6 +637,26 @@ exact top items already confirmed live over curl for D-62. Commit `445fa63` on `
 `riskScore` formula) and D-68 (`ExternalEcosystemTab.tsx`'s fabricated per-vendor "Org concentration %")
 are next.
 
+**Decision D-67 — `/api/dashboard` duplicated `riskScore` and served a frozen `snapshots` table under
+colliding field names.** `GET /api/dashboard` has no real frontend consumer (only a health pinger,
+confirmed by grep) but computed `riskScore` from a bespoke weight table (`{critical:40, high:20,
+medium:10, low:5}` over `agents.risk` alone — no owner/backup/dependency signal), duplicating
+`predictiveRisk()`'s real, canonical answer with a cruder one. `latestSnapshot.{continuityScore,
+governanceScore, memoryHealth, riskIndex}` was read from the `snapshots` table — seeded once by
+`sql/02_seed_data.sql`, zero writers anywhere in this codebase — under field names that directly
+collide with the now-live M18/M19/`orgMemory()`/`assetContinuity()` concepts.
+`openRecommendations`/`criticalRecommendations` read the same frozen `recommendations` table D-66
+already fixed elsewhere. Fixed: `riskScore` is now the mean of `predictiveRisk()`'s real
+`predictedScore` across agents. Recommendation counts come from brain module M04 (D-62).
+`latestSnapshot` is dropped entirely rather than reinvented — those concepts already have their own
+correctly-sourced dedicated routes (`/api/memory/health`, `/api/continuity`,
+`/api/intelligence/continuity`, `/governance`); this route never needed to be a second home for them.
+Also removed an `owners` query that was fetched, error-checked, and never read — dead weight predating
+this fix. Full backend suite clean (18 suites). Live-verified over HTTP: `riskScore` (55) exactly
+matches `predictiveRisk()`'s live mean across the same 15 agents; `openRecommendations`/
+`criticalRecommendations` (23/3) exactly match M04's live output. Commit `d61b2a4` on `ocos/develop`.
+D-68 is next.
+
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
 backend the frontend should get it from backend... either from graph or derived... a systematic
