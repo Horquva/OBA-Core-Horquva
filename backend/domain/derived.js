@@ -67,6 +67,7 @@ const ROOT_TABLES = [
   'employee_agent', 'ai_platforms', 'tool_policies', 'policy_violations',
   'tool_ownership', 'accountability_entities', 'accountability_links',
   'truth_claims', 'decision_history', 'agent_platform', 'workflow_dependencies',
+  'tool_backups',
 ]
 
 // ─── Small shared helpers ────────────────────────────────────────────────────
@@ -585,6 +586,89 @@ function predictiveRisk(roots) {
       knowledge_assets: roots._counts.knowledge_assets,
     }),
   }
+}
+
+/**
+ * Per-employee aggregate exposure across everything they own (agents,
+ * workflows, tools) -- was independently computed by two frontend
+ * components (HumanDependencyRisks.tsx, DependencyPipeline.tsx) with two
+ * different, invented sets of point weights (12/8/10, and a raw 4/3/2/1
+ * tier-count sum), neither grounded in anything. This reuses RISK_FACTORS'
+ * existing scale instead of inventing new numbers, and threatLevel()'s
+ * existing 35/55/75 bands instead of a third tier scheme (the frontend used
+ * 50/25/10).
+ *
+ * agentRisk (mean of predictiveRisk()'s real predictedScore over owned
+ * agents) is the dominant term. Workflow backup coverage is deliberately
+ * NOT counted as its own factor: a workflow's backup_owner is resolved from
+ * its owner's OWN backup_owner row (see routes/workflows/index.js), the same
+ * fact predictiveRisk()'s SINGLE_OWNER factor for their agents already
+ * prices in -- counting it twice would double-weight one signal, not add a
+ * second one. Critical-workflow load and tool-backup coverage ARE
+ * independent real facts, so they contribute as a fraction of owned
+ * workflows/tools (not a raw count, so one person having many workflows
+ * doesn't mechanically inflate the score) times the matching existing
+ * RISK_FACTORS weight.
+ *
+ * Roots: employees, agents, workflows, workflow_runbooks, ai_platforms,
+ * tool_ownership, tool_backups (plus predictiveRisk()'s own roots).
+ */
+function humanDependencyRisk(roots) {
+  const risk = predictiveRisk(roots)
+  const scoreByAgentId = new Map(risk.scores.map((s) => [s.agentId, s.predictedScore]))
+  const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
+  const backedPlatformIds = new Set(roots.tool_backups.map((b) => b.primary_platform))
+
+  const employeeIds = new Set([
+    ...roots.agents.map((a) => a.owner_id),
+    ...roots.workflow_runbooks.map((r) => r.owner_id),
+    ...roots.tool_ownership.map((t) => t.employee_id),
+  ].filter((id) => id != null))
+
+  const workflowById = new Map(roots.workflows.map((w) => [w.id, w]))
+  const platformById = new Map(roots.ai_platforms.map((p) => [p.id, p]))
+
+  const profiles = [...employeeIds].map((employeeId) => {
+    const employee = employeeById.get(employeeId)
+    const ownedAgents = roots.agents.filter((a) => a.owner_id === employeeId)
+    const ownedWorkflows = roots.workflow_runbooks
+      .filter((r) => r.owner_id === employeeId)
+      .map((r) => workflowById.get(r.workflow_id))
+      .filter(Boolean)
+    const ownedTools = roots.tool_ownership
+      .filter((t) => t.employee_id === employeeId)
+      .map((t) => platformById.get(t.platform_id))
+      .filter(Boolean)
+
+    const agentRisk = mean(ownedAgents.map((a) => scoreByAgentId.get(a.id) ?? 0))
+
+    const criticalWorkflows = ownedWorkflows.filter((w) => atOrAbove(w.risk, 'high')).length
+    const workflowExposure = ownedWorkflows.length
+      ? pct(criticalWorkflows, ownedWorkflows.length) / 100 * RISK_FACTORS.CRITICAL_WORKFLOW
+      : 0
+
+    const unbackedTools = ownedTools.filter((p) => !backedPlatformIds.has(p.id)).length
+    const toolExposure = ownedTools.length
+      ? pct(unbackedTools, ownedTools.length) / 100 * RISK_FACTORS.SINGLE_OWNER
+      : 0
+
+    const totalRiskScore = clamp(round(agentRisk + workflowExposure + toolExposure))
+
+    return {
+      employeeId,
+      name: employee ? employee.name : null,
+      ownedAgentCount: ownedAgents.length,
+      ownedWorkflowCount: ownedWorkflows.length,
+      criticalWorkflowCount: criticalWorkflows,
+      ownedToolCount: ownedTools.length,
+      unbackedToolCount: unbackedTools,
+      totalRiskScore,
+      tier: threatLevel(totalRiskScore),
+    }
+  })
+
+  profiles.sort((a, b) => b.totalRiskScore - a.totalRiskScore)
+  return profiles
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1285,6 +1369,7 @@ module.exports = {
   accountability,
   collaboration,
   predictiveRisk,
+  humanDependencyRisk,
   executiveMemory,
   pillars,
   decisionQuality,

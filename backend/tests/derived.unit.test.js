@@ -244,6 +244,61 @@ console.log('\nPredictive risk — factors and emergence:')
 	check('a clean agent scores zero', by.Safe.predictedScore === 0, by.Safe.predictedScore)
 }
 
+// ── Human dependency risk ─────────────────────────────────────────────────────
+console.log('\nHuman dependency risk — real predictedScore + RISK_FACTORS-scale exposure:')
+{
+	const r = roots({
+		employees: [
+			{ id: 1, name: 'Overloaded' },
+			{ id: 2, name: 'Clean' },
+		],
+		// Both employees have a personal backup, so neither agent picks up a
+		// single_owner factor -- isolates workflow/tool exposure from agentRisk.
+		agents: [
+			{ id: 1, name: 'A1', risk: 'low', status: 'active', owner_id: 1 },
+			{ id: 2, name: 'A2', risk: 'low', status: 'active', owner_id: 1 },
+			{ id: 3, name: 'A3', risk: 'low', status: 'active', owner_id: 2 },
+		],
+		owners: [
+			{ id: 10, name: 'Overloaded', employee_id: 1, backup_owner: 'Deputy' },
+			{ id: 11, name: 'Clean', employee_id: 2, backup_owner: 'Deputy2' },
+		],
+		workflows: [
+			{ id: 1, name: 'CritFlow', risk: 'critical' },
+			{ id: 2, name: 'LowFlow', risk: 'low' },
+		],
+		workflow_runbooks: [
+			{ workflow_id: 1, owner_id: 1, is_documented: true },
+			{ workflow_id: 2, owner_id: 1, is_documented: true },
+		],
+		ai_platforms: [
+			{ id: 1, name: 'ToolA' },
+			{ id: 2, name: 'ToolB' },
+		],
+		tool_ownership: [
+			{ platform_id: 1, employee_id: 1 },
+			{ platform_id: 2, employee_id: 1 },
+		],
+		// ToolA has a designated backup platform, ToolB does not.
+		tool_backups: [{ primary_platform: 1, backup_platform: 2 }],
+	})
+	const profiles = d.humanDependencyRisk(r)
+	const by = Object.fromEntries(profiles.map((p) => [p.name, p]))
+
+	check('every owning employee gets a profile', profiles.length === 2, profiles.map((p) => p.name))
+	check('a fully-backed agent contributes zero agentRisk', by.Clean.totalRiskScore === 0, by.Clean)
+	check('1 of 2 owned workflows critical -> half of CRITICAL_WORKFLOW',
+		by.Overloaded.criticalWorkflowCount === 1 && by.Overloaded.ownedWorkflowCount === 2, by.Overloaded)
+	check('1 of 2 owned tools unbacked -> half of SINGLE_OWNER',
+		by.Overloaded.unbackedToolCount === 1 && by.Overloaded.ownedToolCount === 2, by.Overloaded)
+	check('score is agentRisk(0) + 0.5*CRITICAL_WORKFLOW(27) + 0.5*SINGLE_OWNER(30), rounded',
+		by.Overloaded.totalRiskScore === Math.round(0.5 * d.constants.RISK_FACTORS.CRITICAL_WORKFLOW + 0.5 * d.constants.RISK_FACTORS.SINGLE_OWNER),
+		by.Overloaded.totalRiskScore)
+	check('tier comes from the canonical threatLevel bands, not an invented scheme',
+		by.Overloaded.totalRiskScore < 35 ? by.Overloaded.tier === 'LOW' : true, by.Overloaded)
+	check('sorted worst-first', profiles[0].totalRiskScore >= profiles[1].totalRiskScore, profiles)
+}
+
 // ── Executive memory ─────────────────────────────────────────────────────────
 console.log('\nExecutive memory — four types, four roots:')
 {

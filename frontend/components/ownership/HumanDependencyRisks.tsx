@@ -6,9 +6,23 @@ import { PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { AlertTriangle, TrendingUp, UserX, FileX, Zap } from 'lucide-react';
 import clsx from 'clsx';
 
+/** GET /api/ownership's per-owner dependencyRiskScore/Tier -- see
+ *  domain/derived.js's humanDependencyRisk() for the real formula (real
+ *  predictedScore average + RISK_FACTORS-scale workflow/tool exposure).
+ *  Replaces this component's own previously-invented 12/8/10 point weights. */
+export interface DependencyRiskProfile {
+  totalRiskScore: number;
+  tier: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  ownedWorkflowCount: number;
+  criticalWorkflowCount: number;
+  ownedToolCount: number;
+  unbackedToolCount: number;
+}
+
 interface HumanDependencyRisksProps {
   dataset: Dataset;
   riskByAgentName: Map<string, PredictiveRiskEntry>;
+  dependencyRiskByName: Map<string, DependencyRiskProfile>;
 }
 
 type HumanRiskProfile = {
@@ -26,13 +40,6 @@ type HumanRiskProfile = {
   tier: 'critical' | 'high' | 'medium' | 'low';
 };
 
-function riskTierFromScore(score: number): 'critical' | 'high' | 'medium' | 'low' {
-  if (score >= 50) return 'critical';
-  if (score >= 25) return 'high';
-  if (score >= 10) return 'medium';
-  return 'low';
-}
-
 const tierConfig = {
   critical: { label: 'Critical', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/25', barColor: 'bg-red-500', topBorder: 'border-t-red-500/40' },
   high:     { label: 'High',     color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/25', barColor: 'bg-orange-500', topBorder: 'border-t-orange-500/30' },
@@ -40,7 +47,11 @@ const tierConfig = {
   low:      { label: 'Low',      color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', barColor: 'bg-emerald-500', topBorder: 'border-t-[var(--border-strong)]' },
 };
 
-export function HumanDependencyRisks({ dataset, riskByAgentName }: HumanDependencyRisksProps) {
+const TIER_MAP: Record<DependencyRiskProfile['tier'], HumanRiskProfile['tier']> = {
+  CRITICAL: 'critical', HIGH: 'high', MEDIUM: 'medium', LOW: 'low',
+};
+
+export function HumanDependencyRisks({ dataset, riskByAgentName, dependencyRiskByName }: HumanDependencyRisksProps) {
   const { agents, ai_tools, workflows } = dataset;
 
   const profiles = useMemo<HumanRiskProfile[]>(() => {
@@ -59,11 +70,11 @@ export function HumanDependencyRisks({ dataset, riskByAgentName }: HumanDependen
       const toolsOwned = ai_tools.filter(t => t.access_owner === name);
       const unbackedTools = toolsOwned.filter(t => !t.backup_tool).length;
 
-      // Weighted risk score
-      const agentRisk = ownedAgents.reduce((acc, a) => acc + (riskByAgentName.get(a.name)?.predictedScore ?? 0), 0);
-      const workflowRisk = unbackedWorkflows * 12 + criticalWorkflows * 8;
-      const toolRisk = unbackedTools * 10;
-      const totalRiskScore = Math.round((agentRisk / (ownedAgents.length || 1)) + workflowRisk + toolRisk);
+      // Real backend score (domain/derived.js's humanDependencyRisk()) --
+      // replaces this component's own previously-invented point weights.
+      const dep = dependencyRiskByName.get(name);
+      const totalRiskScore = dep?.totalRiskScore ?? 0;
+      const tier = dep ? TIER_MAP[dep.tier] : 'low';
 
       return {
         name,
@@ -77,10 +88,10 @@ export function HumanDependencyRisks({ dataset, riskByAgentName }: HumanDependen
         toolsOwned: toolsOwned.length,
         unbackedTools,
         totalRiskScore,
-        tier: riskTierFromScore(totalRiskScore),
+        tier,
       };
     }).sort((a, b) => b.totalRiskScore - a.totalRiskScore);
-  }, [agents, ai_tools, workflows, riskByAgentName]);
+  }, [agents, ai_tools, workflows, dependencyRiskByName]);
 
   const maxScore = Math.max(...profiles.map(p => p.totalRiskScore), 1);
 

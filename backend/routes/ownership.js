@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
 const { loadOwners } = require('../lib/ownerBackups')
+const domain = require('../domain')
 
 // A "human SPOF": one person carrying so much unbacked ownership that their
 // own absence is a single point of failure, distinct from an individual
@@ -24,13 +25,14 @@ const HUMAN_SPOF_MIN_AGENTS = 3
 // employees who have no `owners` row, and keying on `owners` alone drops them.
 router.get('/', async (req, res) => {
   try {
-    const [ownerByEmployee, agentsRes, employeesRes] = await Promise.all([
+    const [ownerByEmployee, agentsRes, employeesRes, roots] = await Promise.all([
       // Same owners row loadOwnerBackupByEmployee() narrows for its own
       // callers -- one query behind lib/ownerBackups.js, not a second
       // hand-rolled copy.
       loadOwners(),
       supabase.from('agents').select('id, name, status, risk, owner_id'),
       supabase.from('employees').select('id, name, role'),
+      domain.intelligence.compute.loadRoots(),
     ])
 
     if (agentsRes.error) return res.status(500).json({ error: agentsRes.error.message })
@@ -38,6 +40,12 @@ router.get('/', async (req, res) => {
 
     const agentList = agentsRes.data || []
     const employeeById = new Map((employeesRes.data || []).map((e) => [e.id, e]))
+    // Per-person aggregate exposure across everything they own (agents,
+    // workflows, tools) -- see derived.js's humanDependencyRisk() for why
+    // this replaced two independently-invented frontend scoring schemes.
+    const dependencyRiskByEmployee = new Map(
+      domain.intelligence.compute.humanDependencyRisk(roots).map((p) => [p.employeeId, p])
+    )
 
     // Declared owners, plus anyone who owns an agent without being listed as one.
     const employeeIds = [
@@ -54,6 +62,7 @@ router.get('/', async (req, res) => {
         .map((a) => ({ id: a.id, name: a.name, status: a.status, risk: a.risk }))
       const agentCount = ownedAgents.length
       const hasBackup = !!(declared && declared.backup_owner)
+      const dependencyRisk = dependencyRiskByEmployee.get(employeeId) || null
       return {
         id: declared ? declared.id : null,
         employeeId,
@@ -69,6 +78,12 @@ router.get('/', async (req, res) => {
         concentrationRisk:
           agentCount >= 4 ? 'high' : agentCount >= 2 ? 'medium' : 'low',
         isHumanSpof: !hasBackup && agentCount >= HUMAN_SPOF_MIN_AGENTS,
+        dependencyRiskScore: dependencyRisk ? dependencyRisk.totalRiskScore : null,
+        dependencyRiskTier: dependencyRisk ? dependencyRisk.tier : null,
+        ownedWorkflowCount: dependencyRisk ? dependencyRisk.ownedWorkflowCount : 0,
+        criticalWorkflowCount: dependencyRisk ? dependencyRisk.criticalWorkflowCount : 0,
+        ownedToolCount: dependencyRisk ? dependencyRisk.ownedToolCount : 0,
+        unbackedToolCount: dependencyRisk ? dependencyRisk.unbackedToolCount : 0,
       }
     })
 

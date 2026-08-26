@@ -99,6 +99,7 @@ module.exports = {
       accountability: derived.accountability,
       collaboration: derived.collaboration,
       predictiveRisk: derived.predictiveRisk,
+      humanDependencyRisk: derived.humanDependencyRisk,
       executiveMemory: derived.executiveMemory,
       pillars: derived.pillars,
       orgHealth: derived.orgHealth,
