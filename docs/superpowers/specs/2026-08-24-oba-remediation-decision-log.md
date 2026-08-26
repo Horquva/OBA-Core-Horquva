@@ -17,6 +17,25 @@ plus a fifth, fully disconnected frontend engine. D-41…D-45 (decided during W-
 [the W-I design doc](2026-08-26-w-i-simulation-cascade-consolidation-design.md) and
 [plan](../plans/2026-08-26-w-i-simulation-cascade-consolidation.md).
 
+**W-J is a tenth workstream, also outside the original 16-decision interrogation.** Found 2026-08-26
+during the same fresh codebase audit, while designing the AI agent layer and fixing a live bug it
+surfaced (`M38` flagging systems as "underused" because no agent ever `depends_on` a system in the
+data). `backend/tools/export-company.js`'s hand-authored `AUTHORED` block (`systems`,
+`external_entities`, `incidents`, `decisions_log`) turned out to be the last place facts live outside
+Supabase — the same "two places hold facts" pattern W-C/W-D/W-E already eliminated everywhere else.
+Investigation found the four sections are not symmetric: two are real and misplaced
+(`systems`/`external_entities`), one is a dead duplicate of an already-live pipeline
+(`decisions_log`, superseded by `domain/dataset.js`'s `decision_history`-backed version), and one was
+never actually wired up despite existing (`incidents` — no Supabase table, and nothing at runtime
+reads even the authored copy). **Correction found during planning:** `processes` was initially
+miscounted as a fifth authored section; it is actually already computed live from the real
+`accountability_entities`/`accountability_links` tables (`export-company.js:432`) and only needs a
+`graphLoader.js` wiring fix, no new table. D-46…D-51 (decided during W-J's brainstorming phase
+2026-08-26) design six new tables, wire `processes` at its existing source, delete the dead
+duplicate, and wire incidents into live scoring for the first time. Full detail is in
+[the W-J design doc](2026-08-26-w-j-authored-entities-migration-design.md). **Design only — not yet
+planned or implemented.**
+
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
 continue through the normal process regardless. Every decision below still carries its own
@@ -545,6 +564,7 @@ it closes, written before the fix.
 | **W-G** | Graph lifecycle & narrative honesty | D-14, D-28, D-29, D-30, D-31, D-32 | **DONE** — 4 tasks, 6 commits, `c0dd891`…`9b0f641` on `ocos/develop` |
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
+| **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DESIGN DRAFTED** — [spec](2026-08-26-w-j-authored-entities-migration-design.md) written 2026-08-26, awaiting owner review; not yet planned or implemented |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
