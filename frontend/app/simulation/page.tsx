@@ -15,6 +15,7 @@ export default function SimulationPage() {
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [tools, setTools] = useState<AITool[]>([]);
   const [scenarios, setScenarios] = useState<ScenarioResult[]>([]);
+  const [healthIndex, setHealthIndex] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,9 +38,14 @@ export default function SimulationPage() {
       fetch(`${base}/api/simulations/rank`, { headers: authHeader() }).then(r => {
         if (!r.ok) throw new Error('Failed to load simulations');
         return r.json();
+      }),
+      fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => {
+        if (!r.ok) throw new Error('Failed to load org health');
+        return r.json();
       })
     ])
-    .then(([agentsData, depsData, toolsData, rankData]) => {
+    .then(([agentsData, depsData, toolsData, rankData, healthData]) => {
+      setHealthIndex(healthData.healthIndex ?? 0);
       const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
         ...a,
         id: a.id?.toString() || '',
@@ -112,7 +118,7 @@ export default function SimulationPage() {
 
       {/* Twin Controls */}
       <div className="px-6 md:px-10 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-        <TwinHealthIndex agents={agents} />
+        <TwinHealthIndex agents={agents} healthIndex={healthIndex} />
         <TwinSyncStatus agents={agents} tools={tools} />
         <ScenarioSandbox agents={agents} dependencies={dependencies} tools={tools} />
       </div>

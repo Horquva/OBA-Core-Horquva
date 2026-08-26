@@ -14,19 +14,22 @@ import { Dataset } from '../../types';
 
 export default function RecommendationsPage() {
   const [dataset, setDataset] = useState<Dataset | null>(null);
+  const [orgHealthIndex, setOrgHealthIndex] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    
+
     Promise.all([
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => r.ok ? r.json() : { dependencies: [] }),
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => r.ok ? r.json() : { healthIndex: 0 }),
     ])
-    .then(([agentsData, depsData, toolsData, wData]) => {
+    .then(([agentsData, depsData, toolsData, wData, healthData]) => {
+      setOrgHealthIndex(healthData.healthIndex ?? 0);
       setDataset({
         company: 'Organizational Intelligence',
         agents: Array.isArray(agentsData) ? agentsData.map((a: any) => ({
@@ -61,8 +64,8 @@ export default function RecommendationsPage() {
 
   const output: RecommendationEngineOutput | null = useMemo(() => {
     if (!dataset) return null;
-    return generateRecommendations(dataset);
-  }, [dataset]);
+    return generateRecommendations(dataset, orgHealthIndex);
+  }, [dataset, orgHealthIndex]);
 
   if (error) {
     return (

@@ -13,18 +13,23 @@ import { Dataset } from '../../types';
 
 export default function OwnershipPage() {
   const [dataset, setDataset] = useState<Dataset | null>(null);
+  const [predictedScoreByAgentName, setPredictedScoreByAgentName] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    
+
     Promise.all([
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] })
+      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : [])
     ])
-    .then(([agentsData, toolsData, wfsData]) => {
+    .then(([agentsData, toolsData, wfsData, predictiveData]) => {
+      setPredictedScoreByAgentName(new Map(
+        (Array.isArray(predictiveData) ? predictiveData : []).map((p: any) => [p.agentName, p.predictedScore])
+      ));
       const agents = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
         ...a,
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
@@ -105,7 +110,7 @@ export default function OwnershipPage() {
 
       <ConcentrationBar agents={dataset.agents} />
       <DependencyPipeline dataset={dataset} />
-      <HumanDependencyRisks dataset={dataset} />
+      <HumanDependencyRisks dataset={dataset} predictedScoreByAgentName={predictedScoreByAgentName} />
       <OrgRelationshipMap dataset={dataset} />
       <OwnershipList agents={dataset.agents} />
     </div>

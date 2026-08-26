@@ -2,12 +2,13 @@
 
 import { useMemo } from 'react';
 import { Dataset, Agent, RiskLevel } from '../../types';
-import { deriveRisk, deriveRiskScore } from '../../lib/risk';
+import { deriveRisk } from '../../lib/risk';
 import { AlertTriangle, TrendingUp, UserX, FileX, Zap } from 'lucide-react';
 import clsx from 'clsx';
 
 interface HumanDependencyRisksProps {
   dataset: Dataset;
+  predictedScoreByAgentName: Map<string, number>;
 }
 
 type HumanRiskProfile = {
@@ -39,7 +40,7 @@ const tierConfig = {
   low:      { label: 'Low',      color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', barColor: 'bg-emerald-500', topBorder: 'border-t-[var(--border-strong)]' },
 };
 
-export function HumanDependencyRisks({ dataset }: HumanDependencyRisksProps) {
+export function HumanDependencyRisks({ dataset, predictedScoreByAgentName }: HumanDependencyRisksProps) {
   const { agents, ai_tools, workflows } = dataset;
 
   const profiles = useMemo<HumanRiskProfile[]>(() => {
@@ -59,7 +60,7 @@ export function HumanDependencyRisks({ dataset }: HumanDependencyRisksProps) {
       const unbackedTools = toolsOwned.filter(t => !t.backup_tool).length;
 
       // Weighted risk score
-      const agentRisk = ownedAgents.reduce((acc, a) => acc + deriveRiskScore(a), 0);
+      const agentRisk = ownedAgents.reduce((acc, a) => acc + (predictedScoreByAgentName.get(a.name) ?? 0), 0);
       const workflowRisk = unbackedWorkflows * 12 + criticalWorkflows * 8;
       const toolRisk = unbackedTools * 10;
       const totalRiskScore = Math.round((agentRisk / (ownedAgents.length || 1)) + workflowRisk + toolRisk);
@@ -79,7 +80,7 @@ export function HumanDependencyRisks({ dataset }: HumanDependencyRisksProps) {
         tier: riskTierFromScore(totalRiskScore),
       };
     }).sort((a, b) => b.totalRiskScore - a.totalRiskScore);
-  }, [agents, ai_tools, workflows]);
+  }, [agents, ai_tools, workflows, predictedScoreByAgentName]);
 
   const maxScore = Math.max(...profiles.map(p => p.totalRiskScore), 1);
 

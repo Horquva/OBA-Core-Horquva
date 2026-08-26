@@ -1,5 +1,5 @@
 import { Agent, Dependency, AITool, Workflow, Dataset, RiskLevel } from '../types';
-import { deriveRisk, calculateHealthScore } from './risk';
+import { deriveRisk } from './risk';
 
 
 
@@ -60,7 +60,7 @@ function nextId(prefix: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Core engine
 // ─────────────────────────────────────────────────────────────────────────────
-export function generateRecommendations(dataset: Dataset): RecommendationEngineOutput {
+export function generateRecommendations(dataset: Dataset, orgHealthIndex: number): RecommendationEngineOutput {
   _idCounter = 0;
   const { agents, dependencies, ai_tools, workflows } = dataset;
   const recs: Recommendation[] = [];
@@ -250,7 +250,7 @@ export function generateRecommendations(dataset: Dataset): RecommendationEngineO
   const criticalCount = deduped.filter(r => r.priority === 'CRITICAL').length;
   const highCount = deduped.filter(r => r.priority === 'HIGH').length;
   const mediumCount = deduped.filter(r => r.priority === 'MEDIUM').length;
-  const healthScore = calculateHealthScore(agents) ?? 0;
+  const healthScore = orgHealthIndex;
 
   return {
     recommendations: deduped,
