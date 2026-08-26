@@ -419,7 +419,28 @@ Exposed via new fields on `GET /api/ownership`, merged into the existing D-55 en
 no new endpoint, no new frontend fetch needed. New unit test hand-verifies the exact formula against a
 constructed fixture (all 7 assertions pass). Live-verified over HTTP against real data (5 distinct
 scores/tiers). `tsc --noEmit` clean, full backend test suite clean. Commit `4fe155e` on `ocos/develop`.
-D-58 through D-62 remain open.
+
+**W-K, decision D-58 — tool-risk composite score moves to the backend, ported not redesigned; the
+fabricated recovery-time estimate dropped.** `lib/aiToolIntelligence.ts`'s `buildToolScore()`/
+`scoreToTier()` independently reimplemented a 5-factor weighted score (documented/backup/criticality/
+dept-exposure/agent-count) that `/api/tool-intelligence` had no equivalent for at all (only booleans,
+and unconsumed except by the health pinger). Ported verbatim — same weights, same thresholds — into
+`backend/routes/tools.js`'s `computeToolRiskScore()`/`toolRiskTier()`, which already has every input
+field computed with zero new queries; this is a migration, not a redesign, matching the reasoning
+behind D-57's reuse-don't-reinvent call. Also returns a `riskFactors` breakdown (same shape the UI
+already rendered), computed once instead of the score being computed once and the "why" reconstructed
+a second time client-side — the same "total doesn't equal the sum of its displayed factors" class of
+bug D-53 fixed for agent risk. One deliberate improvement: a tool with unassessed (`null`) criticality
+now contributes 0 instead of the frontend's old silent normalization to `'low'` (2 points) — consistent
+with this route's own existing "never fabricate a default for unassessed data" principle. Bundled per
+the design doc: `OutageImpactPanel.tsx`'s displayed `estimatedRecoveryMinutes`
+(`30 + 15*workflows + 10*agents`, no real basis) — same fabricated-number class as D-54/D-63, dropped
+entirely, nothing real to back it with. `severityByImpact()`'s real-count-based bucketing and the
+outage list's sort score were left alone — display banding over real counts, not fabrication. New
+backend unit test (`tools.unit.test.js`) hand-verifies every factor, both thresholds, the 100-point
+cap, and cross-checks the formula against the live-verified Tableau AI case — 11/11 assertions pass.
+`tsc --noEmit` clean, full backend test suite clean (12 suites). Commit `09fec14` on `ocos/develop`.
+D-59, D-60, D-61, D-62 remain open.
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -963,7 +984,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change; D-58, D-59, D-60, D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change; D-59, D-60, D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
