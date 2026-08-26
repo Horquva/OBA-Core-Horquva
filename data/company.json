@@ -1,6 +1,6 @@
 {
   "company": "Northwind Labs",
-  "_note": "Exported from backend/sql/02_seed_data.sql by backend/tools/export-company.js. Placeholder company name — rename freely. This is the ONLY company dataset: never merge another one into it, replace it (BUILD_SPEC Part 0A). systems, incidents, decisions_log and external_entities are empty because no source table exists; they must be authored against this cast. Empty is the correct state, not a bug — see R-8.",
+  "_note": "Exported from backend/sql/02_seed_data.sql and backend/sql/14_authored_entities.sql by backend/tools/export-company.js. Placeholder company name — rename freely. This is the ONLY company dataset: never merge another one into it, replace it (BUILD_SPEC Part 0A). systems, incidents and external_entities are derived from the systems/incidents/external_entities tables like every other section — no hand-authored data remains.",
   "organization": {
     "name": "Northwind Labs",
     "industry": "B2B SaaS"
@@ -2639,80 +2639,6 @@
       "lesson": "Onboarding is undocumented and its owner is a VP with no operational backup."
     }
   ],
-  "decisions_log": [
-    {
-      "date": "2026-01-12",
-      "owner": "Lisa Wang",
-      "area": "Product",
-      "decision": "Freeze onboarding of new AI agents until documentation coverage exceeds 80%.",
-      "factors": [
-        "documentation coverage at 61%",
-        "two incidents traced to undocumented agents",
-        "roadmap pressure"
-      ],
-      "outcome": "not enforced — four agents were added in Q1 regardless"
-    },
-    {
-      "date": "2026-02-01",
-      "owner": "Robert Chen",
-      "area": "Engineering",
-      "decision": "Run Claude Pro alongside ChatGPT Enterprise rather than consolidating onto one assistant.",
-      "factors": [
-        "team preference split",
-        "vendor concentration risk",
-        "combined cost within budget"
-      ],
-      "outcome": "adopted — both remain in use"
-    },
-    {
-      "date": "2026-03-15",
-      "owner": "Jennifer Foster",
-      "area": "Operations",
-      "decision": "Require a named backup owner for every critical agent, workflow and system.",
-      "factors": [
-        "SecurityScanner has no backup",
-        "March credential incident",
-        "audit finding"
-      ],
-      "outcome": "partially implemented — several critical assets still have no backup owner"
-    },
-    {
-      "date": "2026-04-20",
-      "owner": "Nathan Wright",
-      "area": "Data",
-      "decision": "Defer the KnowledgeIndexer rewrite to Q3 and keep the existing implementation.",
-      "factors": [
-        "no spare data engineering capacity",
-        "rewrite estimated at six weeks",
-        "no failures in six months"
-      ],
-      "outcome": "reversed ten days later after the 10 April outage"
-    },
-    {
-      "date": "2026-05-08",
-      "owner": "Victoria Adams",
-      "area": "Finance",
-      "decision": "Cap monthly AI tool spend at $18,000 and require CFO approval above it.",
-      "factors": [
-        "spend grew 34% in two quarters",
-        "five tools have no governing policy",
-        "unclear per-seat utilisation"
-      ],
-      "outcome": "in effect"
-    },
-    {
-      "date": "2026-06-25",
-      "owner": "Sarah Mitchell",
-      "area": "Engineering",
-      "decision": "Move SecurityScanner configuration into version control and require two reviewers.",
-      "factors": [
-        "March incident",
-        "configuration held by one person",
-        "same Responsible and Accountable owner"
-      ],
-      "outcome": "open — not started"
-    }
-  ],
   "external_entities": [
     {
       "name": "OpenAI",
@@ -2753,9 +2679,7 @@
     {
       "name": "Amazon Web Services",
       "kind": "vendor",
-      "supplies": [
-        "Core Platform hosting"
-      ],
+      "supplies": [],
       "relationship_owner": "Yuki Tanaka",
       "criticality": "critical"
     },
