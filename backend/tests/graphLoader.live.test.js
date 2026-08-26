@@ -100,6 +100,22 @@ function check(name, condition) {
 		check('search finds a platform by its vendor', g.searchContext('OpenAI').length > 0,
 			`${g.searchContext('OpenAI').length} hits`)
 
+		// ─── 5. agent_platform / workflow_tool_dependencies are real depends_on
+		// edges, not just display metadata (2026-08-26 audit concern) — cascade,
+		// SPOF and centrality all traverse depends_on generically, so a tool
+		// dependency that only lived in entity metadata would be invisible to
+		// every one of them. ───
+		const dependsOn = g.relationships.list('depends_on')
+		const platformIds = new Set(
+			g.entities.list('ai_agent').filter((e) => e.metadata.kind === 'ai-platform').map((e) => e.id)
+		)
+		const agentToPlatform = dependsOn.filter((r) => platformIds.has(r.to) && r.metadata && r.metadata.source === 'agent_platform')
+		const workflowToPlatform = dependsOn.filter((r) => platformIds.has(r.to) && r.metadata && r.metadata.source === 'workflow_tool_dependencies')
+		check('agent_platform rows become real depends_on edges', agentToPlatform.length > 0, agentToPlatform.length)
+		check('workflow_tool_dependencies rows become real depends_on edges', workflowToPlatform.length > 0, workflowToPlatform.length)
+		check('a platform with an agent dependent is reachable via dependents()',
+			agentToPlatform.length > 0 && g.relationships.to(agentToPlatform[0].to).some((r) => r.type === 'depends_on'))
+
 		const expected = new Set(['agents.owner_id', 'tool_ownership', 'workflow_runbooks', 'knowledge_assets', 'employees.department'])
 		const actual = new Set(owns.map((r) => r.metadata.source))
 		check('owns provenance names only real source tables',
