@@ -178,6 +178,33 @@ but there is no per-item Truth-layer verdict to show. `DependencyPipeline.tsx` a
 test suite clean, M18/M19 live-verified both via `domain.graph.run()` directly and over real HTTP.
 Commit `e53acef` on `ocos/develop`.
 
+**A fifth same-day audit, and one fix from it — M53 recomputed M18's continuityScore instead of
+consuming it.** Requested a further duplication sweep; two parallel investigations covered areas the
+prior audits hadn't touched (truth/evidence-gate, recommendation generation, per-entity trust scores,
+executive memory, vendor/tool risk, knowledge concentration, department aggregation, documentation
+coverage). Truth-layer, knowledge-concentration, documentation-coverage, and executive-memory all came
+back clean or already resolved. Four real findings surfaced; this entry closes the first.
+`brain/modules/implementations.js`'s M18 (line 450) and M53 (line 1276) both independently computed
+the exact same `1 - min(1, spofs.length/assets.length)` — byte-identical formulas, no shared source.
+The module system already has a chaining mechanism for exactly this case (`A.prior(context, code)`,
+used by M14/M24/M55 among others) and `constitutional-modules.js` already declares `M53: ['M18']` as a
+dependency, but M53 never called `A.prior()` to actually use it. Fixed by having M53 read
+`continuityScore` from M18's prior payload (with a local-computation fallback for the case M18 didn't
+run, currently unreachable since `dependsOn` guarantees execution order); M53 still computes
+`spofs`/`assets` locally since it needs per-SPOF dependent counts for its recovery-plan ranking, which
+M18's payload doesn't expose. Live-verified via `domain.graph.run()`: M18 and M53 now report the
+identical 0.91, M53's 8 recovery plans unaffected. Commit `6d92fa3` on `ocos/develop`.
+
+Three findings from the same sweep remain open, not yet fixed: **vendor/tool risk** is scored two
+different ways on the same page (`ExternalEcosystemTab.tsx`'s local `deriveVendorRisk()` vs.
+`aiToolIntelligence.ts`'s weighted `computeAIToolIntelligence()`, no backend equivalent for either);
+**department-level critical-agent counts disagree** between `Heatmap.tsx` (uses `resolveCriticality()`
+with its `risk`-field fallback) and `OrgRelationshipMap.tsx`'s `deptMap` (raw
+`a.criticality === 'critical'`, no fallback); and `DecisionSupportQueue.tsx` **recomputes a priority
+score from its own already-derived output** (`rec.priority`) with its own `0.6/0.4` weights, while a
+real `computePriorityScore()` exists server-side (`decisionSupport.js`, weights `0.40/0.35/0.15/0.10`
+over genuine `decision_queue` fields) that the frontend never calls.
+
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
 continue through the normal process regardless. Every decision below still carries its own
