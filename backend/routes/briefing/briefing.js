@@ -328,23 +328,23 @@ router.get('/top-risks', async (req, res) => {
 // GET /api/briefing/recommendations — top open recommendations
 // ─────────────────────────────────────────────
 
+// D-66: this used to SELECT from the `recommendations` table — seeded once
+// by SQL, zero writers anywhere in this codebase, so it answered the same
+// list every day regardless of what had changed (the same class of bug the
+// header comment above already fixed for getTopSPOF()/getMostOverloaded()).
+// Brain module M04 (D-62) is the real, comprehensive recommendation engine;
+// this now reads it directly instead of a frozen table under the same name.
 router.get('/recommendations', async (req, res) => {
   try {
-    // Both `if (error) return res.json([])` and the catch block used to answer
-    // 200 with an empty array, so a broken query rendered in the UI as "you have
-    // no outstanding recommendations" — the most reassuring possible reading of
-    // a database failure. Failures are now 500s.
-    const data = await must('recommendations', supabase
-      .from('recommendations')
-      .select('asset_name, asset_type, priority, recommendation, status')
-      .neq('status', 'done')
-      .limit(10))
+    if (!domain.graph.isReady()) {
+      return res.status(503).json({ error: 'Brain graph not loaded' })
+    }
+    const intel = await domain.graph.run('recommendation-engine')
+    const recs = intel?.payload?.recommendations ?? []
 
-    const items = data.map((r) => ({
-      type: (r.priority || r.asset_type || 'info').toString().toLowerCase(),
-      message: r.asset_name
-        ? `${r.asset_name}: ${r.recommendation}`
-        : r.recommendation,
+    const items = recs.slice(0, 10).map((r) => ({
+      type: r.priority.toLowerCase(),
+      message: `${r.title} — ${r.description}`,
     }))
 
     res.json(items)

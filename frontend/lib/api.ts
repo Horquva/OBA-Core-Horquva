@@ -775,8 +775,6 @@ export interface BriefingLatest {
 
 export const briefingApi = {
   latest: () => request<BriefingLatest>('/api/briefing/today'),
-  recommendations: () =>
-    request<{ type: string; message: string }[]>('/api/briefing/recommendations'),
 };
 
 // ─── Context Feed / M27  (/api/context) ──────────────────────────────────────
