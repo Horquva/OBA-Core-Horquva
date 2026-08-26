@@ -334,8 +334,25 @@ Twin") recomputes synchronously from the same live data on every request, so "sy
 true by construction, never a measured fact. The underlying signal (unowned-agent ratio) was real,
 just mislabeled as something it wasn't — relabeled honestly as ownership coverage ("Fully Owned"/
 "Partial Coverage"/"Coverage Gap"), lag row dropped entirely since nothing real exists to replace it
-with. `tsc --noEmit` clean. Commit `241968a` on `ocos/develop`. D-55 through D-64 remain open, per the
-design doc's recommended phasing.
+with. `tsc --noEmit` clean. Commit `241968a` on `ocos/develop`.
+
+**W-K, decision D-55 — one backend-sourced human-SPOF verdict, replacing 3 independent copies.**
+`OwnershipOverview.tsx`, `OwnershipList.tsx`, and `DependencyPipeline.tsx` each independently coded the
+"≥3 unbacked agents" human-SPOF threshold. Traced before fixing, per this session's established
+practice: `agents.js`'s `loadEnrichedAgents()` derives `agent.backup_owner` entirely from the owner's
+own `backup_owner` column (there is no per-agent backup_owner in the schema at all), so one owner's
+agents are either all backed or all unbacked — meaning the three independently-written formulas were
+mathematically identical today, not actually disagreeing, contrary to the design doc's own inventory
+(which had assumed the risk without checking the data model). Still worth fixing: a fragile 3×-
+duplicated threshold with no shared source is one bug or data-model change away from drifting, and
+squarely inside the owner's mandate that this class of judgment belongs in the backend. Added a real
+`isHumanSpof` boolean (`HUMAN_SPOF_MIN_AGENTS = 3`) and a `gaps.humanSpofs` list to
+`GET /api/ownership`, matching the route's existing gap-list pattern; `ownership/page.tsx` fetches it
+once and passes a `Set<string>` of human-SPOF owner names to all three components, replacing their
+local threshold logic. Live-verified over HTTP: field present on every owner, correctly false
+throughout this dataset (no owner currently owns ≥3 agents). `tsc --noEmit` clean, backend test suite
+clean. Commit `a6b8fd4` on `ocos/develop`. D-56 through D-64 remain open, per the design doc's
+recommended phasing.
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -879,7 +896,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — D-52 done (`3af87ba`), D-53 done (`bf10628`), D-54 done (`241968a`); D-55…D-64 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — D-52 done (`3af87ba`), D-53 done (`bf10628`), D-54 done (`241968a`), D-55 done (`a6b8fd4`); D-56…D-64 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
