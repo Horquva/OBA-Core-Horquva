@@ -440,6 +440,7 @@ outage list's sort score were left alone — display banding over real counts, n
 backend unit test (`tools.unit.test.js`) hand-verifies every factor, both thresholds, the 100-point
 cap, and cross-checks the formula against the live-verified Tableau AI case — 11/11 assertions pass.
 `tsc --noEmit` clean, full backend test suite clean (12 suites). Commit `09fec14` on `ocos/develop`.
+
 **W-K, decision D-59 — knowledge-concentration score moves to the backend, ported not redesigned.**
 `lib/knowledgeRisk.ts`'s `concentrationScore` computed a criticality-weighted share of org-wide assets
 (agents+workflows+tools) an owner holds, entirely client-side — deliberately distinct from
@@ -466,6 +467,42 @@ New unit test hand-verifies the exact formula against a constructed fixture (7 a
 that shares sum to 100% of the weighted whole and that an unassessed platform still weighs 1, never 0,
 matching the frontend's old `?? 1` fallback). `tsc --noEmit` clean, full backend test suite clean.
 Commit `14b8b87` on `ocos/develop`. D-60, D-61, D-62 remain open.
+
+**W-K, decision D-60 — institutional-memory status/IMHS moves to the backend, owner-chosen formula.**
+Genuinely two different formulas shared the PRESERVED/AT_RISK/VULNERABLE/LOST taxonomy name:
+`lib/orgMemory.ts`'s live formula (drives the `/memory` page today) keys status off documentation +
+`backup_owner` coverage — a continuity/bus-factor framing, "would this survive the owner leaving."
+`routes/memory/memory.js`'s own same-named formula keyed off documentation + criticality instead,
+never looked at `backup_owner` at all, and had zero real consumers (only a health pinger touched
+`/health`; `/map` and `/employee/:name` had no callers) — a risk-exposure framing mislabeled as memory
+status. This one genuinely needed an owner call (unlike D-57's weighting-scheme choice, the two
+formulas here disagree about what "memory status" even means); asked, owner picked the frontend's
+backup-owner formula as canonical — it's the one actually live, and matches this module's own
+"memory carrier" framing.
+
+Ported verbatim into `domain/derived.js`'s `orgMemory(roots)`: same 4-status rules, same carrier-tier
+weights (`undocumented*2 + noBackup`), same IMHS weights (1.0/0.5/0.25/0). Two departures, both
+display-only fields that never feed the status/tier logic: criticality resolved via
+`entityCriticality()` (real `unknown` sentinel) instead of the frontend's silent default-to-`'low'`;
+"documented" for agents/tools uses a conjunction across every matching `knowledge_assets` row instead
+of `routes/agents.js`'s older last-write-wins version, matching the same fix `tools.js` already made
+for the identical bug class (F-K).
+
+All three `routes/memory/memory.js` endpoints (`/health`, `/employee/:name`, `/map`) now read this one
+computation instead of each re-deriving it — `/map`'s response also dropped a pointless reshaping step
+(`assetName`/`isDocumented` field renames that had silently dropped `id`/`backup_owner`/`documented`)
+since nothing outside this route consumed the old shape. `frontend/lib/orgMemory.ts` no longer computes
+anything; it fetches `GET /api/memory/map` and shapes the JSON into the same types every `memory/`
+component already expects, so no component needed to change.
+
+New unit test hand-verifies every status transition, the IMHS formula, and carrier tiering against a
+constructed fixture (15 assertions). `tsc --noEmit` clean, full backend test suite clean (146
+assertions). Live-verified over HTTP against real data (37 assets, IMHS 57/AT_RISK; one employee's
+carrier tier and per-asset status cross-checked by hand against the raw undocumented/no-backup counts).
+Frontend rendering not visually verified in a browser this session — Next.js's dev-server directory
+lock blocked starting a second instance alongside another active session's; the backend contract this
+page consumes is fully verified live, so the remaining risk is presentational only. Commit `d20132b`
+on `ocos/develop`. D-61, D-62 remain open.
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -1009,7 +1046,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
-| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-59 done (`14b8b87`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change; D-60, D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — Phase 1-3 done (D-52…D-56); Phase 4: D-57 done (`4fe155e`), D-58 done (`09fec14`), D-59 done (`14b8b87`), D-60 done (`d20132b`), D-63 done (`c7f0e50`, rescoped smaller), D-64 closed with no code change; D-61, D-62 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
