@@ -47,7 +47,7 @@ export function DependencyEvolutionTab({ dependencies }: Props) {
             no persisted snapshot history to compare against.
           </p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={dependencies.length > 0} />
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">

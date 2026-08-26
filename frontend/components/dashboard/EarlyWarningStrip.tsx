@@ -114,7 +114,7 @@ export function EarlyWarningStrip() {
         )}
 
         <div className="shrink-0">
-          <TruthBadge verified confidence={score} />
+          <TruthBadge confidence={score} />
         </div>
       </div>
     </div>

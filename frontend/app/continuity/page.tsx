@@ -4,15 +4,18 @@ import { useEffect, useState, useMemo } from 'react';
 import { computeContinuityRisk } from '../../lib/continuityRisk';
 import { Agent, Workflow, AITool } from '../../types';
 import { AutomationStatusStrip } from '../../components/continuity/AutomationStatusStrip';
-import { ContinuityTab } from '../../components/continuity/ContinuityTab';
-import { GovernanceTab } from '../../components/continuity/GovernanceTab';
+import { ContinuityTab, ContinuityPayload } from '../../components/continuity/ContinuityTab';
+import { GovernanceTab, GovernancePayload } from '../../components/continuity/GovernanceTab';
 import { authHeader } from '../../lib/authFetch';
 import { resolveCriticality } from '../../lib/criticality';
+import { ModuleResult } from '../../lib/moduleResult';
 
 export default function ContinuityPage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [tools, setTools]       = useState<AITool[]>([]);
+  const [continuityModule, setContinuityModule] = useState<ModuleResult<ContinuityPayload> | null>(null);
+  const [governanceModule, setGovernanceModule] = useState<ModuleResult<GovernancePayload> | null>(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
@@ -23,8 +26,15 @@ export default function ContinuityPage() {
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      // M18/M19 -- real brain modules that were computed all along but never
+      // exposed via a route; the page badged its sections "M18"/"M19" for a
+      // locally-computed heuristic that was neither of those modules' output.
+      fetch(`${base}/api/intelligence/continuity`, { headers: authHeader() }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${base}/api/intelligence/governance`, { headers: authHeader() }).then(r => r.ok ? r.json() : null).catch(() => null),
     ])
-    .then(([agentsData, wData, toolsData]) => {
+    .then(([agentsData, wData, toolsData, continuityData, governanceData]) => {
+      setContinuityModule(continuityData);
+      setGovernanceModule(governanceData);
       // Normalize agents
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map((a: any) => ({
         id: a.id?.toString() || '',
@@ -127,7 +137,7 @@ export default function ContinuityPage() {
             <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Disruption Continuity</h2>
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-emerald-500/30 text-emerald-400 bg-emerald-500/10">M18</span>
           </div>
-          <ContinuityTab report={report} />
+          <ContinuityTab report={report} module={continuityModule} />
         </section>
 
         <div className="hidden xl:block w-px bg-[color:var(--border-subtle)]" />
@@ -138,7 +148,7 @@ export default function ContinuityPage() {
             <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Compliance Governance</h2>
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-sky-500/30 text-sky-400 bg-sky-500/10">M19</span>
           </div>
-          <GovernanceTab report={report} />
+          <GovernanceTab report={report} module={governanceModule} />
         </section>
 
       </div>

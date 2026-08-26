@@ -15,6 +15,8 @@
  *   IndustryBenchmarkCard  -> M45 Benchmark Intelligence
  *   StrategicAlignmentCard -> M40 Strategic Alignment Intelligence
  *   CapabilityByDeptCard   -> M39 Capability Intelligence
+ *   ContinuityTab          -> M18 Organizational Continuity Intelligence
+ *   GovernanceTab          -> M19 Governance Intelligence
  *
  * Mounted at /api/intelligence (see backend/index.js).
  */
@@ -81,6 +83,8 @@ router.get('/behavior', moduleEndpoint('organizational-behavior')) // Behavioral
 router.get('/benchmark', moduleEndpoint('benchmark')) // IndustryBenchmarkCard
 router.get('/strategic-alignment', moduleEndpoint('strategic-alignment')) // StrategicAlignmentCard
 router.get('/capability-by-dept', moduleEndpoint('capability')) // CapabilityByDeptCard
+router.get('/continuity', moduleEndpoint('organizational-continuity')) // ContinuityTab (M18)
+router.get('/governance', moduleEndpoint('governance')) // GovernanceTab (M19)
 
 // ── Graph lifecycle (D-14) ───────────────────────────────────────
 // loadGraph() otherwise runs exactly once, at backend/index.js boot — nothing
@@ -117,6 +121,8 @@ router.get('/prediction', (req, res) => {
       benchmark: '/api/intelligence/benchmark',
       strategicAlignment: '/api/intelligence/strategic-alignment',
       capabilityByDept: '/api/intelligence/capability-by-dept',
+      continuity: '/api/intelligence/continuity',
+      governance: '/api/intelligence/governance',
     },
   })
 })

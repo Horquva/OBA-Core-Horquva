@@ -87,7 +87,7 @@ export function DecisionSupportQueue({ recommendations }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Impact × urgency ranked, grouped by driver</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={recommendations.length > 0} />
       </div>
 
       <div className="flex flex-wrap gap-2 mb-6 z-10">

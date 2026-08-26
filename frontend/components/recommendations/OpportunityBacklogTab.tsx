@@ -61,7 +61,9 @@ export function OpportunityBacklogTab({ recommendations }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Leverage-ranked quick wins vs. strategic bets</p>
         </div>
-        <TruthBadge verified />
+        {/* leverageScore below is a local point-arithmetic heuristic, not a
+            backend-verified score -- not something to badge as verified. */}
+        <TruthBadge verified={false} />
       </div>
 
       <div className="flex gap-2 mb-6 z-10">

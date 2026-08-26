@@ -84,7 +84,7 @@ export function SimulationUniverseRanking({ scenarios }: Props) {
             Every entity ranked by org survivability — sorted by what breaks the most
           </p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={universe.length > 0} />
       </div>
 
       {/* Filter tabs */}

@@ -120,7 +120,9 @@ export function ExternalEcosystemTab({ tools }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Vendor map, supported assets, and single-vendor concentration flags</p>
         </div>
-        <TruthBadge verified />
+        {/* deriveVendorRisk() below is a local heuristic with no backend
+            equivalent -- not something to badge as verified. */}
+        <TruthBadge verified={false} />
       </div>
 
       {/* KPI strip */}

@@ -74,7 +74,7 @@ export function ExecutiveMemoryPanel() {
             Executive Memory
           </span>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={items.length > 0 || heroes.length > 0} />
       </div>
 
       {loading && (

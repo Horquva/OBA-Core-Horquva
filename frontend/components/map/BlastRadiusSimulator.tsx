@@ -84,7 +84,7 @@ export function BlastRadiusSimulator({ agents, dependencies }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Select any agent to see impact-decayed cascade across dependencies</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={agents.length > 0 && dependencies.length > 0} />
       </div>
 
       {/* Controls */}

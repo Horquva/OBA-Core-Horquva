@@ -28,7 +28,7 @@ export function DailyBriefingCard() {
           <BookOpen className="w-4 h-4" style={{ color: '#818cf8' }} />
           <span className="text-sm font-semibold text-[color:var(--text-primary)]">Daily Briefing</span>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={data !== null && !error} />
       </div>
 
       {loading && (
