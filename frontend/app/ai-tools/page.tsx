@@ -140,8 +140,9 @@ export default function AIToolsPage() {
         totalMonthlySpend={report.totalMonthlySpend}
       />
 
-      {/* External ecosystem tab receives live tools for vendor derivation */}
-      <ExternalEcosystemTab tools={tools} />
+      {/* External ecosystem tab groups the same canonical per-tool risk
+          profiles ToolRiskTable/CriticalToolPanel use -- see aiToolIntelligence.ts */}
+      <ExternalEcosystemTab profiles={report.profiles} />
     </div>
   );
 }

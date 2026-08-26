@@ -4,9 +4,14 @@ import React, { useMemo, useState } from 'react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { Globe, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { AITool } from '../../types';
+import { ToolRiskProfile, ToolRiskTier } from '../../lib/aiToolIntelligence';
 
 interface Props {
-  tools: AITool[];
+  /** Per-tool profiles from computeAIToolIntelligence() -- the same scoring
+   *  ToolRiskTable/CriticalToolPanel use, so a tool can't show a different
+   *  risk tier here than it does elsewhere on this page. Previously this
+   *  component ran its own deriveVendorRisk() rule cascade independently. */
+  profiles: ToolRiskProfile[];
 }
 
 const RISK_META = {
@@ -15,14 +20,6 @@ const RISK_META = {
   MEDIUM:   { label: 'Medium',   color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20', bar: 'bg-yellow-400' },
   LOW:      { label: 'Low',      color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', bar: 'bg-emerald-400' },
 };
-
-function deriveVendorRisk(tool: AITool): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
-  if ((tool.criticality === 'critical' || tool.criticality === 'high') && !tool.backup_tool && !tool.documented) return 'CRITICAL';
-  if (tool.criticality === 'critical' && !tool.backup_tool) return 'HIGH';
-  if (tool.criticality === 'high') return 'HIGH';
-  if (tool.criticality === 'medium') return 'MEDIUM';
-  return 'LOW';
-}
 
 function vendorEmoji(vendor: string): string {
   const v = vendor.toLowerCase();
@@ -38,9 +35,10 @@ function vendorEmoji(vendor: string): string {
   return '🔧';
 }
 
-export function ExternalEcosystemTab({ tools }: Props) {
+export function ExternalEcosystemTab({ profiles }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'no-alternative'>('ALL');
+  const tools = useMemo(() => profiles.map(p => p.tool), [profiles]);
 
   // Group by vendor — one card per unique vendor, aggregating their tools
   const vendors = useMemo(() => {
@@ -50,13 +48,14 @@ export function ExternalEcosystemTab({ tools }: Props) {
       category: string;
       logo: string;
       hasAlternative: boolean;
-      riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+      riskLevel: ToolRiskTier;
       monthlySpend: number;
       concentrate: number;
       tools: AITool[];
     }>();
 
-    for (const tool of tools) {
+    for (const profile of profiles) {
+      const tool = profile.tool;
       const vendorKey = tool.vendor || 'Unknown Vendor';
       if (!vendorMap.has(vendorKey)) {
         vendorMap.set(vendorKey, {
@@ -65,7 +64,7 @@ export function ExternalEcosystemTab({ tools }: Props) {
           category: tool.category || 'General',
           logo: vendorEmoji(vendorKey),
           hasAlternative: Boolean(tool.backup_tool),
-          riskLevel: deriveVendorRisk(tool),
+          riskLevel: profile.tier,
           monthlySpend: tool.monthly_cost_usd,
           concentrate: Math.min(tool.agents_using.length * 12 + tool.departments.length * 8, 100),
           tools: [tool],
@@ -75,10 +74,9 @@ export function ExternalEcosystemTab({ tools }: Props) {
         entry.monthlySpend += tool.monthly_cost_usd;
         entry.tools.push(tool);
         // Escalate risk if any tool from that vendor is more severe
-        const newRisk = deriveVendorRisk(tool);
         const order = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-        if (order.indexOf(newRisk) > order.indexOf(entry.riskLevel)) {
-          entry.riskLevel = newRisk;
+        if (order.indexOf(profile.tier) > order.indexOf(entry.riskLevel)) {
+          entry.riskLevel = profile.tier;
         }
         // If any tool has a backup, the vendor is considered alternatives-available
         if (tool.backup_tool) entry.hasAlternative = true;
@@ -90,7 +88,7 @@ export function ExternalEcosystemTab({ tools }: Props) {
       const order = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
       return order.indexOf(a.riskLevel) - order.indexOf(b.riskLevel);
     });
-  }, [tools]);
+  }, [profiles]);
 
   const noAlternative = vendors.filter(v => !v.hasAlternative);
   const displayed = filter === 'no-alternative' ? noAlternative : vendors;
@@ -120,8 +118,8 @@ export function ExternalEcosystemTab({ tools }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Vendor map, supported assets, and single-vendor concentration flags</p>
         </div>
-        {/* deriveVendorRisk() below is a local heuristic with no backend
-            equivalent -- not something to badge as verified. */}
+        {/* profile.tier (computeAIToolIntelligence) is a local heuristic with
+            no backend equivalent -- not something to badge as verified. */}
         <TruthBadge verified={false} />
       </div>
 
