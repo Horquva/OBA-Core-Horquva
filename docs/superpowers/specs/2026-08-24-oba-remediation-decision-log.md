@@ -195,15 +195,24 @@ run, currently unreachable since `dependsOn` guarantees execution order); M53 st
 M18's payload doesn't expose. Live-verified via `domain.graph.run()`: M18 and M53 now report the
 identical 0.91, M53's 8 recovery plans unaffected. Commit `6d92fa3` on `ocos/develop`.
 
-Three findings from the same sweep remain open, not yet fixed: **vendor/tool risk** is scored two
-different ways on the same page (`ExternalEcosystemTab.tsx`'s local `deriveVendorRisk()` vs.
-`aiToolIntelligence.ts`'s weighted `computeAIToolIntelligence()`, no backend equivalent for either);
-**department-level critical-agent counts disagree** between `Heatmap.tsx` (uses `resolveCriticality()`
-with its `risk`-field fallback) and `OrgRelationshipMap.tsx`'s `deptMap` (raw
-`a.criticality === 'critical'`, no fallback); and `DecisionSupportQueue.tsx` **recomputes a priority
-score from its own already-derived output** (`rec.priority`) with its own `0.6/0.4` weights, while a
-real `computePriorityScore()` exists server-side (`decisionSupport.js`, weights `0.40/0.35/0.15/0.10`
-over genuine `decision_queue` fields) that the frontend never calls.
+**Vendor/tool risk — fixed same day.** `ExternalEcosystemTab.tsx` scored vendor risk via its own
+`deriveVendorRisk()` rule cascade, independently of `lib/aiToolIntelligence.ts`'s weighted
+`computeAIToolIntelligence()` that `ToolRiskTable.tsx`/`CriticalToolPanel.tsx` already use on the same
+page (`app/ai-tools/page.tsx`) — the same tool could show a different risk tier in two tabs of one
+page. No backend equivalent exists for either (confirmed by grep across `backend/routes` and
+`brain/modules`), so this is a frontend-only dedup, not a provenance fix — `TruthBadge` stays
+`verified={false}`. Fixed by having the page compute `ToolRiskProfile[]` once via
+`computeAIToolIntelligence()` and pass it down; `ExternalEcosystemTab` now reads `profile.tier`
+instead of recomputing risk from raw `AITool` fields, keeping its per-vendor worst-tier escalation
+logic unchanged. `tsc --noEmit` clean. Commit `1aa8a1b` on `ocos/develop`.
+
+Two findings from the same sweep remain open, not yet fixed: **department-level critical-agent
+counts disagree** between `Heatmap.tsx` (uses `resolveCriticality()` with its `risk`-field fallback)
+and `OrgRelationshipMap.tsx`'s `deptMap` (raw `a.criticality === 'critical'`, no fallback); and
+`DecisionSupportQueue.tsx` **recomputes a priority score from its own already-derived output**
+(`rec.priority`) with its own `0.6/0.4` weights, while a real `computePriorityScore()` exists
+server-side (`decisionSupport.js`, weights `0.40/0.35/0.15/0.10` over genuine `decision_queue` fields)
+that the frontend never calls.
 
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
