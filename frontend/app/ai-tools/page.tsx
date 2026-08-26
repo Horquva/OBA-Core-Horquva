@@ -9,7 +9,7 @@ import { ToolRiskTable } from '../../components/ai-tools/ToolRiskTable';
 import { OutageImpactPanel } from '../../components/ai-tools/OutageImpactPanel';
 import { DeptExposureTable } from '../../components/ai-tools/DeptExposureTable';
 import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
+import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
 import { ExternalEcosystemTab } from '../../components/ai-tools/ExternalEcosystemTab';
 
 export default function AIToolsPage() {
@@ -25,7 +25,7 @@ export default function AIToolsPage() {
     Promise.all([
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
     .then(([toolsData, agentsData, wData]) => {
       // Normalize tools
@@ -45,29 +45,8 @@ export default function AIToolsPage() {
         access_owner: t.access_owner || t.owner || 'Unassigned',
       }));
 
-      // Normalize agents
-      const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map((a: any) => ({
-        id: a.id?.toString() || '',
-        name: a.name || 'Unknown Agent',
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : (a.owner || null),
-        backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : (a.backup_owner || null),
-        criticality: resolveCriticality(a),
-        department: a.department || 'Operations',
-        documented: Boolean(a.documented ?? false),
-      }));
-
-      // Normalize workflows
-      const rawWorkflows = Array.isArray(wData.workflows) ? wData.workflows : [];
-      const normalizedWorkflows: Workflow[] = rawWorkflows.map((w: any) => ({
-        id: w.id?.toString() || '',
-        name: w.name || 'Unknown Workflow',
-        owner: w.owner || 'Unassigned',
-        backup_owner: w.backup_owner || null,
-        department: w.department || 'Operations',
-        criticality: w.criticality || 'low',
-        documented: Boolean(w.documented ?? false),
-        steps: Array.isArray(w.steps) ? w.steps : [],
-      }));
+      const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
+      const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
 
       setTools(normalizedTools);
       setAgents(normalizedAgents);

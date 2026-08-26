@@ -8,7 +8,7 @@ import { BlastRadiusSimulator } from '../../components/map/BlastRadiusSimulator'
 import { DependencyEvolutionTab } from '../../components/map/DependencyEvolutionTab';
 import { HiddenDependencyOverlay } from '../../components/map/HiddenDependencyOverlay';
 import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
+import { normalizeAgent } from '../../lib/normalize';
 import { Agent, Dependency } from '../../types';
 
 interface AgentSpofsResponse {
@@ -46,15 +46,7 @@ export default function DependencyMapPage() {
       }),
     ])
     .then(([agentsData, depsData, spofsData]) => {
-      const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
-        ...a,
-        id: a.id?.toString() || '',
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
-        backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-        criticality: resolveCriticality(a),
-        department: a.department || (a.owner?.department) || 'Unassigned',
-        documented: Boolean(a.documented ?? false),
-      })) : [];
+      const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
       const mappedDeps: Dependency[] = Array.isArray(depsData.dependencies)
         ? depsData.dependencies

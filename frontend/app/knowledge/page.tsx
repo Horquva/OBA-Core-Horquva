@@ -9,7 +9,7 @@ import { UndocumentedAssetsTable } from '../../components/knowledge/Undocumented
 import { DepartureSim } from '../../components/knowledge/DepartureSim';
 import { KnowledgeGapsPanel } from '../../components/knowledge/KnowledgeGapsPanel';
 import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
+import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
 import { KnowledgeConcentrationGauge } from '../../components/knowledge/KnowledgeConcentrationGauge';
 import { EntitySearchPanel } from '../../components/knowledge/EntitySearchPanel';
 
@@ -25,31 +25,12 @@ export default function KnowledgePage() {
 
     Promise.all([
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
     .then(([agentsData, wData, toolsData]) => {
-      const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map((a: any) => ({
-        id: a.id?.toString() || '',
-        name: a.name || 'Unknown Agent',
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : (a.owner || null),
-        backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : (a.backup_owner || null),
-        criticality: resolveCriticality(a),
-        department: a.department || 'Operations',
-        documented: Boolean(a.documented ?? false),
-      }));
-
-      const rawWorkflows = Array.isArray(wData.workflows) ? wData.workflows : [];
-      const normalizedWorkflows: Workflow[] = rawWorkflows.map((w: any) => ({
-        id: w.id?.toString() || '',
-        name: w.name || 'Unknown Workflow',
-        owner: typeof w.owner === 'object' && w.owner ? w.owner.name : (w.owner || 'Unassigned'),
-        backup_owner: typeof w.backup_owner === 'object' && w.backup_owner ? w.backup_owner.name : (w.backup_owner || null),
-        department: w.department || 'Operations',
-        criticality: w.criticality || 'low',
-        documented: Boolean(w.documented ?? false),
-        steps: Array.isArray(w.steps) ? w.steps : [],
-      }));
+      const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
+      const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
 
       const normalizedTools: AITool[] = (Array.isArray(toolsData) ? toolsData : []).map((t: any) => ({
         id: t.id?.toString() || '',

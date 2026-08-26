@@ -9,7 +9,7 @@ import DemoSummary from '../../components/recommendations/DemoSummary';
 import { DecisionSupportQueue } from '../../components/recommendations/DecisionSupportQueue';
 import { OpportunityBacklogTab } from '../../components/recommendations/OpportunityBacklogTab';
 import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
+import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
 import { VerifiedAdvisorPanel } from '../../components/recommendations/VerifiedAdvisorPanel';
 import { Dataset } from '../../types';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
@@ -28,7 +28,7 @@ export default function RecommendationsPage() {
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => r.ok ? r.json() : { dependencies: [] }),
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => r.ok ? r.json() : { healthIndex: 0 }),
       fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
@@ -37,14 +37,7 @@ export default function RecommendationsPage() {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       setDataset({
         company: 'Organizational Intelligence',
-        agents: Array.isArray(agentsData) ? agentsData.map((a: any) => ({
-          ...a,
-          id: a.id?.toString() || '',
-          owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
-          backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-          criticality: resolveCriticality(a),
-          department: a.department || 'Operations',
-        })) : [],
+        agents: Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [],
         dependencies: Array.isArray(depsData.dependencies) ? depsData.dependencies.filter((d: any) => d.source_type === 'agent' && d.target_type === 'agent').map((d: any) => ({
           from: d.source_id?.toString() || '',
           to: d.target_id?.toString() || '',
@@ -56,10 +49,7 @@ export default function RecommendationsPage() {
           backup_tool: t.backupAssigned ? 'Yes' : null,
           users: [],
         })) : [],
-        workflows: Array.isArray(wData.workflows) ? wData.workflows.map((w: any) => ({
-          ...w,
-          department: w.department || 'Operations',
-        })) : [],
+        workflows: Array.isArray(wData) ? wData.map(normalizeWorkflow) : [],
         employees: 156,
       });
     })

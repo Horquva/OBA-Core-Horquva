@@ -9,7 +9,7 @@ import { ScenarioSandbox } from '../../components/simulation/ScenarioSandbox';
 import { Agent, Dependency, AITool } from '../../types';
 import { authHeader } from '../../lib/authFetch';
 import { ScenarioResult, mapScenario } from '../../lib/simulation';
-import { resolveCriticality } from '../../lib/criticality';
+import { normalizeAgent } from '../../lib/normalize';
 
 export default function SimulationPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -47,15 +47,7 @@ export default function SimulationPage() {
     ])
     .then(([agentsData, depsData, toolsData, rankData, healthData]) => {
       setHealthIndex(healthData.healthIndex ?? 0);
-      const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
-        ...a,
-        id: a.id?.toString() || '',
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
-        backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-        criticality: resolveCriticality(a),
-        department: a.department || (a.owner?.department) || 'Unassigned',
-        documented: Boolean(a.documented ?? false),
-      })) : [];
+      const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
       const mappedDeps: Dependency[] = Array.isArray(depsData.dependencies) 
         ? depsData.dependencies

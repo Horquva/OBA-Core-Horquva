@@ -9,7 +9,7 @@ import { OrgHealthBanner } from '../../components/risk/OrgHealthBanner';
 import { PredictedRiskPanel } from '../../components/risk/PredictedRiskPanel';
 import { Agent, Dependency } from '../../types';
 import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
+import { normalizeAgent } from '../../lib/normalize';
 import { buildPredictiveRiskByAgentName } from '../../lib/predictiveRisk';
 
 export default function RiskPage() {
@@ -43,15 +43,7 @@ export default function RiskPage() {
       })
     ])
     .then(([agentsData, depsData, spofData, predictiveData, healthData]) => {
-      const agents: Agent[] = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
-        ...a,
-        id: a.id?.toString() || '',
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
-        backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-        criticality: resolveCriticality(a),
-        department: a.department || (a.owner?.department) || 'Unassigned',
-        documented: Boolean(a.documented ?? false),
-      })) : [];
+      const agents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
       const dependencies: Dependency[] = Array.isArray(depsData.dependencies) ? depsData.dependencies.map((d: any) => ({
         from: d.source_id?.toString() || '',

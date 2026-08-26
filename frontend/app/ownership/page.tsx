@@ -9,7 +9,7 @@ import { HumanDependencyRisks } from '../../components/ownership/HumanDependency
 import { OrgRelationshipMap } from '../../components/ownership/OrgRelationshipMap';
 import { AccountabilityChainTable } from '../../components/dashboard/AccountabilityChainTable';
 import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
+import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
 import { Dataset } from '../../types';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 
@@ -25,19 +25,12 @@ export default function OwnershipPage() {
     Promise.all([
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : [])
     ])
     .then(([agentsData, toolsData, wfsData, predictiveData]) => {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
-      const agents = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
-        ...a,
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
-        backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-        criticality: resolveCriticality(a),
-        department: a.department || (a.owner?.department) || 'Unassigned',
-        documented: Boolean(a.documented ?? false),
-      })) : [];
+      const agents = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
       const ai_tools = Array.isArray(toolsData) ? toolsData.map((t: any) => ({
         ...t,
@@ -46,13 +39,7 @@ export default function OwnershipPage() {
         users: [], 
       })) : [];
 
-      const workflows = Array.isArray(wfsData.workflows) ? wfsData.workflows.map((w: any) => ({
-        name: w.workflow,
-        owner: w.owner?.name || null,
-        backup_owner: w.totalTools > 1 ? 'Yes' : null, // Fallback heuristic
-        department: 'Operations', // Fallback
-        criticality: w.riskScore > 50 ? 'critical' : 'medium',
-      })) : [];
+      const workflows = Array.isArray(wfsData) ? wfsData.map(normalizeWorkflow) : [];
 
       setDataset({
         company: 'Horquva',
