@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { Agent, Dependency } from '../../types';
-import { getDownstream } from '../../lib/graph';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { Zap, ChevronDown } from 'lucide-react';
 
@@ -19,11 +18,15 @@ function computeBlastRadius(
   dependencies: Dependency[],
   maxHops: number
 ) {
-  // BFS with hop tracking
-  const adj: Record<string, string[]> = {};
+  // BFS with hop tracking. A Dependency edge means `from` depends_on `to`,
+  // so what breaks when `startId` fails is whatever points AT it -- walk
+  // backward (dependentsOf), same direction fix as lib/graph.ts's
+  // getDownstream(). This used to walk forward, reporting the start agent's
+  // own dependencies as its "blast radius" victims.
+  const dependentsOf: Record<string, string[]> = {};
   dependencies.forEach(d => {
-    if (!adj[d.from]) adj[d.from] = [];
-    adj[d.from].push(d.to);
+    if (!dependentsOf[d.to]) dependentsOf[d.to] = [];
+    dependentsOf[d.to].push(d.from);
   });
 
   const result: { agentId: string; agentName: string; hop: number; impact: number }[] = [];
@@ -35,7 +38,7 @@ function computeBlastRadius(
     if (hop >= maxHops || visited.has(curr)) continue;
     visited.add(curr);
 
-    const neighbors = adj[curr] || [];
+    const neighbors = dependentsOf[curr] || [];
     neighbors.forEach(neighborId => {
       if (!visited.has(neighborId)) {
         const hopNum = hop + 1;
