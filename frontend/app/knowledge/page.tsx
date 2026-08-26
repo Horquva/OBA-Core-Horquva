@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { computeKnowledgeRisk } from '../../lib/knowledgeRisk';
+import { computeKnowledgeRisk, ConcentrationEntry } from '../../lib/knowledgeRisk';
 import { Agent, Workflow, AITool } from '../../types';
 import { KnowledgeHeader } from '../../components/knowledge/KnowledgeHeader';
 import { ConcentrationRiskPanel } from '../../components/knowledge/ConcentrationRiskPanel';
@@ -17,6 +17,7 @@ export default function KnowledgePage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [tools, setTools]       = useState<AITool[]>([]);
+  const [concentrationByName, setConcentrationByName] = useState<Map<string, ConcentrationEntry>>(new Map());
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
@@ -27,8 +28,14 @@ export default function KnowledgePage() {
       fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
       fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/knowledge/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { concentration: [] }),
     ])
-    .then(([agentsData, wData, toolsData]) => {
+    .then(([agentsData, wData, toolsData, knowledgeIntel]) => {
+      setConcentrationByName(new Map(
+        (Array.isArray(knowledgeIntel.concentration) ? knowledgeIntel.concentration : [])
+          .filter((p: any) => p.name)
+          .map((p: any) => [p.name, { concentrationScore: p.concentrationScore, tier: p.tier }])
+      ));
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
       const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
 
@@ -59,8 +66,8 @@ export default function KnowledgePage() {
   const report = useMemo(() => {
     if (agents.length === 0 && !loading) return computeKnowledgeRisk([], [], []);
     if (loading) return null;
-    return computeKnowledgeRisk(agents, workflows, tools);
-  }, [agents, workflows, tools, loading]);
+    return computeKnowledgeRisk(agents, workflows, tools, concentrationByName);
+  }, [agents, workflows, tools, loading, concentrationByName]);
 
   if (loading || !report) {
     return (

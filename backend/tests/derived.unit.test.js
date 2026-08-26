@@ -299,6 +299,42 @@ console.log('\nHuman dependency risk — real predictedScore + RISK_FACTORS-scal
 	check('sorted worst-first', profiles[0].totalRiskScore >= profiles[1].totalRiskScore, profiles)
 }
 
+// ── Knowledge concentration ────────────────────────────────────────────────────
+console.log('\nKnowledge concentration — criticality-weighted share across agents/workflows/tools:')
+{
+	const r = roots({
+		employees: [
+			{ id: 1, name: 'Concentrated' },
+			{ id: 2, name: 'Diffuse' },
+		],
+		agents: [
+			{ id: 1, name: 'CritAgent', risk: 'critical', owner_id: 1 },
+			{ id: 2, name: 'LowAgent', risk: 'low', owner_id: 2 },
+		],
+		workflows: [{ id: 1, name: 'HighFlow', risk: 'high' }],
+		workflow_runbooks: [{ workflow_id: 1, owner_id: 1, is_documented: true }],
+		// No knowledge_assets row for this platform -> entityCriticality()
+		// resolves it to 'unknown', which still weighs 1 (never zero -- an
+		// unmeasured tool isn't nothing, matching the frontend's old ?? 1
+		// fallback for a criticality value it didn't recognize).
+		ai_platforms: [{ id: 1, name: 'UnknownTool' }],
+		tool_ownership: [{ platform_id: 1, employee_id: 2 }],
+	})
+	// Weights: Concentrated = CritAgent(4) + HighFlow(2) = 6.
+	//          Diffuse      = LowAgent(0.5) + UnknownTool(1) = 1.5.
+	//          total = 7.5 -> Concentrated 80%, Diffuse 20%.
+	const profiles = d.knowledgeConcentration(r)
+	const by = Object.fromEntries(profiles.map((p) => [p.name, p]))
+
+	check('every owning employee gets a profile', profiles.length === 2, profiles.map((p) => p.name))
+	check('a critical agent + a high workflow weighs 6 of 7.5 total -> 80%', by.Concentrated.concentrationScore === 80, by.Concentrated)
+	check('a low agent + an unassessed tool weighs 1.5 of 7.5 total -> 20%', by.Diffuse.concentrationScore === 20, by.Diffuse)
+	check('shares sum to 100% of the weighted whole', profiles.reduce((s, p) => s + p.concentrationScore, 0) === 100, profiles)
+	check('80% lands in the HIGH band (55-89)', by.Concentrated.tier === 'HIGH', by.Concentrated.tier)
+	check('20% lands in the LOW band (<30)', by.Diffuse.tier === 'LOW', by.Diffuse.tier)
+	check('sorted worst-first', profiles[0].concentrationScore >= profiles[1].concentrationScore, profiles)
+}
+
 // ── Executive memory ─────────────────────────────────────────────────────────
 console.log('\nExecutive memory — four types, four roots:')
 {

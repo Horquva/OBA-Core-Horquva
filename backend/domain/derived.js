@@ -59,7 +59,7 @@
  * anything about this file.
  */
 
-const { atOrAbove, evidenceGate, combineEvidence } = require('./definitions')
+const { atOrAbove, evidenceGate, combineEvidence, entityCriticality } = require('./definitions')
 
 const ROOT_TABLES = [
   'employees', 'agents', 'owners', 'workflows', 'workflow_failures',
@@ -668,6 +668,77 @@ function humanDependencyRisk(roots) {
   })
 
   profiles.sort((a, b) => b.totalRiskScore - a.totalRiskScore)
+  return profiles
+}
+
+/**
+ * Per-employee knowledge CONCENTRATION -- criticality-weighted share of
+ * org-wide assets (agents + workflows + tools) one person owns. Was
+ * frontend/lib/knowledgeRisk.ts's concentrationScore, computed client-side.
+ * Ported verbatim (same weight table, same tier bands) rather than
+ * redesigned -- this migration is about WHERE it runs, not what it outputs.
+ *
+ * Deliberately distinct from routes/knowledge/intelligence.js's
+ * knowledgeRiskScore, which is an ABSOLUTE score over one person's own
+ * knowledge_assets holdings, not normalized against org totals -- see that
+ * route's own header comment. Two genuinely different questions that
+ * happened to collide under one misleading name before this session's
+ * earlier rename (D-07 era duplication sweep).
+ *
+ * Criticality is resolved via definitions.js's entityCriticality() -- the
+ * canonical per-type resolver (agent/workflow via their own `risk` column,
+ * platform via its knowledge_assets rows) -- rather than each asset type
+ * reading a differently-named raw field, which is what the frontend version
+ * did.
+ */
+const CONCENTRATION_WEIGHT = { critical: 4, high: 2, medium: 1, low: 0.5, unknown: 1 }
+
+function concentrationTier(score) {
+  if (score >= 90) return 'CRITICAL'
+  if (score >= 55) return 'HIGH'
+  if (score >= 30) return 'MEDIUM'
+  return 'LOW'
+}
+
+function knowledgeConcentration(roots) {
+  const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
+  const workflowById = new Map(roots.workflows.map((w) => [w.id, w]))
+  const platformById = new Map(roots.ai_platforms.map((p) => [p.id, p]))
+
+  const weightByEmployee = new Map()
+  let totalWeight = 0
+  const add = (employeeId, weight) => {
+    if (employeeId == null) return
+    totalWeight += weight
+    weightByEmployee.set(employeeId, (weightByEmployee.get(employeeId) || 0) + weight)
+  }
+
+  for (const a of roots.agents) {
+    add(a.owner_id, CONCENTRATION_WEIGHT[entityCriticality('agent', a)] ?? 1)
+  }
+  for (const r of roots.workflow_runbooks) {
+    const w = workflowById.get(r.workflow_id)
+    if (!w) continue
+    add(r.owner_id, CONCENTRATION_WEIGHT[entityCriticality('workflow', w)] ?? 1)
+  }
+  for (const t of roots.tool_ownership) {
+    const p = platformById.get(t.platform_id)
+    if (!p) continue
+    add(t.employee_id, CONCENTRATION_WEIGHT[entityCriticality('platform', p, { knowledgeAssets: roots.knowledge_assets })] ?? 1)
+  }
+
+  const profiles = [...weightByEmployee.entries()].map(([employeeId, weight]) => {
+    const employee = employeeById.get(employeeId)
+    const concentrationScore = totalWeight > 0 ? round((weight / totalWeight) * 100) : 0
+    return {
+      employeeId,
+      name: employee ? employee.name : null,
+      concentrationScore,
+      tier: concentrationTier(concentrationScore),
+    }
+  })
+
+  profiles.sort((a, b) => b.concentrationScore - a.concentrationScore)
   return profiles
 }
 
@@ -1370,6 +1441,7 @@ module.exports = {
   collaboration,
   predictiveRisk,
   humanDependencyRisk,
+  knowledgeConcentration,
   executiveMemory,
   pillars,
   decisionQuality,
