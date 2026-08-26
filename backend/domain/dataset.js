@@ -14,10 +14,12 @@
 // below come out in the same order the direct queries produced. Verified
 // byte-identical against the previous implementation.
 //
-// Two gaps are real, not bugs: `incidents` is always [] because no incidents
-// table with resolution/lesson tracking exists, and per-asset `documented` /
-// `backup_owner` are joins rather than columns — graphLoader now performs them
-// once and records the result on the entity.
+// One gap is real, not a bug: per-asset `documented` / `backup_owner` are
+// joins rather than columns — graphLoader now performs them once and records
+// the result on the entity. `incidents` reads the real `incidents` table
+// (added in W-J); its resolution/lesson tracking is what powers the
+// "Incident lessons captured" and "Incident learning loop is active" checks
+// in domain/analyses.js.
 
 const supabase = require('../supabase')
 const brain = require('../brain')
@@ -32,12 +34,14 @@ async function loadOrgDataset() {
     { data: decisionHistory, error: e1 },
     { data: docTrend, error: e2 },
     { data: snapshots, error: e3 },
+    { data: incidentRows, error: e4 },
   ] = await Promise.all([
     supabase.from('decision_history').select('*').order('decided_at'),
     supabase.from('documentation_trend').select('*').order('recorded_month'),
     supabase.from('snapshots').select('*').order('snapshot_date'),
+    supabase.from('incidents').select('*').order('occurred_at'),
   ])
-  const firstError = e1 || e2 || e3
+  const firstError = e1 || e2 || e3 || e4
   if (firstError) throw new Error(firstError.message)
 
   /** The human who owns this asset, via the graph's `owns` edge. */
@@ -110,12 +114,23 @@ async function loadOrgDataset() {
     risk_index: snapshots?.[i]?.risk_index,
   }))
 
+  const incidents = (incidentRows || []).map((i) => ({
+    date: i.occurred_at,
+    entity: i.entity_name,
+    entity_type: i.entity_type,
+    impact: i.impact,
+    owner: i.owner_id,
+    resolved_by: i.resolved_by_id,
+    resolution_days: i.resolution_days,
+    lesson: i.lesson,
+  }))
+
   return {
     agents,
     workflows,
     ai_tools,
     knowledge_areas,
-    incidents: [], // no incidents table with resolution/lesson tracking exists in this schema
+    incidents,
     decisions_log,
     history,
   }

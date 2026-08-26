@@ -12,6 +12,7 @@ const tests = [
 	'graph.unit.test.js',
 	'culture.unit.test.js',
 	'orgAnalyses.unit.test.js',
+	'dataset.unit.test.js', // pure/offline; stubs Supabase + brain, exercises the incidents mapping (W-J)
 	'graphLoader.live.test.js', // self-skips when SUPABASE_URL is unset
 	'intelligence.verify.test.js',
 	'auth.unit.test.js',
