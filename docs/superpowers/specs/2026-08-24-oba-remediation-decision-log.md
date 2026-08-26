@@ -564,7 +564,7 @@ it closes, written before the fix.
 | **W-G** | Graph lifecycle & narrative honesty | D-14, D-28, D-29, D-30, D-31, D-32 | **DONE** — 4 tasks, 6 commits, `c0dd891`…`9b0f641` on `ocos/develop` |
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
-| **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 10 commits, `579df7a`…`ec2c56e` on `ocos/develop` |
+| **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 11 commits, `579df7a`…`31b37ea` on `ocos/develop` |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
