@@ -33,8 +33,8 @@ miscounted as a fifth authored section; it is actually already computed live fro
 `graphLoader.js` wiring fix, no new table. D-46…D-51 (decided during W-J's brainstorming phase
 2026-08-26) design six new tables, wire `processes` at its existing source, delete the dead
 duplicate, and wire incidents into live scoring for the first time. Full detail is in
-[the W-J design doc](2026-08-26-w-j-authored-entities-migration-design.md). **Design only — not yet
-planned or implemented.**
+[the W-J design doc](2026-08-26-w-j-authored-entities-migration-design.md). See §3 for the finished
+workstream's task and commit count.
 
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
@@ -564,7 +564,7 @@ it closes, written before the fix.
 | **W-G** | Graph lifecycle & narrative honesty | D-14, D-28, D-29, D-30, D-31, D-32 | **DONE** — 4 tasks, 6 commits, `c0dd891`…`9b0f641` on `ocos/develop` |
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
-| **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 7 commits, `579df7a`…`402b1c0` on `ocos/develop` |
+| **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 8 commits, `579df7a`…`26b746e` on `ocos/develop` |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
