@@ -36,6 +36,18 @@ duplicate, and wire incidents into live scoring for the first time. Full detail 
 [the W-J design doc](2026-08-26-w-j-authored-entities-migration-design.md). See §3 for the finished
 workstream's task and commit count.
 
+**W-K is an eleventh workstream, in progress.** It is W-I's own design doc's deferred item ("frontend
+risk/health-score client-side recomputation... a separate, larger frontend-truth-repointing
+workstream") picked up 2026-08-26 after a same-day duplication sweep found the department/workflow
+normalization bug (commit `f452506`) and the owner gave this workstream's mandate directly: no
+intelligence computation should live in the frontend, only in the backend's graph or `derived.js`. Two
+exhaustive audits (every `frontend/lib/*.ts` file, every `frontend/components/**/*.tsx` file) found 13
+items — one active bug, two routing fixes, two fabricated numbers, two duplicated thresholds, and eight
+real intelligence modules/components with no backend equivalent. D-52…D-64 (decided during W-K's
+brainstorming phase 2026-08-26) close all thirteen; D-52 has landed, the rest are phased across future
+sessions given the combined scope exceeds any single prior workstream in this remediation. Full detail
+is in [the W-K design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md).
+
 **A same-day follow-on fix, not its own workstream** (2026-08-26): closing W-J prompted an audit of
 which of the ontology's 18 entity types actually populate the graph. Six sat at zero — `team`,
 `project`, `asset`, `risk`, `decision`, `capability`. Checked each one against `derived.js` and the
@@ -271,6 +283,25 @@ departments via `owner.department` with no top-level `department` field on any r
 affected page previously showed "Operations" for 100% of agents); `/api/workflows` now returns real
 steps/backup_owner over HTTP. `tsc --noEmit` clean, backend test suite clean. Commit `f452506` on
 `ocos/develop`.
+
+**W-K, decision D-52 — the first phase of the frontend-intelligence-migration workstream, landed
+same day.** Per [the W-K design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md), D-52
+was the active bug: `frontend/lib/risk.ts`'s `deriveRisk()`/`deriveRiskScore()` was the client-side
+formula `predictiveRisk.ts` was built to replace, but stayed live in `ScenarioSandbox.tsx` (auto-picking
+the highest-risk agent to simulate) and `DependencyPipeline.tsx` (per-person risk ranking) — the one
+place in the app where the old and new intelligence were simultaneously live and could visibly
+disagree. `calculateHealthScore()` in the same file was dead code (exported, never imported); the
+`_simulation_override`/`_simulation_penalty` fields `deriveRiskScore()` read were also dead, never set
+anywhere. Fixed by threading the existing `riskByAgentName` map (`predictiveRisk.ts`'s
+`buildPredictiveRiskByAgentName()`, already the established pattern in `HumanDependencyRisks.tsx`/
+`OwnershipList.tsx`) into both components — `simulation/page.tsx` now also fetches
+`/api/predictive-risk/agents`. Both components' remaining local combination logic (SPOF bonus + tier
+weight) stays client-side, unchanged in kind — it's internal ranking that picks what to simulate/how to
+sort, never rendered as an asserted verdict, matching this session's own established precedent (the
+SPOF/`getSPOFs()` and original `deriveRisk`-for-ranking calls). `lib/risk.ts` deleted entirely — zero
+remaining imports. `tsc --noEmit` clean. Commit `3af87ba` on `ocos/develop`. D-53 through D-64 remain
+open, per the design doc's recommended phasing (routing fixes next, then fabricated-number cleanup,
+then threshold dedup, then the eight real backend migrations as their own sequenced sub-workstreams).
 
 **This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
 intelligence should be in frontend everything related to intelligence calculation should be in
@@ -814,6 +845,7 @@ it closes, written before the fix.
 | **W-H** | Cleanup & final audit | D-09b, D-15, F-I, D-37, D-38, D-39, D-40 | **DONE** — 5 tasks, 8 commits, `4430ace`…`8108669` on `ocos/develop` |
 | **W-I** | Simulation cascade & ranking consolidation | D-41, D-42, D-43, D-44, D-45 | **DONE** — 13 tasks, 25 commits, `6e475f4`…`47ab0a8` on `ocos/develop` |
 | **W-J** | Authored entities migration to Supabase | D-46, D-47, D-48, D-49, D-50, D-51 | **DONE** — 7 tasks, 12 commits, `579df7a`…`ed827b1` on `ocos/develop` |
+| **W-K** | Frontend intelligence migration | D-52, D-53, D-54, D-55, D-56, D-57, D-58, D-59, D-60, D-61, D-62, D-63, D-64 | **IN PROGRESS** — D-52 done (commit `3af87ba`); D-53…D-64 open, see [design doc](2026-08-26-w-k-frontend-intelligence-migration-design.md) |
 
 W-C is done: every downstream workstream now has one module to consume
 (`backend/domain/definitions.js`) instead of ~16 independent SPOF implementations and 20
