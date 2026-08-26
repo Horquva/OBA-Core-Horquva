@@ -238,6 +238,53 @@ clean. Commit `b449fe3` on `ocos/develop`.
 All four findings from the fifth same-day duplication sweep are now closed: M18/M53 (`6d92fa3`),
 vendor/tool risk (`1aa8a1b`), department-rollup criticality (`907c5cf`), and this one (`b449fe3`).
 
+**A sixth same-day sweep (2026-08-26) found the most severe bug of this entire remediation: agent
+department and workflow shape were silently wrong on up to 9 pages — a real correctness bug, not just
+duplication.** `/api/agents` never returns a top-level `department` (only nested under
+`owner.department`), but 5 of 9 pages that fetch agents (`continuity`, `memory`, `knowledge`,
+`ai-tools`, `recommendations`) normalized with `department: a.department || 'Operations'` — always
+false, so every agent showed department "Operations" on those pages regardless of its real one. The
+other 4 (`map`, `ownership`, `risk`, `simulation`) already had it right
+(`a.department || a.owner?.department || 'Unassigned'`). Compounding this: those same pages (plus
+`ownership`) fetched `/api/workflows/intelligence` — a genuinely different endpoint, computed
+risk-intelligence fields keyed `workflow` not `name`, no `id`/`department`/`criticality`/`documented`/
+`steps` — and normalized as if it were the frontend's `Workflow` shape. Every workflow rendered as
+"Unknown Workflow", empty (colliding) id, "Operations" department, "low" criticality, undocumented,
+zero steps. This silently broke `aiToolIntelligence.ts`'s entire outage-impact simulation (steps
+always `[]`) and `generateRecommendations()`'s workflow-based recommendations (criticality always
+undefined, so those checks never fired) on every affected page. `ownership/page.tsx` sidestepped the
+field-name issue but hardcoded department unconditionally and **fabricated** criticality from
+`riskScore` and backup_owner from `totalTools` — invented numbers standing in for real columns that
+were one endpoint-switch away. Root cause both times: 9 files hand-copied the same normalization
+block independently instead of sharing one implementation, so a bug fixed in 4 of them never
+propagated to the other 5.
+
+Fixed per the owner's explicit architecture instruction: centralize data shaping instead of
+re-deriving it per page, so this class of bug can't recur a 10th time. `backend/routes/workflows/index.js`'s
+`GET /api/workflows` (the already-correct, separate endpoint from `/intelligence`) now also resolves
+`backup_owner` (same `owners`-table pattern as `agents.js`) and returns `steps` (from `workflow_steps`)
+— making it the complete, correct source for the `Workflow` shape. `frontend/lib/normalize.ts` (new)
+holds the one `normalizeAgent()`/`normalizeWorkflow()` pair; all 9 pages that fetch agents now call it
+instead of hand-rolling their own block, and the 5 broken workflow-consuming pages switched from
+`/api/workflows/intelligence` to `/api/workflows`. Live-verified: `/api/agents` spans 6 real
+departments via `owner.department` with no top-level `department` field on any row (confirming every
+affected page previously showed "Operations" for 100% of agents); `/api/workflows` now returns real
+steps/backup_owner over HTTP. `tsc --noEmit` clean, backend test suite clean. Commit `f452506` on
+`ocos/develop`.
+
+**This sweep also surfaced the owner's broader architectural mandate**, given verbatim: "no
+intelligence should be in frontend everything related to intelligence calculation should be in
+backend the frontend should get it from backend... either from graph or derived... a systematic
+approach so we do not keep finding the same problem over and over again." This fix addresses the
+*normalization* half of that class of bug (raw API rows → typed shapes). It does not yet address the
+larger, separate class: several `frontend/lib/*.ts` files (`aiToolIntelligence.ts`,
+`continuityRisk.ts`, `knowledgeRisk.ts`, `networkRisk.ts`, `riskIntelligence.ts`, `recommendations.ts`)
+compute genuine scoring/risk *intelligence* client-side with no backend equivalent at all — confirmed
+across this session's own audits (vendor/tool risk, knowledge concentration, governance/continuity
+before M18/M19 were exposed). Migrating that class to the backend is a much larger, separate
+undertaking (new brain modules or `derived.js` functions, confidence/evidence semantics, and a
+frontend migration per consumer) that needs its own scoped plan — flagged here, not yet started.
+
 **W-G ran unattended** (2026-08-25) under explicit owner delegation to choose the best option and
 proceed without waiting for live approval — the owner was offline and asked for the work to
 continue through the normal process regardless. Every decision below still carries its own
