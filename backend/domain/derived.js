@@ -792,7 +792,20 @@ function calcIMHS(preserved, vulnerable, atRisk, total) {
   return round(((preserved * 1.0 + vulnerable * 0.5 + atRisk * 0.25) / total) * 100)
 }
 
-function orgMemory(roots) {
+/**
+ * The per-asset base list (agent + workflow + tool) shared by every
+ * derived.js analysis that classifies owner/backup/documented/criticality/
+ * department -- orgMemory() below, and assetContinuity() (D-61). Each of
+ * those four signals already had its own resolution logic duplicated once
+ * per consumer before this; factored out so "how do we resolve a workflow's
+ * backup owner" has exactly one answer, not one per caller.
+ *
+ * Carries no status/tier field of its own -- callers classify on top of
+ * `hasOwner`/`documented`/`backup_owner` however their own formula defines
+ * that (memoryStatus() here, survivalStatus()/governanceScore() in
+ * assetContinuity()).
+ */
+function ownedAssetBase(roots) {
   const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
   const platformById = new Map(roots.ai_platforms.map((p) => [p.id, p]))
   const backups = backupIndex(roots)
@@ -829,8 +842,6 @@ function orgMemory(roots) {
   for (const a of roots.agents) {
     const hasOwner = a.owner_id != null
     const ownerBackup = hasOwner ? backups.get(a.owner_id) : null
-    const documented = documentedByAsset.agent.get(a.id) ?? false
-    const hasBackup = Boolean(ownerBackup?.hasBackup)
     assets.push({
       id: a.id, name: a.name, type: 'agent',
       ownerEmployeeId: hasOwner ? a.owner_id : null,
@@ -838,8 +849,7 @@ function orgMemory(roots) {
       backup_owner: ownerBackup?.backupOwner ?? null,
       criticality: entityCriticality('agent', a),
       department: ownerDept(a.owner_id),
-      documented,
-      memoryStatus: memoryStatus(hasOwner, documented, hasBackup),
+      documented: documentedByAsset.agent.get(a.id) ?? false,
     })
   }
 
@@ -847,8 +857,6 @@ function orgMemory(roots) {
     const rb = runbookByWorkflow.get(w.id)
     const hasOwner = rb?.owner_id != null
     const ownerBackup = hasOwner ? backups.get(rb.owner_id) : null
-    const documented = rb ? Boolean(rb.is_documented) : false
-    const hasBackup = Boolean(ownerBackup?.hasBackup)
     assets.push({
       id: w.id, name: w.name, type: 'workflow',
       ownerEmployeeId: hasOwner ? rb.owner_id : null,
@@ -856,28 +864,34 @@ function orgMemory(roots) {
       backup_owner: ownerBackup?.backupOwner ?? null,
       criticality: entityCriticality('workflow', w),
       department: w.department || 'Unassigned',
-      documented,
-      memoryStatus: memoryStatus(hasOwner, documented, hasBackup),
+      documented: rb ? Boolean(rb.is_documented) : false,
     })
   }
 
   for (const p of roots.ai_platforms) {
     const ownerEmployeeId = platformOwnerEmployeeId.get(p.id) ?? null
-    const hasOwner = ownerEmployeeId != null
-    const documented = documentedByAsset.platform.get(p.id) ?? false
-    const backupName = platformBackupName.get(p.id) ?? null
-    const hasBackup = Boolean(backupName)
     assets.push({
       id: p.id, name: p.name, type: 'tool',
       ownerEmployeeId,
       owner: ownerName(ownerEmployeeId),
-      backup_owner: backupName,
+      backup_owner: platformBackupName.get(p.id) ?? null,
       criticality: entityCriticality('platform', p, { knowledgeAssets: roots.knowledge_assets }),
       department: platformDepts.get(p.id) || 'General',
-      documented,
-      memoryStatus: memoryStatus(hasOwner, documented, hasBackup),
+      documented: documentedByAsset.platform.get(p.id) ?? false,
     })
   }
+
+  return assets
+}
+
+function orgMemory(roots) {
+  const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
+  const ownerName = (employeeId) => (employeeId != null ? employeeById.get(employeeId)?.name ?? null : null)
+
+  const assets = ownedAssetBase(roots).map((a) => ({
+    ...a,
+    memoryStatus: memoryStatus(a.ownerEmployeeId != null, a.documented, Boolean(a.backup_owner)),
+  }))
 
   const preserved = assets.filter((a) => a.memoryStatus === 'PRESERVED')
   const atRisk = assets.filter((a) => a.memoryStatus === 'AT_RISK')
@@ -939,6 +953,145 @@ function orgMemory(roots) {
     imhsVerdict,
     evidence,
     totalAssets: assets.length,
+    ...provenance({
+      employees: roots._counts.employees,
+      agents: roots._counts.agents,
+      workflows: roots._counts.workflows,
+      workflow_runbooks: roots._counts.workflow_runbooks,
+      ai_platforms: roots._counts.ai_platforms,
+      tool_ownership: roots._counts.tool_ownership,
+      tool_backups: roots._counts.tool_backups,
+      tool_users: roots._counts.tool_users,
+      knowledge_assets: roots._counts.knowledge_assets,
+      owners: roots._counts.owners,
+    }),
+  }
+}
+
+/**
+ * Per-asset disruption survival status + governance score/compliance-violation
+ * count, plus org and department rollups. Was frontend/lib/continuityRisk.ts's
+ * computeContinuityRisk(), computed client-side.
+ *
+ * D-61: genuinely missing backend-side, unlike D-57 through D-60. M18/M19
+ * (`GET /api/intelligence/continuity` / `/governance`) are real brain-module
+ * outputs, but org/department AGGREGATES over a different formula (see
+ * `orgHealth()`'s own `continuityScore` above, and its D-21 header comment) --
+ * not a per-asset survival/governance answer. The `/continuity` page already
+ * labels this heuristic "Estimated ... not M18/M19" rather than claiming it
+ * was either module, so this migration doesn't reconcile two disagreeing
+ * formulas the way D-60 did -- it just moves the one that exists off the
+ * client.
+ *
+ * Ported verbatim: same four-way survival rule, same governance deductions
+ * (-40 no owner / -25 no backup / -20 undocumented), same complianceViolations
+ * count, same must-protect/worst-offenders selection (top 10 each).
+ *
+ * One departure, consistent with D-59/D-60's same call: criticality is
+ * resolved via entityCriticality() (real 'unknown' sentinel) instead of the
+ * frontend's resolveCriticality() (defaults unassessed to 'low' before it
+ * even reaches this formula) / this file's own `|| 'medium'` display fallback
+ * (dead code in practice, since resolveCriticality already never returns
+ * empty). Behavior-preserving: `atOrAbove('unknown', 'high')` is false the
+ * same way `atOrAbove('low', 'high')` was, so highStakes/mustProtect's boolean
+ * is unchanged -- only the previously-fabricated displayed label changes, to
+ * an honest "we don't know."
+ *
+ * Reuses ownedAssetBase(roots) (factored out alongside this function) for
+ * owner/backup/documented/criticality/department resolution instead of a
+ * fifth reimplementation of the same four signals orgMemory() already
+ * resolves one way.
+ */
+const SURVIVAL_VALUE = { LOST: 0, FAILS: 30, DEGRADED: 70, SURVIVES: 100 }
+
+function survivalStatus(hasOwner, hasBackup, documented, highStakes) {
+  if (!hasOwner) return highStakes ? 'LOST' : 'DEGRADED'
+  if (!hasBackup) return highStakes ? 'FAILS' : 'DEGRADED'
+  if (!documented) return 'DEGRADED'
+  return 'SURVIVES'
+}
+
+function continuityGovernanceScore(hasOwner, hasBackup, documented) {
+  let score = 100
+  if (!hasOwner) score -= 40
+  if (!hasBackup) score -= 25
+  if (!documented) score -= 20
+  return Math.max(0, score)
+}
+
+function assetContinuity(roots) {
+  const assets = ownedAssetBase(roots).map((a) => {
+    const hasOwner = a.ownerEmployeeId != null
+    const hasBackup = Boolean(a.backup_owner)
+    const highStakes = atOrAbove(a.criticality, 'high')
+    return {
+      id: a.id,
+      name: a.name,
+      type: a.type,
+      department: a.department,
+      owner: a.owner ?? 'None',
+      criticality: a.criticality,
+      documented: a.documented,
+      backup_owner: a.backup_owner,
+      survivalStatus: survivalStatus(hasOwner, hasBackup, a.documented, highStakes),
+      governanceScore: continuityGovernanceScore(hasOwner, hasBackup, a.documented),
+      complianceViolations: [!hasOwner, !hasBackup, !a.documented].filter(Boolean).length,
+    }
+  })
+
+  const deptContinuity = {}
+  const deptGovernance = {}
+  let totalSurvScore = 0
+  let totalGovScore = 0
+
+  for (const a of assets) {
+    const survVal = SURVIVAL_VALUE[a.survivalStatus]
+    totalSurvScore += survVal
+    totalGovScore += a.governanceScore
+
+    if (!deptContinuity[a.department]) deptContinuity[a.department] = { total: 0, survives: 0, fails: 0, scoreTotal: 0 }
+    const dc = deptContinuity[a.department]
+    dc.total++
+    if (a.survivalStatus === 'SURVIVES') dc.survives++
+    if (a.survivalStatus === 'FAILS' || a.survivalStatus === 'LOST') dc.fails++
+    dc.scoreTotal += survVal
+
+    if (!deptGovernance[a.department]) deptGovernance[a.department] = { total: 0, healthy: 0, atRisk: 0, scoreTotal: 0 }
+    const dg = deptGovernance[a.department]
+    dg.total++
+    dg.scoreTotal += a.governanceScore
+    if (a.governanceScore >= 80) dg.healthy++
+    if (a.governanceScore < 60) dg.atRisk++
+  }
+
+  for (const d of Object.values(deptContinuity)) { d.score = round(d.scoreTotal / d.total); delete d.scoreTotal }
+  for (const d of Object.values(deptGovernance)) { d.score = round(d.scoreTotal / d.total); delete d.scoreTotal }
+
+  // Zero assets is insufficient evidence, not a fabricated 0 -- same call
+  // calcIMHS's own header comment already made for org memory (D-24).
+  const evidence = evidenceGate(assets, () => true)
+  const orgSurvivalScore = evidence.sufficient ? round(totalSurvScore / assets.length) : null
+  const orgGovernanceScore = evidence.sufficient ? round(totalGovScore / assets.length) : null
+
+  const mustProtect = assets
+    .filter((a) => atOrAbove(a.criticality, 'high') && (a.survivalStatus === 'FAILS' || a.survivalStatus === 'LOST'))
+    .sort((a, b) => b.complianceViolations - a.complianceViolations)
+    .slice(0, 10)
+
+  const worstOffenders = assets
+    .filter((a) => a.governanceScore < 70)
+    .sort((a, b) => a.governanceScore - b.governanceScore)
+    .slice(0, 10)
+
+  return {
+    assets,
+    orgSurvivalScore,
+    orgGovernanceScore,
+    mustProtect,
+    worstOffenders,
+    deptContinuity,
+    deptGovernance,
+    evidence,
     ...provenance({
       employees: roots._counts.employees,
       agents: roots._counts.agents,
@@ -1655,6 +1808,7 @@ module.exports = {
   humanDependencyRisk,
   knowledgeConcentration,
   orgMemory,
+  assetContinuity,
   executiveMemory,
   pillars,
   decisionQuality,

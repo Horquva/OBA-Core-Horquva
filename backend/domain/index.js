@@ -102,6 +102,7 @@ module.exports = {
       humanDependencyRisk: derived.humanDependencyRisk,
       knowledgeConcentration: derived.knowledgeConcentration,
       orgMemory: derived.orgMemory,
+      assetContinuity: derived.assetContinuity,
       executiveMemory: derived.executiveMemory,
       pillars: derived.pillars,
       orgHealth: derived.orgHealth,

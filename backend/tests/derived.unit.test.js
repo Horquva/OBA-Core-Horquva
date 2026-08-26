@@ -393,6 +393,66 @@ console.log('\nOrg memory — backup_owner + documentation status, per-asset and
 	check('evidence is sufficient over 4 real assets', report.evidence.sufficient === true, report.evidence)
 }
 
+// ── Asset continuity (D-61) ──────────────────────────────────────────────────
+console.log('\nAsset continuity — per-asset survival status + governance score (D-61):')
+{
+	const r = roots({
+		employees: [
+			{ id: 1, name: 'Alice', department: 'Eng' },
+			{ id: 2, name: 'Bob', department: 'Ops' },
+			{ id: 3, name: 'Cara', department: 'Sales' },
+		],
+		owners: [
+			{ id: 1, employee_id: 1, backup_owner: 'Zed' },
+			{ id: 2, employee_id: 2, backup_owner: 'Zed' },
+			// Cara has no owners row -> no backup for anything she owns.
+		],
+		agents: [
+			{ id: 1, name: 'AgentA', risk: 'critical', owner_id: 1 },
+			// No owner, but high-stakes -> LOST, not merely DEGRADED.
+			{ id: 4, name: 'CritOrphan', risk: 'critical', owner_id: null },
+			// No owner, low-stakes -> DEGRADED, not LOST.
+			{ id: 5, name: 'LowOrphan', risk: 'low', owner_id: null },
+		],
+		workflows: [{ id: 10, name: 'FlowB', risk: 'high', department: 'Ops' }],
+		workflow_runbooks: [{ workflow_id: 10, owner_id: 2, is_documented: false }],
+		ai_platforms: [{ id: 100, name: 'ToolC' }],
+		tool_ownership: [{ platform_id: 100, employee_id: 3 }],
+		tool_users: [{ platform_id: 100, employee_id: 3 }],
+		knowledge_assets: [
+			{ asset_type: 'agent', asset_id: 1, is_documented: true },
+			{ asset_type: 'agent', asset_id: 4, is_documented: true },
+			// LowOrphan (agent id 5) has no knowledge_assets row -> undocumented.
+			{ asset_type: 'platform', asset_id: 100, is_documented: true, criticality: 'critical' },
+		],
+		// No tool_backups row for ToolC -> Cara has no backup for it.
+	})
+	const report = d.assetContinuity(r)
+	const by = Object.fromEntries(report.assets.map((a) => [a.name, a]))
+
+	check('AgentA: owned, backed, documented -> SURVIVES, perfect governance', by.AgentA.survivalStatus === 'SURVIVES' && by.AgentA.governanceScore === 100 && by.AgentA.complianceViolations === 0, by.AgentA)
+	check('FlowB: owned + backed but undocumented -> DEGRADED (documentation gates SURVIVES even with backup)', by.FlowB.survivalStatus === 'DEGRADED' && by.FlowB.governanceScore === 80 && by.FlowB.complianceViolations === 1, by.FlowB)
+	check('ToolC: owned, high-stakes, but no backup -> FAILS, not merely DEGRADED', by.ToolC.survivalStatus === 'FAILS' && by.ToolC.governanceScore === 75 && by.ToolC.complianceViolations === 1, by.ToolC)
+	check('CritOrphan: no owner + high-stakes -> LOST, the worst status', by.CritOrphan.survivalStatus === 'LOST' && by.CritOrphan.governanceScore === 35 && by.CritOrphan.complianceViolations === 2, by.CritOrphan)
+	check('LowOrphan: no owner but low-stakes -> DEGRADED, not LOST', by.LowOrphan.survivalStatus === 'DEGRADED' && by.LowOrphan.governanceScore === 15 && by.LowOrphan.complianceViolations === 3, by.LowOrphan)
+
+	// org totals across 5 assets: survival 100+70+30+0+70=270/5=54; governance 100+80+75+35+15=305/5=61.
+	check('orgSurvivalScore averages SURVIVAL_VALUE across every asset', report.orgSurvivalScore === 54, report.orgSurvivalScore)
+	check('orgGovernanceScore averages governanceScore across every asset', report.orgGovernanceScore === 61, report.orgGovernanceScore)
+
+	check('Eng (AgentA only, SURVIVES) scores a clean 100', report.deptContinuity.Eng.score === 100, report.deptContinuity.Eng)
+	check('Sales (ToolC, FAILS) counts toward fails', report.deptContinuity.Sales.fails === 1, report.deptContinuity.Sales)
+	check('Unassigned (2 orphan agents, one LOST) counts exactly 1 fail, not 2', report.deptContinuity.Unassigned.fails === 1, report.deptContinuity.Unassigned)
+
+	check('mustProtect is high/critical AND (FAILS or LOST) only -- FlowB (DEGRADED) and LowOrphan (low) excluded', report.mustProtect.map((a) => a.name).sort().join(',') === 'CritOrphan,ToolC', report.mustProtect.map((a) => a.name))
+	check('mustProtect sorts worst compliance-violation count first', report.mustProtect[0].name === 'CritOrphan', report.mustProtect.map((a) => a.name))
+
+	check('worstOffenders is governanceScore < 70 only -- FlowB (80) and ToolC (75) excluded', report.worstOffenders.map((a) => a.name).sort().join(',') === 'CritOrphan,LowOrphan', report.worstOffenders.map((a) => a.name))
+	check('worstOffenders sorts lowest score first', report.worstOffenders[0].name === 'LowOrphan', report.worstOffenders.map((a) => a.name))
+
+	check('evidence is sufficient over 5 real assets', report.evidence.sufficient === true, report.evidence)
+}
+
 // ── Executive memory ─────────────────────────────────────────────────────────
 console.log('\nExecutive memory — four types, four roots:')
 {

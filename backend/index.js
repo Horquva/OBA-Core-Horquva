@@ -94,6 +94,7 @@ app.use('/api/knowledge/intelligence', require('./routes/knowledge/intelligence'
 app.use('/api/knowledge/impact',       require('./routes/knowledge/impact'))
 app.use('/api/knowledge/gaps',         require('./routes/knowledge/gaps'))
 app.use('/api/memory', require('./routes/memory/memory'))
+app.use('/api/continuity', require('./routes/continuity/continuity'))
 app.use('/api/intelligence/truth', require('./routes/truth/truth'))
 app.use('/api/verification', require('./routes/verification/intelligence'))
 app.use('/api/intelligence/brain-core', require('./routes/intelligence/brainCore'))
