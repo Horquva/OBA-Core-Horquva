@@ -27,7 +27,7 @@
 /ecosystem/applications/arcturus/schemas/control/enterprise/   @AjwaZainab
 
 # Maryam Yaqoob (Scenarios) [cite: 301, 483]
-/ecosystem/applications/arcturus/src/scenario_engineering/       @Maryam-Yaqoob
+/ecosystem/applications/arcturus/src/control_plane/scenarios/  @Maryam-Yaqoob
 /ecosystem/applications/arcturus/contracts/control/scenarios/  @Maryam-Yaqoob
 /ecosystem/applications/arcturus/schemas/control/scenarios/    @Maryam-Yaqoob
 

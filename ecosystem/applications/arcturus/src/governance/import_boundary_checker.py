@@ -98,6 +98,7 @@ _FORBIDDEN_CROSS_PLATFORM_PREFIXES: list[str] = [
     "ecosystem.applications.arcturus.src.simulation",
     "ecosystem.applications.arcturus.src.synthetic_data",
     "ecosystem.applications.arcturus.src.evaluation_plane",
+    "ecosystem.applications.arcturus.api",
 ]
 
 # Each platform's own src path is allowed; we only flag cross-platform imports.
@@ -113,6 +114,21 @@ _PLATFORM_SRC_PATHS: dict[str, str] = {
     "simulation": "ecosystem.applications.arcturus.src.simulation",
     "synthetic_data": "ecosystem.applications.arcturus.src.synthetic_data",
     "evaluation_plane": "ecosystem.applications.arcturus.src.evaluation_plane",
+    "api": "ecosystem.applications.arcturus.api",
+    "web": "ecosystem.applications.arcturus.web",
+}
+
+# API routers map to specific platform src paths to allow them to import core logic
+_ROUTER_TO_PLATFORM_PREFIX: dict[str, str] = {
+    "ontology": "ecosystem.applications.arcturus.src.control_plane.ontology",
+    "enterprise": "ecosystem.applications.arcturus.src.control_plane.enterprise",
+    "scenarios": "ecosystem.applications.arcturus.src.control_plane.scenarios",
+    "workforce": "ecosystem.applications.arcturus.src.execution_plane.workforce",
+    "workflows": "ecosystem.applications.arcturus.src.execution_plane.workflows",
+    "runtime": "ecosystem.applications.arcturus.src.simulation",
+    "synthetic_data": "ecosystem.applications.arcturus.src.synthetic_data",
+    "validation": "ecosystem.applications.arcturus.src.evaluation_plane",
+    "intelligence": "ecosystem.applications.arcturus.src.evaluation_plane",
 }
 
 
@@ -296,6 +312,11 @@ def _resolve_own_prefixes(file_posix: str) -> set[str]:
             path_fragment_test in file_posix or 
             path_fragment_api in file_posix):
             own.add(prefix)
+            
+    for router, prefix in _ROUTER_TO_PLATFORM_PREFIX.items():
+        if f"api/routers/{router}.py" in file_posix:
+            own.add(prefix)
+            
     return own
 
 

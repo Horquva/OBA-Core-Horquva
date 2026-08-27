@@ -1,4 +1,4 @@
-"""
+﻿"""
 Simulation Runtime & Experiment Platform — Runtime Engine
 Owner: Muhammad Maaz Khan
 """
@@ -63,13 +63,41 @@ class RuntimeEngine:
 
         self._status = ExecutionStatus.RUNNING
         self._clock_step += 1
+        self._state["clock_step"] = self._clock_step
         self._state["last_step_at"] = datetime.now(timezone.utc).isoformat()
 
         self._status = ExecutionStatus.CHECKPOINTING
         self._checkpoints.save(self._context.run_id, self._clock_step, self._state)
-        self._status = ExecutionStatus.RUNNING
+        if self._status != ExecutionStatus.PAUSED:
+            self._status = ExecutionStatus.RUNNING
 
         return dict(self._state)
+
+    def pause(self) -> None:
+        if self._status not in (ExecutionStatus.RUNNING, ExecutionStatus.INITIALIZED, ExecutionStatus.CHECKPOINTING):
+            raise BusinessRuleViolation(f"pause() called from invalid state: {self._status}")
+        self._status = ExecutionStatus.PAUSED
+
+    def resume(self) -> None:
+        if self._status != ExecutionStatus.PAUSED:
+            raise BusinessRuleViolation(f"resume() called from invalid state: {self._status}")
+        self._status = ExecutionStatus.RUNNING
+
+    def restore_from_checkpoint(self, context: SimulationContext, checkpoint_state: dict) -> None:
+        """
+        Rehydrates engine state from a previously saved checkpoint (see
+        CheckpointStore.load_latest / rollback_to), allowing a simulation to
+        resume after a crash or an explicit rollback to an earlier tick.
+        """
+        if self._status != ExecutionStatus.CREATED:
+            raise BusinessRuleViolation(
+                f"restore_from_checkpoint() called from invalid state: {self._status}"
+            )
+        self._context = context
+        self._state = dict(checkpoint_state)
+        self._clock_step = int(checkpoint_state.get("clock_step", 0))
+        self._started_at = datetime.now(timezone.utc)
+        self._status = ExecutionStatus.INITIALIZED
 
     def finalize_run(self) -> RunHistoryRecord:
         if self._context is None:
