@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { experimentApi } from '../../lib/api-client';
 
-// Yahan hum ne onCreated add kiya hai
 export default function CreateExperimentModal({ isOpen, onClose, onCreated }: { isOpen: boolean, onClose: () => void, onCreated?: () => void }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -12,8 +11,9 @@ export default function CreateExperimentModal({ isOpen, onClose, onCreated }: { 
     e.preventDefault();
     setLoading(true);
     try {
-      await experimentApi.createExperiment({ name, config: {} });
-      if (onCreated) onCreated(); // Naya experiment banne par refresh trigger karein
+      // Yahan hum ne seed: 42 add kiya hai backend requirement ke mutabiq
+      await experimentApi.createExperiment({ name, seed: 42, config: {} });
+      if (onCreated) onCreated(); 
       onClose(); 
     } catch (error) {
       console.error("Failed to create experiment", error);

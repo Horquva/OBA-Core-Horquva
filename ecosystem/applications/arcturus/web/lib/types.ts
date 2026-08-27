@@ -1,11 +1,18 @@
-export interface User {
+export type ExecutionStatus = 'CREATED' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
+
+export interface ExperimentRecord {
   id: string;
-  role: 'admin' | 'user' | 'guest';
-  status: 'active' | 'suspended';
+  name: string;
+  status: ExecutionStatus;
+  seed: number;
+  config: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface ApiResponse<T> {
-  data: T | null;
-  error: string | null;
-  status: number;
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
 }
