@@ -1,0 +1,8 @@
+# Install shared contracts first (editable), then these:
+#   pip install -e libs/ai-security-common
+#   pip install -r requirements.txt
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+httpx>=0.27
+pytest>=8.0
