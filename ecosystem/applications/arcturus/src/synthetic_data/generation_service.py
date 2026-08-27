@@ -16,7 +16,16 @@ from ecosystem.applications.arcturus.contracts.synthetic_data.base_models import
     SyntheticGenerationResult,
     SyntheticRelationshipContract,
 )
+from pydantic import ValidationError
 
+from ecosystem.applications.arcturus.contracts.simulation.base_models import ExperimentResultPackage
+from ecosystem.applications.arcturus.contracts.synthetic_data.base_models import (
+    LineageRecord,
+    RejectedArtifactRecord,
+    SyntheticArtifactContract,
+    SyntheticDataCorpus,
+)
+from ecosystem.applications.arcturus.src.lineage.lineage_tracker import build_lineage_record
 
 class SyntheticGenerationService:
     """
@@ -53,6 +62,72 @@ class SyntheticGenerationService:
 
     DEFAULT_ARTIFACT_TYPE = "document"
 
+    def generate_corpus(self, result: ExperimentResultPackage) -> SyntheticDataCorpus:
+        """
+        Day 4 — trusted corpus boundary, built from ExperimentResultPackage.state_snapshot.
+
+        Per team lead confirmation  state_snapshot is a dict
+        on ExperimentResultPackage, not a separate typed class, with keys:
+            artifacts (list, Ahmed's SyntheticArtifactContract shape,
+                       round-tripped through the runtime)
+            relationships (list — not yet represented in SyntheticDataCorpus,
+                           intentionally out of scope here, see PR note)
+            deterministic_fingerprint (str)
+            clock_step (int — tick the run reached)
+            last_step_at (timestamp)
+
+        Every artifact gets a lineage record. Anything that fails
+        SyntheticArtifactContract validation is rejected with a reason,
+        never silently dropped and never fabricated (Day 6 rule). An
+        empty or missing state_snapshot produces an empty corpus, not
+        an error.
+        """
+        context = result.context
+        snapshot = result.state_snapshot or {}
+        raw_artifacts = snapshot.get("artifacts", [])
+        clock_step = snapshot.get("clock_step", 0)
+
+        accepted: list[SyntheticArtifactContract] = []
+        rejected: list[RejectedArtifactRecord] = []
+        lineage: list[LineageRecord] = []
+
+        for index, raw_artifact in enumerate(raw_artifacts):
+            event_id = f"STATE-{context.run_id}-{clock_step}-{index}"
+
+            if isinstance(raw_artifact, SyntheticArtifactContract):
+                artifact = raw_artifact
+            else:
+                try:
+                    artifact = SyntheticArtifactContract.model_validate(raw_artifact)
+                except (ValidationError, TypeError) as exc:
+                    candidate_id = (
+                        raw_artifact.get("artifact_id", f"UNKNOWN-{index}")
+                        if isinstance(raw_artifact, dict) else f"UNKNOWN-{index}"
+                    )
+                    rejected.append(
+                        RejectedArtifactRecord(
+                            candidate_artifact_id=candidate_id,
+                            rejection_reason=f"failed SyntheticArtifactContract validation: {exc}",
+                            event_id=event_id,
+                        )
+                    )
+                    continue
+
+            accepted.append(artifact)
+            lineage.append(
+                build_lineage_record(
+                    context=context, tick=clock_step,
+                    event_id=event_id, data_point_id=artifact.artifact_id,
+                )
+            )
+
+        return SyntheticDataCorpus(
+            context=context,
+            accepted_artifacts=accepted,
+            rejected_artifacts=rejected,
+            lineage=lineage,
+        )
+    
     def generate_snapshot(
         self,
         request: SyntheticGenerationRequest,
