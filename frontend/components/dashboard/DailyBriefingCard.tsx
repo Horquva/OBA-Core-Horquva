@@ -43,7 +43,7 @@ export function DailyBriefingCard() {
         <div className="flex flex-col items-center gap-2 py-6 text-center">
           <ServerCrash className="w-6 h-6 text-[color:var(--text-tertiary)]" />
           <p className="text-xs text-[color:var(--text-tertiary)]">
-            {error ?? 'Briefing not yet generated — check /api/briefing/latest'}
+            {error ?? 'Briefing not yet generated — check /api/briefing/today'}
           </p>
         </div>
       )}

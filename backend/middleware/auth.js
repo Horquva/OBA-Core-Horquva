@@ -1,6 +1,14 @@
 /*
  * OBA Core — Authentication & organization-context middleware.
- * Apply these ONLY to routes that must be protected. Keep demo/read endpoints public.
+ *
+ * requireAuth is applied GLOBALLY in index.js as `app.use('/api', requireAuth)`,
+ * so every /api route is protected by default. The old advice here — "apply
+ * these ONLY to routes that must be protected, keep demo/read endpoints public"
+ * — described a split that no longer exists: those "public" reads served
+ * authenticated org data to any caller. Do not reintroduce it.
+ *
+ * Routers mounted ABOVE that global gate (currently only /api/auth) must still
+ * name requireAuth per-route — see routes/auth/auth.js.
  *
  * Usage:
  *   const { requireAuth, optionalAuth } = require('../../middleware/auth')
