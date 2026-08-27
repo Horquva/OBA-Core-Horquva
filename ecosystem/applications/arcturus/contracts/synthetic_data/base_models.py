@@ -234,7 +234,7 @@ class LineageRecord(BaseModel):
     tick: int = Field(..., ge=0)
     event_id: str = Field(
         ..., min_length=1,
-        description="Identifier of the SimulationEventStream event this data point traces back to.",
+        description="Identifier of the source event this data point traces back to.",
     )
     data_point_id: str = Field(..., min_length=1)
 
@@ -253,14 +253,13 @@ class SyntheticDataCorpus(ContractEnvelope):
     """
     Day 4 outbound handoff: Synthetic Data -> Validation.
 
-    Distinct from Week 3's SyntheticGenerationResult (merged, untouched —
-    see class docstring above). This corpus is built AFTER Runtime
-    execution, from the SimulationEventStream Maaz emits per tick, and is
-    what Amina's ValidationEngine evaluates.
+    Built from Maaz's ExperimentResultPackage.state_snapshot (artifacts key),
+    NOT from per-tick SimulationEventStream events. Distinct from Week 3's
+    SyntheticGenerationResult (merged, untouched).
 
-    An empty SimulationEventStream must produce an empty corpus here
-    (accepted_artifacts=[], lineage=[]) — never an error, never
-    fabricated data. Required Day 6 failure-mode behavior.
+    An empty or missing state_snapshot must produce an empty corpus here
+    (accepted_artifacts=[], lineage=[]) — never an error, never fabricated
+    data. Required Day 6 failure-mode behavior.
     """
 
     model_config = ConfigDict(extra="forbid")
