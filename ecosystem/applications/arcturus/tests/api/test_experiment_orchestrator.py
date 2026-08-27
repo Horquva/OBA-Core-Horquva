@@ -22,7 +22,7 @@ def test_orchestrator_completes_with_stub_platforms():
     
     results = orchestrator.run_pipeline()
     
-    assert results["status"] == "PIPELINE_INITIALIZED"
+    assert results["status"] == "PIPELINE_COMPLETED"
     assert orchestrator.stage == "COMPLETED"
     
     # Even if downstream platforms aren't merged, stubs should prevent failure

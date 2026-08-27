@@ -70,6 +70,18 @@ try:
 except ImportError:
     pass  # Javeria's PR not yet merged
 
+try:
+    from ecosystem.applications.arcturus.api.routers.synthetic_data import router as synthetic_data_router
+    app.include_router(synthetic_data_router)
+except ImportError:
+    pass  # Ahmed's PR not yet merged
+
+try:
+    from ecosystem.applications.arcturus.api.routers.validation import router as validation_router
+    app.include_router(validation_router)
+except ImportError:
+    pass  # Amina's PR not yet merged
+
 @app.exception_handler(ArcturusValidationError)
 async def arcturus_error_handler(request: Request, exc: ArcturusValidationError):
     response = APIErrorResponse(
