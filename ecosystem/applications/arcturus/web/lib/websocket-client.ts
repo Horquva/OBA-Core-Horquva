@@ -6,7 +6,6 @@ export class WebSocketClient {
     this.url = url;
   }
 
-  // Ab yahan onMessage callback receive ho sakta hai component se
   connect(onMessage?: (data: any) => void) {
     this.socket = new WebSocket(this.url);
 

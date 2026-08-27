@@ -39,16 +39,14 @@ class OntologyRuntime:
             # Validates against ContractEnvelope-wrapped snapshot
             self.current_state = OntologySnapshotContract(**payload)
             
-            # run_id is now accessed directly from the hardened contract
-            logger.info(f"Loaded Ontology Snapshot v{self.current_state.snapshot_version} for Run: {self.current_state.run_id}")
+            # FIXED: Access run_id through the nested context envelope
+            logger.info(f"Loaded Ontology Snapshot v{self.current_state.snapshot_version} for Run: {self.current_state.context.run_id}")
             
             # Hydrate the fast-lookup indices
             self._rebuild_indices()
 
-            # Build the graph and enforce Quality Gate 5 (Acyclic Check)
             self.relationship_engine.build_graph(self.current_state.relationships)
 
-            # Enforce Constitutional Rules (Orphaned capabilities, scopes, etc.)
             self.constraint_engine.validate_state(self.current_state)
             
         except ValidationError as e:

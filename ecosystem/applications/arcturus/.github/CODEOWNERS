@@ -1,0 +1,93 @@
+# ============================================================================== 
+# 🌌 Arcturus Platform CODEOWNERS File
+# Automatically enforces review approvals based on the Locked Ownership Map
+# File Location: ecosystem/applications/arcturus/.github/CODEOWNERS
+# ============================================================================== 
+
+# ------------------------------------------------------------------------------
+# 🏛️ Team Lead & Governance (Overall Platform Integrity)
+# ------------------------------------------------------------------------------
+# Hashim Ali Khan owns overall architecture, causal reality, and OCOS boundaries.
+/ecosystem/applications/arcturus/constitution/               @Hashimali-khan
+/ecosystem/applications/arcturus/ownership/                  @Hashimali-khan
+/ecosystem/applications/arcturus/src/causal_reality/         @Hashimali-khan
+/ecosystem/applications/arcturus/schemas/causal-reality/     @Hashimali-khan
+
+# ------------------------------------------------------------------------------
+# 🎮 Control Plane (Ontologies, Enterprise Blueprints, and Scenario DSL)
+# ------------------------------------------------------------------------------
+# Muhammad Hamza (Ontology) [cite: 25, 497]
+/ecosystem/applications/arcturus/src/control_plane/ontology/  @MuhammadHamza-7035
+/ecosystem/applications/arcturus/contracts/control/ontology/  @MuhammadHamza-7035
+/ecosystem/applications/arcturus/schemas/control/ontology/    @MuhammadHamza-7035
+
+# Ajwa Zainab (Synthetic Enterprise) [cite: 310]
+/ecosystem/applications/arcturus/src/control_plane/enterprise/ @AjwaZainab
+/ecosystem/applications/arcturus/contracts/control/enterprise/ @AjwaZainab
+/ecosystem/applications/arcturus/schemas/control/enterprise/   @AjwaZainab
+
+# Maryam Yaqoob (Scenarios) [cite: 301, 483]
+/ecosystem/applications/arcturus/src/scenario_engineering/       @Maryam-Yaqoob
+/ecosystem/applications/arcturus/contracts/control/scenarios/  @Maryam-Yaqoob
+/ecosystem/applications/arcturus/schemas/control/scenarios/    @Maryam-Yaqoob
+
+# Fallback for shared Control Plane assets
+/ecosystem/applications/arcturus/src/control_plane/           @MuhammadHamza-7035 @AjwaZainab @Maryam-Yaqoob
+/ecosystem/applications/arcturus/contracts/control/           @MuhammadHamza-7035 @AjwaZainab @Maryam-Yaqoob
+/ecosystem/applications/arcturus/schemas/control/             @MuhammadHamza-7035 @AjwaZainab @Maryam-Yaqoob
+
+# ------------------------------------------------------------------------------
+# ⚙️ Execution Plane (Workflows, Behaviors, and Synthetic Workforces)
+# ------------------------------------------------------------------------------
+# Javeria Rafhan (Behavior & Workflows) [cite: 412]
+/ecosystem/applications/arcturus/src/execution_plane/workflows/ @javeria1234-aaly
+/ecosystem/applications/arcturus/contracts/execution/workflows/ @javeria1234-aaly
+/ecosystem/applications/arcturus/schemas/execution/workflows/   @javeria1234-aaly
+
+# Syeda Dua e Farwa Gulzar (Synthetic Workforce & Agent Platform)
+/ecosystem/applications/arcturus/src/execution_plane/workforce/ @Syeda-Dua-Farwa
+/ecosystem/applications/arcturus/contracts/execution/workforce/ @Syeda-Dua-Farwa
+/ecosystem/applications/arcturus/schemas/execution/workforce/   @Syeda-Dua-Farwa
+
+# Fallback for shared Execution Plane assets
+/ecosystem/applications/arcturus/src/execution_plane/           @javeria1234-aaly @Syeda-Dua-Farwa
+/ecosystem/applications/arcturus/contracts/execution/           @javeria1234-aaly @Syeda-Dua-Farwa
+/ecosystem/applications/arcturus/schemas/execution/             @javeria1234-aaly @Syeda-Dua-Farwa
+
+# ------------------------------------------------------------------------------
+# 📊 Evaluation Plane & Validation Testing
+# ------------------------------------------------------------------------------
+# Amina Khan (Validation & Evaluation) [cite: 352]
+/ecosystem/applications/arcturus/src/evaluation_plane/          @Amina-Khan380
+/ecosystem/applications/arcturus/contracts/evaluation/          @Amina-Khan380
+/ecosystem/applications/arcturus/schemas/evaluation/            @Amina-Khan380
+/ecosystem/applications/arcturus/tests/                         @Amina-Khan380 @Hashimali-khan
+
+# Ahmed Raza (Synthetic Data & Simulation Intelligence)
+/ecosystem/applications/arcturus/src/synthetic_data/            @4hmad69
+/ecosystem/applications/arcturus/src/evaluation_plane/intelligence/ @4hmad69
+
+# ------------------------------------------------------------------------------
+# ⏱️ Simulation Engine, Lineage, Observability & Experiments
+# ------------------------------------------------------------------------------
+# Muhammad Maaz Khan (Simulation Runtime) [cite: 542]
+/ecosystem/applications/arcturus/src/simulation/                @Khan5002
+/ecosystem/applications/arcturus/contracts/simulation/          @Khan5002
+/ecosystem/applications/arcturus/schemas/simulation/            @Khan5002
+
+# Experimentation Framework (Maryam Yaqoob & Maaz Khan co-own) [cite: 483, 542]
+/ecosystem/applications/arcturus/src/experimentation/           @Maryam-Yaqoob @Khan5002
+/ecosystem/applications/arcturus/contracts/experiment/          @Maryam-Yaqoob @Khan5002
+
+# Shared Infrastructure & Operational Telemetry
+/ecosystem/applications/arcturus/src/lineage/                   @Khan5002 @Hashimali-khan
+/ecosystem/applications/arcturus/contracts/provenance/          @Khan5002 @Hashimali-khan
+/ecosystem/applications/arcturus/src/observability/             @Khan5002 @Hashimali-khan
+/ecosystem/applications/arcturus/schemas/telemetry/             @Khan5002 @Hashimali-khan
+
+# ------------------------------------------------------------------------------
+# 🔌 Integration & OCOS Boundary
+# ------------------------------------------------------------------------------
+# Co-owned by Team Lead and Runtime Engineer to ensure system connectivity
+/ecosystem/applications/arcturus/src/integration/               @Hashimali-khan @Khan5002
+/ecosystem/applications/arcturus/contracts/ocos-integration/     @Hashimali-khan @Khan5002
