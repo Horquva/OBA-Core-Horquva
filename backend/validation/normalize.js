@@ -5,7 +5,12 @@ function normalizeValidationResult(result) {
     decision: result.decision,
     requiresHumanReview: result.requiresHumanReview,
     reason: result.reason || null,
+
     audit: result.audit || null,
+
+    advanced: result.advanced || null,
+
+    intelligence: result.intelligence || null,
   }
 }
 
