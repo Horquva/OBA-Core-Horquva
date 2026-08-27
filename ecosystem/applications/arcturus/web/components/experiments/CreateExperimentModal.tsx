@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { experimentApi } from '../../lib/api-client';
 
-export default function CreateExperimentModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+// Yahan hum ne onCreated add kiya hai
+export default function CreateExperimentModal({ isOpen, onClose, onCreated }: { isOpen: boolean, onClose: () => void, onCreated?: () => void }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -12,7 +13,8 @@ export default function CreateExperimentModal({ isOpen, onClose }: { isOpen: boo
     setLoading(true);
     try {
       await experimentApi.createExperiment({ name, config: {} });
-      onClose(); // Kamyabi ke baad modal band kar dein
+      if (onCreated) onCreated(); // Naya experiment banne par refresh trigger karein
+      onClose(); 
     } catch (error) {
       console.error("Failed to create experiment", error);
     } finally {
@@ -37,18 +39,8 @@ export default function CreateExperimentModal({ isOpen, onClose }: { isOpen: boo
             />
           </div>
           <div className="flex justify-end space-x-2">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-              disabled={loading} 
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-100">Cancel</button>
+            <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
               {loading ? 'Creating...' : 'Create'}
             </button>
           </div>
