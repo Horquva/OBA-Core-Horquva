@@ -1,6 +1,7 @@
 'use client';
 
 import { DecisionIntelligenceReport } from '@/lib/decisionIntelligence';
+import { EvidenceBadge } from '../ui/EvidenceBadge';
 
 interface Props {
   report: DecisionIntelligenceReport;
@@ -77,7 +78,7 @@ function KpiCard({ label, value, sub, color }: {
 }
 
 export function DecisionHeader({ report }: Props) {
-  const cfg = verdictConfig[report.dqiVerdict];
+  const cfg = verdictConfig[report.dqiVerdict ?? 'CRITICAL'];
   const kpiCounts = [
     { label: 'Good Decisions',       value: report.good.length,       color: qualityColors.GOOD.color },
     { label: 'Acceptable',           value: report.acceptable.length,  color: qualityColors.ACCEPTABLE.color },
@@ -105,55 +106,61 @@ export function DecisionHeader({ report }: Props) {
         gap: 48,
         flexWrap: 'wrap',
       }}>
-        <DQIGauge score={report.dqi} verdict={report.dqiVerdict} />
+        {report.evidence.status === 'insufficient_evidence' ? (
+          <EvidenceBadge evidence={report.evidence} />
+        ) : (
+          <>
+            <DQIGauge score={report.dqi as number} verdict={report.dqiVerdict as 'STRONG' | 'MIXED' | 'WEAK' | 'CRITICAL'} />
 
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-primary)' }}>
-              Decision Quality Index
-            </h2>
-            <span style={{
-              fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
-              padding: '4px 12px', borderRadius: 6,
-              color: cfg.color, backgroundColor: cfg.bg, border: `1px solid ${cfg.border}`,
-            }}>
-              {cfg.label}
-            </span>
-          </div>
-          <p style={{ margin: 0, fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 640 }}>
-            <strong style={{ color: 'var(--text-primary)', fontSize: 17 }}>{report.dqi}/100</strong> org-wide decision quality score across{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>{report.totalDecisions} audited decisions</strong>{' '}
-            (ownership assignments, tool adoptions, and workflow setups).{' '}
-            {report.harmful.length > 0 && (
-              <span style={{ color: qualityColors.HARMFUL.color, fontWeight: 600 }}>
-                {report.harmful.length} HARMFUL decision{report.harmful.length > 1 ? 's' : ''} require immediate attention.
-              </span>
-            )}
-          </p>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-primary)' }}>
+                  Decision Quality Index
+                </h2>
+                <span style={{
+                  fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  padding: '4px 12px', borderRadius: 6,
+                  color: cfg.color, backgroundColor: cfg.bg, border: `1px solid ${cfg.border}`,
+                }}>
+                  {cfg.label}
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 640 }}>
+                <strong style={{ color: 'var(--text-primary)', fontSize: 17 }}>{report.dqi}/100</strong> org-wide decision quality score across{' '}
+                <strong style={{ color: 'var(--text-primary)' }}>{report.totalDecisions} audited decisions</strong>{' '}
+                (ownership assignments, tool adoptions, and workflow setups).{' '}
+                {report.harmful.length > 0 && (
+                  <span style={{ color: qualityColors.HARMFUL.color, fontWeight: 600 }}>
+                    {report.harmful.length} HARMFUL decision{report.harmful.length > 1 ? 's' : ''} require immediate attention.
+                  </span>
+                )}
+              </p>
 
-          {/* Mini tier bar */}
-          <div style={{ marginTop: 16, display: 'flex', gap: 4, height: 6, borderRadius: 4, overflow: 'hidden' }}>
-            {(['GOOD', 'ACCEPTABLE', 'POOR', 'HARMFUL'] as const).map(t => {
-              const count = report[t.toLowerCase() as 'good' | 'acceptable' | 'poor' | 'harmful'].length;
-              const pct = report.totalDecisions > 0 ? (count / report.totalDecisions) * 100 : 0;
-              return (
-                <div
-                  key={t}
-                  style={{ width: `${pct}%`, backgroundColor: qualityColors[t].color, borderRadius: 4, transition: 'width 1s ease' }}
-                  title={`${t}: ${count}`}
-                />
-              );
-            })}
-          </div>
-          <div style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            {(['GOOD', 'ACCEPTABLE', 'POOR', 'HARMFUL'] as const).map(t => (
-              <span key={t} style={{ fontSize: 10, color: qualityColors[t].color, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: qualityColors[t].color, display: 'inline-block' }} />
-                {t} · {report[t.toLowerCase() as 'good' | 'acceptable' | 'poor' | 'harmful'].length}
-              </span>
-            ))}
-          </div>
-        </div>
+              {/* Mini tier bar */}
+              <div style={{ marginTop: 16, display: 'flex', gap: 4, height: 6, borderRadius: 4, overflow: 'hidden' }}>
+                {(['GOOD', 'ACCEPTABLE', 'POOR', 'HARMFUL'] as const).map(t => {
+                  const count = report[t.toLowerCase() as 'good' | 'acceptable' | 'poor' | 'harmful'].length;
+                  const pct = report.totalDecisions > 0 ? (count / report.totalDecisions) * 100 : 0;
+                  return (
+                    <div
+                      key={t}
+                      style={{ width: `${pct}%`, backgroundColor: qualityColors[t].color, borderRadius: 4, transition: 'width 1s ease' }}
+                      title={`${t}: ${count}`}
+                    />
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {(['GOOD', 'ACCEPTABLE', 'POOR', 'HARMFUL'] as const).map(t => (
+                  <span key={t} style={{ fontSize: 10, color: qualityColors[t].color, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: qualityColors[t].color, display: 'inline-block' }} />
+                    {t} · {report[t.toLowerCase() as 'good' | 'acceptable' | 'poor' | 'harmful'].length}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* KPI strip */}
@@ -166,12 +173,16 @@ export function DecisionHeader({ report }: Props) {
         {kpiCounts.map(k => (
           <KpiCard key={k.label} label={k.label} value={k.value} color={k.color} />
         ))}
-        <KpiCard
-          label="DQI Score"
-          value={`${report.dqi}/100`}
-          sub={report.dqiVerdict}
-          color={cfg.color}
-        />
+        {report.evidence.status === 'insufficient_evidence' ? (
+          <KpiCard label="DQI Score" value="—" sub="insufficient evidence" />
+        ) : (
+          <KpiCard
+            label="DQI Score"
+            value={`${report.dqi}/100`}
+            sub={report.dqiVerdict ?? undefined}
+            color={cfg.color}
+          />
+        )}
       </div>
     </div>
   );

@@ -6,11 +6,15 @@
  * exchanges a structured Intelligence Package: source, type, confidence,
  * evidence, recommendations, relationships, context, timestamp, version.
  *
- * This is the nervous system that lets M01, M02, M03 ... communicate using one
- * constitutional structure. Provides schema validation + publish/subscribe.
+ * This is the common structure every analysis returns, and how M11/M23/M24/M48/
+ * M50/M55 read each other's output. Provides schema validation and confidence
+ * fusion.
+ *
+ * The publish/subscribe IntelligenceBus that used to live here was removed with
+ * the runtime: its only readers were four analyses reporting on the log of Brain
+ * runs rather than on the organization. See the design document, open question 1.
  */
 
-const { EventEmitter } = require('events')
 
 const INTELLIGENCE_TYPES = [
   'ownership', 'dependency', 'risk', 'governance', 'accountability',
@@ -86,37 +90,9 @@ function propagateConfidence(packages) {
   return clamp01(min * 0.6 + avg * 0.4)
 }
 
-class IntelligenceBus extends EventEmitter {
-  constructor() {
-    super()
-    this.setMaxListeners(200)
-    this._log = []
-  }
-
-  publish(pkg) {
-    const { valid, errors } = validateIntelligence(pkg)
-    if (!valid) throw new Error(`Rejected non-constitutional intelligence: ${errors.join(', ')}`)
-    this._log.push(pkg)
-    this.emit(`intel:${pkg.type}`, pkg)
-    this.emit('intel:*', pkg)
-    return pkg
-  }
-
-  subscribe(type, handler) {
-    const evt = type === '*' ? 'intel:*' : `intel:${type}`
-    this.on(evt, handler)
-    return () => this.off(evt, handler)
-  }
-
-  history(limit = 100) {
-    return this._log.slice(-limit)
-  }
-}
-
 module.exports = {
   INTELLIGENCE_TYPES,
   createIntelligence,
   validateIntelligence,
   propagateConfidence,
-  IntelligenceBus,
 }

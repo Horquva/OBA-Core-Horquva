@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { evidenceGate } = require('../../domain/definitions')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -57,6 +58,25 @@ function computeLiveTrustScore(claims) {
   if (!claims.length) return 0
   const verified = claims.filter(c => c.verdict === 'VERIFIED').length
   return Math.round((verified / claims.length) * 100 * 100) / 100
+}
+
+/**
+ * Decides whether there's enough evidence to publish a trust verdict at all,
+ * and computes it if so. Zero claims used to read as trustScore: 0 and
+ * trustStatus: 'UNTRUSTED' via the ternary below — the same absence-reads-
+ * as-a-verdict bug band() has elsewhere in the product, just under its own
+ * inline thresholds instead of band() itself (D-07, D-10).
+ */
+function trustStatusFor(claims) {
+  const evidence = evidenceGate(claims, () => true)
+  if (!evidence.sufficient) return { trustStatus: null, evidence }
+
+  const trustScore = computeLiveTrustScore(claims)
+  const trustStatus =
+    trustScore >= 75 ? 'TRUSTED'
+    : trustScore >= 50 ? 'PARTIAL'
+    : 'UNTRUSTED'
+  return { trustStatus, evidence }
 }
 
 // ─────────────────────────────────────────────
@@ -116,6 +136,7 @@ router.get('/summary', async (req, res) => {
     const unverified   = claims.filter(c => c.verdict === 'UNVERIFIED').length
     const contradicted = claims.filter(c => c.verdict === 'CONTRADICTED').length
     const trustScore   = computeLiveTrustScore(claims)
+    const { trustStatus, evidence } = trustStatusFor(claims)
 
     // Entities with contradictory evidence
     const contradictedEntities = [
@@ -145,10 +166,8 @@ router.get('/summary', async (req, res) => {
       unverifiedClaims:         unverified,
       contradictedClaims:       contradicted,
       trustScore,
-      trustStatus:
-        trustScore >= 75 ? 'TRUSTED'
-        : trustScore >= 50 ? 'PARTIAL'
-        : 'UNTRUSTED',
+      trustStatus,
+      evidence,
       entitiesWithContradictions: contradictedEntities.length,
       contradictedEntities,
       weakestClaimCategory: weakestCategory
@@ -247,3 +266,4 @@ router.get('/entity/:name', async (req, res) => {
 })
 
 module.exports = router
+router.trustStatusFor = trustStatusFor

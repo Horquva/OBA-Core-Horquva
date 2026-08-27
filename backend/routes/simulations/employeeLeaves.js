@@ -1,18 +1,14 @@
 const express = require('express')
 const router = express.Router()
-const supabase = require('../../supabase')
+const domain = require('../../domain')
 
-// Base list — which employees can be simulated
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('employees')
-      .select('id, name, role, department, risk')
-    if (error) return res.status(500).json({ error: error.message })
+    const roots = await domain.simulations.loadRoots()
     res.json({
       scenario: 'employee-leaves',
       hint: 'Call /api/simulations/employee-leaves/{name} to run a scenario',
-      available: data || [],
+      available: roots.employees.map((e) => ({ id: e.id, name: e.name, role: e.role, department: e.department })),
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -20,49 +16,29 @@ router.get('/', async (req, res) => {
 })
 
 router.get('/:employee', async (req, res) => {
-  const { employee } = req.params
+  try {
+    const { employee } = req.params
+    const roots = await domain.simulations.loadRoots()
+    const target = roots.employees.find((e) => e.name.toLowerCase() === employee.toLowerCase())
+    if (!target) return res.status(404).json({ error: 'Employee not found' })
 
-  // Get employee
-  const { data: emp } = await supabase
-    .from('employees')
-    .select('id, name, role, department, risk')
-    .ilike('name', employee)
-    .single()
-
-  if (!emp) return res.status(404).json({ error: 'Employee not found' })
-
-  // Get agents owned by this employee
-  const { data: agentLinks } = await supabase
-    .from('employee_agent')
-    .select('agent_id, agents(id, name, status, risk)')
-    .eq('employee_id', emp.id)
-
-  const impactedAgents = agentLinks.map(l => l.agents)
-
-  // Get workflows those agents belong to
-  const agentIds = impactedAgents.map(a => a.id)
-  const { data: wfLinks } = await supabase
-    .from('workflow_dependencies')
-    .select('workflows(id, name, status, risk)')
-    .in('agent_id', agentIds)
-
-  const impactedWorkflows = [...new Map(
-    wfLinks.map(w => [w.workflows.id, w.workflows])
-  ).values()]
-
-  const riskLevel = impactedAgents.length >= 4 ? 'critical'
-                  : impactedAgents.length >= 2 ? 'high'
-                  : 'medium'
-
-  res.json({
-    scenario:         `If ${emp.name} leaves`,
-    impactedAgents,
-    impactedWorkflows,
-    impactedPeople:   [emp],
-    healthBefore:     'stable',
-    healthAfter:      riskLevel === 'critical' ? 'critical' : 'degraded',
-    riskLevel
-  })
+    const result = domain.simulations.employeeLeaves(target.id, roots)
+    const baseline = domain.simulations.baselineHealthScore(roots)
+    res.json({
+      scenario: result.scenario,
+      impactedAgents: result.impactedAgents,
+      impactedWorkflows: result.impactedWorkflows,
+      impactedPeople: result.impactedPeople,
+      healthBefore: 'stable',
+      healthAfter: result.severity === 'critical' ? 'critical' : result.severity === 'low' ? 'stable' : 'degraded',
+      riskLevel: result.severity,
+      healthDelta: result.healthDelta,
+      baselineHealthScore: baseline,
+      simulatedHealthScore: baseline != null && result.healthDelta != null ? baseline - result.healthDelta : null,
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 module.exports = router

@@ -102,24 +102,34 @@ All responses are JSON. Errors return `{ "error": "..." }` with a 4xx/5xx status
 | GET | `/api/governance/offenders` | Worst governance offenders |
 
 ## Voice Intelligence (Huzaifa, M22) - `/api/voice`
+A live conversational engine, not a Deepgram transcript mock — it rebuilds an
+in-memory org graph from Supabase on every call and does real intent
+classification + entity resolution. There is no `/transcribe` or `/intent`
+endpoint (no audio handling of any kind); the actual surface is:
+
 | Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/api/voice/transcribe` | `{ text }` or `{ audio (base64) }` -> transcript |
-| POST | `/api/voice/intent` | `{ transcript }` -> structured intent signal |
+| GET/POST | `/api/voice/ask` | `?q=` or `{ question }` -> answer + resolved entity + confidence |
+| POST | `/api/voice/command` | `{ text }` -> structured command execution |
+| GET | `/api/voice/intents` | Supported intents / example queries |
+| GET | `/api/voice/history` | Recent conversation history |
+| GET | `/api/voice/daily-summary` | Today's spoken executive briefing |
 
 ## Constitutional Intelligence & Meta-Brain (Kamran, Phase 6) - `/api/intelligence`
-These read `data/sunrise_care.json` and need **no** Supabase.
+These read live from Supabase via `domain/dataset.js` (shared with voice.js) —
+**not** from `data/company.json`, which nothing reads at runtime. They do not
+survive a Supabase outage.
 
 | Method | Endpoint | Module |
 |---|---|---|
-| GET | `/api/intelligence/signals` | M36 Signal Intelligence |
-| GET | `/api/intelligence/opportunities` | M38 Opportunity Intelligence |
-| GET | `/api/intelligence/capability` | M39 Capability Intelligence |
-| GET | `/api/intelligence/alignment` | M40 Strategic Alignment |
-| GET | `/api/intelligence/truth` | M46 Truth Intelligence |
-| GET | `/api/intelligence/advisor` | M48 Autonomous Advisor |
+| GET | `/api/intelligence/signals` | Trend signals — which monthly series are moving the wrong way |
+| GET | `/api/intelligence/opportunities` | Improvement opportunities ranked by impact against effort |
+| GET | `/api/intelligence/capability` | Per-department capability score. **Not** the graph's `/capability-by-dept` |
+| GET | `/api/intelligence/alignment` | Alignment checklist. `alignment` is null / `NO_SIGNAL` when no dimension has data. **Not** the graph's `/strategic-alignment` |
+| GET | `/api/intelligence/truth` | Truth claims (served by `routes/truth/truth.js`) |
+| GET | `/api/intelligence/advisor` | Playbook advice — only for claims that verified |
 | GET | `/api/intelligence/brain-core` | M50 Brain Core Logic |
-| GET | `/api/intelligence/simulation-universe` | M54 Simulation Universe |
+| GET | `/api/intelligence/simulation-universe` | Resilience scenarios — what each shock costs |
 | GET | `/api/intelligence/orchestrator` | M55 Intelligence Orchestrator (runs last) |
 | GET | `/api/intelligence` | Index of all Phase 6 endpoints |
 

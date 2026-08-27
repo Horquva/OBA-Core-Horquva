@@ -2,12 +2,21 @@ import { ShieldCheck, ShieldAlert } from 'lucide-react';
 
 interface TruthBadgeProps {
   confidence?: number | null; // 0-100
+  /**
+   * No default on purpose. This used to default to `true`, so a caller that
+   * forgot to pass anything silently showed "Verified" -- the exact
+   * "absence rendered as a confident verdict" pattern D-07 exists to catch
+   * everywhere else in this codebase. A caller must now say what it means:
+   * pass `confidence` when a real number exists, or `verified` explicitly
+   * when there's a real boolean signal (e.g. non-empty live data). Omitting
+   * both renders honestly as Unverified.
+   */
   verified?: boolean;
   label?: string;
 }
 
-export function TruthBadge({ confidence, verified = true, label }: TruthBadgeProps) {
-  const isVerified = verified && (confidence === undefined || confidence === null || confidence > 0);
+export function TruthBadge({ confidence, verified, label }: TruthBadgeProps) {
+  const isVerified = confidence != null ? confidence > 0 : Boolean(verified);
 
   if (!isVerified) {
     return (

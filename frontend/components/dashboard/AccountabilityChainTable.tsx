@@ -42,7 +42,7 @@ export function AccountabilityChainTable() {
           </div>
           <p className="text-xs text-[color:var(--text-tertiary)] mt-1">RACI Chain Mapping & Conflict Detection</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={chains.length > 0} />
       </div>
 
       {issues && issues.noSeparationOfDutiesCount > 0 && (

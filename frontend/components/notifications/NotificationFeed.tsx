@@ -35,11 +35,11 @@ export default function NotificationFeed({
             {/* Group Heading */}
 
             <div className="mb-4 flex items-center gap-4">
-              <h2 className="text-sm font-semibold uppercase tracking-[0.25em] text-gray-400">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--text-tertiary)]">
                 {title}
               </h2>
 
-              <div className="h-px flex-1 bg-white/10" />
+              <div className="h-px flex-1 bg-[var(--border-subtle)]" />
             </div>
 
             {/* Notifications */}

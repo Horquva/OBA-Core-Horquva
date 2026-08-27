@@ -1,6 +1,13 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { must } = require('../../lib/supabaseQuery')
+
+// Skips the query entirely when there is nothing to look up (an empty .in()
+// list is rejected by PostgREST), but still fails loudly on a real error
+// instead of letting it look like "zero impacted assets".
+const fetchByIds = (table, cols, ids) =>
+  ids.length ? must(table, supabase.from(table).select(cols).in('id', ids)) : Promise.resolve([])
 
 // Base index route so health checks and discovery return 200 (the analysis route requires an :employee param)
 router.get('/', (req, res) => {
@@ -38,21 +45,11 @@ router.get('/:employee', async (req, res) => {
   const platformIds = assets.filter(a => a.asset_type === 'platform') .map(a => a.asset_id)
 
   // Fetch full details in parallel
-  const [agentsRes, workflowsRes, platformsRes] = await Promise.all([
-    agentIds.length
-      ? supabase.from('agents').select('id, name, status, risk').in('id', agentIds)
-      : { data: [] },
-    workflowIds.length
-      ? supabase.from('workflows').select('id, name, status, risk').in('id', workflowIds)
-      : { data: [] },
-    platformIds.length
-      ? supabase.from('ai_platforms').select('id, name, type, status').in('id', platformIds)
-      : { data: [] }
+  const [impactedAgents, impactedWorkflows, impactedPlatforms] = await Promise.all([
+    fetchByIds('agents', 'id, name, status, risk', agentIds),
+    fetchByIds('workflows', 'id, name, status, risk', workflowIds),
+    fetchByIds('ai_platforms', 'id, name, type, status', platformIds),
   ])
-
-  const impactedAgents    = agentsRes.data    || []
-  const impactedWorkflows = workflowsRes.data || []
-  const impactedPlatforms = platformsRes.data || []
 
   const totalImpact = impactedAgents.length + impactedWorkflows.length + impactedPlatforms.length
   const undocumented = assets.filter(a => !a.is_documented).length
