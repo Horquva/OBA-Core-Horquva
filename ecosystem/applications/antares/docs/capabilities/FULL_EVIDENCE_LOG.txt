@@ -1,0 +1,189 @@
+===== 1. UNIT/INTEGRATION TEST SUITE =====
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- /home/claude/venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/claude/work/extracted/antares/services/validation-service
+plugins: anyio-4.14.2
+collecting ... collected 21 items
+
+tests/test_assessment_engine.py::TestCapabilityModel::test_structurally_complete_capability PASSED [  4%]
+tests/test_assessment_engine.py::TestCapabilityModel::test_incomplete_capability_reports_missing_fields PASSED [  9%]
+tests/test_assessment_engine.py::TestCapabilityModel::test_to_dict_is_serializable PASSED [ 14%]
+tests/test_assessment_engine.py::TestAssessmentEngine::test_strong_capability_scores_well PASSED [ 19%]
+tests/test_assessment_engine.py::TestAssessmentEngine::test_every_finding_has_reasoning PASSED [ 23%]
+tests/test_assessment_engine.py::TestAssessmentEngine::test_incomplete_capability_flags_missing_required_fields PASSED [ 28%]
+tests/test_assessment_engine.py::TestAssessmentEngine::test_no_evidence_lowers_evidence_quality_score PASSED [ 33%]
+tests/test_assessment_engine.py::TestDecisionEngine::test_incomplete_capability_yields_incomplete_state PASSED [ 38%]
+tests/test_assessment_engine.py::TestDecisionEngine::test_strong_capability_yields_validated_or_ready PASSED [ 42%]
+tests/test_assessment_engine.py::TestDecisionEngine::test_weak_but_present_capability_yields_revision_required PASSED [ 47%]
+tests/test_assessment_engine.py::TestDecisionEngine::test_empty_capability_never_incorrectly_validated PASSED [ 52%]
+tests/test_validation_service_integration.py::TestFullPipeline::test_upstream_to_downstream_flow PASSED [ 57%]
+tests/test_validation_service_integration.py::TestFullPipeline::test_decision_reasoning_is_machine_readable PASSED [ 61%]
+tests/test_validation_service_integration.py::TestFullPipeline::test_validation_report_is_human_readable PASSED [ 66%]
+tests/test_validation_service_integration.py::TestRevisionWorkflow::test_revision_preserves_history PASSED [ 71%]
+tests/test_validation_service_integration.py::TestEdgeCases::test_unknown_capability_raises PASSED [ 76%]
+tests/test_validation_service_integration.py::TestEdgeCases::test_status_before_assessment_raises PASSED [ 80%]
+tests/test_validation_service_integration.py::TestEdgeCases::test_empty_evidence_list_handled_gracefully PASSED [ 85%]
+tests/test_validation_service_integration.py::TestEdgeCases::test_duplicate_capability_names_detected_by_comparison_engine PASSED [ 90%]
+tests/test_validation_service_integration.py::TestEdgeCases::test_conflicting_evidence_still_produces_a_state PASSED [ 95%]
+tests/test_validation_service_integration.py::TestComparisonAndPortfolio::test_portfolio_view_categorizes_capabilities PASSED [100%]
+
+============================== 21 passed in 0.04s ==============================
+
+===== 2. LIVE HEALTH CHECK =====
+{"status":"ok","service":"capability-validation"}
+
+===== 3. RUNTIME INTEGRATION: UPSTREAM PRODUCER =====
+[upstream] submitted candidate -> capability_id=CAP-2A23ADF6EE status=RECEIVED
+[upstream] validation triggered -> state=REVISION_REQUIRED score=0.699
+{
+  "capability_id": "CAP-2A23ADF6EE",
+  "assessed_at": "2026-08-25T09:01:22.104550+00:00",
+  "overall_score": 0.699,
+  "state": "REVISION_REQUIRED",
+  "recommendation": "Capability shows organizational merit but requires revision. Weak dimensions: EVIDENCE_QUALITY, EXPLAINABILITY, CONSTITUTIONAL_ALIGNMENT, OBA_COMPATIBILITY. Missing information: constitutional_notes, oba_compatibility_notes.",
+  "risks": [
+    "False-positive mismatches during initial rollout"
+  ],
+  "missing_information": [
+    "constitutional_notes",
+    "oba_compatibility_notes"
+  ],
+  "reviewer_notes": [],
+  "findings": [
+    {
+      "dimension": "ORGANIZATIONAL_VALUE",
+      "score": 1.0,
+      "passed": true,
+      "reasoning": "Organizational value scored 1.00 based on presence and specificity of the stated problem and expected value.",
+      "evidence_used": [
+        "capability.organizational_problem",
+        "capability.expected_value"
+      ],
+      "strengths": [
+        "Organizational problem is stated",
+        "Expected value is stated",
+        "Expected value is described with sufficient detail"
+      ],
+      "weaknesses": [],
+      "missing_information": []
+    },
+    {
+      "dimension": "ORGANIZATIONAL_IMPACT",
+      "score": 1.0,
+      "passed": true,
+      "reasoning": "Organizational impact scored 1.00 based on target and expected outcome clarity.",
+      "evidence_used": [
+        "capability.target_organization",
+        "capability.expected_outcome"
+      ],
+      "strengths": [
+        "Target organization identified",
+        "Expected outcome described"
+      ],
+      "weaknesses": [],
+      "missing_information": []
+    },
+    {
+      "dimension": "EVIDENCE_QUALITY",
+      "score": 0.5,
+      "passed": false,
+      "reasoning": "Evidence quality scored 0.50 based on 1 traceable reference(s) out of 1 submitted.",
+      "evidence_used": [
+        "EV-INV-001"
+      ],
+      "strengths": [
+        "1 traceable evidence reference(s) found"
+      ],
+      "weaknesses": [
+        "Only one piece of evidence provided; more strengthens the claim"
+      ],
+      "missing_information": []
+    },
+    {
+      "dimension": "EXPLAINABILITY",
+      "score": 0.4,
+      "passed": false,
+      "reasoning": "Description present but short (14 words).",
+      "evidence_used": [
+        "capability.description"
+      ],
+      "strengths": [],
+      "weaknesses": [
+        "Description is too brief to be clearly explainable"
+      ],
+      "missing_information": []
+    },
+    {
+      "dimension": "REUSABILITY",
+      "score": 0.8,
+      "passed": true,
+      "reasoning": "Reusability scored 0.80 based on dependency clarity.",
+      "evidence_used": [
+        "capability.dependencies"
+      ],
+      "strengths": [
+        "Dependencies are explicitly listed"
+      ],
+      "weaknesses": [],
+      "missing_information": []
+    },
+    {
+      "dimension": "ENTERPRISE_READINESS",
+      "score": 0.8,
+      "passed": true,
+      "reasoning": "Enterprise readiness scored 0.80 based on documented risk awareness.",
+      "evidence_used": [
+        "capability.risks"
+      ],
+      "strengths": [
+        "Known risks are documented"
+      ],
+      "weaknesses": [],
+      "missing_information": []
+    },
+    {
+      "dimension": "CONSTITUTIONAL_ALIGNMENT",
+      "score": 0.5,
+      "passed": false,
+      "reasoning": "Constitutional alignment scored 0.50 based on submitted notes. This is a documentation check only \u2014 final constitutional authority remains outside this platform.",
+      "evidence_used": [
+        "capability.constitutional_notes"
+      ],
+      "strengths": [],
+      "weaknesses": [],
+      "missing_information": [
+        "constitutional_notes"
+      ]
+    },
+    {
+      "dimension": "OBA_COMPATIBILITY",
+      "score": 0.5,
+      "passed": false,
+      "reasoning": "OBA compatibility scored 0.50 based on submitted notes.",
+      "evidence_used": [
+        "capability.oba_compatibility_notes"
+      ],
+      "strengths": [],
+      "weaknesses": [],
+      "missing_information": [
+        "oba_compatibility_notes"
+      ]
+    }
+  ]
+}
+
+===== 4. RUNTIME INTEGRATION: DOWNSTREAM CONSUMER =====
+[downstream] received report for CAP-2A23ADF6EE: state=REVISION_REQUIRED, score=0.699
+[downstream] decision -> HOLD, 2 weaknesses reported, returned to submitter
+[downstream] full audit trail available: 2 recorded transition(s)
+[downstream] confirmed: unknown capability_id correctly fails with HTTP 404 (no false success)
+
+===== 5. DELIBERATE FAILURE INJECTION =====
+[PASS] empty_capability_is_not_silently_validated -- state=INCOMPLETE score=0.22
+[PASS] missing_evidence_lowers_score_not_hidden -- EVIDENCE_QUALITY passed=False score=0.0
+[PASS] unknown_capability_id_fails_loudly_on_every_read_endpoint -- statuses={'/capabilities/CAP-DOES-NOT-EXIST-0000/assessment': 404, '/capabilities/CAP-DOES-NOT-EXIST-0000/status': 404, '/capabilities/CAP-DOES-NOT-EXIST-0000/report': 404}
+[PASS] history_endpoint_does_not_fabricate_entries_for_unknown_id -- status=200 history_len=0
+[PASS] revision_of_unknown_capability_fails_not_silently_creates -- status=404
+
+5/5 failure-injection checks passed
