@@ -39,8 +39,8 @@ class OntologyRuntime:
             # Validates against ContractEnvelope-wrapped snapshot
             self.current_state = OntologySnapshotContract(**payload)
             
-            # run_id is now accessed directly from the hardened contract
-            logger.info(f"Loaded Ontology Snapshot v{self.current_state.snapshot_version} for Run: {self.current_state.run_id}")
+            # run_id is accessed from the nested context envelope
+            logger.info(f"Loaded Ontology Snapshot v{self.current_state.snapshot_version} for Run: {self.current_state.context.run_id}")
             
             # Hydrate the fast-lookup indices
             self._rebuild_indices()
