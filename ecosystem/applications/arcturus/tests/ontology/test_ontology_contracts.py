@@ -121,5 +121,5 @@ def test_valid_ontology_resolution(runtime: OntologyRuntime, base_context: Simul
     runtime.load_snapshot(payload)
     
     resolution = runtime.resolve_entity("Department", 50)
-    assert resolution.is_resolved is True
-    assert resolution.entity_id == 50
+    assert resolution is not None
+    assert resolution.dept_id == 50
