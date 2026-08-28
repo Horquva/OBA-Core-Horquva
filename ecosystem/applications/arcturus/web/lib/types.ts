@@ -55,6 +55,20 @@ export interface SyntheticDataCorpusPreview {
   rejected_artifacts_available: boolean;
 }
 
+export interface StructuredAssessment {
+  context: {
+    experiment_id: string;
+    global_seed: number;
+    run_id?: string;
+    trace_id?: string;
+  };
+  assessment_summary: string;
+  confidence_score: number;
+  risk_factors: string[];
+  recommendations: string[];
+  evidence_citations: string[];
+}
+
 export interface User {
   id: string;
   name: string;
