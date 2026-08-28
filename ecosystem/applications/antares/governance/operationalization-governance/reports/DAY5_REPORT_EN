@@ -1,0 +1,108 @@
+# Laiba Mahboob — Knowledge Operationalization Platform (Backend)
+
+## Day 5 Knowledge Services and Reliability Engineering — Verified Deliverable Report
+
+**Verification date:** 27 August 2026**Source package:** `internshipwork.zip`
+
+## Executive Summary
+
+The Day 5 Knowledge Services layer was implemented and verified successfully. It provides hardened service interfaces for knowledge ingestion, operationalization status, relationship traversal, provenance and ownership, validation contracts, dependencies, version information, permissions, idempotent processing, structured HTTP errors, and audit logging.
+
+The implementation was copied into a clean runnable deliverable. Syntax compilation, mandatory idempotency-key enforcement, successful service ingestion, idempotent retry behavior, SQLite persistence, operationalization status retrieval, relationship traversal, and logging were verified successfully.
+
+## 1. Implemented Service Capabilities
+
+| Capability | Implementation | Verified Result |
+| --- | --- | --- |
+| Service contract validation | Pydantic `ProvenanceContract`, `ValidationContract`, and `KnowledgeIngestRequest` models | Required nested data and confidence bounds are validated |
+| Hardened ingestion | `POST /api/v5/services/ingest` | Valid request returns HTTP 201 |
+| Idempotent ingestion | Required `X-Idempotency-Key` header with unique database constraint | Repeated request with the same key returns the existing record |
+| Object-ID conflict handling | Existing object ID check | Conflicting object ID returns HTTP 409 |
+| Operationalization status | `GET /api/v5/services/status/{knowledge_id}` | Returns active status, version, source platform, and ingestion time |
+| Relationship traversal | `GET /api/v5/services/traverse/{knowledge_id}` | Returns capabilities, technologies, and dependencies |
+| Provenance and ownership | Source platform, author, source reference, permission tier, and timestamp | Returned in the service contract response |
+| Observability | Python logging for ingestion, duplicates, success, and unexpected failures | Audit-style logs were produced during tests |
+| Persistence | SQLAlchemy model backed by SQLite | `antres_knowledge_services` table and database are created |
+
+## 2. API Endpoints
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/v5/services/ingest` | Validate, operationalize, and persist a knowledge object using an idempotency key |
+| GET | `/api/v5/services/status/{knowledge_id}` | Retrieve operationalization status and lifecycle metadata |
+| GET | `/api/v5/services/traverse/{knowledge_id}` | Retrieve stored capabilities, technologies, and dependencies |
+
+## 3. Verification Results
+
+| Check | Result |
+| --- | --- |
+| Python syntax compilation | PASS |
+| Missing idempotency key returns HTTP 400 | PASS |
+| Valid ingestion returns HTTP 201 | PASS |
+| Service metadata and ownership contract returned | PASS |
+| Same idempotency key can be retried safely | PASS |
+| Idempotent retry returns the existing object | PASS |
+| Operationalization status endpoint returns HTTP 200 | PASS |
+| Status is `ACTIVE_OPERATIONALIZED` | PASS |
+| Relationship traversal endpoint returns HTTP 200 | PASS |
+| Capability relationship is preserved | PASS |
+| SQLite persistence database created | PASS |
+| Audit logs emitted during ingestion and retry | PASS |
+| Complete Day 5 service workflow | PASS |
+
+The test output confirmed:
+
+> Missing Idempotency Key Status: 400Valid Ingestion Status: 201Idempotent Retry Status: 201Status Endpoint Response: `ACTIVE_OPERATIONALIZED`Traversal Endpoint Response: capability, technology, and dependency data returnedAll Day 5 Knowledge Services & Reliability tests passed successfully!
+
+## 4. Verified Service Contract
+
+The verified sample was stored with the object ID `ko-svc-001`, version `1`, operationalization status `ACTIVE_OPERATIONALIZED`, and permission tier `ENTERPRISE_INTERNAL`. Its provenance identified the source platform as `Capability Validation`, the author as `zara.val.lead`, and the source reference as `CV-REF-9921`.
+
+The validation contract preserved the approving officer, `APPROVED` status, confidence score `0.99`, and constitutional-check result. The relationship contract preserved the capability `cap-fin-settle-01`, technologies `tech-fastapi` and `tech-postgres`, and dependency `dep-auth-gateway`.
+
+## 5. Run Instructions
+
+From the deliverable directory, install the required packages and run the test suite:
+
+```bash
+pip install fastapi sqlalchemy uvicorn pydantic
+python test_day5_services.py
+```
+
+To start the API server directly, run:
+
+```bash
+python day5_knowledge_services.py
+```
+
+The server listens on `http://127.0.0.1:8000`.
+
+## 6. Scope and Limitations
+
+The Day 5 deliverable is a verified local SQLite/FastAPI knowledge services layer. It demonstrates service contracts, idempotent ingestion, status reporting, relationship traversal, ownership metadata, permissions metadata, persistence, and structured error responses. It is not yet a production deployment.
+
+The implementation does not yet include authentication, authorization enforcement, database migrations, distributed idempotency storage, transaction rollback compensation, asynchronous queues, rate limiting, external platform connectors, or deployment configuration. The permission tier is currently stored as metadata and is not an authorization enforcement mechanism. These are follow-up hardening items and have not been represented as completed.
+
+The `validation_status` field remains a free-form string even though its description lists values such as `APPROVED` and `CONDITIONAL`. Confidence-score bounds and category validation are enforced by the Pydantic request model.
+
+## Final Status
+
+**PASS — The Day 5 Knowledge Services and Reliability Engineering layer was implemented and verified without test failures.** The clean implementation, executable test suite, SQLite evidence, and English report are ready for continued work in Day 6.
+
+## Delivered Files
+
+| File | Purpose |
+| --- | --- |
+| `DAY5_REPORT_EN.md` | Professional English Day 5 report |
+| `day5_knowledge_services.py` | Clean canonical knowledge services implementation |
+| `test_day5_services.py` | Executable service and reliability tests |
+| `antres_knowledge_services.db` | Runtime-created SQLite persistence evidence |
+
+## References
+
+[1]: `/home/ubuntu/upload/internshipwork.zip` — Uploaded internship workspace used as the Day 5 source artifact.
+
+[2]: `/home/ubuntu/day5_deliverable/day5_knowledge_services.py` — Clean canonical Day 5 implementation.
+
+[3]: `/home/ubuntu/day5_deliverable/test_day5_services.py` — Executable Day 5 service and reliability test suite.
+
