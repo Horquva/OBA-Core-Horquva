@@ -45,5 +45,6 @@ paths = [
 regexes = [
   '''EXAMPLE_(KEY|TOKEN|SECRET)_DO_NOT_USE''',
   '''AKIAZ9X4Q7T2R8M5N1K3''',
+  '''AKIAIOSFODNN7EXAMPLE''',
   '''zK9mQ2wRfPxT7Lb3VnJhY6sD1cA4eG8uH5oI0pW''',
 ]
