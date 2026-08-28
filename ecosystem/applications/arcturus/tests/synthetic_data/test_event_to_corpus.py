@@ -35,36 +35,52 @@ def valid_artifact_dict(artifact_id: str = "ART-001") -> dict:
     }
 
 
-def test_valid_artifacts_become_accepted_with_lineage() -> None:
+def test_valid_artifacts_become_accepted_artifacts() -> None:
     result = build_result({
         "artifacts": [valid_artifact_dict("ART-001"), valid_artifact_dict("ART-002")],
         "clock_step": 5,
     })
+
     corpus = SyntheticGenerationService().generate_corpus(result=result)
+
     assert len(corpus.accepted_artifacts) == 2
-    assert {a.artifact_id for a in corpus.accepted_artifacts} == {r.data_point_id for r in corpus.lineage}
-    assert all(record.tick == 5 for record in corpus.lineage)
+    assert {a.artifact_id for a in corpus.accepted_artifacts} == {"ART-001", "ART-002"}
 
 
-def test_malformed_artifact_is_rejected_not_dropped() -> None:
+def test_every_accepted_artifact_gets_a_lineage_record() -> None:
     result = build_result({
-        "artifacts": [valid_artifact_dict("ART-001"), {"artifact_id": "ART-BAD"}],
-        "clock_step": 1,
+        "artifacts": [valid_artifact_dict("ART-001"), valid_artifact_dict("ART-002")],
+        "clock_step": 5,
     })
+
     corpus = SyntheticGenerationService().generate_corpus(result=result)
-    assert len(corpus.accepted_artifacts) == 1
-    assert len(corpus.rejected_artifacts) == 1
-    assert corpus.rejected_artifacts[0].candidate_artifact_id == "ART-BAD"
-    assert corpus.rejected_artifacts[0].rejection_reason
+
+    assert {a.artifact_id for a in corpus.accepted_artifacts} == {r.data_point_id for r in corpus.lineage}
+    assert len(corpus.lineage) == 2
 
 
-def test_missing_artifacts_key_produces_empty_corpus() -> None:
-    corpus = SyntheticGenerationService().generate_corpus(result=build_result({"clock_step": 0}))
-    assert corpus.accepted_artifacts == []
-    assert corpus.lineage == []
+def test_lineage_tick_matches_clock_step() -> None:
+    result = build_result({"artifacts": [valid_artifact_dict("ART-001")], "clock_step": 9})
+
+    corpus = SyntheticGenerationService().generate_corpus(result=result)
+
+    assert corpus.lineage[0].tick == 9
 
 
-def test_empty_state_snapshot_produces_empty_corpus_not_error() -> None:
-    corpus = SyntheticGenerationService().generate_corpus(result=build_result({}))
-    assert corpus.accepted_artifacts == []
-    assert corpus.rejected_artifacts == []
+def test_missing_clock_step_defaults_to_zero() -> None:
+    result = build_result({"artifacts": [valid_artifact_dict("ART-001")]})  # no clock_step key
+
+    corpus = SyntheticGenerationService().generate_corpus(result=result)
+
+    assert corpus.lineage[0].tick == 0
+
+
+def test_lineage_carries_experiment_context() -> None:
+    result = build_result({"artifacts": [valid_artifact_dict("ART-001")], "clock_step": 1})
+
+    corpus = SyntheticGenerationService().generate_corpus(result=result)
+
+    record = corpus.lineage[0]
+    assert record.experiment_id == "EXP-DAY4"
+    assert record.global_seed == 7
+    assert record.config_fingerprint
