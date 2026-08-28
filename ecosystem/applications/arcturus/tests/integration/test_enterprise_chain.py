@@ -12,7 +12,7 @@ from ecosystem.applications.arcturus.src.integration.enterprise_chain import (
 )
 
 
-def main() -> None:
+def test_enterprise_chain_execution() -> None:
     context = SimulationContext(
         experiment_id="enterprise-chain-test",
         global_seed=42,
@@ -66,5 +66,3 @@ def main() -> None:
     assert len(instance.roles) > 0
 
 
-if __name__ == "__main__":
-    main()
