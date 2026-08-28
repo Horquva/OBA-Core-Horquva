@@ -2,14 +2,14 @@
 
 import { Activity, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Agent } from "../../types";
-import { calculateHealthScore } from "../../lib/risk";
 
 interface TwinHealthIndexProps {
   agents?: Agent[];
+  healthIndex?: number;
 }
 
-export function TwinHealthIndex({ agents = [] }: TwinHealthIndexProps) {
-  const score = calculateHealthScore(agents);
+export function TwinHealthIndex({ agents = [], healthIndex = 0 }: TwinHealthIndexProps) {
+  const score = healthIndex;
 
   // Derive trend by comparing full-owner agents vs a "stressed" baseline
   const criticalCount = agents.filter(

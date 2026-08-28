@@ -22,13 +22,14 @@ from ecosystem.applications.arcturus.src.simulation.checkpoint_store import Chec
 class RuntimeEngine:
     """Executes one SimulationContext through Created -> Completed."""
 
-    def __init__(self, checkpoint_root: Path):
+    def __init__(self, checkpoint_root: Path, max_ticks: int | None = None):
         self._checkpoints = CheckpointStore(checkpoint_root)
         self._context: SimulationContext | None = None
         self._status: ExecutionStatus = ExecutionStatus.CREATED
         self._clock_step: int = 0
         self._state: dict[str, Any] = {}
         self._started_at: datetime | None = None
+        self._max_ticks = max_ticks
 
     @property
     def status(self) -> ExecutionStatus:
@@ -60,6 +61,10 @@ class RuntimeEngine:
             raise BusinessRuleViolation("step() called before initialize_run()")
         if self._status not in (ExecutionStatus.INITIALIZED, ExecutionStatus.RUNNING):
             raise BusinessRuleViolation(f"step() called from invalid state: {self._status}")
+        if self._max_ticks is not None and self._clock_step >= self._max_ticks:
+            raise BusinessRuleViolation(
+                f"clock overflow: max_ticks={self._max_ticks} reached, refusing to advance further"
+            )
 
         self._status = ExecutionStatus.RUNNING
         self._clock_step += 1

@@ -125,13 +125,21 @@ class WorkforceAgentRoster(BaseModel):
 # OUTBOUND â€” what the Runtime produces for other platforms
 # ---------------------------------------------------------------------------
 
+class StateSnapshot(BaseModel):
+    clock_step: int = Field(default=0, ge=0)
+    artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    relationships: list[dict[str, Any]] = Field(default_factory=list)
+    deterministic_fingerprint: str | None = None
+    last_step_at: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
 class ExperimentResultPackage(ContractEnvelope):
     """For Amina's Validation & Evaluation Platform.
     Inherits run_id/trace_id/experiment_id/global_seed via .context (ContractEnvelope)."""
 
     scenario_id: str = Field(..., min_length=3)
     final_status: ExecutionStatus
-    state_snapshot: dict[str, Any] = Field(default_factory=dict)
+    state_snapshot: StateSnapshot = Field(default_factory=StateSnapshot)
     event_count: int = Field(default=0, ge=0)
     checkpoint_refs: list[str] = Field(default_factory=list)
 
@@ -177,3 +185,4 @@ class SimulationEventStream(BaseModel):
     tick: int | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
     emitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+

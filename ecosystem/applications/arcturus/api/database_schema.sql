@@ -80,3 +80,26 @@ CREATE TABLE IF NOT EXISTS validation_results (
     metrics JSON NOT NULL DEFAULT '{}',
     evaluated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 7. Synthetic Lineage table (Tracks origin of artifacts)
+CREATE TABLE IF NOT EXISTS synthetic_lineage (
+    lineage_id TEXT PRIMARY KEY,
+    artifact_id TEXT NOT NULL REFERENCES synthetic_artifacts(artifact_id) ON DELETE CASCADE,
+    source_system TEXT NOT NULL,
+    generation_method TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_synthetic_lineage_artifact ON synthetic_lineage(artifact_id);
+
+-- 8. Synthetic Rejected Artifacts table (Items failing hard validation)
+CREATE TABLE IF NOT EXISTS synthetic_rejected_artifacts (
+    rejection_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES simulation_runs(run_id) ON DELETE CASCADE,
+    artifact_type TEXT NOT NULL,
+    content JSON NOT NULL,
+    rejection_reason TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_synthetic_rejected_run ON synthetic_rejected_artifacts(run_id);

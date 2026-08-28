@@ -59,7 +59,7 @@ export function EntitySearchPanel({ report }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Searchable ontology browser (Agents, Workflows, Tools, People)</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={allAssets.length > 0} />
       </div>
 
       <div className="relative z-10 mb-4">

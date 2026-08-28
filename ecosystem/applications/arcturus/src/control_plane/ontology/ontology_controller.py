@@ -38,10 +38,10 @@ class OntologyController:
         }
 
     def bootstrap_domain(self, payload: Dict[str, Any]) -> str:
-        self.runtime.load_snapshot(payload)
-        self._initialize_versions()
-        logger.info("Ontology Controller successfully bootstrapped domain state.")
-        return str(self.runtime.current_state.run_id)
+            self.runtime.load_snapshot(payload)
+            self._initialize_versions()
+            logger.info("Ontology Controller successfully bootstrapped domain state.")
+            return str(self.runtime.current_state.context.run_id)
 
     def _initialize_versions(self) -> None:
         if not self.runtime.current_state:
@@ -92,5 +92,11 @@ class OntologyController:
         if entity_type in self._entity_versions and entity_id in self._entity_versions[entity_type]:
             return self._entity_versions[entity_type][entity_id]
         return "1.0"
+
+    def export_snapshot(self) -> dict:
+        """Export the current ontology snapshot as a dictionary."""
+        if self.runtime.current_state:
+            return self.runtime.current_state.model_dump()
+        return {}
 
 ontology_controller = OntologyController()

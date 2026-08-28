@@ -3,39 +3,44 @@
 import React, { useState } from 'react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { Layers, Zap, TrendingUp, ChevronRight } from 'lucide-react';
-import { Recommendation } from '../../lib/recommendations';
+import { Recommendation, RecPriority } from '../../lib/recommendations';
 
 interface Props {
   recommendations: Recommendation[];
 }
 
+const PRIORITY_COLOR: Record<RecPriority, string> = {
+  CRITICAL: 'text-red-400',
+  HIGH: 'text-amber-400',
+  MEDIUM: 'text-sky-400',
+};
+
 export function OpportunityBacklogTab({ recommendations }: Props) {
   const [tab, setTab] = useState<'quick-win' | 'strategic-bet'>('quick-win');
-  
-  // Transform standard recommendations into Backlog items
+
+  // Transform standard recommendations into Backlog items. Previously computed
+  // a fabricated "leverageScore" (start at 50, +30/+15/+15/+5 point arithmetic
+  // with no real basis) used for both the displayed number and sort order --
+  // same anti-pattern already fixed in DecisionSupportQueue.tsx. `recommendations`
+  // arrives already sorted CRITICAL->HIGH->MEDIUM then by effort
+  // (brain module M04's own priority/effort sort, D-62), and filtering preserves that
+  // order, so no re-sort is needed once the fake score is gone.
   const items = recommendations.map(rec => {
     // Quick if effort is quick/medium, strategic if strategic
     const category = rec.effort === 'Quick' ? 'quick-win' : 'strategic-bet';
-    
-    // Leverage score based on priority vs effort inversion
-    let leverageScore = 50;
-    if (rec.priority === 'CRITICAL') leverageScore += 30;
-    if (rec.priority === 'HIGH') leverageScore += 15;
-    if (rec.effort === 'Quick') leverageScore += 15;
-    if (rec.effort === 'Medium') leverageScore += 5;
-    
+
     return {
       id: rec.id,
       title: rec.title,
       description: rec.description,
       category,
-      leverageScore: Math.min(leverageScore, 99),
+      priority: rec.priority,
       effort: rec.effort === 'Quick' ? 'LOW' : rec.effort === 'Medium' ? 'MED' : 'HIGH',
       impact: rec.priority === 'CRITICAL' ? 'HIGH' : rec.priority === 'HIGH' ? 'MED' : 'LOW',
       owner: rec.targetType === 'person' ? rec.targetName : undefined,
       tag: rec.category
     };
-  }).filter(i => i.category === tab).sort((a, b) => b.leverageScore - a.leverageScore);
+  }).filter(i => i.category === tab);
 
   const EFFORT_COLOR: Record<string, string> = {
     LOW:  'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -59,9 +64,9 @@ export function OpportunityBacklogTab({ recommendations }: Props) {
             <Layers className="w-5 h-5 text-indigo-400" />
             <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Opportunity Backlog</h2>
           </div>
-          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Leverage-ranked quick wins vs. strategic bets</p>
+          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Priority-ranked quick wins vs. strategic bets</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={items.length > 0} />
       </div>
 
       <div className="flex gap-2 mb-6 z-10">
@@ -87,8 +92,8 @@ export function OpportunityBacklogTab({ recommendations }: Props) {
             <div className="flex flex-col items-center justify-start pt-1 shrink-0">
               <span className="text-xs font-mono text-[color:var(--text-tertiary)] w-6 text-center">#{i + 1}</span>
               <div className="mt-2 text-center">
-                <span className="text-lg font-bold text-[color:var(--text-primary)]">{item.leverageScore}</span>
-                <span className="block text-[9px] text-[color:var(--text-tertiary)] uppercase tracking-wider leading-tight">leverage</span>
+                <span className={`text-sm font-bold uppercase tracking-wider ${PRIORITY_COLOR[item.priority]}`}>{item.priority}</span>
+                <span className="block text-[9px] text-[color:var(--text-tertiary)] uppercase tracking-wider leading-tight">priority</span>
               </div>
             </div>
 

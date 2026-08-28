@@ -1,18 +1,14 @@
 const express = require('express')
 const router = express.Router()
-const supabase = require('../../supabase')
+const domain = require('../../domain')
 
-// Base list — which platforms can be simulated
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('ai_platforms')
-      .select('id, name, type, status')
-    if (error) return res.status(500).json({ error: error.message })
+    const roots = await domain.simulations.loadRoots()
     res.json({
       scenario: 'platform-down',
       hint: 'Call /api/simulations/platform-down/{name} to run a scenario',
-      available: data || [],
+      available: roots.ai_platforms.map((p) => ({ id: p.id, name: p.name, type: p.type, status: p.status })),
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -20,47 +16,29 @@ router.get('/', async (req, res) => {
 })
 
 router.get('/:platform', async (req, res) => {
-  const { platform } = req.params
+  try {
+    const { platform } = req.params
+    const roots = await domain.simulations.loadRoots()
+    const target = roots.ai_platforms.find((p) => p.name.toLowerCase() === platform.toLowerCase())
+    if (!target) return res.status(404).json({ error: 'Platform not found' })
 
-  // Get platform
-  const { data: plat } = await supabase
-    .from('ai_platforms')
-    .select('id, name, type, status')
-    .ilike('name', platform)
-    .single()
-
-  if (!plat) return res.status(404).json({ error: 'Platform not found' })
-
-  // Get agents on this platform
-  const { data: agentLinks } = await supabase
-    .from('agent_platform')
-    .select('agents(id, name, status, risk)')
-    .eq('platform_id', plat.id)
-
-  const impactedAgents = agentLinks.map(l => l.agents)
-
-  // Get workflows for those agents
-  const agentIds = impactedAgents.map(a => a.id)
-  const { data: wfLinks } = await supabase
-    .from('workflow_dependencies')
-    .select('workflows(id, name, status, risk)')
-    .in('agent_id', agentIds)
-
-  const impactedWorkflows = [...new Map(
-    wfLinks.map(w => [w.workflows.id, w.workflows])
-  ).values()]
-
-  const riskLevel = impactedAgents.length >= 3 ? 'critical' : 'high'
-
-  res.json({
-    scenario:         `If ${plat.name} goes down`,
-    impactedAgents,
-    impactedWorkflows,
-    impactedPeople:   [],
-    healthBefore:     'stable',
-    healthAfter:      'degraded',
-    riskLevel
-  })
+    const result = domain.simulations.platformDown(target.id, roots)
+    const baseline = domain.simulations.baselineHealthScore(roots)
+    res.json({
+      scenario: result.scenario,
+      impactedAgents: result.impactedAgents,
+      impactedWorkflows: result.impactedWorkflows,
+      impactedPeople: result.impactedPeople,
+      healthBefore: 'stable',
+      healthAfter: result.severity === 'critical' ? 'critical' : result.severity === 'low' ? 'stable' : 'degraded',
+      riskLevel: result.severity,
+      healthDelta: result.healthDelta,
+      baselineHealthScore: baseline,
+      simulatedHealthScore: baseline != null && result.healthDelta != null ? baseline - result.healthDelta : null,
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 module.exports = router

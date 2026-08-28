@@ -4,6 +4,10 @@ import clsx from 'clsx';
 
 interface OwnershipOverviewProps {
   agents: Agent[];
+  /** Owner names flagged by the backend's isHumanSpof (>=3 unbacked agents,
+   *  GET /api/ownership) -- the one canonical definition, replacing this
+   *  component's own independently-coded >=3 threshold. */
+  humanSpofOwners: Set<string>;
 }
 
 function KpiCard({ 
@@ -29,7 +33,7 @@ function KpiCard({
   );
 }
 
-export function OwnershipOverview({ agents }: OwnershipOverviewProps) {
+export function OwnershipOverview({ agents, humanSpofOwners }: OwnershipOverviewProps) {
   const owners = new Set(agents.map(a => a.owner).filter(Boolean));
   const totalOwners = owners.size;
 
@@ -37,13 +41,7 @@ export function OwnershipOverview({ agents }: OwnershipOverviewProps) {
 
   const coverageGaps = agents.filter(a => !a.owner || !a.backup_owner).length;
 
-  const ownerToNoBackupCount: Record<string, number> = {};
-  agents.forEach(a => {
-    if (a.owner && !a.backup_owner) {
-      ownerToNoBackupCount[a.owner] = (ownerToNoBackupCount[a.owner] || 0) + 1;
-    }
-  });
-  const humanSPOFs = Object.values(ownerToNoBackupCount).filter(count => count >= 3).length;
+  const humanSPOFs = humanSpofOwners.size;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mt-8">

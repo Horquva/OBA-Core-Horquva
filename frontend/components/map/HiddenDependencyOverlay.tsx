@@ -134,7 +134,7 @@ export function HiddenDependencyOverlay({ agents, dependencies }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Reveal transitive, shared-resource, or shared-owner edges not visible in the main graph</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={agents.length > 0 && dependencies.length > 0} />
       </div>
 
       {/* Mode selector + toggle */}

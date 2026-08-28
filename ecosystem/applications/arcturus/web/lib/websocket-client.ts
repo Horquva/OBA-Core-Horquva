@@ -1,15 +1,37 @@
 export class WebSocketClient {
-  private ws: WebSocket | null = null;
+  private socket: WebSocket | null = null;
+  private url: string;
 
-  constructor(private url: string) {}
+  constructor(url: string) {
+    this.url = url;
+  }
 
-  connect() {
-    console.log(`Connecting native WebSocket to ${this.url}...`);
-    this.ws = new WebSocket(this.url);
+  connect(onMessage?: (data: any) => void) {
+    this.socket = new WebSocket(this.url);
+
+    this.socket.onopen = () => console.log(`WebSocket Connected to ${this.url}`);
     
-    this.ws.onopen = () => console.log("WebSocket Connected");
-    this.ws.onmessage = (event) => console.log("Message received:", event.data);
-    this.ws.onerror = (error) => console.error("WebSocket Error:", error);
-    this.ws.onclose = () => console.log("WebSocket Disconnected");
+    this.socket.onmessage = (event) => {
+      try {
+        const parsedData = JSON.parse(event.data);
+        if (onMessage) {
+          onMessage(parsedData);
+        } else {
+          console.log('WS Message Received:', parsedData);
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message', error);
+      }
+    };
+
+    this.socket.onerror = (error) => console.error('WebSocket Error:', error);
+    this.socket.onclose = () => console.log('WebSocket Disconnected');
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
+    }
   }
 }
