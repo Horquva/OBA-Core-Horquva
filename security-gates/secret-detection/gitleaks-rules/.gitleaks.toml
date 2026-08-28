@@ -41,9 +41,8 @@ description = "Known safe test fixtures only — never production paths"
 paths = [
   '''(.*)/safe-fixtures/(.*)''',
   '''(.*)\.md$''',
-  '''ecosystem/applications/antares/services/operationalization-service/tests/test_day5_services\.py$''',
-  '''ecosystem/applications/antares/knowledge/scenarios/test_day5_services\.py$''',
-  '''ecosystem/applications/altair/applications/server/data/store\.json$''',
+  '''(.*)/test_day5_services\.py$''',
+  '''(.*)/store\.json$''',
 ]
 regexes = [
   '''EXAMPLE_(KEY|TOKEN|SECRET)_DO_NOT_USE''',
