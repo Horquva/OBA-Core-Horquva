@@ -12,17 +12,20 @@ wheels/
 # Node.js
 backend/node_modules/
 backend_extracted/
+web/node_modules/
+web/.next/
 
 # Environment variables (never commit real credentials)
 .env
+.env*
+!.env.example
 backend/.env
 
 # Internal planning docs
 FRONTEND_PLAN.md
 
-# Never commit any env file (BUILD_SPEC Part F, threat 5)
-.env*
-!.env.example
+# Backups
+*.backup
 
 # Git worktrees for isolated workstream execution (SDD)
 .worktrees/

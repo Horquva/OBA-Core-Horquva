@@ -220,10 +220,87 @@ class SyntheticGenerationResult(ContractEnvelope):
 
         return self
 
+class LineageRecord(BaseModel):
+    """One link in the experiment_id -> seed -> config -> tick -> event -> data_point chain."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    experiment_id: str = Field(..., min_length=1)
+    global_seed: int = Field(..., ge=0)
+    config_fingerprint: str = Field(
+        ..., min_length=1,
+        description="Stable fingerprint of the run config this data point was generated under.",
+    )
+    tick: int = Field(..., ge=0)
+    event_id: str = Field(
+        ..., min_length=1,
+        description="Identifier of the source event this data point traces back to.",
+    )
+    data_point_id: str = Field(..., min_length=1)
+
+
+class RejectedArtifactRecord(BaseModel):
+    """A generated candidate excluded from the trusted corpus, with an explicit reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_artifact_id: str = Field(..., min_length=1)
+    rejection_reason: str = Field(..., min_length=1)
+    event_id: str = Field(..., min_length=1)
+
+
+class SyntheticDataCorpus(ContractEnvelope):
+    """
+    Day 4 outbound handoff: Synthetic Data -> Validation.
+
+    Built from Maaz's ExperimentResultPackage.state_snapshot (artifacts key),
+    NOT from per-tick SimulationEventStream events. Distinct from Week 3's
+    SyntheticGenerationResult (merged, untouched).
+
+    An empty or missing state_snapshot must produce an empty corpus here
+    (accepted_artifacts=[], lineage=[]) — never an error, never fabricated
+    data. Required Day 6 failure-mode behavior.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    context: SimulationContext
+
+    accepted_artifacts: list[SyntheticArtifactContract] = Field(
+        default_factory=list,
+        description="Artifacts that passed the trusted-corpus boundary.",
+    )
+
+    rejected_artifacts: list[RejectedArtifactRecord] = Field(
+        default_factory=list,
+        description="Candidates excluded from the trusted corpus. Rejected data is never silently dropped.",
+    )
+
+    lineage: list[LineageRecord] = Field(
+        default_factory=list,
+        description="Full lineage chain for every accepted artifact.",
+    )
+
+    @model_validator(mode="after")
+    def validate_lineage_covers_accepted_artifacts(self) -> Self:
+        accepted_ids = {artifact.artifact_id for artifact in self.accepted_artifacts}
+        lineage_ids = {record.data_point_id for record in self.lineage}
+        missing = accepted_ids - lineage_ids
+
+        if missing:
+            raise ValueError(
+                "Every accepted artifact must have a lineage record. "
+                f"Missing lineage for: {', '.join(sorted(missing))}"
+            )
+
+        return self
 
 __all__ = [
     "SyntheticGenerationRequest",
     "SyntheticArtifactContract",
     "SyntheticRelationshipContract",
     "SyntheticGenerationResult",
+    "LineageRecord",
+    "RejectedArtifactRecord",
+    "SyntheticDataCorpus"
 ]
