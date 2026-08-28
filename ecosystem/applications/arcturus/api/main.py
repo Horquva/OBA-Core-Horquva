@@ -70,6 +70,12 @@ try:
 except ImportError:
     pass  # Javeria's PR not yet merged
 
+try:
+    from ecosystem.applications.arcturus.api.routers.scenarios import router as scenarios_router
+    app.include_router(scenarios_router)
+except ImportError:
+    pass  # Maryam's scenarios router
+
 @app.exception_handler(ArcturusValidationError)
 async def arcturus_error_handler(request: Request, exc: ArcturusValidationError):
     response = APIErrorResponse(
