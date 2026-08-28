@@ -1,5 +1,5 @@
-"""
-Simulation Runtime & Experiment Platform — Adapters
+﻿"""
+Simulation Runtime & Experiment Platform â€” Adapters
 Owner: Muhammad Maaz Khan
 
 Translator layer: converts upstream/downstream shared contracts into the
@@ -36,7 +36,7 @@ def build_simulation_context(
 def build_experiment_result_package(
     context: SimulationContext,
     run_history: RunHistoryRecord,
-    state_snapshot: dict,
+    state_snapshot: dict | StateSnapshot,
     checkpoint_refs: list[str],
 ) -> ExperimentResultPackage:
     """Builds the outbound handoff to Amina's Validation & Evaluation Platform."""
@@ -45,6 +45,6 @@ def build_experiment_result_package(
         scenario_id=context.experiment_id,
         final_status=run_history.status,
         state_snapshot=state_snapshot,
-        event_count=len(state_snapshot),
+        event_count=len(state_snapshot if isinstance(state_snapshot, dict) else state_snapshot.model_dump()),
         checkpoint_refs=checkpoint_refs,
     )
