@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { NavigationItem } from '../../types/workspace.types';
 
 interface SidebarNavProps {
   items: NavigationItem[];
-  activePath: string;
-  onNavigate: (path: string) => void;
 }
 
-export const SidebarNav: React.FC<SidebarNavProps> = ({
-  items,
-  activePath,
-  onNavigate,
-}) => {
+export const SidebarNav: React.FC<SidebarNavProps> = ({ items }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
 
   return (
     <aside
@@ -38,11 +34,11 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
 
       <nav className="flex-1 px-2 space-y-1">
         {items.map((item) => {
-          const isActive = item.path === activePath;
+          const isActive = location.pathname === item.path;
           return (
-            <button
+            <Link
               key={item.id}
-              onClick={() => onNavigate(item.path)}
+              to={item.path}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                 isActive
                   ? 'bg-slate-800 text-white'
@@ -56,7 +52,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                   {item.badge}
                 </span>
               )}
-            </button>
+            </Link>
           );
         })}
       </nav>

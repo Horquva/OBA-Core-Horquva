@@ -1,4 +1,5 @@
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { NavigationItem, BreadcrumbItem } from '../../types/workspace.types';
 import SidebarNav from './SidebarNav';
 import TopNavBar from './TopNavBar';
@@ -16,11 +17,9 @@ export const ApplicationShell: React.FC<ApplicationShellProps> = ({
   userRole,
   children,
 }) => {
-  const [activePath, setActivePath] = useState(
-    navigationItems[0]?.path ?? '/'
-  );
+  const location = useLocation();
 
-  const activeItem = navigationItems.find((item) => item.path === activePath);
+  const activeItem = navigationItems.find((item) => item.path === location.pathname);
   const breadcrumbs: BreadcrumbItem[] = [
     { label: 'Workspace' },
     { label: activeItem?.label ?? 'Overview' },
@@ -28,11 +27,7 @@ export const ApplicationShell: React.FC<ApplicationShellProps> = ({
 
   return (
     <div className="flex h-screen w-full bg-slate-50">
-      <SidebarNav
-        items={navigationItems}
-        activePath={activePath}
-        onNavigate={setActivePath}
-      />
+      <SidebarNav items={navigationItems} />
 
       <div className="flex flex-col flex-1 min-w-0">
         <TopNavBar

@@ -1,5 +1,6 @@
 ﻿import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { MemoryRouter } from 'react-router-dom';
 import ApplicationShell from '../src/components/shell/ApplicationShell';
 import WidgetContainer from '../src/components/widgets/WidgetContainer';
 import { NavigationItem } from '../src/types/workspace.types';
@@ -12,9 +13,11 @@ const navItems: NavigationItem[] = [
 describe('ApplicationShell', () => {
   it('renders top navigation and sidebar without crashing', () => {
     render(
-      <ApplicationShell navigationItems={navItems} userName="Taha" userRole="Admin">
-        <div>Content</div>
-      </ApplicationShell>
+      <MemoryRouter initialEntries={['/overview']}>
+        <ApplicationShell navigationItems={navItems} userName="Taha" userRole="Admin">
+          <div>Content</div>
+        </ApplicationShell>
+      </MemoryRouter>
     );
     expect(screen.getAllByText('Overview').length).toBeGreaterThan(0);
     expect(screen.getByText('Taha')).toBeInTheDocument();
@@ -22,9 +25,11 @@ describe('ApplicationShell', () => {
 
   it('collapses and expands the sidebar on toggle', () => {
     render(
-      <ApplicationShell navigationItems={navItems} userName="Taha" userRole="Admin">
-        <div>Content</div>
-      </ApplicationShell>
+      <MemoryRouter initialEntries={['/overview']}>
+        <ApplicationShell navigationItems={navItems} userName="Taha" userRole="Admin">
+          <div>Content</div>
+        </ApplicationShell>
+      </MemoryRouter>
     );
     const toggle = screen.getByTestId('sidebar-toggle');
     expect(screen.getByText('WOBA')).toBeInTheDocument();
