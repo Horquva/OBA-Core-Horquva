@@ -91,7 +91,8 @@ class IntelligenceService:
 
     def _fetch_validation(self, db: sqlite3.Connection, run_id: str) -> sqlite3.Row | None:
         return db.execute(
-            "SELECT final_status, passed_rules, metrics FROM validation_results WHERE run_id = ?",
+            "SELECT final_status, passed_rules, failed_rules, flagged_rules, reason "
+            "FROM validation_results WHERE run_id = ?",
             (run_id,),
         ).fetchone()
 
@@ -111,8 +112,12 @@ class IntelligenceService:
             for row in artifact_rows
         ]
         return json.dumps({
-            "validated_metrics": json.loads(validation_row["metrics"]) if validation_row["metrics"] else {},
-            "passed_rules": json.loads(validation_row["passed_rules"]) if validation_row["passed_rules"] else [],
+            "validation_summary": {
+                "passed_rules": json.loads(validation_row["passed_rules"]) if validation_row["passed_rules"] else [],
+                "failed_rules": json.loads(validation_row["failed_rules"]) if validation_row["failed_rules"] else [],
+                "flagged_rules": json.loads(validation_row["flagged_rules"]) if validation_row["flagged_rules"] else [],
+                "reason": validation_row["reason"],
+            },
             "evidence": evidence,
             "output_instructions": (
                 'Respond ONLY with JSON: {"assessment_summary": str, '
