@@ -33,13 +33,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const t = localStorage.getItem(TOKEN_KEY);
-      const u = localStorage.getItem(USER_KEY);
-      if (t) setToken(t);
-      if (u) setUser(JSON.parse(u));
-    } catch (_) {}
-    setLoading(false);
+    Promise.resolve().then(() => {
+      try {
+        const t = localStorage.getItem(TOKEN_KEY);
+        const u = localStorage.getItem(USER_KEY);
+        if (t) setToken(t);
+        if (u) setUser(JSON.parse(u));
+      } catch {}
+      setLoading(false);
+    });
   }, []);
 
   const persist = useCallback((t: string, u: AuthUser) => {
@@ -48,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(TOKEN_KEY, t);
       localStorage.setItem(USER_KEY, JSON.stringify(u));
-    } catch (_) {}
+    } catch {}
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -86,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
-    } catch (_) {}
+    } catch {}
     router.push('/login');
   }, [router, token]);
 

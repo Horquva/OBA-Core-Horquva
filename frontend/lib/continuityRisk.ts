@@ -33,7 +33,7 @@ export interface ContinuityReport {
 /** Shapes GET /api/continuity's JSON into ContinuityReport, defaulting any
  *  missing field rather than letting a malformed response crash every
  *  component that reads it. */
-export function mapContinuityResponse(json: any): ContinuityReport {
+export function mapContinuityResponse(json: Partial<ContinuityReport> | null | undefined): ContinuityReport {
   return {
     assets: Array.isArray(json?.assets) ? json.assets : [],
     orgSurvivalScore: json?.orgSurvivalScore ?? null,

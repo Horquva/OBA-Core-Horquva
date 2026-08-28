@@ -12,6 +12,16 @@ import { authHeader } from '../../lib/authFetch';
 import { normalizeAgent } from '../../lib/normalize';
 import { buildPredictiveRiskByAgentName } from '../../lib/predictiveRisk';
 
+interface RawDependency {
+  source_id?: string | number;
+  target_id?: string | number;
+  dependency_type?: string;
+}
+
+interface RawSpof {
+  agentId?: string | number;
+}
+
 export default function RiskPage() {
   const [report, setReport] = useState<RiskIntelligenceReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,14 +55,14 @@ export default function RiskPage() {
     .then(([agentsData, depsData, spofData, predictiveData, healthData]) => {
       const agents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
-      const dependencies: Dependency[] = Array.isArray(depsData.dependencies) ? depsData.dependencies.map((d: any) => ({
+      const dependencies: Dependency[] = Array.isArray(depsData.dependencies) ? depsData.dependencies.map((d: RawDependency) => ({
         from: d.source_id?.toString() || '',
         to: d.target_id?.toString() || '',
         type: d.dependency_type || 'sequential',
       })) : [];
 
       const spofAgentIds = new Set<string>(
-        (spofData.spofs || []).map((s: any) => s.agentId?.toString() || '')
+        (spofData.spofs || []).map((s: RawSpof) => s.agentId?.toString() || '')
       );
       const riskByAgentName = buildPredictiveRiskByAgentName(predictiveData);
       const orgHealth = healthData

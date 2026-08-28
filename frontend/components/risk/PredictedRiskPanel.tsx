@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { predictiveApi, PredictiveSummary, PredictedAgent } from '../../lib/api';
-import { ShieldAlert, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ShieldAlert, TrendingUp } from 'lucide-react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { SignalDrilldown } from './SignalDrilldown';
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from 'react';
-import { Agent, AITool, Workflow, Dataset } from '../../types';
+import { Dataset } from '../../types';
 import { Users, Bot, Cpu, GitBranch, ArrowRight, AlertTriangle, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import { PredictiveRiskEntry } from '../../lib/predictiveRisk';

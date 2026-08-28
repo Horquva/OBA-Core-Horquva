@@ -2,7 +2,7 @@
 
 import { ScenarioResult, ScenarioType } from '../../lib/simulation';
 import { RiskLevel } from '../../types';
-import { UserMinus, ShieldOff, Cpu, AlertTriangle, Flame } from 'lucide-react';
+import { UserMinus, ShieldOff, Cpu, AlertTriangle } from 'lucide-react';
 
 interface Props {
   scenarios: ScenarioResult[];

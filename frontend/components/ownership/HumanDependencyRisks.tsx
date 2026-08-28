@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from 'react';
-import { Dataset, Agent, RiskLevel } from '../../types';
+import { Dataset, Agent } from '../../types';
 import { PredictiveRiskEntry } from '../../lib/predictiveRisk';
-import { AlertTriangle, TrendingUp, UserX, FileX, Zap } from 'lucide-react';
+import { AlertTriangle, UserX, FileX, Zap } from 'lucide-react';
 import clsx from 'clsx';
 
 /** GET /api/ownership's per-owner dependencyRiskScore/Tier -- see

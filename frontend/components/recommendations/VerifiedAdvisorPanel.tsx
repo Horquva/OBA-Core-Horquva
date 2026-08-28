@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Recommendation } from '../../lib/recommendations';

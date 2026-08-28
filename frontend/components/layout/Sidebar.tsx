@@ -20,7 +20,6 @@ import {
   Sun,
   Moon,
   Activity,
-  Network,
   Bell,
   Search,
   LogOut,

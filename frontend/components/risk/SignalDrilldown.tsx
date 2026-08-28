@@ -14,8 +14,10 @@ export function SignalDrilldown({ entityName }: Props) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    setError(false);
+    Promise.resolve().then(() => {
+      setLoading(true);
+      setError(false);
+    });
     signalApi.drilldown(entityName)
       .then(setData)
       .catch(() => setError(true))

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { PersonProfile } from '../../lib/knowledgeRisk';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { Users, AlertTriangle } from 'lucide-react';

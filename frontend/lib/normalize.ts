@@ -1,6 +1,22 @@
 import { Agent, Workflow, WorkflowStep } from '../types';
 import { resolveCriticality } from './criticality';
 
+interface RawOwnerRef {
+  name?: string;
+  department?: string;
+}
+
+interface RawAgent {
+  id?: string | number;
+  name?: string;
+  owner?: RawOwnerRef | string | null;
+  backup_owner?: RawOwnerRef | string | null;
+  risk?: string;
+  criticality?: string;
+  department?: string;
+  documented?: boolean;
+}
+
 /**
  * Normalizes a raw /api/agents row into the frontend's Agent shape.
  *
@@ -11,14 +27,14 @@ import { resolveCriticality } from './criticality';
  * for every agent on those pages regardless of its real department. One
  * function now, so this can't happen a 10th time.
  */
-export function normalizeAgent(a: any): Agent {
+export function normalizeAgent(a: RawAgent): Agent {
   return {
     id: a.id?.toString() || '',
     name: a.name || 'Unknown Agent',
-    owner: typeof a.owner === 'object' && a.owner ? a.owner.name : (a.owner || null),
-    backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : (a.backup_owner || null),
+    owner: typeof a.owner === 'object' && a.owner ? (a.owner.name || null) : (a.owner || null),
+    backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? (a.backup_owner.name || null) : (a.backup_owner || null),
     criticality: resolveCriticality(a),
-    department: a.department || a.owner?.department || 'Unassigned',
+    department: a.department || (typeof a.owner === 'object' && a.owner?.department) || 'Unassigned',
     documented: Boolean(a.documented ?? false),
   };
 }
@@ -34,20 +50,39 @@ export function normalizeAgent(a: any): Agent {
  * were this shape, silently rendering every workflow as "Unknown Workflow"
  * with a colliding empty id, "Operations" department, and zero steps.
  */
-export function normalizeWorkflow(w: any): Workflow {
+interface RawWorkflowStep {
+  step?: number;
+  actor?: string;
+  name?: string;
+  action?: string;
+}
+
+interface RawWorkflow {
+  id?: string | number;
+  name?: string;
+  owner?: RawOwnerRef | string | null;
+  backup_owner?: RawOwnerRef | string | null;
+  department?: string;
+  risk?: string;
+  criticality?: string;
+  documented?: boolean;
+  steps?: RawWorkflowStep[];
+}
+
+export function normalizeWorkflow(w: RawWorkflow): Workflow {
   return {
     id: w.id?.toString() || '',
     name: w.name || 'Unknown Workflow',
-    owner: typeof w.owner === 'object' && w.owner ? w.owner.name : (w.owner || 'Unassigned'),
-    backup_owner: typeof w.backup_owner === 'object' && w.backup_owner ? w.backup_owner.name : (w.backup_owner || null),
+    owner: typeof w.owner === 'object' && w.owner ? (w.owner.name || 'Unassigned') : (w.owner || 'Unassigned'),
+    backup_owner: typeof w.backup_owner === 'object' && w.backup_owner ? (w.backup_owner.name || null) : (w.backup_owner || null),
     department: w.department || 'Unassigned',
     criticality: resolveCriticality(w),
     documented: Boolean(w.documented ?? false),
-    steps: Array.isArray(w.steps) ? w.steps.map((s: any): WorkflowStep => ({
-      step: s.step,
-      actor: s.actor,
-      name: s.name,
-      action: s.action,
+    steps: Array.isArray(w.steps) ? w.steps.map((s): WorkflowStep => ({
+      step: s.step ?? 0,
+      actor: (s.actor as WorkflowStep['actor']) ?? 'human',
+      name: s.name ?? '',
+      action: s.action ?? '',
     })) : [],
   };
 }

@@ -414,7 +414,7 @@ export interface LearningIncidentsResponse {
   rankedByExposure: (DepartmentExposure & { rank: number })[];
 }
 
-export interface LearningDepartmentsResponse extends Array<DepartmentExposure> {}
+export type LearningDepartmentsResponse = DepartmentExposure[];
 
 export const learning = {
   summary: () =>

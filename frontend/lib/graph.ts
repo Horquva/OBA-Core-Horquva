@@ -1,5 +1,4 @@
 import { Agent, Dependency } from '../types';
-import { RiskLevel } from '../types';
 
 /**
  * A `Dependency` edge means `from` depends_on `to` (same reading

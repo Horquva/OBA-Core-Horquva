@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { forecast, ApiError, type ForecastOutlookResponse, type ForecastSummaryResponse } from '../../lib/api';
-import { Calendar, AlertTriangle, ChevronRight, Activity, Database, Zap } from 'lucide-react';
+import { Calendar, AlertTriangle, Activity, Database, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { RiskBadge } from '../ui/RiskBadge';
 import { ProvenanceBadge } from '../ui/ProvenanceBadge';

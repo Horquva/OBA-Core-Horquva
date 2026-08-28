@@ -164,8 +164,9 @@ export function FivePillarsRadar() {
           <PolarGrid stroke="var(--border-default)" />
           <PolarAngleAxis
             dataKey="label"
-            tick={(props: any) => {
+            tick={(props: { x?: string | number; y?: string | number; payload?: { value: string } }) => {
               const { x, y, payload } = props;
+              if (!payload) return <g />;
               const pillar = pillars.find(p => p.label === payload.value);
               const href = Object.values(PILLAR_META).find(m => m.label === payload.value)?.href ?? '/';
               return (

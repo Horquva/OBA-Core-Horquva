@@ -1,22 +1,16 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ScenarioResult, ScenarioType } from '../../lib/simulation';
+import { ScenarioResult } from '../../lib/simulation';
 import { ScenarioRanking } from './ScenarioRanking';
 import { ImpactSummary } from './ImpactSummary';
 import {
-  Activity, Beaker, UserMinus, ShieldOff, Cpu, Flame, TrendingDown,
+  Activity, Beaker, UserMinus, ShieldOff, Cpu, Flame,
 } from 'lucide-react';
 
 interface Props {
   scenarios: ScenarioResult[];
 }
-
-const typeConfig: Record<ScenarioType, { icon: React.ElementType; label: string; color: string }> = {
-  PERSON_LEAVES:    { icon: UserMinus, label: 'Employee leaves',  color: 'var(--risk-critical-text)' },
-  AGENT_FAILS:      { icon: ShieldOff, label: 'Agent failure',    color: 'var(--risk-high-text)'     },
-  TOOL_UNAVAILABLE: { icon: Cpu,       label: 'Tool unavailable', color: 'var(--risk-medium-text)'   },
-};
 
 export function SimulationDashboard({ scenarios }: Props) {
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
@@ -94,8 +88,6 @@ export function SimulationDashboard({ scenarios }: Props) {
       {/* ── Most dangerous scenario callout ─────────────────── */}
       {worstScenario && (() => {
         const drop = worstScenario.baselineHealthScore - worstScenario.simulatedHealthScore;
-        const tc = typeConfig[worstScenario.type];
-        const WIcon = tc.icon;
         return (
           <div style={{
             flexShrink: 0,

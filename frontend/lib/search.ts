@@ -11,7 +11,16 @@ export interface SearchEntry {
   url: string;
 }
 
-async function safeJson(path: string): Promise<any[]> {
+interface RawIndexItem {
+  id?: string | number;
+  name?: string;
+  role?: string;
+  department?: string;
+  category?: string;
+  owner?: { department?: string } | string | null;
+}
+
+async function safeJson(path: string): Promise<RawIndexItem[]> {
   try {
     const res = await fetch(`${BASE}${path}`, { cache: 'no-store', headers: authHeader() });
     const data = res.ok ? await res.json() : [];
@@ -36,33 +45,33 @@ export async function fetchSearchIndex(): Promise<SearchEntry[]> {
 
   const entries: SearchEntry[] = [];
 
-  agents.forEach((a: any) => entries.push({
+  agents.forEach((a) => entries.push({
     id: `agent-${a.id}`,
-    title: a.name,
+    title: a.name ?? '',
     type: 'Agent',
-    category: a.owner?.department || 'AI Agents',
+    category: (typeof a.owner === 'object' && a.owner?.department) || 'AI Agents',
     url: '/ai-tools',
   }));
 
-  workflows.forEach((w: any) => entries.push({
+  workflows.forEach((w) => entries.push({
     id: `workflow-${w.id}`,
-    title: w.name,
+    title: w.name ?? '',
     type: 'Workflow',
     category: w.department || 'Operations',
     url: '/workflows',
   }));
 
-  employees.forEach((e: any) => entries.push({
+  employees.forEach((e) => entries.push({
     id: `person-${e.id}`,
-    title: e.role ? `${e.name} (${e.role})` : e.name,
+    title: e.role ? `${e.name} (${e.role})` : (e.name ?? ''),
     type: 'Person',
     category: e.department || 'People',
     url: '/ownership',
   }));
 
-  tools.forEach((t: any) => entries.push({
+  tools.forEach((t) => entries.push({
     id: `tool-${t.id}`,
-    title: t.name,
+    title: t.name ?? '',
     type: 'Tool',
     category: t.category || 'AI Tools',
     url: '/ai-tools',

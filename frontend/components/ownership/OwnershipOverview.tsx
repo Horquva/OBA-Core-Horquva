@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import { Agent } from '../../types';
 import { Users, AlertTriangle, UserMinus, ShieldAlert } from 'lucide-react';
 import clsx from 'clsx';
@@ -10,9 +11,23 @@ interface OwnershipOverviewProps {
   humanSpofOwners: Set<string>;
 }
 
-function KpiCard({ 
+interface KpiCardProps {
+  title: string;
+  value: number;
+  subtitle?: string;
+  icon: ComponentType<{ className?: string }>;
+  colorClass?: string;
+  delayClass: string;
+  borderClass: string;
+  bgGlowClass: string;
+  iconBgClass: string;
+  iconTextClass: string;
+  glowColor?: string;
+}
+
+function KpiCard({
   title, value, subtitle, icon: Icon, colorClass, delayClass, borderClass, bgGlowClass, iconBgClass, iconTextClass, glowColor
-}: any) {
+}: KpiCardProps) {
   return (
     <div className={clsx("card p-6 animate-fade-up relative overflow-hidden group border-t", delayClass, borderClass)}>
       <div className={clsx("absolute top-0 right-0 w-32 h-32 blur-3xl -mr-10 -mt-10 pointer-events-none", bgGlowClass)} />

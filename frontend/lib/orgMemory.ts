@@ -67,7 +67,7 @@ export interface OrgMemoryReport {
 /** Shapes GET /api/memory/map's JSON into OrgMemoryReport, defaulting any
  *  missing array field to empty rather than letting a malformed response
  *  crash every component that maps over it. */
-export function mapOrgMemoryResponse(json: any): OrgMemoryReport {
+export function mapOrgMemoryResponse(json: Partial<OrgMemoryReport> | null | undefined): OrgMemoryReport {
   const arr = <T,>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : []);
 
   return {

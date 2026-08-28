@@ -85,7 +85,7 @@ export function BlastRadiusSimulator({ agents, dependencies, riskByAgentName }: 
             <Zap className="w-5 h-5 text-orange-400" />
             <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Blast Radius Simulator</h2>
           </div>
-          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Select any agent to see its dependency cascade, ranked by each victim's real risk score</p>
+          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Select any agent to see its dependency cascade, ranked by each victim&apos;s real risk score</p>
         </div>
         <TruthBadge verified={agents.length > 0 && dependencies.length > 0} />
       </div>

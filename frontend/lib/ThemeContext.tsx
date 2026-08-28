@@ -17,14 +17,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize theme from localStorage or default to dark
   useEffect(() => {
-    const savedTheme = localStorage.getItem('horquva-theme') as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      if (savedTheme === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light');
+    Promise.resolve().then(() => {
+      const savedTheme = localStorage.getItem('horquva-theme') as Theme | null;
+      if (savedTheme) {
+        setTheme(savedTheme);
+        if (savedTheme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
       }
-    }
-    setMounted(true);
+      setMounted(true);
+    });
   }, []);
 
   const toggleTheme = () => {

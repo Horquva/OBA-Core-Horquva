@@ -48,11 +48,21 @@ export interface RecommendationEngineOutput {
   undocumentedCriticalCount: number;
 }
 
+interface RawRecommendationsPayload {
+  recommendations?: unknown;
+  criticalCount?: number;
+  highCount?: number;
+  mediumCount?: number;
+  ownerConcentrationWarning?: { owner: string; agentCount: number } | null;
+  orphanedAgentCount?: number;
+  undocumentedCriticalAgentCount?: number;
+}
+
 /** Shapes GET /api/intelligence/recommendations's ModuleResult<...> payload
  *  into RecommendationEngineOutput. `orgHealthIndex` comes from a separate
  *  fetch (/api/health/summary) -- M04 doesn't compute org health, it consumes
  *  M01/M03 the same way the rest of the brain does. */
-export function mapRecommendationsResponse(json: any, orgHealthIndex: number): RecommendationEngineOutput {
+export function mapRecommendationsResponse(json: { payload?: RawRecommendationsPayload } | null | undefined, orgHealthIndex: number): RecommendationEngineOutput {
   const payload = json?.payload ?? {};
   const recommendations: Recommendation[] = Array.isArray(payload.recommendations) ? payload.recommendations : [];
 

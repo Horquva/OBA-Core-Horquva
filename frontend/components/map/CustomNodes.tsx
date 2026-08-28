@@ -1,7 +1,7 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { Agent } from '../../types';
-import { ShieldAlert, User, ShieldX } from 'lucide-react';
+import { User, ShieldX } from 'lucide-react';
 import clsx from 'clsx';
 
 export interface AgentNodeData extends Record<string, unknown> {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { computeKnowledgeRisk, ConcentrationEntry } from '../../lib/knowledgeRisk';
-import { Agent, Workflow, AITool } from '../../types';
+import { Agent, Workflow, AITool, RiskLevel } from '../../types';
 import { KnowledgeHeader } from '../../components/knowledge/KnowledgeHeader';
 import { ConcentrationRiskPanel } from '../../components/knowledge/ConcentrationRiskPanel';
 import { UndocumentedAssetsTable } from '../../components/knowledge/UndocumentedAssetsTable';
@@ -12,6 +12,35 @@ import { authHeader } from '../../lib/authFetch';
 import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
 import { KnowledgeConcentrationGauge } from '../../components/knowledge/KnowledgeConcentrationGauge';
 import { EntitySearchPanel } from '../../components/knowledge/EntitySearchPanel';
+
+interface RawTool {
+  id?: string | number;
+  name?: string;
+  vendor?: string;
+  provider?: string;
+  category?: string;
+  users?: string[];
+  departments?: string[];
+  department?: string;
+  workflows?: string[];
+  agents_using?: (string | number)[];
+  monthly_cost_usd?: number;
+  monthly_cost?: number;
+  criticality?: string;
+  risk?: string;
+  documented?: boolean;
+  has_policy?: boolean;
+  backup_tool?: string | null;
+  fallback_tool?: string | null;
+  access_owner?: string | { name?: string };
+  owner?: string | { name?: string };
+}
+
+interface RawConcentrationEntry {
+  name?: string;
+  concentrationScore?: number;
+  tier?: string;
+}
 
 export default function KnowledgePage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
@@ -33,13 +62,13 @@ export default function KnowledgePage() {
     .then(([agentsData, wData, toolsData, knowledgeIntel]) => {
       setConcentrationByName(new Map(
         (Array.isArray(knowledgeIntel.concentration) ? knowledgeIntel.concentration : [])
-          .filter((p: any) => p.name)
-          .map((p: any) => [p.name, { concentrationScore: p.concentrationScore, tier: p.tier }])
+          .filter((p: RawConcentrationEntry) => p.name)
+          .map((p: RawConcentrationEntry) => [p.name, { concentrationScore: p.concentrationScore, tier: p.tier }])
       ));
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
       const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
 
-      const normalizedTools: AITool[] = (Array.isArray(toolsData) ? toolsData : []).map((t: any) => ({
+      const normalizedTools: AITool[] = (Array.isArray(toolsData) ? toolsData : []).map((t: RawTool) => ({
         id: t.id?.toString() || '',
         name: t.name || 'Unknown Tool',
         vendor: t.vendor || t.provider || 'Unknown',
@@ -49,10 +78,13 @@ export default function KnowledgePage() {
         workflows: Array.isArray(t.workflows) ? t.workflows : [],
         agents_using: Array.isArray(t.agents_using) ? t.agents_using.map(String) : [],
         monthly_cost_usd: Number(t.monthly_cost_usd ?? t.monthly_cost ?? 0),
-        criticality: t.criticality || t.risk || 'low',
+        criticality: (t.criticality || t.risk || 'low') as RiskLevel,
         documented: Boolean(t.documented ?? t.has_policy ?? false),
         backup_tool: t.backup_tool || t.fallback_tool || null,
-        access_owner: typeof (t.access_owner || t.owner) === 'object' && (t.access_owner || t.owner) ? (t.access_owner || t.owner).name : (t.access_owner || t.owner || 'Unassigned'),
+        access_owner: (() => {
+          const raw = t.access_owner || t.owner;
+          return (typeof raw === 'object' && raw ? raw.name : raw) || 'Unassigned';
+        })(),
       }));
 
       setAgents(normalizedAgents);

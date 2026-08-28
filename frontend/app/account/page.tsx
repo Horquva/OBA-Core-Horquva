@@ -14,14 +14,12 @@
  */
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { KeyRound, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function AccountPage() {
-  const router = useRouter();
   const { user, changePassword, logout } = useAuth();
 
   const [currentPassword, setCurrentPassword] = useState('');

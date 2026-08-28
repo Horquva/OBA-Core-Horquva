@@ -12,6 +12,14 @@ import { ScenarioResult, mapScenario } from '../../lib/simulation';
 import { normalizeAgent } from '../../lib/normalize';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 
+interface RawDependency {
+  source_type?: string;
+  target_type?: string;
+  source_id?: string | number;
+  target_id?: string | number;
+  dependency_type?: string;
+}
+
 export default function SimulationPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
@@ -55,20 +63,20 @@ export default function SimulationPage() {
 
       const mappedDeps: Dependency[] = Array.isArray(depsData.dependencies) 
         ? depsData.dependencies
-          .filter((d: any) => d.source_type === 'agent' && d.target_type === 'agent')
-          .map((d: any) => ({
+          .filter((d: RawDependency) => d.source_type === 'agent' && d.target_type === 'agent')
+          .map((d: RawDependency) => ({
             from: d.source_id?.toString() || '',
             to: d.target_id?.toString() || '',
             type: d.dependency_type || 'sequential',
           })) 
         : [];
 
-      const mappedTools: AITool[] = Array.isArray(toolsData) ? toolsData.map((t: any) => ({
+      const mappedTools: AITool[] = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
         ...t,
         access_owner: t.owner || t.access_owner || 'Unassigned',
         backup_tool: t.backupAssigned ? 'Yes' : null,
-        users: [], 
-      })) : [];
+        users: [],
+      } as unknown as AITool)) : [];
 
       setAgents(mappedAgents);
       setDependencies(mappedDeps);

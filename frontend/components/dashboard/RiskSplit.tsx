@@ -23,6 +23,14 @@ interface RecommendationItem {
   href: string;
 }
 
+interface RawRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  category?: string;
+  priority?: string;
+}
+
 // D-66: this panel used to build its list from GET /api/briefing/recommendations,
 // which reads the `recommendations` SQL table -- seeded once, zero writers
 // anywhere in the codebase, i.e. permanently frozen at whatever the seed said.
@@ -61,12 +69,12 @@ export function RiskSplit() {
       })) : [];
       setAgents(agentList);
 
-      const m04Recs: any[] = m04?.payload?.recommendations ?? [];
+      const m04Recs: RawRecommendation[] = m04?.payload?.recommendations ?? [];
       const builtRecs: RecommendationItem[] = m04Recs.slice(0, 4).map((r) => ({
         id: r.id,
         title: r.title,
         description: r.description,
-        icon: CATEGORY_ICON[r.category] ?? <ShieldAlert className="w-4 h-4 text-indigo-400" />,
+        icon: CATEGORY_ICON[r.category ?? ''] ?? <ShieldAlert className="w-4 h-4 text-indigo-400" />,
         type: r.priority?.toLowerCase() ?? 'medium',
         action: 'Review',
         href: '/recommendations',

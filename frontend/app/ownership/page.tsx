@@ -10,9 +10,20 @@ import { OrgRelationshipMap } from '../../components/ownership/OrgRelationshipMa
 import { AccountabilityChainTable } from '../../components/dashboard/AccountabilityChainTable';
 import { authHeader } from '../../lib/authFetch';
 import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
-import { Dataset } from '../../types';
+import { AITool, Dataset } from '../../types';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { DependencyRiskProfile } from '../../components/ownership/HumanDependencyRisks';
+
+interface RawOwnerRow {
+  name?: string;
+  isHumanSpof?: boolean;
+  dependencyRiskScore?: number;
+  dependencyRiskTier?: string;
+  ownedWorkflowCount?: number;
+  criticalWorkflowCount?: number;
+  ownedToolCount?: number;
+  unbackedToolCount?: number;
+}
 
 export default function OwnershipPage() {
   const [dataset, setDataset] = useState<Dataset | null>(null);
@@ -35,11 +46,11 @@ export default function OwnershipPage() {
     .then(([agentsData, toolsData, wfsData, predictiveData, ownershipData]) => {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const ownerRows = Array.isArray(ownershipData.owners) ? ownershipData.owners : [];
-      setHumanSpofOwners(new Set(ownerRows.filter((o: any) => o.isHumanSpof).map((o: any) => o.name)));
+      setHumanSpofOwners(new Set(ownerRows.filter((o: RawOwnerRow) => o.isHumanSpof).map((o: RawOwnerRow) => o.name)));
       setDependencyRiskByName(new Map(
         ownerRows
-          .filter((o: any) => o.name && o.dependencyRiskScore != null)
-          .map((o: any) => [o.name, {
+          .filter((o: RawOwnerRow) => o.name && o.dependencyRiskScore != null)
+          .map((o: RawOwnerRow) => [o.name, {
             totalRiskScore: o.dependencyRiskScore,
             tier: o.dependencyRiskTier,
             ownedWorkflowCount: o.ownedWorkflowCount,
@@ -50,12 +61,12 @@ export default function OwnershipPage() {
       ));
       const agents = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
-      const ai_tools = Array.isArray(toolsData) ? toolsData.map((t: any) => ({
+      const ai_tools = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
         ...t,
         access_owner: t.owner || t.access_owner || 'Unassigned',
         backup_tool: t.backupAssigned ? 'Yes' : null,
-        users: [], 
-      })) : [];
+        users: [],
+      } as unknown as AITool)) : [];
 
       const workflows = Array.isArray(wfsData) ? wfsData.map(normalizeWorkflow) : [];
 

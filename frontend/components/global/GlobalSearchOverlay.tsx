@@ -125,7 +125,9 @@ export default function GlobalSearchOverlay() {
   /** Results in render order, so ↑/↓ move the way the eye does. */
   const flat = useMemo(() => grouped.flatMap(([, items]) => items), [grouped]);
 
-  useEffect(() => setCursor(0), [query, isSearchOpen]);
+  useEffect(() => {
+    Promise.resolve().then(() => setCursor(0));
+  }, [query, isSearchOpen]);
 
   const go = useCallback(
     (target: CommandTarget) => {
@@ -185,8 +187,6 @@ export default function GlobalSearchOverlay() {
       closeAllPanels();
     }
   };
-
-  let renderIndex = -1;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 sm:pt-24">
@@ -272,8 +272,7 @@ export default function GlobalSearchOverlay() {
               )}
 
               {items.map((t) => {
-                renderIndex += 1;
-                const i = renderIndex;
+                const i = flat.indexOf(t);
                 const active = i === cursor;
                 const Icon = iconFor(t);
                 return (

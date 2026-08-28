@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Agent, Dependency } from '../../types';
 import { getDownstream } from '../../lib/graph';
-import { ShieldAlert, ArrowDownRight, ArrowUpRight, Activity } from 'lucide-react';
+import { ShieldAlert, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import clsx from 'clsx';
 
 interface DependencyTableProps {

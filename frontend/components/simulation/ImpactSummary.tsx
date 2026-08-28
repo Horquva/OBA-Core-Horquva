@@ -39,7 +39,6 @@ const SEVERITY_META: Record<RiskLevel, { label: string; color: string; bg: strin
 export function ImpactSummary({ scenario }: Props) {
   const drop = scenario.baselineHealthScore - scenario.simulatedHealthScore;
   const tc = typeConfig[scenario.type];
-  const Icon = tc.icon;
 
   const severity = SEVERITY_META[scenario.severity];
 

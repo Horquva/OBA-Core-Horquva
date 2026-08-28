@@ -34,13 +34,45 @@ function titleCase(s: string): string {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-async function safeJson(path: string): Promise<any> {
+async function safeJson<T>(path: string): Promise<T | null> {
   try {
     const res = await fetch(`${BASE}${path}`, { cache: 'no-store', headers: authHeader() });
     return res.ok ? await res.json() : null;
   } catch {
     return null;
   }
+}
+
+interface EscalationRaw {
+  id: string | number;
+  reason?: string;
+  detail?: string;
+  workflow_id?: string | number;
+  severity?: string;
+  status?: string;
+  created_at?: string | null;
+}
+
+interface GovernanceIntentRaw {
+  id: string | number;
+  title?: string;
+  description?: string;
+  priority?: string;
+  raised_at?: string | null;
+  status?: string;
+}
+
+interface SelfHealingIssueRaw {
+  id: string | number;
+  type?: string;
+  description?: string;
+  severity?: string;
+  detectedAt?: string | null;
+}
+
+interface ContinuityPlanRaw {
+  area?: string;
+  status?: string;
 }
 
 /**
@@ -52,15 +84,15 @@ async function safeJson(path: string): Promise<any> {
  */
 export async function fetchLiveNotifications(): Promise<NotificationItem[]> {
   const [escalations, governance, selfHealing, continuity] = await Promise.all([
-    safeJson('/api/avatar/escalations'),
-    safeJson('/api/automation/governance'),
-    safeJson('/api/self-healing/detect'),
-    safeJson('/api/automation/continuity'),
+    safeJson<EscalationRaw[]>('/api/avatar/escalations'),
+    safeJson<{ pendingIntents?: GovernanceIntentRaw[] }>('/api/automation/governance'),
+    safeJson<{ issues?: SelfHealingIssueRaw[] }>('/api/self-healing/detect'),
+    safeJson<{ continuityPlans?: ContinuityPlanRaw[] }>('/api/automation/continuity'),
   ])
 
   const items: NotificationItem[] = []
 
-  ;(Array.isArray(escalations) ? escalations : []).forEach((e: any) => {
+  ;(Array.isArray(escalations) ? escalations : []).forEach((e) => {
     items.push({
       id: `avatar-${e.id}`,
       title: e.reason ? titleCase(String(e.reason)) : 'Escalation',
@@ -77,11 +109,11 @@ export async function fetchLiveNotifications(): Promise<NotificationItem[]> {
     })
   })
 
-  ;(governance?.pendingIntents || []).forEach((d: any) => {
+  ;(governance?.pendingIntents || []).forEach((d) => {
     items.push({
       id: `governance-${d.id}`,
-      title: d.title,
-      description: d.description,
+      title: d.title ?? '',
+      description: d.description ?? '',
       severity: severityFrom(d.priority),
       source: 'Governance',
       group: groupFor(d.raised_at),
@@ -95,11 +127,11 @@ export async function fetchLiveNotifications(): Promise<NotificationItem[]> {
     })
   })
 
-  ;(selfHealing?.issues || []).forEach((i: any) => {
+  ;(selfHealing?.issues || []).forEach((i) => {
     items.push({
       id: `selfhealing-${i.id}`,
-      title: i.type,
-      description: i.description,
+      title: i.type ?? '',
+      description: i.description ?? '',
       severity: severityFrom(i.severity),
       source: 'Self Healing',
       group: groupFor(i.detectedAt),
@@ -112,7 +144,7 @@ export async function fetchLiveNotifications(): Promise<NotificationItem[]> {
     })
   })
 
-  ;(continuity?.continuityPlans || []).forEach((c: any, idx: number) => {
+  ;(continuity?.continuityPlans || []).forEach((c, idx) => {
     items.push({
       id: `continuity-${idx}`,
       title: `Backup coverage recommended: ${c.area}`,

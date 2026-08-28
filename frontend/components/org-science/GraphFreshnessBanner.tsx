@@ -43,7 +43,7 @@ export function GraphFreshnessBanner({ onReload }: GraphFreshnessBannerProps) {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    Promise.resolve().then(fetchStatus);
   }, [fetchStatus]);
 
   async function handleReload() {

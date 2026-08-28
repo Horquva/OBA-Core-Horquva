@@ -31,6 +31,11 @@ function survivabilityLabel(score: number): { label: string; color: string } {
   return               { label: 'Catastrophic', color: 'text-red-500' };
 }
 
+function SortIcon({ col, sortKey, sortAsc }: { col: SortKey; sortKey: SortKey; sortAsc: boolean }) {
+  if (sortKey !== col) return <ChevronUp className="w-3 h-3 opacity-30" />;
+  return sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
+}
+
 export function SimulationUniverseRanking({ scenarios }: Props) {
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [sortKey, setSortKey] = useState<SortKey>('survivability');
@@ -55,11 +60,6 @@ export function SimulationUniverseRanking({ scenarios }: Props) {
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortAsc(a => !a);
     else { setSortKey(key); setSortAsc(true); }
-  }
-
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col) return <ChevronUp className="w-3 h-3 opacity-30" />;
-    return sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
   }
 
   const counts = {
@@ -116,23 +116,23 @@ export function SimulationUniverseRanking({ scenarios }: Props) {
               <th className="p-3 w-8 text-center text-[color:var(--text-tertiary)] text-xs font-medium">#</th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('name')}>
-                <div className="flex items-center gap-1">Entity <SortIcon col="name" /></div>
+                <div className="flex items-center gap-1">Entity <SortIcon col="name" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('type')}>
-                <div className="flex items-center gap-1">Type <SortIcon col="type" /></div>
+                <div className="flex items-center gap-1">Type <SortIcon col="type" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('survivability')}>
-                <div className="flex items-center gap-1">Survivability <SortIcon col="survivability" /></div>
+                <div className="flex items-center gap-1">Survivability <SortIcon col="survivability" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('delta')}>
-                <div className="flex items-center gap-1">Health Δ <SortIcon col="delta" /></div>
+                <div className="flex items-center gap-1">Health Δ <SortIcon col="delta" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('cascades')}>
-                <div className="flex items-center gap-1">Cascades <SortIcon col="cascades" /></div>
+                <div className="flex items-center gap-1">Cascades <SortIcon col="cascades" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 text-[color:var(--text-tertiary)] font-medium">Before <ArrowRight className="w-3 h-3 inline mx-1" /> After</th>

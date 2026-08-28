@@ -8,12 +8,6 @@ interface Props {
   report: OrgMemoryReport;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  PRESERVED:  'var(--risk-low-text)',
-  VULNERABLE: 'var(--risk-high-text)',
-  AT_RISK:    'var(--risk-medium-text)',
-  LOST:       'var(--risk-critical-text)',
-};
 const STATUS_BG: Record<string, string> = {
   PRESERVED:  'var(--risk-low-bg)',
   VULNERABLE: 'var(--risk-high-bg)',

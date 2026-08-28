@@ -26,7 +26,9 @@ export default function CommandBar() {
   const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
-    setIsMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent));
+    Promise.resolve().then(() => {
+      setIsMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent));
+    });
     const id = setInterval(() => setSlot((s) => (s + 1) % PLACEHOLDERS.length), 6000);
     return () => clearInterval(id);
   }, []);
