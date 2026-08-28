@@ -61,8 +61,7 @@ class SyntheticGenerationService:
     )
 
     DEFAULT_ARTIFACT_TYPE = "document"
-
-    def generate_corpus(self, result: ExperimentResultPackage) -> SyntheticDataCorpus:
+    def _generate_corpus_from_result(self, result: ExperimentResultPackage) -> SyntheticDataCorpus:  
         """
         Day 4 — trusted corpus boundary, built from ExperimentResultPackage.state_snapshot.
 
@@ -126,6 +125,46 @@ class SyntheticGenerationService:
             accepted_artifacts=accepted,
             rejected_artifacts=rejected,
             lineage=lineage,
+        )
+
+    def generate_corpus(
+        self,
+        result: ExperimentResultPackage | None = None,
+        context: SimulationContext | None = None,
+        events: list[Any] | None = None,
+    ) -> SyntheticDataCorpus:
+        """
+        Two calling conventions:
+        1. generate_corpus(result=ExperimentResultPackage) — PR #137, tested.
+           Delegates to _generate_corpus_from_result, unchanged.
+        2. generate_corpus(context=, events=) — matches the orchestrator's
+           real call in _step_synthetic_data. Its upstream (_step_runtime)
+           is still stubbed and always passes events=[], so that case
+           returns a valid EMPTY corpus. A non-empty events list has no
+           confirmed schema (the SimulationEventStream theory was retracted
+           by the team lead) — raises rather than guessing a parse.
+        """
+        if result is not None:
+            return self._generate_corpus_from_result(result)
+
+        if context is not None:
+            if not events:
+                return SyntheticDataCorpus(
+                    context=context, accepted_artifacts=[], rejected_artifacts=[], lineage=[]
+                )
+            raise ArcturusValidationError(
+                message=(
+                    "generate_corpus(context=, events=) got a non-empty events list "
+                    "with no confirmed schema. Wire _step_runtime to a real "
+                    "ExperimentResultPackage and call generate_corpus(result=...) "
+                    "instead of guessing this parse."
+                ),
+                platform_source=self.PLATFORM_SOURCE,
+            )
+
+        raise ArcturusValidationError(
+            message="generate_corpus requires result= or context=",
+            platform_source=self.PLATFORM_SOURCE,
         )
     
     def generate_snapshot(
@@ -391,3 +430,5 @@ class SyntheticGenerationService:
         return hashlib.sha256(
             canonical_json.encode("utf-8")
         ).hexdigest()
+
+GenerationService = SyntheticGenerationService  # orchestrator import alias
