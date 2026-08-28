@@ -220,6 +220,8 @@ jobs:
         run: |
           cat <<EOF > gate-decision-evidence.json
           {
+            "event_id": "SNTL-EVT-${{ github.run_id }}-gate",
+            "event_type": "${{ steps.decision.outputs.blocked == 'true' && 'security_gate_blocked' || 'security_gate_passed' }}",
             "repository": "${{ github.repository }}",
             "branch": "${{ github.head_ref || github.ref_name }}",
             "commit": "${{ github.sha }}",
@@ -236,7 +238,7 @@ jobs:
               "container_scan": "${{ needs.container-scan.result }}"
             },
             "policy_decision": "${{ steps.decision.outputs.blocked == 'true' && 'VIOLATION' || 'COMPLIANT' }}",
-            "gate_decision": "${{ steps.decision.outputs.blocked == 'true' && 'BLOCK' || 'ALLOW' }}"
+            "decision": "${{ steps.decision.outputs.blocked == 'true' && 'BLOCK' || 'ALLOW' }}"
           }
           EOF
           cat gate-decision-evidence.json
