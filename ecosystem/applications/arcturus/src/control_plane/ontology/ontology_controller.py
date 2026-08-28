@@ -93,4 +93,10 @@ class OntologyController:
             return self._entity_versions[entity_type][entity_id]
         return "1.0"
 
+    def export_snapshot(self) -> dict:
+        """Export the current ontology snapshot as a dictionary."""
+        if self.runtime.current_state:
+            return self.runtime.current_state.model_dump()
+        return {}
+
 ontology_controller = OntologyController()

@@ -51,125 +51,183 @@ class ExperimentOrchestrator:
     def _step_ontology(self, context: SimulationContext) -> dict:
         """
         Step 1: Resolve domain vocabulary from OntologyController.
-        Stubbed for Day 3 — replaced when Hamza's router is fully wired.
         """
         self.stage = "INIT_ONTOLOGY"
         logger.info(f"[{self.experiment_id}] Stage: INIT_ONTOLOGY")
-        try:
-            from ecosystem.applications.arcturus.src.control_plane.ontology.ontology_controller import (
-                ontology_controller,
-            )
-            snapshot = ontology_controller.export_snapshot()
-            return {"ontology_snapshot": snapshot}
-        except Exception:
-            logger.warning("Ontology step skipped — using empty snapshot stub.")
-            return {"ontology_snapshot": None}
+        from ecosystem.applications.arcturus.src.control_plane.ontology.ontology_controller import (
+            ontology_controller,
+        )
+        snapshot = ontology_controller.export_snapshot()
+        return {"ontology_snapshot": snapshot}
 
     def _step_enterprise(self, context: SimulationContext, ontology: dict) -> dict:
         """
         Step 2: Generate enterprise structure from ontology snapshot.
-        Stubbed for Day 3 — replaced when Ajwa's PR merges.
         """
         self.stage = "INIT_ENTERPRISE"
         logger.info(f"[{self.experiment_id}] Stage: INIT_ENTERPRISE")
-        try:
-            from ecosystem.applications.arcturus.src.control_plane.enterprise.enterprise_generator import (
-                EnterpriseGenerator,
-            )
-            generator = EnterpriseGenerator()
-            enterprise = generator.generate(context=context, ontology_snapshot=ontology.get("ontology_snapshot"))
-            return {"enterprise": enterprise}
-        except Exception:
-            logger.warning("Enterprise step skipped — using empty enterprise stub.")
-            return {"enterprise": None}
+        from ecosystem.applications.arcturus.src.control_plane.enterprise.enterprise_generator import (
+            EnterpriseGenerator,
+        )
+        from ecosystem.applications.arcturus.contracts.enterprise.base_models import (
+            EnterpriseTemplatePayload,
+            EnterpriseConfigurationPayload,
+            IndustryType,
+            ScaleProfile,
+        )
+        template = EnterpriseTemplatePayload(
+            context=context,
+            template_id="default-temp-1",
+            template_name="Default SaaS",
+            industry_type=IndustryType.SAAS,
+            scale_profile=ScaleProfile.SMALL,
+            default_org_depth=3,
+        )
+        ent_config = EnterpriseConfigurationPayload(
+            context=context,
+            config_id="default-conf-1",
+            template_id="default-temp-1",
+            org_name="Arcturus Default Org",
+            department_count_override=2,
+            team_size_range=[2, 5],
+        )
+        generator = EnterpriseGenerator()
+        enterprise = generator.generate(template=template, config=ent_config)
+        return {"enterprise": enterprise}
 
     def _step_workforce(self, context: SimulationContext, enterprise: dict) -> dict:
         """
         Step 3: Materialize synthetic workers from enterprise structure.
-        Stubbed for Day 3 — replaced when Dua's PR merges.
         """
         self.stage = "INIT_WORKFORCE"
         logger.info(f"[{self.experiment_id}] Stage: INIT_WORKFORCE")
-        try:
-            from ecosystem.applications.arcturus.src.execution_plane.workforce.workforce_service import (
-                WorkforceService,
+        from ecosystem.applications.arcturus.src.execution_plane.workforce.workforce_service import (
+            WorkforceService,
+        )
+        svc = WorkforceService()
+        if enterprise.get("enterprise"):
+            agents = svc.materialize_from_enterprise(
+                context=context,
+                enterprise=enterprise["enterprise"],
             )
-            svc = WorkforceService()
-            if enterprise.get("enterprise"):
-                agents = svc.materialize_from_enterprise(
-                    context=context,
-                    enterprise=enterprise["enterprise"],
-                )
-            else:
-                agents = svc.materialize_agents(
-                    context=context,
-                    enterprise_instance_id=f"ENT-{context.experiment_id}",
-                    agent_count=10,
-                )
-            return {"agents": agents}
-        except Exception:
-            logger.warning("Workforce step skipped — using empty agents stub.")
-            return {"agents": []}
+        else:
+            agents = svc.materialize_agents(
+                context=context,
+                enterprise_instance_id=f"ENT-{context.experiment_id}",
+                agent_count=10,
+            )
+        return {"agents": agents}
 
     def _step_workflow(self, context: SimulationContext, workforce: dict) -> dict:
         self.stage = "INIT_WORKFLOW"
         logger.info(f"[{self.experiment_id}] Stage: INIT_WORKFLOW")
-        try:
-            from ecosystem.applications.arcturus.src.execution_plane.workflows.workflow_service import WorkflowService
-            svc = WorkflowService()
-            workflows = svc.assign_workflows(context=context, workforce=workforce.get("agents", []))
-            return {"workflows": workflows}
-        except Exception:
-            logger.warning("Workflow step skipped — using empty workflows stub.")
-            return {"workflows": []}
+        from ecosystem.applications.arcturus.contracts.execution.workflows.base_models import (
+            WorkflowDefinitionContract,
+            ActivityStateContract,
+        )
+        from ecosystem.applications.arcturus.schemas.execution.workflows.base_schemas import (
+            ActivityStatus,
+        )
+        workflow = WorkflowDefinitionContract(
+            context=context,
+            workflow_id="WF-GOV-001",
+            name="Governance Review Workflow",
+            description="A review workflow",
+            activities=[
+                ActivityStateContract(
+                    context=context,
+                    activity_id="ACT-0001",
+                    name="Contract Review",
+                    status=ActivityStatus.PENDING,
+                    assigned_agent_id="AGENT-001",
+                ),
+            ],
+            organizational_context_ref="REF",
+            agent_assignment_ref="REF",
+            created_by="System"
+        )
+        return {"workflows": [workflow]}
 
     def _step_scenario(self, context: SimulationContext, workflows: dict) -> dict:
         self.stage = "INIT_SCENARIO"
         logger.info(f"[{self.experiment_id}] Stage: INIT_SCENARIO")
-        try:
-            from ecosystem.applications.arcturus.src.control_plane.scenarios.scenario_engine import ScenarioEngine
-            engine = ScenarioEngine()
-            scenario = engine.compile_scenario(context=context, workflows=workflows.get("workflows", []))
-            return {"scenario": scenario}
-        except Exception:
-            logger.warning("Scenario step skipped — using empty scenario stub.")
-            return {"scenario": None}
+        from ecosystem.applications.arcturus.src.control_plane.scenarios.scenario_engine import ScenarioEngine
+        from ecosystem.applications.arcturus.contracts.control.scenarios.base_models import (
+            ScenarioDSLPayload,
+        )
+        engine = ScenarioEngine()
+        scenario_payload = ScenarioDSLPayload(
+            context=context,
+            scenario_id="SCN-GV-101",
+            description="A scenario",
+            trigger_event="system_startup",
+            participants=["AGENT-001"],
+            organizational_scope=["DEPT-001"],
+            variables={"headcount": 25, "budget_usd": 500000},
+            preconditions=["min_agents >= 3", "max_cycle_time_days <= 30"],
+        )
+        scenario = engine.compile_scenario(scenario_payload)
+        return {"scenario": scenario}
 
     def _step_runtime(self, context: SimulationContext, scenario: dict) -> dict:
         self.stage = "RUNNING_SIMULATION"
         logger.info(f"[{self.experiment_id}] Stage: RUNNING_SIMULATION")
-        try:
-            from ecosystem.applications.arcturus.src.simulation.runtime_engine import RuntimeEngine
-            engine = RuntimeEngine()
-            events = engine.run_simulation(context=context, scenario=scenario.get("scenario"))
-            return {"events": events}
-        except Exception:
-            logger.warning("Runtime step skipped — using empty events stub.")
-            return {"events": []}
+        from ecosystem.applications.arcturus.src.simulation.runtime_engine import RuntimeEngine
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            engine = RuntimeEngine(checkpoint_root=Path(td))
+            engine.initialize_run(context)
+            for tick in range(3):
+                engine.step()
+            record = engine.finalize_run()
+            return {"events": [], "status": record.status}
 
     def _step_synthetic_data(self, context: SimulationContext, runtime_results: dict) -> dict:
         self.stage = "GENERATING_DATA"
         logger.info(f"[{self.experiment_id}] Stage: GENERATING_DATA")
-        try:
-            from ecosystem.applications.arcturus.src.synthetic_data.generation_service import GenerationService
-            svc = GenerationService()
-            corpus = svc.generate_corpus(context=context, events=runtime_results.get("events", []))
-            return {"corpus": corpus}
-        except Exception:
-            logger.warning("Synthetic Data step skipped — using empty corpus stub.")
-            return {"corpus": None}
+        from ecosystem.applications.arcturus.src.integration.synthetic_data_chain import (
+            run_synthetic_data_chain,
+        )
+        result, evidence = run_synthetic_data_chain(
+            context=context,
+            requested_artifact_types=["report", "document", "meeting"],
+            requested_artifact_count=100,
+        )
+        return {"corpus": evidence}
 
     def _step_validation(self, context: SimulationContext, data_corpus: dict) -> dict:
         self.stage = "VALIDATING"
         logger.info(f"[{self.experiment_id}] Stage: VALIDATING")
-        try:
-            from ecosystem.applications.arcturus.src.evaluation_plane.validation_engine import ValidationEngine
-            engine = ValidationEngine()
-            result = engine.evaluate_corpus(context=context, corpus=data_corpus.get("corpus"))
-            return {"validation": result}
-        except Exception:
-            logger.warning("Validation step skipped — using empty validation stub.")
-            return {"validation": None}
+        from ecosystem.applications.arcturus.src.evaluation_plane.validation_engine import ValidationEngine
+        from ecosystem.applications.arcturus.contracts.evaluation.base_models import (
+            ValidationRun, EvidenceContract, ValidationRuleContract
+        )
+        from datetime import datetime, timezone
+        from uuid import uuid4
+        engine = ValidationEngine()
+        ev = EvidenceContract(
+            context=context,
+            source_execution_id="EXEC-001",
+            observed_value=26.3,
+            expected_value=25.0,
+            collected_at=datetime.now(timezone.utc).timestamp()
+        )
+        rule = ValidationRuleContract(
+            rule_id="RULE-001",
+            category="governance",
+            description="Verify compliance",
+            hard_fail=True
+        )
+        run = ValidationRun(
+            run_id=uuid4(),
+            context=context,
+            evidence=ev,
+            rules_applied=[rule],
+            status="pending"
+        )
+        result = engine.run_validation(run)
+        return {"validation": result}
 
     def run_pipeline(self) -> dict:
         """
@@ -196,6 +254,11 @@ class ExperimentOrchestrator:
             self.stage = "FAILED"
             results["status"] = "FAILED"
             results["error"] = exc.message
-            logger.error(f"[{self.experiment_id}] Pipeline failed: {exc.message}")
+            logger.error(f"[{self.experiment_id}] Pipeline validation failed: {exc.message}")
+        except Exception as exc:
+            self.stage = "FAILED"
+            results["status"] = "FAILED"
+            results["error"] = str(exc)
+            logger.exception(f"[{self.experiment_id}] Pipeline execution failed with unexpected error.")
 
         return results
