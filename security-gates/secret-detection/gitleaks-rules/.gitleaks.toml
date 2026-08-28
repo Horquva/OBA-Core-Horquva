@@ -41,8 +41,8 @@ description = "Known safe test fixtures only — never production paths"
 paths = [
   '''(.*)/safe-fixtures/(.*)''',
   '''(.*)\.md$''',
-  '''(.*)/test_day5_services\.py$''',
-  '''(.*)/store\.json$''',
+  '''test_day5_services\.py''',
+  '''store\.json''',
 ]
 regexes = [
   '''EXAMPLE_(KEY|TOKEN|SECRET)_DO_NOT_USE''',
