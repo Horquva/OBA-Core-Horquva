@@ -18,15 +18,15 @@ export default function NotificationCard({
         group
         rounded-xl
         border
-        border-white/10
-        bg-white/3
+        border-[var(--border-subtle)]
+        bg-[var(--bg-elevated)]
         p-5
         transition-all
         duration-300
         hover:-translate-y-1
-        hover:border-cyan-500/30
-        hover:bg-white/5
-        hover:shadow-[0_0_25px_rgba(34,211,238,0.08)]
+        hover:border-[var(--accent-border)]
+        hover:bg-[var(--bg-hover)]
+        hover:shadow-[0_0_25px_rgba(99,102,241,0.08)]
       "
     >
       {/* Top */}
@@ -42,7 +42,7 @@ export default function NotificationCard({
               variant="pill"
             />
 
-            <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-300 transition group-hover:border-cyan-400/30">
+            <span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-dim)] px-3 py-1 text-xs font-medium text-[var(--accent)] transition group-hover:border-[var(--accent-border)]">
               {notification.source}
             </span>
 
@@ -50,11 +50,11 @@ export default function NotificationCard({
 
           <div>
 
-            <h3 className="text-lg font-semibold">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">
               {notification.title}
             </h3>
 
-            <p className="mt-2 text-sm leading-6 text-gray-400">
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               {notification.description}
             </p>
 
@@ -62,7 +62,7 @@ export default function NotificationCard({
 
         </div>
 
-        <span className="text-xs whitespace-nowrap text-gray-500">
+        <span className="text-xs whitespace-nowrap text-[var(--text-tertiary)]">
           {notification.time}
         </span>
 
@@ -75,11 +75,10 @@ export default function NotificationCard({
         <button
           disabled={notification.acknowledged}
           className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition
-          ${
-            notification.acknowledged
+          ${notification.acknowledged
               ? "cursor-default border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-              : "border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/10"
-          }`}
+              : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--accent-border)] hover:bg-[var(--accent-dim)] hover:text-[var(--accent)]"
+            }`}
         >
           <CheckCheck size={16} />
 
@@ -90,7 +89,7 @@ export default function NotificationCard({
 
         <Link
           href={notification.link}
-          className="flex items-center gap-2 text-sm font-medium text-cyan-400 transition hover:text-cyan-300"
+          className="flex items-center gap-2 text-sm font-medium text-[var(--accent)] transition hover:opacity-80"
         >
           Go to {notification.moduleLabel}
 

@@ -2,6 +2,7 @@
 
 import { OrgMemoryReport } from '../../lib/orgMemory';
 import { ShieldCheck, AlertTriangle, ShieldOff, Skull } from 'lucide-react';
+import { EvidenceBadge } from '../ui/EvidenceBadge';
 
 interface Props {
   report: OrgMemoryReport;
@@ -180,7 +181,11 @@ export function MemoryHeader({ report }: Props) {
           }}>
             Institutional Memory Health
           </p>
-          <IMHSArc score={report.imhs} verdict={report.imhsVerdict} />
+          {report.evidence.status === 'insufficient_evidence' ? (
+            <EvidenceBadge evidence={report.evidence} />
+          ) : (
+            <IMHSArc score={report.imhs as number} verdict={report.imhsVerdict as string} />
+          )}
         </div>
 
         {/* KPI cards */}

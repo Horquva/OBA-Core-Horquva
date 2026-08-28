@@ -18,11 +18,11 @@ export function TrendArrow() {
       try {
         const res = await forecast.health();
         if (cancelled) return;
-        if (res.length === 0) {
+        if (res.forecasts.length === 0) {
           setState('empty');
         } else {
           // Sort by horizonDays ascending (30, 60, 90)
-          const sorted = [...res].sort((a, b) => a.horizonDays - b.horizonDays);
+          const sorted = [...res.forecasts].sort((a, b) => a.horizonDays - b.horizonDays);
           setData(sorted);
           setState('success');
         }

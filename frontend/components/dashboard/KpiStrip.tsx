@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, Users, AlertTriangle, Link2 } from 'lucide-react';
 import { healthApi } from '../../lib/api';
+import { authHeader } from '../../lib/authFetch';
 
 interface KpiData {
   riskScore: number;
@@ -19,17 +20,15 @@ export function KpiStrip() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.json()).catch(() => []),
+      // Same counts the rest of the app uses (agents.js risk-summary), instead
+      // of re-deriving "orphaned"/"critical" client-side from the raw list —
+      // one definition of those counts, not two that can quietly drift apart.
+      fetch(`${base}/api/agents/risk-summary`, { headers: authHeader() }).then(r => r.json()).catch(() => null),
       healthApi.summary().catch(() => null),
-    ]).then(([agents, health]) => {
-      const agentList = Array.isArray(agents) ? agents.map((a: any) => ({
-        ...a,
-        criticality: a.risk || a.criticality || 'low',
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
-      })) : [];
-      const totalAgents    = agentList.length;
-      const orphanedAgents = agentList.filter((a: any) => !a.owner).length;
-      const criticalCount  = agentList.filter((a: any) => a.criticality === 'critical').length;
+    ]).then(([riskSummary, health]) => {
+      const totalAgents    = riskSummary?.total ?? 0;
+      const orphanedAgents = riskSummary?.orphaned ?? 0;
+      const criticalCount  = riskSummary?.breakdown?.critical ?? 0;
       const riskScore      = health?.healthIndex ?? 0;
 
       setData({ riskScore, totalAgents, orphanedAgents, criticalCount });

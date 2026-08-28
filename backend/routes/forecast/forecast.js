@@ -6,17 +6,6 @@ const supabase = require('../../supabase')
 // HELPERS
 // ─────────────────────────────────────────────
 
-async function fetchForecast(horizon) {
-  const { data, error } = await supabase
-    .from('organizational_forecasts')
-    .select('*')
-    .eq('horizon_days', horizon)
-    .single()
-
-  if (error) throw new Error(error.message)
-  return data
-}
-
 async function fetchAllForecasts() {
   const { data, error } = await supabase
     .from('organizational_forecasts')
@@ -62,6 +51,7 @@ function formatForecast(f) {
 router.get('/summary', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
+    if (!forecasts.length) return res.status(404).json({ error: 'No forecast data available' })
     const latest = forecasts[forecasts.length - 1] // 90-day = headline
 
     res.json({
@@ -75,7 +65,10 @@ router.get('/summary', async (req, res) => {
           if (!weakest || latest[scoreKey] < latest[`${weakest}_score`]) return dim
           return weakest
         }, null)
-      }
+      },
+      // organizational_forecasts is a genuine, never-rewritten time series
+      // (D-09 KEEP list) — these figures can never be recomputed live.
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -90,11 +83,14 @@ router.get('/health', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
 
-    res.json(forecasts.map(f => ({
-      horizonDays: f.horizon_days,
-      healthScore: f.health_score,
-      trend: f.health_trend
-    })))
+    res.json({
+      forecasts: forecasts.map(f => ({
+        horizonDays: f.horizon_days,
+        healthScore: f.health_score,
+        trend: f.health_trend
+      })),
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
+    })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -107,6 +103,7 @@ router.get('/health', async (req, res) => {
 router.get('/memory', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
+    if (!forecasts.length) return res.status(404).json({ error: 'No forecast data available' })
     const headline = forecasts[forecasts.length - 1]
 
     const criticalCarriers = await fetchFindings(headline.id, 'critical_memory_carrier')
@@ -125,7 +122,8 @@ router.get('/memory', async (req, res) => {
       undocumentedAssets: undocumented.map(u => ({
         name: u.reference_name,
         detail: u.detail
-      }))
+      })),
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -139,6 +137,7 @@ router.get('/memory', async (req, res) => {
 router.get('/continuity', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
+    if (!forecasts.length) return res.status(404).json({ error: 'No forecast data available' })
     const headline = forecasts[forecasts.length - 1]
 
     const fragileWorkflows = await fetchFindings(headline.id, 'fragile_workflow')
@@ -157,7 +156,8 @@ router.get('/continuity', async (req, res) => {
       workflowsWithoutBackup: noBackup.map(w => ({
         name: w.reference_name,
         detail: w.detail
-      }))
+      })),
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -171,6 +171,7 @@ router.get('/continuity', async (req, res) => {
 router.get('/outlook', async (req, res) => {
   try {
     const forecasts = await fetchAllForecasts()
+    if (!forecasts.length) return res.status(404).json({ error: 'No forecast data available' })
     const headline = forecasts[forecasts.length - 1]
 
     const allFindings = await fetchFindings(headline.id)
@@ -194,7 +195,8 @@ router.get('/outlook', async (req, res) => {
         fragileWorkflows: grouped.fragileWorkflows.map(w => ({ name: w.reference_name, detail: w.detail })),
         workflowsWithoutBackup: grouped.workflowsWithoutBackup.map(w => ({ name: w.reference_name, detail: w.detail })),
         undocumentedAssets: grouped.undocumentedAssets.map(u => ({ name: u.reference_name, detail: u.detail }))
-      }
+      },
+      provenance: { source: 'historical', table: 'organizational_forecasts' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

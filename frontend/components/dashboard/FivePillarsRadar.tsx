@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Network, AlertTriangle } from 'lucide-react';
 import { TruthBadge } from './TruthBadge';
+import { authHeader } from '../../lib/authFetch';
 
 interface Pillar {
   label: string;
@@ -56,7 +57,7 @@ export function FivePillarsRadar() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     // Try orchestrator modules first (have reliable per-pillar scores), then truth
-    const fetchModules = fetch(`${base}/api/intelligence/orchestrator/modules`)
+    const fetchModules = fetch(`${base}/api/intelligence/orchestrator/modules`, { headers: authHeader() })
       .then(r => r.json())
       .then((data: { modules?: { key: string; score: number }[] }) => {
         if (!data.modules?.length) throw new Error('no modules');
@@ -87,7 +88,7 @@ export function FivePillarsRadar() {
       });
 
     // Build the truth fallback as a lazy thunk — only called if modules fail
-    const fetchTruth = () => fetch(`${base}/api/intelligence/truth`)
+    const fetchTruth = () => fetch(`${base}/api/intelligence/truth`, { headers: authHeader() })
       .then(r => r.json())
       .then((data: Record<string, unknown>) => {
         let built: Pillar[] = [];

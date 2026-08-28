@@ -1,19 +1,41 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { must, optional } = require('../../lib/supabaseQuery')
+const domain = require('../../domain')
 
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
 
+// `executive_memory_items` held ten rows seeded by SQL and written by nothing.
+// An organization's memory that cannot record anything new is not memory.
+//
+// The four memory types each have a root that produces them — repeat offenders
+// and lessons from workflow_failures, hero risks from ownership without a named
+// backup, bad decisions from decision_history — so these are derived now rather
+// than remembered. Row shape matches the old SELECT so the handlers below are
+// unchanged. See domain/derived.js for each type's rule.
 async function fetchAllMemoryItems() {
-  const { data, error } = await supabase
-    .from('executive_memory_items')
-    .select('*')
-    .order('relevance_score', { ascending: false })
+  const intel = await domain.intelligence.all()
+  return intel.executiveMemory.items.map(i => ({
+    memory_type:     i.memoryType,
+    title:           i.title,
+    description:     i.description,
+    entity_name:     i.entityName,
+    relevance_score: i.relevanceScore,
+    severity:        i.severity,
+    source_module:   i.sourceModule,
+    is_recurring:    i.isRecurring,
+    created_at:      intel.executiveMemory.computedAt,
+    evidence:        i.evidence,
+  }))
+}
 
-  if (error) throw new Error(error.message)
-  return data
+/** Memory items of one type, newest-relevance first, from the live computation. */
+async function memoryItemsOfType(memoryType) {
+  const items = await fetchAllMemoryItems()
+  return items.filter(i => i.memory_type === memoryType)
 }
 
 function groupByType(items) {
@@ -60,22 +82,25 @@ router.get('/summary', async (req, res) => {
     const items = await fetchAllMemoryItems()
     const byType = groupByType(items)
 
-    const { data: patterns } = await supabase
-      .from('incident_patterns')
-      .select('occurrence_count')
+    // Lessons ARE the incident patterns in this model; `incident_patterns` was
+    // a seeded pre-aggregate of the same workflow_failures rows.
+    const patterns = items
+      .filter(i => i.memory_type === 'lesson')
+      .map(i => ({ occurrence_count: i.evidence.workflowCount }))
 
-    const { data: heroes } = await supabase
-      .from('hero_dependencies')
-      .select('person_name, risk_level')
-      .eq('risk_level', 'critical')
+    // `hero_dependencies` was likewise seeded; hero risk is computed from
+    // ownership concentration without a named backup.
+    const heroes = items
+      .filter(i => i.memory_type === 'hero_risk' && i.severity === 'critical')
+      .map(i => ({ person_name: i.entity_name, risk_level: i.severity }))
 
-    const totalOccurrences = patterns?.reduce((s, p) => s + p.occurrence_count, 0) ?? 0
+    const totalOccurrences = patterns.reduce((s, p) => s + p.occurrence_count, 0)
 
     res.json({
       totalMemoryItems: items.length,
       recurringItems: items.filter(i => i.is_recurring).length,
       byType,
-      criticalHeroDependencies: heroes?.length ?? 0,
+      criticalHeroDependencies: heroes.length,
       totalIncidentOccurrences: totalOccurrences,
       topMemoryItem: items[0]
         ? {
@@ -123,32 +148,39 @@ router.get('/items', async (req, res) => {
 
 router.get('/patterns', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('incident_patterns')
-      .select('*')
-      .order('occurrence_count', { ascending: false })
+    // `incident_patterns` was another seeded pre-aggregate of workflow_failures.
+    // A pattern IS a lesson in this model — a failure mode seen across more
+    // than one workflow — so both come from the same computation now.
+    const intel = await domain.intelligence.all()
+    const items = intel.executiveMemory.items
 
-    if (error) throw new Error(error.message)
+    const patterns = items
+      .filter(i => i.memoryType === 'lesson')
+      .map(i => ({
+        patternName:      i.title,
+        failureType:      i.evidence.failureType,
+        occurrenceCount:  i.evidence.workflowCount,
+        affectedEntities: i.evidence.affectedEntities,
+        // workflow_failures records no timestamps, so there is no honest answer
+        // here. The seeded table asserted dates it could not have known.
+        firstSeen:        null,
+        lastSeen:         null
+      }))
 
-    // Also pull recurring memory items
-    const { data: recurring } = await supabase
-      .from('executive_memory_items')
-      .select('title, description, entity_name, severity')
-      .eq('is_recurring', true)
-      .order('relevance_score', { ascending: false })
+    const recurring = items
+      .filter(i => i.isRecurring)
+      .map(i => ({
+        title: i.title, description: i.description,
+        entity_name: i.entityName, severity: i.severity
+      }))
 
     res.json({
-      totalPatterns: data.length,
-      recurringMemoryItems: recurring?.length ?? 0,
-      patterns: data.map(p => ({
-        patternName:      p.pattern_name,
-        failureType:      p.failure_type,
-        occurrenceCount:  p.occurrence_count,
-        affectedEntities: p.affected_entities,
-        firstSeen:        p.first_seen,
-        lastSeen:         p.last_seen
-      })),
-      recurringItems: recurring ?? []
+      totalPatterns: patterns.length,
+      recurringMemoryItems: recurring.length,
+      patterns,
+      recurringItems: recurring,
+      computedAt: intel.executiveMemory.computedAt,
+      source: intel.executiveMemory.source
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -161,20 +193,14 @@ router.get('/patterns', async (req, res) => {
 
 router.get('/lessons', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('executive_memory_items')
-      .select('*')
-      .eq('memory_type', 'lesson')
-      .order('relevance_score', { ascending: false })
-
-    if (error) throw new Error(error.message)
+    const data = await memoryItemsOfType('lesson')
 
     // Pull live high/critical failures to surface additional context
-    const { data: failures } = await supabase
+    const failures = await optional('workflow_failures(critical/high)', supabase
       .from('workflow_failures')
       .select('failure_type, severity, description, workflows(name)')
       .in('severity', ['critical', 'high'])
-      .limit(5)
+      .limit(5), [])
 
     res.json({
       totalLessons: data.length,
@@ -187,12 +213,12 @@ router.get('/lessons', async (req, res) => {
         sourceModule:   l.source_module,
         isRecurring:    l.is_recurring
       })),
-      relatedIncidents: failures?.map(f => ({
+      relatedIncidents: failures.map(f => ({
         workflowName:  f.workflows?.name,
         failureType:   f.failure_type,
         severity:      f.severity,
         description:   f.description
-      })) ?? []
+      }))
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -205,19 +231,25 @@ router.get('/lessons', async (req, res) => {
 
 router.get('/hero-risk', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('hero_dependencies')
-      .select('*')
-      .order('resolution_count', { ascending: false })
-
-    if (error) throw new Error(error.message)
+    // `hero_dependencies` was a seeded list of "people the organization leans
+    // on". A hero risk is computed now: someone owning two or more critical
+    // assets with nobody named as their backup. `resolutionCount` is not
+    // carried over — nothing in the schema records incident resolutions, so the
+    // seeded counts were asserting something the database cannot know.
+    const data = (await memoryItemsOfType('hero_risk')).map(i => ({
+      person_name:           i.entity_name,
+      department:            i.evidence.department,
+      risk_level:            i.severity,
+      description:           i.description,
+      critical_assets:       i.evidence.assets,
+      critical_asset_count:  i.evidence.criticalAssetCount,
+    }))
 
     // Pull hero memory items for context
-    const { data: heroItems } = await supabase
-      .from('executive_memory_items')
-      .select('title, description, entity_name, relevance_score')
-      .eq('memory_type', 'hero_risk')
-      .order('relevance_score', { ascending: false })
+    const heroItems = (await memoryItemsOfType('hero_risk')).map(i => ({
+      title: i.title, description: i.description,
+      entity_name: i.entity_name, relevance_score: i.relevance_score
+    }))
 
     const critical = data.filter(h => h.risk_level === 'critical')
 
@@ -225,13 +257,18 @@ router.get('/hero-risk', async (req, res) => {
       totalHeroDependencies: data.length,
       criticalHeroes: critical.length,
       heroes: data.map(h => ({
-        personName:      h.person_name,
-        department:      h.department,
-        resolutionCount: h.resolution_count,
-        riskLevel:       h.risk_level,
-        description:     h.description
+        personName:         h.person_name,
+        department:         h.department,
+        // Replaces `resolutionCount`. The old field claimed "N incidents
+        // resolved" from a seeded table; nothing records incident resolutions,
+        // so it was never a derivable number. This one is: how many critical
+        // assets this person holds with no backup owner named.
+        criticalAssetCount: h.critical_asset_count,
+        criticalAssets:     h.critical_assets,
+        riskLevel:          h.risk_level,
+        description:        h.description
       })),
-      heroMemoryItems: heroItems ?? []
+      heroMemoryItems: heroItems
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -247,16 +284,15 @@ router.get('/repeat-offenders', async (req, res) => {
     const repeatOffenders = await detectRepeatOffenders()
 
     // Also pull repeat_offender memory items
-    const { data: items } = await supabase
-      .from('executive_memory_items')
-      .select('title, description, entity_name, relevance_score, severity')
-      .eq('memory_type', 'repeat_offender')
-      .order('relevance_score', { ascending: false })
+    const items = (await memoryItemsOfType('repeat_offender')).map(i => ({
+      title: i.title, description: i.description, entity_name: i.entity_name,
+      relevance_score: i.relevance_score, severity: i.severity
+    }))
 
     res.json({
       totalRepeatOffenders: repeatOffenders.length,
       repeatOffenders,
-      memoryItems: items ?? []
+      memoryItems: items
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -269,38 +305,32 @@ router.get('/repeat-offenders', async (req, res) => {
 
 router.get('/bad-decisions', async (req, res) => {
   try {
-    // Pull bad decision memory items
-    const { data: memoryItems } = await supabase
-      .from('executive_memory_items')
-      .select('*')
-      .eq('memory_type', 'bad_decision')
-      .order('relevance_score', { ascending: false })
+    // Pull bad decision memory items — this route's primary data
+    const memoryItems = await memoryItemsOfType('bad_decision')
 
     // Pull historical decisions flagged for revisit from decision_history
-    const { data: historical, error } = await supabase
+    const historical = await must('decision_history(should_revisit)', supabase
       .from('decision_history')
       .select('*')
       .eq('should_revisit', true)
-      .order('decided_at', { ascending: true })
-
-    if (error) throw new Error(error.message)
+      .order('decided_at', { ascending: true }))
 
     res.json({
-      totalBadDecisionMemoryItems: memoryItems?.length ?? 0,
-      totalFlaggedForRevisit: historical?.length ?? 0,
-      badDecisions: memoryItems?.map(m => ({
+      totalBadDecisionMemoryItems: memoryItems.length,
+      totalFlaggedForRevisit: historical.length,
+      badDecisions: memoryItems.map(m => ({
         title:          m.title,
         description:    m.description,
         entityName:     m.entity_name,
         relevanceScore: m.relevance_score,
         severity:       m.severity
-      })) ?? [],
-      flaggedHistoricalDecisions: historical?.map(d => ({
+      })),
+      flaggedHistoricalDecisions: historical.map(d => ({
         title:         d.title,
         outcome:       d.outcome,
         decidedAt:     d.decided_at,
         revisitReason: d.revisit_reason
-      })) ?? []
+      }))
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

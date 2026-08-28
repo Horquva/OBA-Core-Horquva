@@ -3,22 +3,19 @@
 import React, { useState } from 'react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { ListOrdered, Flame } from 'lucide-react';
-import { Recommendation } from '../../lib/recommendations';
+import { Recommendation, RecPriority } from '../../lib/recommendations';
 
-function ScoreGauge({ label, value }: { label: string; value: number }) {
-  const color = value >= 80 ? 'bg-red-400' : value >= 60 ? 'bg-amber-400' : 'bg-sky-400';
-  return (
-    <div className="flex flex-col gap-1 min-w-20">
-      <div className="flex justify-between text-[10px]">
-        <span className="text-[color:var(--text-tertiary)]">{label}</span>
-        <span className="text-[color:var(--text-secondary)] font-medium">{value}</span>
-      </div>
-      <div className="h-1 rounded-full bg-[color:var(--bg-card)]">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  );
-}
+const PRIORITY_META: Record<RecPriority, { color: string }> = {
+  CRITICAL: { color: 'text-red-400' },
+  HIGH:     { color: 'text-amber-400' },
+  MEDIUM:   { color: 'text-sky-400' },
+};
+
+const EFFORT_META: Record<Recommendation['effort'], string> = {
+  Quick:     'text-emerald-400 bg-emerald-500/5 border-emerald-500/20',
+  Medium:    'text-amber-400 bg-amber-500/5 border-amber-500/20',
+  Strategic: 'text-violet-400 bg-violet-500/5 border-violet-500/20',
+};
 
 const DRIVER_META: Record<string, { color: string; label: string }> = {
   spof:                    { color: 'text-red-400 bg-red-500/5 border-red-500/20', label: 'SPOF' },
@@ -29,6 +26,14 @@ const DRIVER_META: Record<string, { color: string; label: string }> = {
 };
 
 const DRIVER_ORDER = ['spof', 'active_incident', 'undocumented_knowledge', 'tool_dependency', 'other'];
+const PRIORITY_ORDER: RecPriority[] = ['CRITICAL', 'HIGH', 'MEDIUM'];
+const EFFORT_ORDER: Record<Recommendation['effort'], number> = { Quick: 0, Medium: 1, Strategic: 2 };
+
+function byPriorityThenEffort(a: { priority: RecPriority; effort: Recommendation['effort'] }, b: { priority: RecPriority; effort: Recommendation['effort'] }) {
+  const pd = PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority);
+  if (pd !== 0) return pd;
+  return EFFORT_ORDER[a.effort] - EFFORT_ORDER[b.effort];
+}
 
 interface Props {
   recommendations: Recommendation[];
@@ -37,43 +42,39 @@ interface Props {
 export function DecisionSupportQueue({ recommendations }: Props) {
   const [filter, setFilter] = useState<string>('ALL');
 
+  // driverKey is a genuine grouping of rec.category (real, brain module M04-derived, D-62).
+  // Previously this component also fabricated per-item impactScore/urgencyScore/effortScore/
+  // blastRadius numbers from rec.priority/effort/targetType via arithmetic with no real basis,
+  // then re-derived a "priorityScore" from those fabricated numbers -- displaying manufactured
+  // precision on top of a genuine 3-tier signal. Now it just groups and sorts by the real
+  // `priority`/`effort` fields brain module M04 already computed (D-62).
   const mappedItems = recommendations.map(rec => {
     let driverKey = 'other';
     if (rec.category === 'OWNERSHIP' || rec.category === 'CONCENTRATION') driverKey = 'spof';
     if (rec.category === 'DOCUMENTATION') driverKey = 'undocumented_knowledge';
     if (rec.category === 'TOOL_GOVERNANCE') driverKey = 'tool_dependency';
-    
-    // Derived numeric mockups based on priority for matrix display
-    let impactScore = rec.priority === 'CRITICAL' ? 95 : rec.priority === 'HIGH' ? 75 : 50;
-    let urgencyScore = rec.priority === 'CRITICAL' ? 90 : rec.effort === 'Quick' ? 70 : 40;
-    let effortScore = rec.effort === 'Quick' ? 15 : rec.effort === 'Medium' ? 45 : 85;
-    let blastRadius = rec.targetType === 'tool' ? 7 : rec.targetType === 'person' ? 5 : 2;
-
-    const priorityScore = Math.min(100, Math.round((impactScore * 0.6) + (urgencyScore * 0.4)));
 
     return {
       id: rec.id,
       title: rec.title,
       description: rec.description,
       driverKey,
-      impactScore,
-      urgencyScore,
-      effortScore,
-      blastRadius,
-      priorityScore,
+      priority: rec.priority,
+      effort: rec.effort,
+      targetType: rec.targetType,
       entityName: rec.targetName,
     };
   });
 
   const grouped = DRIVER_ORDER.reduce<Record<string, typeof mappedItems>>((acc, key) => {
-    const items = mappedItems.filter(q => q.driverKey === key).sort((a, b) => b.priorityScore - a.priorityScore);
+    const items = mappedItems.filter(q => q.driverKey === key).sort(byPriorityThenEffort);
     if (items.length > 0) acc[key] = items;
     return acc;
   }, {});
 
   const allItems = mappedItems
     .filter(q => filter === 'ALL' || q.driverKey === filter)
-    .sort((a, b) => b.priorityScore - a.priorityScore);
+    .sort(byPriorityThenEffort);
 
   return (
     <div className="flex flex-col rounded-xl bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)] p-6 relative overflow-hidden mt-4">
@@ -85,9 +86,9 @@ export function DecisionSupportQueue({ recommendations }: Props) {
             <ListOrdered className="w-5 h-5 text-orange-400" />
             <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Decision Support Queue</h2>
           </div>
-          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Impact × urgency ranked, grouped by driver</p>
+          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Ranked by priority and effort, grouped by driver</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={recommendations.length > 0} />
       </div>
 
       <div className="flex flex-wrap gap-2 mb-6 z-10">
@@ -145,15 +146,14 @@ export function DecisionSupportQueue({ recommendations }: Props) {
                 </div>
 
                 <div className="flex flex-col items-end shrink-0">
-                  <span className={`text-xl font-bold ${item.priorityScore >= 80 ? 'text-red-400' : item.priorityScore >= 65 ? 'text-amber-400' : 'text-sky-400'}`}>{item.priorityScore}</span>
+                  <span className={`text-sm font-bold uppercase tracking-wider ${PRIORITY_META[item.priority].color}`}>{item.priority}</span>
                   <span className="text-[9px] text-[color:var(--text-tertiary)] uppercase tracking-wider">priority</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 pt-2 border-t border-[color:var(--border-subtle)]">
-                <ScoreGauge label="Impact" value={item.impactScore} />
-                <ScoreGauge label="Urgency" value={item.urgencyScore} />
-                <ScoreGauge label="Blast ×" value={Math.min(item.blastRadius * 15, 100)} />
+              <div className="flex items-center gap-2 pt-2 border-t border-[color:var(--border-subtle)]">
+                <span className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${EFFORT_META[item.effort]}`}>{item.effort} effort</span>
+                <span className="text-[10px] px-2 py-0.5 rounded border font-semibold text-[color:var(--text-secondary)] bg-[color:var(--bg-elevated)] border-[color:var(--border-subtle)] capitalize">{item.targetType}</span>
               </div>
             </div>
           );

@@ -142,7 +142,7 @@ Reconstructs the key organizational decisions encoded in the data, builds a deci
 
 ## Data Source
 
-All UI powered by `../data/sunrise_care.json` loaded server-side via `lib/data.ts`. No API calls — pure local data for the MVP.
+All UI powered by `../data/company.json` loaded server-side via `lib/data.ts`. No API calls — pure local data for the MVP.
 
 ---
 
@@ -168,4 +168,4 @@ Runs on **http://localhost:3001**
 | Charts | Recharts 3 |
 | Icons | Lucide React |
 | Graphs | React Flow (`@xyflow/react`) + Dagre |
-| Data | Local JSON (`sunrise_care.json`) |
+| Data | Local JSON (`company.json`) |

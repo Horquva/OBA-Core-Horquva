@@ -17,11 +17,14 @@ router.get('/', async (req, res) => {
     .map(wf => {
       const failures = wf.workflow_failures
 
-      // group by type
+      // group by type — these four are the actual failure_type values recorded
+      // in workflow_failures; there is no agent-caused failure category in this
+      // data model, and tool failures are recorded as 'tool_failure', not 'tool_spof'.
       const grouped = {
-        human_spof: failures.filter(f => f.failure_type === 'human_spof'),
-        tool_spof:  failures.filter(f => f.failure_type === 'tool_spof'),
-        agent_spof: failures.filter(f => f.failure_type === 'agent_spof')
+        human_spof:        failures.filter(f => f.failure_type === 'human_spof'),
+        tool_failure:      failures.filter(f => f.failure_type === 'tool_failure'),
+        process_gap:       failures.filter(f => f.failure_type === 'process_gap'),
+        escalation_failure: failures.filter(f => f.failure_type === 'escalation_failure')
       }
 
       // severity breakdown
@@ -41,13 +44,17 @@ router.get('/', async (req, res) => {
             count:    grouped.human_spof.length,
             failures: grouped.human_spof
           },
-          tool_spof: {
-            count:    grouped.tool_spof.length,
-            failures: grouped.tool_spof
+          tool_failure: {
+            count:    grouped.tool_failure.length,
+            failures: grouped.tool_failure
           },
-          agent_spof: {
-            count:    grouped.agent_spof.length,
-            failures: grouped.agent_spof
+          process_gap: {
+            count:    grouped.process_gap.length,
+            failures: grouped.process_gap
+          },
+          escalation_failure: {
+            count:    grouped.escalation_failure.length,
+            failures: grouped.escalation_failure
           }
         }
       }

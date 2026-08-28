@@ -40,11 +40,11 @@ router.get('/', async (req, res) => {
 
     const reasons = []
 
-    // single human owner
-    if (!runbook || runbook.owner_id) {
-      const humanSpof = failures.some(f => f.failure_type === 'human_spof')
-      if (humanSpof) reasons.push('single_human_owner')
-    }
+    // single human owner — the schema supports at most one runbook owner per
+    // workflow, so that alone can't signal risk; a recorded human_spof failure is
+    // the actual evidence of single-human dependency.
+    const humanSpof = failures.some(f => f.failure_type === 'human_spof')
+    if (humanSpof) reasons.push('single_human_owner')
 
     // single tool
     if (toolCount <= 1) reasons.push('single_tool_dependency')

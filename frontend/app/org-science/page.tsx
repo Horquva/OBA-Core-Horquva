@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useCallback } from 'react';
 import { CollaborationScoreCard } from '../../components/org-science/CollaborationScoreCard';
 import { LearningMaturityCard } from '../../components/org-science/LearningMaturityCard';
 import { PatternRegularityCard } from '../../components/org-science/PatternRegularityCard';
@@ -8,8 +11,12 @@ import { CultureHealthCard } from '../../components/org-science/CultureHealthCar
 import { MaturityCurveCard } from '../../components/org-science/MaturityCurveCard';
 import { BehavioralProfileCard } from '../../components/org-science/BehavioralProfileCard';
 import { IndustryBenchmarkCard } from '../../components/org-science/IndustryBenchmarkCard';
+import { GraphFreshnessBanner } from '../../components/org-science/GraphFreshnessBanner';
 
 export default function OrgSciencePage() {
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const handleReload = useCallback(() => setReloadNonce((n) => n + 1), []);
+
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
@@ -22,9 +29,10 @@ export default function OrgSciencePage() {
             Deep organizational behavioral analysis, culture health, and maturity curve positioning.
           </p>
         </div>
+        <GraphFreshnessBanner onReload={handleReload} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-up delay-150">
+      <div key={reloadNonce} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-up delay-150">
         <CollaborationScoreCard />
         <LearningMaturityCard />
         <PatternRegularityCard />

@@ -44,6 +44,7 @@ const RELATIONSHIP_TYPES = {
   supports: 'Source supports target.',
   uses: 'Source uses target.',
   produces: 'Source produces target.',
+  concerns: 'Source concerns (is about) target.',
 }
 
 function isValidEntityType(type) {

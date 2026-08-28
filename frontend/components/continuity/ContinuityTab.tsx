@@ -4,9 +4,22 @@ import React from 'react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { ShieldCheck, ShieldAlert, HeartPulse, Activity } from 'lucide-react';
 import { ContinuityReport } from '../../lib/continuityRisk';
+import { ModuleResult } from '../../lib/moduleResult';
+
+export interface ContinuityPayload {
+  continuityScore: number; // 0-1
+  survivability: 'resilient' | 'fragile' | 'critical';
+  threats: string[];
+}
 
 interface Props {
   report: ContinuityReport;
+  /** Real M18 (Organizational Continuity Intelligence) output -- null while
+   *  loading or if the graph isn't ready. The KPI below is the only thing on
+   *  this tab actually sourced from a verified backend module; everything
+   *  else (department map, must-protect list) is continuityRisk.ts's local
+   *  per-asset heuristic and is labeled as such, not claimed as verified. */
+  module: ModuleResult<ContinuityPayload> | null;
 }
 
 const SURVIVAL_COLORS = {
@@ -16,27 +29,32 @@ const SURVIVAL_COLORS = {
   LOST:     'text-red-400 bg-red-500/10 border-red-500/20',
 };
 
-export function ContinuityTab({ report }: Props) {
+export function ContinuityTab({ report, module }: Props) {
   const survives = report.assets.filter(a => a.survivalStatus === 'SURVIVES').length;
   const fails = report.assets.filter(a => a.survivalStatus === 'FAILS' || a.survivalStatus === 'LOST').length;
+  const m18Score = module ? Math.round(module.payload.continuityScore * 100) : null;
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
-      
+
       {/* KPI row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="md:col-span-2 flex flex-col p-6 rounded-xl bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none translate-x-1/2 -translate-y-1/2" />
           <div className="flex items-center justify-between z-10 mb-2">
-            <span className="text-xs text-[color:var(--text-tertiary)] uppercase tracking-wider">Org Continuity Score</span>
-            <TruthBadge verified />
+            <span className="text-xs text-[color:var(--text-tertiary)] uppercase tracking-wider">Org Continuity Score (M18)</span>
+            <TruthBadge confidence={module ? module.confidence * 100 : null} />
           </div>
-          <div className="flex items-end gap-3 z-10">
-            <span className={`text-4xl font-bold ${report.orgSurvivalScore >= 80 ? 'text-emerald-400' : report.orgSurvivalScore >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
-              {report.orgSurvivalScore}
-            </span>
-            <span className="text-sm text-[color:var(--text-tertiary)] mb-1">/ 100</span>
-          </div>
+          {m18Score != null ? (
+            <div className="flex items-end gap-3 z-10">
+              <span className={`text-4xl font-bold ${m18Score >= 80 ? 'text-emerald-400' : m18Score >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                {m18Score}
+              </span>
+              <span className="text-sm text-[color:var(--text-tertiary)] mb-1">/ 100 · {module!.payload.survivability}</span>
+            </div>
+          ) : (
+            <span className="text-sm text-[color:var(--text-tertiary)] z-10">Unavailable — brain graph not ready</span>
+          )}
         </div>
 
         <div className="flex flex-col p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
@@ -55,7 +73,8 @@ export function ContinuityTab({ report }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Department Map */}
         <div className="flex flex-col rounded-xl bg-[color:var(--bg-card)] border border-[color:var(--border-subtle)] p-6">
-          <h3 className="text-sm font-semibold text-[color:var(--text-primary)] mb-4">Department Disruption Map</h3>
+          <h3 className="text-sm font-semibold text-[color:var(--text-primary)] mb-1">Department Disruption Map</h3>
+          <p className="text-[10px] text-[color:var(--text-tertiary)] mb-4 uppercase tracking-wide">Estimated — per-asset owner/backup/documentation model, not M18</p>
           <div className="flex flex-col gap-3">
             {Object.entries(report.deptContinuity).sort((a,b) => b[1].fails - a[1].fails).map(([dept, stats]) => (
               <div key={dept} className="flex flex-col gap-1.5 p-3 rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--bg-base)]">
