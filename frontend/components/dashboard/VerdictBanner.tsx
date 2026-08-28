@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Brain, TrendingUp, AlertCircle, ShieldOff } from 'lucide-react';
 import { orchestratorApi, OrchestratorSummary } from '../../lib/api';
 import { TruthBadge } from './TruthBadge';
+import { EvidenceBadge } from '../ui/EvidenceBadge';
 
 function PostureChip({ posture }: { posture: string | null }) {
   if (!posture) return null;
@@ -73,9 +74,9 @@ export function VerdictBanner() {
     );
   }
 
-  const scoreColor = data.organizationalIntelligenceScore >= 80 ? '#4ade80' // Green
-    : data.organizationalIntelligenceScore >= 60 ? '#facc15' // Yellow (Strained)
-    : data.organizationalIntelligenceScore >= 40 ? '#fb923c' // Orange (At risk)
+  const scoreColor = (data.organizationalIntelligenceScore ?? 0) >= 80 ? '#4ade80' // Green
+    : (data.organizationalIntelligenceScore ?? 0) >= 60 ? '#facc15' // Yellow (Strained)
+    : (data.organizationalIntelligenceScore ?? 0) >= 40 ? '#fb923c' // Orange (At risk)
     : '#f87171'; // Red (Critical)
 
   return (
@@ -108,32 +109,38 @@ export function VerdictBanner() {
         </div>
 
         {/* Score row */}
-        <div className="flex flex-wrap items-end gap-6 mb-6">
-          <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-7xl font-bold tabular-nums leading-none text-white">
-                {data.organizationalIntelligenceScore}
-              </span>
-              <span className="text-2xl text-[color:var(--text-tertiary)]">/100</span>
-            </div>
-            <div className="mt-2">
-              <RatingBadge rating={data.rating} />
-            </div>
+        {data.evidence?.status === 'insufficient_evidence' ? (
+          <div className="mb-6">
+            <EvidenceBadge evidence={data.evidence} />
           </div>
+        ) : (
+          <div className="flex flex-wrap items-end gap-6 mb-6">
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-7xl font-bold tabular-nums leading-none text-white">
+                  {data.organizationalIntelligenceScore}
+                </span>
+                <span className="text-2xl text-[color:var(--text-tertiary)]">/100</span>
+              </div>
+              <div className="mt-2">
+                <RatingBadge rating={data.rating ?? ''} />
+              </div>
+            </div>
 
-          {/* Score bar */}
-          <div className="flex-1 min-w-[200px]">
-            <div className="flex justify-between text-xs text-[color:var(--text-tertiary)] mb-1.5">
-              <span>Org Intelligence Score</span>
-              <span>Trust: {data.trustScore}%</span>
-            </div>
-            <div className="w-full h-2 rounded-full overflow-hidden"
-              style={{ background: 'var(--border-subtle)' }}>
-              <div className="h-full rounded-full transition-all duration-1000"
-                style={{ width: `${data.organizationalIntelligenceScore}%`, background: `linear-gradient(90deg, ${scoreColor}, ${scoreColor}80)` }} />
+            {/* Score bar */}
+            <div className="flex-1 min-w-[200px]">
+              <div className="flex justify-between text-xs text-[color:var(--text-tertiary)] mb-1.5">
+                <span>Org Intelligence Score</span>
+                <span>Trust: {data.trustScore}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full overflow-hidden"
+                style={{ background: 'var(--border-subtle)' }}>
+                <div className="h-full rounded-full transition-all duration-1000"
+                  style={{ width: `${data.organizationalIntelligenceScore}%`, background: `linear-gradient(90deg, ${scoreColor}, ${scoreColor}80)` }} />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Verdict text */}
         <div className="p-4 rounded-lg text-sm leading-relaxed text-[color:var(--text-secondary)]"

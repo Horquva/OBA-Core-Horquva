@@ -4,11 +4,12 @@ import React, { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { useAuth } from '@/lib/AuthContext';
-import GlobalAvatarPanel from '@/components/global/GlobalAvatarPanel';
 import GlobalNotificationPanel from '@/components/global/GlobalNotificationPanel';
 import GlobalSearchOverlay from '@/components/global/GlobalSearchOverlay';
+import CommandBar from '@/components/global/CommandBar';
+import DeepLinkFocus from '@/components/global/DeepLinkFocus';
 
-const AUTH_ROUTES = ['/login', '/signup', '/forgot-password'];
+const AUTH_ROUTES = ['/login'];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -37,11 +38,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-full">
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden relative">
+        <CommandBar />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
       </div>
-      <GlobalAvatarPanel />
       <GlobalNotificationPanel />
       <GlobalSearchOverlay />
+      <DeepLinkFocus />
     </div>
   );
 }

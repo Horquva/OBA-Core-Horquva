@@ -1,8 +1,15 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { must } = require('../lib/supabaseQuery')
 
 // GET /api/data-quality — comprehensive data integrity checks
+//
+// Every read here used to destructure only `{ data }` and fall back to `[]` on
+// failure. That inverted the score under an outage: a dropped table meant fewer
+// rows to check, which means fewer issues found, which means a HIGHER
+// dataQualityScore — a database failure reported as data getting *healthier*.
+// All ten reads now use must() and a failure 500s instead.
 router.get('/', async (req, res) => {
   try {
     const issues = []
@@ -10,11 +17,11 @@ router.get('/', async (req, res) => {
     const stats = {}
 
     // 1. Check for orphaned agents (no owner)
-    const { data: agents } = await supabase
+    const agents = await must('agents', supabase
       .from('agents')
-      .select('id, name, owner_id')
+      .select('id, name, owner_id'))
 
-    const orphanedAgents = (agents || []).filter(a => !a.owner_id)
+    const orphanedAgents = agents.filter(a => !a.owner_id)
     if (orphanedAgents.length > 0) {
       issues.push({
         type: 'orphaned_agents',
@@ -23,15 +30,15 @@ router.get('/', async (req, res) => {
         items: orphanedAgents.map(a => a.name)
       })
     }
-    stats.totalAgents = agents?.length ?? 0
+    stats.totalAgents = agents.length
 
     // 2. Check for failed/inactive agents
-    const { data: agentsWithStatus } = await supabase
+    const agentsWithStatus = await must('agents (status)', supabase
       .from('agents')
       .select('id, name, status')
-      .in('status', ['failed', 'inactive', 'deprecated'])
+      .in('status', ['failed', 'inactive', 'deprecated']))
 
-    if (agentsWithStatus?.length > 0) {
+    if (agentsWithStatus.length > 0) {
       warnings.push({
         type: 'unhealthy_agents',
         severity: 'medium',
@@ -41,13 +48,13 @@ router.get('/', async (req, res) => {
     }
 
     // 3. Check for undocumented critical knowledge assets
-    const { data: knowledgeAssets } = await supabase
+    const knowledgeAssets = await must('knowledge_assets', supabase
       .from('knowledge_assets')
       .select('id, topic, is_documented, criticality, owner_id')
       .in('criticality', ['critical', 'high'])
-      .eq('is_documented', false)
+      .eq('is_documented', false))
 
-    if (knowledgeAssets?.length > 0) {
+    if (knowledgeAssets.length > 0) {
       issues.push({
         type: 'undocumented_critical_knowledge',
         severity: 'critical',
@@ -57,18 +64,18 @@ router.get('/', async (req, res) => {
     }
 
     // 4. Check for workflows without runbooks
-    const { data: workflows } = await supabase
+    const workflows = await must('workflows', supabase
       .from('workflows')
-      .select('id, name')
+      .select('id, name'))
 
-    const { data: runbooks } = await supabase
+    const runbooks = await must('workflow_runbooks', supabase
       .from('workflow_runbooks')
-      .select('workflow_id, is_documented')
+      .select('workflow_id, is_documented'))
 
-    const workflowsWithoutRunbook = (workflows || []).filter(
-      w => !(runbooks || []).some(r => r.workflow_id === w.id)
+    const workflowsWithoutRunbook = workflows.filter(
+      w => !runbooks.some(r => r.workflow_id === w.id)
     )
-    const undocumentedRunbooks = (runbooks || []).filter(r => !r.is_documented)
+    const undocumentedRunbooks = runbooks.filter(r => !r.is_documented)
 
     if (workflowsWithoutRunbook.length > 0) {
       issues.push({
@@ -86,20 +93,20 @@ router.get('/', async (req, res) => {
         items: undocumentedRunbooks.map(r => `Workflow #${r.workflow_id}`)
       })
     }
-    stats.totalWorkflows = workflows?.length ?? 0
+    stats.totalWorkflows = workflows.length
 
     // 5. Check for tools without policies
-    const { data: platforms } = await supabase
+    const platforms = await must('ai_platforms', supabase
       .from('ai_platforms')
       .select('id, name, status')
-      .eq('status', 'active')
+      .eq('status', 'active'))
 
-    const { data: policies } = await supabase
+    const policies = await must('tool_policies', supabase
       .from('tool_policies')
-      .select('platform_id')
+      .select('platform_id'))
 
-    const policyPlatformIds = new Set((policies || []).map(p => p.platform_id))
-    const noPolicyTools = (platforms || []).filter(p => !policyPlatformIds.has(p.id))
+    const policyPlatformIds = new Set(policies.map(p => p.platform_id))
+    const noPolicyTools = platforms.filter(p => !policyPlatformIds.has(p.id))
 
     if (noPolicyTools.length > 0) {
       warnings.push({
@@ -109,15 +116,15 @@ router.get('/', async (req, res) => {
         items: noPolicyTools.map(t => t.name)
       })
     }
-    stats.totalTools = platforms?.length ?? 0
+    stats.totalTools = platforms.length
 
     // 6. Check for tools without backups
-    const { data: backups } = await supabase
+    const backups = await must('tool_backups', supabase
       .from('tool_backups')
-      .select('primary_platform')
+      .select('primary_platform'))
 
-    const backupPlatformIds = new Set((backups || []).map(b => b.primary_platform))
-    const noBackupTools = (platforms || []).filter(p => !backupPlatformIds.has(p.id))
+    const backupPlatformIds = new Set(backups.map(b => b.primary_platform))
+    const noBackupTools = platforms.filter(p => !backupPlatformIds.has(p.id))
 
     if (noBackupTools.length > 0) {
       warnings.push({
@@ -129,16 +136,16 @@ router.get('/', async (req, res) => {
     }
 
     // 7. Employee count
-    const { data: employees } = await supabase
+    const employees = await must('employees', supabase
       .from('employees')
-      .select('id')
-    stats.totalEmployees = employees?.length ?? 0
+      .select('id'))
+    stats.totalEmployees = employees.length
 
     // 8. Snapshot check
-    const { data: snapshots } = await supabase
+    const snapshots = await must('snapshots', supabase
       .from('snapshots')
-      .select('id')
-    stats.totalSnapshots = snapshots?.length ?? 0
+      .select('id'))
+    stats.totalSnapshots = snapshots.length
 
     // Compute overall health
     const criticalIssues = issues.filter(i => i.severity === 'critical').length

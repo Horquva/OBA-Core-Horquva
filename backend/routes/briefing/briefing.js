@@ -1,54 +1,63 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const domain = require('../../domain')
+const { must, optional } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
 // HELPERS — pull live signals from existing modules
 // ─────────────────────────────────────────────
 
-async function getTopSPOF() {
-  const { data } = await supabase
-    .from('predictive_risk_scores')
-    .select('predicted_score, agents(name, risk, owner_id)')
-    .eq('threat_level', 'CRITICAL')
-    .order('predicted_score', { ascending: false })
-    .limit(1)
-    .single()
+// Both of these used to SELECT from tables seeded once by SQL and written by
+// nothing, so the "daily" briefing opened with the same single point of failure
+// and the same overloaded person every day regardless of what had changed.
+// Row shapes below match the old SELECTs so the briefing prose is untouched.
 
-  return data ?? null
+async function getTopSPOF() {
+  const intel = await domain.intelligence.all()
+  const top = intel.predictiveRisk.scores.find(p => p.threatLevel === 'CRITICAL')
+  if (!top) return null
+  return {
+    predicted_score: top.predictedScore,
+    agents: { name: top.agentName, risk: top.recordedRisk, owner_id: null },
+  }
 }
 
 async function getMostOverloaded() {
-  const { data } = await supabase
-    .from('collaboration_scores')
-    .select('dependency_score, critical_agents_owned, has_backup, employees(name, department)')
-    .order('dependency_score', { ascending: false })
-    .limit(1)
-    .single()
-
-  return data ?? null
+  const intel = await domain.intelligence.all()
+  const people = intel.collaboration.perEmployee
+  if (!people.length) return null
+  const top = people.reduce((a, b) => (b.dependencyScore > a.dependencyScore ? b : a))
+  return {
+    dependency_score:      top.dependencyScore,
+    critical_agents_owned: top.criticalAgentsOwned,
+    has_backup:            top.hasBackup,
+    employees: { name: top.name, department: top.department },
+  }
 }
 
+// workflow_failures has no timestamp column in any migration — there is no
+// real recency to sort by. Ordering by workflow_id descending is the best
+// available proxy, not an actual "latest" guarantee; do not present this as
+// time-ordered without adding a real timestamp column first.
 async function getLatestIncident() {
-  const { data } = await supabase
+  return must('workflow_failures', supabase
     .from('workflow_failures')
     .select('failure_type, severity, description, workflow_id, workflows(name)')
     .eq('severity', 'critical')
     .order('workflow_id', { ascending: false })
     .limit(1)
-    .single()
-
-  return data ?? null
+    .maybeSingle())
 }
 
 async function getDocTrend() {
-  const { data } = await supabase
+  const data = await must('documentation_trend', supabase
     .from('documentation_trend')
     .select('*')
     .order('recorded_month', { ascending: false })
-    .limit(2)
+    .limit(2))
 
-  if (!data || data.length < 2) return null
+  if (data.length < 2) return null
 
   const [latest, previous] = data
   const direction =
@@ -60,11 +69,12 @@ async function getDocTrend() {
 }
 
 async function getPendingDecisionsCount() {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('pending_decisions')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'pending')
 
+  if (error) throw new Error(`pending_decisions: ${error.message}`)
   return count ?? 0
 }
 
@@ -115,11 +125,13 @@ router.get('/today', async (req, res) => {
   try {
     // Try to serve today's cached briefing first
     const today = new Date().toISOString().split('T')[0]
-    const { data: cached } = await supabase
+    // A failed cache read is non-fatal — computing live is the right fallback —
+    // but log the real error rather than silently treating it as "no cache".
+    const cached = await optional('executive_briefings (cache read)', supabase
       .from('executive_briefings')
       .select('*')
       .eq('briefing_date', today)
-      .single()
+      .maybeSingle())
 
     if (cached) return res.json(cached)
 
@@ -148,8 +160,12 @@ router.get('/today', async (req, res) => {
       summary_points: summaryPoints
     }
 
-    // Cache it
-    await supabase.from('executive_briefings').insert(briefing)
+    // Cache it. The briefing is already computed and valid, so a write failure
+    // must not deny it to the caller — but it can't vanish either.
+    const { error: cacheError } = await supabase.from('executive_briefings').insert(briefing)
+    if (cacheError) {
+      console.warn(`[briefing] failed to cache today's briefing: ${cacheError.message}`)
+    }
 
     res.json(briefing)
   } catch (err) {
@@ -229,7 +245,11 @@ router.get('/documentation-trend', async (req, res) => {
         coveragePct: d.coverage_pct,
         totalAssets: d.total_assets,
         documented: d.documented
-      }))
+      })),
+      // documentation_trend is a genuine, never-rewritten time series (D-09
+      // KEEP list). Unlike executive_briefings elsewhere in this file (which
+      // IS written daily by /today below), this can never be recomputed.
+      provenance: { source: 'historical', table: 'documentation_trend' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -276,20 +296,17 @@ router.get('/pending-decisions', async (req, res) => {
 
 router.get('/top-risks', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('predictive_risk_scores')
-      .select(`
-        predicted_score,
-        threat_level,
-        is_emerging_threat,
-        reasons,
-        agents ( name, status, risk )
-      `)
-      .in('threat_level', ['CRITICAL', 'HIGH'])
-      .order('predicted_score', { ascending: false })
-      .limit(5)
-
-    if (error) throw new Error(error.message)
+    const intel = await domain.intelligence.all()
+    const data = intel.predictiveRisk.scores
+      .filter(p => ['CRITICAL', 'HIGH'].includes(p.threatLevel))
+      .slice(0, 5)
+      .map(p => ({
+        predicted_score:    p.predictedScore,
+        threat_level:       p.threatLevel,
+        is_emerging_threat: p.isEmergingThreat,
+        reasons:            p.reasons,
+        agents: { name: p.agentName, status: null, risk: p.recordedRisk },
+      }))
 
     res.json({
       totalHighAndCritical: data.length,
@@ -311,26 +328,28 @@ router.get('/top-risks', async (req, res) => {
 // GET /api/briefing/recommendations — top open recommendations
 // ─────────────────────────────────────────────
 
+// D-66: this used to SELECT from the `recommendations` table — seeded once
+// by SQL, zero writers anywhere in this codebase, so it answered the same
+// list every day regardless of what had changed (the same class of bug the
+// header comment above already fixed for getTopSPOF()/getMostOverloaded()).
+// Brain module M04 (D-62) is the real, comprehensive recommendation engine;
+// this now reads it directly instead of a frozen table under the same name.
 router.get('/recommendations', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('recommendations')
-      .select('asset_name, asset_type, priority, recommendation, status')
-      .neq('status', 'done')
-      .limit(10)
+    if (!domain.graph.isReady()) {
+      return res.status(503).json({ error: 'Brain graph not loaded' })
+    }
+    const intel = await domain.graph.run('recommendation-engine')
+    const recs = intel?.payload?.recommendations ?? []
 
-    if (error) return res.json([])
-
-    const items = (data || []).map((r) => ({
-      type: (r.priority || r.asset_type || 'info').toString().toLowerCase(),
-      message: r.asset_name
-        ? `${r.asset_name}: ${r.recommendation}`
-        : r.recommendation,
+    const items = recs.slice(0, 10).map((r) => ({
+      type: r.priority.toLowerCase(),
+      message: `${r.title} — ${r.description}`,
     }))
 
     res.json(items)
   } catch (err) {
-    res.json([])
+    res.status(500).json({ error: err.message })
   }
 })
 

@@ -1,0 +1,2722 @@
+{
+  "company": "Northwind Labs",
+  "_note": "Exported from backend/sql/02_seed_data.sql and backend/sql/14_authored_entities.sql by backend/tools/export-company.js. Placeholder company name — rename freely. This is the ONLY company dataset: never merge another one into it, replace it (BUILD_SPEC Part 0A). systems, incidents and external_entities are derived from the systems/incidents/external_entities tables like every other section — no hand-authored data remains.",
+  "organization": {
+    "name": "Northwind Labs",
+    "industry": "B2B SaaS"
+  },
+  "departments": [
+    {
+      "name": "Engineering",
+      "head": "Robert Chen",
+      "headcount": 10,
+      "documentation_coverage": 72.5,
+      "backup_coverage": 65,
+      "incident_exposure_score": 78,
+      "risk_level": "HIGH"
+    },
+    {
+      "name": "Data",
+      "head": "Nathan Wright",
+      "headcount": 5,
+      "documentation_coverage": 60,
+      "backup_coverage": 55,
+      "incident_exposure_score": 72,
+      "risk_level": "HIGH"
+    },
+    {
+      "name": "Operations",
+      "head": "Jennifer Foster",
+      "headcount": 7,
+      "documentation_coverage": 80,
+      "backup_coverage": 70,
+      "incident_exposure_score": 45,
+      "risk_level": "MEDIUM"
+    },
+    {
+      "name": "Sales",
+      "head": "Rebecca Stone",
+      "headcount": 7,
+      "documentation_coverage": 55,
+      "backup_coverage": 35,
+      "incident_exposure_score": 38,
+      "risk_level": "MEDIUM"
+    },
+    {
+      "name": "Product",
+      "head": "Lisa Wang",
+      "headcount": 6,
+      "documentation_coverage": 85,
+      "backup_coverage": 75,
+      "incident_exposure_score": 25,
+      "risk_level": "LOW"
+    },
+    {
+      "name": "Finance",
+      "head": "Victoria Adams",
+      "headcount": 5,
+      "documentation_coverage": 68,
+      "backup_coverage": 40,
+      "incident_exposure_score": 55,
+      "risk_level": "MEDIUM"
+    }
+  ],
+  "employees": [
+    {
+      "id": "emp_001",
+      "name": "Robert Chen",
+      "role": "VP Engineering",
+      "department": "Engineering",
+      "reports_to": null,
+      "status": "active",
+      "started_at": "2014-03-15",
+      "left_at": null,
+      "skills": [
+        "architecture",
+        "leadership",
+        "python",
+        "aws"
+      ],
+      "workload": 92
+    },
+    {
+      "id": "emp_002",
+      "name": "Aisha Patel",
+      "role": "Senior Backend Engineer",
+      "department": "Engineering",
+      "reports_to": "Robert Chen",
+      "status": "active",
+      "started_at": "2018-09-01",
+      "left_at": null,
+      "skills": [
+        "node.js",
+        "postgresql",
+        "docker",
+        "kubernetes"
+      ],
+      "workload": 85
+    },
+    {
+      "id": "emp_003",
+      "name": "Marcus Rodriguez",
+      "role": "Frontend Lead",
+      "department": "Engineering",
+      "reports_to": "Robert Chen",
+      "status": "active",
+      "started_at": "2021-02-20",
+      "left_at": null,
+      "skills": [
+        "react",
+        "typescript",
+        "css",
+        "figma"
+      ],
+      "workload": 70
+    },
+    {
+      "id": "emp_004",
+      "name": "Yuki Tanaka",
+      "role": "DevOps Engineer",
+      "department": "Engineering",
+      "reports_to": "Robert Chen",
+      "status": "active",
+      "started_at": "2022-03-10",
+      "left_at": null,
+      "skills": [
+        "terraform",
+        "ci_cd",
+        "aws",
+        "monitoring"
+      ],
+      "workload": 88
+    },
+    {
+      "id": "emp_005",
+      "name": "Elena Vasquez",
+      "role": "Junior Developer",
+      "department": "Engineering",
+      "reports_to": "Aisha Patel",
+      "status": "active",
+      "started_at": "2024-11-01",
+      "left_at": null,
+      "skills": [
+        "python",
+        "javascript",
+        "git"
+      ],
+      "workload": 55
+    },
+    {
+      "id": "emp_006",
+      "name": "James O'Brien",
+      "role": "QA Lead",
+      "department": "Engineering",
+      "reports_to": "Robert Chen",
+      "status": "active",
+      "started_at": "2020-05-15",
+      "left_at": null,
+      "skills": [
+        "selenium",
+        "jest",
+        "testing",
+        "automation"
+      ],
+      "workload": 65
+    },
+    {
+      "id": "emp_007",
+      "name": "Priya Sharma",
+      "role": "ML Engineer",
+      "department": "Engineering",
+      "reports_to": "Robert Chen",
+      "status": "active",
+      "started_at": "2022-09-01",
+      "left_at": null,
+      "skills": [
+        "python",
+        "tensorflow",
+        "mlops",
+        "data_pipelines"
+      ],
+      "workload": 78
+    },
+    {
+      "id": "emp_008",
+      "name": "David Kim",
+      "role": "Backend Engineer",
+      "department": "Engineering",
+      "reports_to": "Aisha Patel",
+      "status": "active",
+      "started_at": "2024-03-15",
+      "left_at": null,
+      "skills": [
+        "node.js",
+        "express",
+        "mongodb"
+      ],
+      "workload": 60
+    },
+    {
+      "id": "emp_009",
+      "name": "Sarah Mitchell",
+      "role": "Security Engineer",
+      "department": "Engineering",
+      "reports_to": "Robert Chen",
+      "status": "active",
+      "started_at": "2018-01-10",
+      "left_at": null,
+      "skills": [
+        "security",
+        "compliance",
+        "penetration_testing",
+        "soc2"
+      ],
+      "workload": 90
+    },
+    {
+      "id": "emp_010",
+      "name": "Omar Hassan",
+      "role": "Platform Engineer",
+      "department": "Engineering",
+      "reports_to": "Yuki Tanaka",
+      "status": "active",
+      "started_at": "2023-04-01",
+      "left_at": null,
+      "skills": [
+        "kubernetes",
+        "docker",
+        "terraform",
+        "monitoring"
+      ],
+      "workload": 72
+    },
+    {
+      "id": "emp_011",
+      "name": "Lisa Wang",
+      "role": "VP Product",
+      "department": "Product",
+      "reports_to": null,
+      "status": "active",
+      "started_at": "2017-01-15",
+      "left_at": null,
+      "skills": [
+        "product_strategy",
+        "roadmapping",
+        "analytics",
+        "ux"
+      ],
+      "workload": 88
+    },
+    {
+      "id": "emp_012",
+      "name": "Carlos Mendez",
+      "role": "Senior PM",
+      "department": "Product",
+      "reports_to": "Lisa Wang",
+      "status": "active",
+      "started_at": "2021-08-01",
+      "left_at": null,
+      "skills": [
+        "agile",
+        "jira",
+        "user_research",
+        "metrics"
+      ],
+      "workload": 75
+    },
+    {
+      "id": "emp_013",
+      "name": "Nina Petrov",
+      "role": "Product Designer",
+      "department": "Product",
+      "reports_to": "Lisa Wang",
+      "status": "active",
+      "started_at": "2023-10-15",
+      "left_at": null,
+      "skills": [
+        "figma",
+        "design_systems",
+        "prototyping"
+      ],
+      "workload": 60
+    },
+    {
+      "id": "emp_014",
+      "name": "Raj Gupta",
+      "role": "Product Analyst",
+      "department": "Product",
+      "reports_to": "Carlos Mendez",
+      "status": "active",
+      "started_at": "2025-03-01",
+      "left_at": null,
+      "skills": [
+        "sql",
+        "tableau",
+        "python",
+        "analytics"
+      ],
+      "workload": 50
+    },
+    {
+      "id": "emp_015",
+      "name": "Tom Bradley",
+      "role": "Junior PM",
+      "department": "Product",
+      "reports_to": "Carlos Mendez",
+      "status": "active",
+      "started_at": "2025-12-01",
+      "left_at": null,
+      "skills": [
+        "jira",
+        "confluence",
+        "communication"
+      ],
+      "workload": 45
+    },
+    {
+      "id": "emp_016",
+      "name": "Fatima Al-Rashid",
+      "role": "UX Researcher",
+      "department": "Product",
+      "reports_to": "Lisa Wang",
+      "status": "active",
+      "started_at": "2023-04-01",
+      "left_at": null,
+      "skills": [
+        "user_research",
+        "surveys",
+        "analytics",
+        "figma"
+      ],
+      "workload": 65
+    },
+    {
+      "id": "emp_017",
+      "name": "Jennifer Foster",
+      "role": "COO",
+      "department": "Operations",
+      "reports_to": null,
+      "status": "active",
+      "started_at": "2012-06-01",
+      "left_at": null,
+      "skills": [
+        "operations",
+        "strategy",
+        "leadership",
+        "compliance"
+      ],
+      "workload": 95
+    },
+    {
+      "id": "emp_018",
+      "name": "Michael Torres",
+      "role": "Operations Manager",
+      "department": "Operations",
+      "reports_to": "Jennifer Foster",
+      "status": "active",
+      "started_at": "2019-09-15",
+      "left_at": null,
+      "skills": [
+        "project_management",
+        "vendor_management",
+        "budgeting"
+      ],
+      "workload": 82
+    },
+    {
+      "id": "emp_019",
+      "name": "Hannah Lee",
+      "role": "Business Analyst",
+      "department": "Operations",
+      "reports_to": "Michael Torres",
+      "status": "active",
+      "started_at": "2022-09-01",
+      "left_at": null,
+      "skills": [
+        "sql",
+        "excel",
+        "reporting",
+        "process_mapping"
+      ],
+      "workload": 68
+    },
+    {
+      "id": "emp_020",
+      "name": "Alex Novak",
+      "role": "IT Support Lead",
+      "department": "Operations",
+      "reports_to": "Michael Torres",
+      "status": "active",
+      "started_at": "2021-03-20",
+      "left_at": null,
+      "skills": [
+        "helpdesk",
+        "networking",
+        "hardware",
+        "ticketing"
+      ],
+      "workload": 70
+    },
+    {
+      "id": "emp_021",
+      "name": "Grace Okonkwo",
+      "role": "Compliance Officer",
+      "department": "Operations",
+      "reports_to": "Jennifer Foster",
+      "status": "active",
+      "started_at": "2019-04-10",
+      "left_at": null,
+      "skills": [
+        "compliance",
+        "soc2",
+        "gdpr",
+        "audit"
+      ],
+      "workload": 80
+    },
+    {
+      "id": "emp_022",
+      "name": "Ryan Phillips",
+      "role": "Procurement Specialist",
+      "department": "Operations",
+      "reports_to": "Michael Torres",
+      "status": "active",
+      "started_at": "2024-04-01",
+      "left_at": null,
+      "skills": [
+        "vendor_management",
+        "contracts",
+        "budgeting"
+      ],
+      "workload": 55
+    },
+    {
+      "id": "emp_023",
+      "name": "Diana Kowalski",
+      "role": "Office Manager",
+      "department": "Operations",
+      "reports_to": "Michael Torres",
+      "status": "active",
+      "started_at": "2022-03-15",
+      "left_at": null,
+      "skills": [
+        "admin",
+        "scheduling",
+        "facilities"
+      ],
+      "workload": 50
+    },
+    {
+      "id": "emp_024",
+      "name": "Nathan Wright",
+      "role": "Head of Data",
+      "department": "Data",
+      "reports_to": null,
+      "status": "active",
+      "started_at": "2017-09-01",
+      "left_at": null,
+      "skills": [
+        "data_architecture",
+        "spark",
+        "airflow",
+        "strategy"
+      ],
+      "workload": 90
+    },
+    {
+      "id": "emp_025",
+      "name": "Sophia Chen",
+      "role": "Data Engineer",
+      "department": "Data",
+      "reports_to": "Nathan Wright",
+      "status": "active",
+      "started_at": "2022-03-01",
+      "left_at": null,
+      "skills": [
+        "python",
+        "spark",
+        "airflow",
+        "dbt",
+        "sql"
+      ],
+      "workload": 85
+    },
+    {
+      "id": "emp_026",
+      "name": "Lucas Brown",
+      "role": "Data Analyst",
+      "department": "Data",
+      "reports_to": "Nathan Wright",
+      "status": "active",
+      "started_at": "2023-10-01",
+      "left_at": null,
+      "skills": [
+        "sql",
+        "python",
+        "tableau",
+        "looker"
+      ],
+      "workload": 62
+    },
+    {
+      "id": "emp_027",
+      "name": "Isabella Ferreira",
+      "role": "ML Research Scientist",
+      "department": "Data",
+      "reports_to": "Nathan Wright",
+      "status": "active",
+      "started_at": "2023-04-15",
+      "left_at": null,
+      "skills": [
+        "pytorch",
+        "python",
+        "research",
+        "nlp"
+      ],
+      "workload": 72
+    },
+    {
+      "id": "emp_028",
+      "name": "Kevin Osei",
+      "role": "Data Platform Engineer",
+      "department": "Data",
+      "reports_to": "Sophia Chen",
+      "status": "active",
+      "started_at": "2024-11-01",
+      "left_at": null,
+      "skills": [
+        "aws",
+        "terraform",
+        "data_pipelines",
+        "monitoring"
+      ],
+      "workload": 58
+    },
+    {
+      "id": "emp_029",
+      "name": "Rebecca Stone",
+      "role": "VP Sales",
+      "department": "Sales",
+      "reports_to": null,
+      "status": "active",
+      "started_at": "2016-03-01",
+      "left_at": null,
+      "skills": [
+        "sales_strategy",
+        "crm",
+        "leadership",
+        "enterprise"
+      ],
+      "workload": 88
+    },
+    {
+      "id": "emp_030",
+      "name": "Daniel Murphy",
+      "role": "Marketing Director",
+      "department": "Sales",
+      "reports_to": "Rebecca Stone",
+      "status": "active",
+      "started_at": "2020-09-15",
+      "left_at": null,
+      "skills": [
+        "digital_marketing",
+        "seo",
+        "content",
+        "analytics"
+      ],
+      "workload": 75
+    },
+    {
+      "id": "emp_031",
+      "name": "Amara Diallo",
+      "role": "Account Executive",
+      "department": "Sales",
+      "reports_to": "Rebecca Stone",
+      "status": "active",
+      "started_at": "2024-03-01",
+      "left_at": null,
+      "skills": [
+        "salesforce",
+        "prospecting",
+        "negotiation"
+      ],
+      "workload": 65
+    },
+    {
+      "id": "emp_032",
+      "name": "Chris Anderson",
+      "role": "Sales Engineer",
+      "department": "Sales",
+      "reports_to": "Rebecca Stone",
+      "status": "active",
+      "started_at": "2022-09-01",
+      "left_at": null,
+      "skills": [
+        "demos",
+        "technical_writing",
+        "api_integration"
+      ],
+      "workload": 70
+    },
+    {
+      "id": "emp_033",
+      "name": "Mia Johnson",
+      "role": "Content Strategist",
+      "department": "Sales",
+      "reports_to": "Daniel Murphy",
+      "status": "active",
+      "started_at": "2024-11-15",
+      "left_at": null,
+      "skills": [
+        "writing",
+        "seo",
+        "social_media",
+        "analytics"
+      ],
+      "workload": 55
+    },
+    {
+      "id": "emp_034",
+      "name": "Patrick Sullivan",
+      "role": "Growth Manager",
+      "department": "Sales",
+      "reports_to": "Daniel Murphy",
+      "status": "active",
+      "started_at": "2023-10-01",
+      "left_at": null,
+      "skills": [
+        "analytics",
+        "a_b_testing",
+        "growth_hacking",
+        "sql"
+      ],
+      "workload": 68
+    },
+    {
+      "id": "emp_035",
+      "name": "Zara Hussein",
+      "role": "SDR Team Lead",
+      "department": "Sales",
+      "reports_to": "Rebecca Stone",
+      "status": "active",
+      "started_at": "2023-04-01",
+      "left_at": null,
+      "skills": [
+        "outreach",
+        "crm",
+        "pipeline_management"
+      ],
+      "workload": 60
+    },
+    {
+      "id": "emp_036",
+      "name": "Victoria Adams",
+      "role": "CFO",
+      "department": "Finance",
+      "reports_to": null,
+      "status": "active",
+      "started_at": "2015-01-15",
+      "left_at": null,
+      "skills": [
+        "finance",
+        "budgeting",
+        "compliance",
+        "strategy"
+      ],
+      "workload": 92
+    },
+    {
+      "id": "emp_037",
+      "name": "Thomas Garcia",
+      "role": "HR Director",
+      "department": "Finance",
+      "reports_to": "Victoria Adams",
+      "status": "active",
+      "started_at": "2018-09-01",
+      "left_at": null,
+      "skills": [
+        "hr_strategy",
+        "recruiting",
+        "culture",
+        "compliance"
+      ],
+      "workload": 78
+    },
+    {
+      "id": "emp_038",
+      "name": "Emily Chang",
+      "role": "Financial Analyst",
+      "department": "Finance",
+      "reports_to": "Victoria Adams",
+      "status": "active",
+      "started_at": "2023-04-01",
+      "left_at": null,
+      "skills": [
+        "excel",
+        "financial_modeling",
+        "reporting",
+        "sql"
+      ],
+      "workload": 65
+    },
+    {
+      "id": "emp_039",
+      "name": "Brian Nelson",
+      "role": "Payroll Manager",
+      "department": "Finance",
+      "reports_to": "Thomas Garcia",
+      "status": "active",
+      "started_at": "2021-03-15",
+      "left_at": null,
+      "skills": [
+        "payroll",
+        "hris",
+        "compliance",
+        "benefits"
+      ],
+      "workload": 60
+    },
+    {
+      "id": "emp_040",
+      "name": "Olivia Park",
+      "role": "Talent Acquisition",
+      "department": "Finance",
+      "reports_to": "Thomas Garcia",
+      "status": "active",
+      "started_at": "2025-06-01",
+      "left_at": null,
+      "skills": [
+        "recruiting",
+        "linkedin",
+        "screening"
+      ],
+      "workload": 48
+    }
+  ],
+  "agents": [
+    {
+      "name": "DeployBot",
+      "owner": "Yuki Tanaka",
+      "backup_owner": "Omar Hassan",
+      "criticality": "critical",
+      "department": "Engineering",
+      "documented": true,
+      "type": "automation",
+      "status": "active",
+      "monthly_cost_usd": 350
+    },
+    {
+      "name": "CodeReviewAgent",
+      "owner": "Aisha Patel",
+      "backup_owner": "David Kim",
+      "criticality": "medium",
+      "department": "Engineering",
+      "documented": true,
+      "type": "analysis",
+      "status": "active",
+      "monthly_cost_usd": 200
+    },
+    {
+      "name": "SecurityScanner",
+      "owner": "Sarah Mitchell",
+      "backup_owner": null,
+      "criticality": "critical",
+      "department": "Engineering",
+      "documented": false,
+      "type": "monitoring",
+      "status": "active",
+      "monthly_cost_usd": 500
+    },
+    {
+      "name": "DataPipeline",
+      "owner": "Sophia Chen",
+      "backup_owner": null,
+      "criticality": "high",
+      "department": "Data",
+      "documented": true,
+      "type": "automation",
+      "status": "active",
+      "monthly_cost_usd": 400
+    },
+    {
+      "name": "CustomerInsightBot",
+      "owner": "Rebecca Stone",
+      "backup_owner": null,
+      "criticality": "medium",
+      "department": "Sales",
+      "documented": false,
+      "type": "analysis",
+      "status": "active",
+      "monthly_cost_usd": 150
+    },
+    {
+      "name": "IncidentResponder",
+      "owner": "Yuki Tanaka",
+      "backup_owner": "Omar Hassan",
+      "criticality": "high",
+      "department": "Engineering",
+      "documented": false,
+      "type": "monitoring",
+      "status": "active",
+      "monthly_cost_usd": 250
+    },
+    {
+      "name": "ContentGenerator",
+      "owner": "Daniel Murphy",
+      "backup_owner": null,
+      "criticality": "low",
+      "department": "Sales",
+      "documented": null,
+      "type": "assistant",
+      "status": "active",
+      "monthly_cost_usd": 100
+    },
+    {
+      "name": "ComplianceChecker",
+      "owner": "Grace Okonkwo",
+      "backup_owner": "Jennifer Foster",
+      "criticality": "high",
+      "department": "Operations",
+      "documented": true,
+      "type": "monitoring",
+      "status": "active",
+      "monthly_cost_usd": 300
+    },
+    {
+      "name": "OnboardingAssistant",
+      "owner": "Thomas Garcia",
+      "backup_owner": null,
+      "criticality": "low",
+      "department": "Finance",
+      "documented": null,
+      "type": "assistant",
+      "status": "active",
+      "monthly_cost_usd": 80
+    },
+    {
+      "name": "SalesForecaster",
+      "owner": "Rebecca Stone",
+      "backup_owner": null,
+      "criticality": "medium",
+      "department": "Sales",
+      "documented": null,
+      "type": "analysis",
+      "status": "active",
+      "monthly_cost_usd": 180
+    },
+    {
+      "name": "LogAnalyzer",
+      "owner": "Omar Hassan",
+      "backup_owner": null,
+      "criticality": "medium",
+      "department": "Engineering",
+      "documented": null,
+      "type": "monitoring",
+      "status": "inactive",
+      "monthly_cost_usd": 120
+    },
+    {
+      "name": "TestRunner",
+      "owner": "James O'Brien",
+      "backup_owner": null,
+      "criticality": "medium",
+      "department": "Engineering",
+      "documented": null,
+      "type": "automation",
+      "status": "active",
+      "monthly_cost_usd": 160
+    },
+    {
+      "name": "BudgetTracker",
+      "owner": "Emily Chang",
+      "backup_owner": null,
+      "criticality": "low",
+      "department": "Finance",
+      "documented": null,
+      "type": "analysis",
+      "status": "active",
+      "monthly_cost_usd": 90
+    },
+    {
+      "name": "KnowledgeIndexer",
+      "owner": "Nathan Wright",
+      "backup_owner": "Sophia Chen",
+      "criticality": "critical",
+      "department": "Data",
+      "documented": false,
+      "type": "automation",
+      "status": "failed",
+      "monthly_cost_usd": 220
+    },
+    {
+      "name": "MeetingSummarizer",
+      "owner": "Carlos Mendez",
+      "backup_owner": null,
+      "criticality": "low",
+      "department": "Product",
+      "documented": null,
+      "type": "assistant",
+      "status": "active",
+      "monthly_cost_usd": 70
+    }
+  ],
+  "ai_tools": [
+    {
+      "name": "ChatGPT Enterprise",
+      "vendor": "OpenAI",
+      "users": [
+        "Robert Chen",
+        "Aisha Patel",
+        "Marcus Rodriguez",
+        "Yuki Tanaka",
+        "Priya Sharma",
+        "Sarah Mitchell",
+        "Lisa Wang",
+        "Carlos Mendez",
+        "Jennifer Foster",
+        "Nathan Wright",
+        "Sophia Chen",
+        "Rebecca Stone",
+        "Daniel Murphy",
+        "Victoria Adams",
+        "Thomas Garcia"
+      ],
+      "departments": [
+        "Engineering",
+        "Product",
+        "Operations",
+        "Data",
+        "Sales",
+        "Finance"
+      ],
+      "monthly_cost_usd": 4500,
+      "access_owner": "Robert Chen",
+      "backup_tool": null
+    },
+    {
+      "name": "Claude Pro",
+      "vendor": "Anthropic",
+      "users": [
+        "Aisha Patel",
+        "Priya Sharma",
+        "Sarah Mitchell",
+        "Grace Okonkwo",
+        "Nathan Wright",
+        "Isabella Ferreira"
+      ],
+      "departments": [
+        "Engineering",
+        "Operations",
+        "Data"
+      ],
+      "monthly_cost_usd": 2800,
+      "access_owner": "Aisha Patel",
+      "backup_tool": null
+    },
+    {
+      "name": "GitHub Copilot",
+      "vendor": "GitHub",
+      "users": [
+        "Robert Chen",
+        "Aisha Patel",
+        "Marcus Rodriguez",
+        "Yuki Tanaka",
+        "Elena Vasquez",
+        "Priya Sharma",
+        "David Kim",
+        "Omar Hassan"
+      ],
+      "departments": [
+        "Engineering"
+      ],
+      "monthly_cost_usd": 1900,
+      "access_owner": "Yuki Tanaka",
+      "backup_tool": null
+    },
+    {
+      "name": "Gemini Advanced",
+      "vendor": "Google",
+      "users": [
+        "Priya Sharma",
+        "Lisa Wang",
+        "Isabella Ferreira"
+      ],
+      "departments": [
+        "Engineering",
+        "Product",
+        "Data"
+      ],
+      "monthly_cost_usd": 1200,
+      "access_owner": "Priya Sharma",
+      "backup_tool": null
+    },
+    {
+      "name": "Midjourney",
+      "vendor": null,
+      "users": [
+        "Marcus Rodriguez",
+        "Nina Petrov",
+        "Mia Johnson"
+      ],
+      "departments": [
+        "Engineering",
+        "Product",
+        "Sales"
+      ],
+      "monthly_cost_usd": 600,
+      "access_owner": "Nina Petrov",
+      "backup_tool": null
+    },
+    {
+      "name": "Jasper AI",
+      "vendor": null,
+      "users": [
+        "Daniel Murphy",
+        "Mia Johnson",
+        "Patrick Sullivan",
+        "Rebecca Stone"
+      ],
+      "departments": [
+        "Sales"
+      ],
+      "monthly_cost_usd": 850,
+      "access_owner": "Daniel Murphy",
+      "backup_tool": null
+    },
+    {
+      "name": "Cursor",
+      "vendor": null,
+      "users": [
+        "Aisha Patel",
+        "Elena Vasquez",
+        "Priya Sharma",
+        "David Kim"
+      ],
+      "departments": [
+        "Engineering"
+      ],
+      "monthly_cost_usd": 960,
+      "access_owner": "Aisha Patel",
+      "backup_tool": null
+    },
+    {
+      "name": "Tableau AI",
+      "vendor": null,
+      "users": [
+        "Nathan Wright",
+        "Sophia Chen",
+        "Lucas Brown",
+        "Hannah Lee",
+        "Emily Chang"
+      ],
+      "departments": [
+        "Data",
+        "Operations",
+        "Finance"
+      ],
+      "monthly_cost_usd": 2200,
+      "access_owner": "Nathan Wright",
+      "backup_tool": null
+    },
+    {
+      "name": "Notion AI",
+      "vendor": null,
+      "users": [
+        "Lisa Wang",
+        "Carlos Mendez",
+        "Marcus Rodriguez",
+        "Jennifer Foster",
+        "Michael Torres",
+        "Rebecca Stone",
+        "Thomas Garcia",
+        "Daniel Murphy"
+      ],
+      "departments": [
+        "Product",
+        "Engineering",
+        "Operations",
+        "Sales",
+        "Finance"
+      ],
+      "monthly_cost_usd": 780,
+      "access_owner": "Carlos Mendez",
+      "backup_tool": null
+    },
+    {
+      "name": "Grammarly Business",
+      "vendor": null,
+      "users": [
+        "Daniel Murphy",
+        "Mia Johnson",
+        "Carlos Mendez",
+        "Lisa Wang",
+        "Rebecca Stone",
+        "Thomas Garcia",
+        "Jennifer Foster"
+      ],
+      "departments": [
+        "Sales",
+        "Product",
+        "Finance",
+        "Operations"
+      ],
+      "monthly_cost_usd": 450,
+      "access_owner": "Daniel Murphy",
+      "backup_tool": null
+    },
+    {
+      "name": "Perplexity Pro",
+      "vendor": null,
+      "users": [
+        "Priya Sharma",
+        "Isabella Ferreira"
+      ],
+      "departments": [
+        "Engineering",
+        "Data"
+      ],
+      "monthly_cost_usd": 300,
+      "access_owner": "Priya Sharma",
+      "backup_tool": null
+    },
+    {
+      "name": "DataRobot",
+      "vendor": null,
+      "users": [
+        "Nathan Wright",
+        "Sophia Chen"
+      ],
+      "departments": [
+        "Data"
+      ],
+      "monthly_cost_usd": 5500,
+      "access_owner": "Nathan Wright",
+      "backup_tool": null
+    }
+  ],
+  "workflows": [
+    {
+      "name": "Code Deployment Pipeline",
+      "owner": "Yuki Tanaka",
+      "backup_owner": "Omar Hassan",
+      "criticality": "critical",
+      "department": "Engineering",
+      "frequency": "daily",
+      "documented": true,
+      "steps": [
+        {
+          "step": "Code Review",
+          "actor": "agent",
+          "actor_name": "CodeReviewAgent",
+          "required": true,
+          "duration_minutes": 15
+        },
+        {
+          "step": "Run Tests",
+          "actor": "agent",
+          "actor_name": "TestRunner",
+          "required": true,
+          "duration_minutes": 10
+        },
+        {
+          "step": "Security Scan",
+          "actor": "agent",
+          "actor_name": "SecurityScanner",
+          "required": true,
+          "duration_minutes": 8
+        },
+        {
+          "step": "Deploy to Staging",
+          "actor": "agent",
+          "actor_name": "DeployBot",
+          "required": true,
+          "duration_minutes": 5
+        },
+        {
+          "step": "Manual QA Sign-off",
+          "actor": "human",
+          "actor_name": "James O'Brien",
+          "required": true,
+          "duration_minutes": 30
+        }
+      ],
+      "accountable": "Robert Chen"
+    },
+    {
+      "name": "Security Audit Process",
+      "owner": "Sarah Mitchell",
+      "backup_owner": null,
+      "criticality": "high",
+      "department": "Engineering",
+      "frequency": "weekly",
+      "documented": true,
+      "steps": [
+        {
+          "step": "Automated Scan",
+          "actor": "agent",
+          "actor_name": "SecurityScanner",
+          "required": true,
+          "duration_minutes": 60
+        },
+        {
+          "step": "Compliance Check",
+          "actor": "agent",
+          "actor_name": "ComplianceChecker",
+          "required": true,
+          "duration_minutes": 30
+        },
+        {
+          "step": "Review Findings",
+          "actor": "human",
+          "actor_name": "Sarah Mitchell",
+          "required": true,
+          "duration_minutes": 120
+        },
+        {
+          "step": "Publish Report",
+          "actor": "human",
+          "actor_name": "Sarah Mitchell",
+          "required": true,
+          "duration_minutes": 60
+        }
+      ],
+      "accountable": "Sarah Mitchell"
+    },
+    {
+      "name": "Customer Onboarding",
+      "owner": "Rebecca Stone",
+      "backup_owner": null,
+      "criticality": "medium",
+      "department": "Sales",
+      "frequency": "daily",
+      "documented": false,
+      "steps": [
+        {
+          "step": "Account Setup",
+          "actor": "human",
+          "actor_name": "Amara Diallo",
+          "required": true,
+          "duration_minutes": 45
+        },
+        {
+          "step": "Product Demo",
+          "actor": "human",
+          "actor_name": "Chris Anderson",
+          "required": true,
+          "duration_minutes": 60
+        },
+        {
+          "step": "CRM Data Entry",
+          "actor": "agent",
+          "actor_name": "CustomerInsightBot",
+          "required": true,
+          "duration_minutes": 10
+        },
+        {
+          "step": "Welcome Sequence",
+          "actor": "agent",
+          "actor_name": "OnboardingAssistant",
+          "required": true,
+          "duration_minutes": 5
+        }
+      ],
+      "accountable": "Rebecca Stone"
+    },
+    {
+      "name": "Data Ingestion Pipeline",
+      "owner": "Sophia Chen",
+      "backup_owner": null,
+      "criticality": "high",
+      "department": "Data",
+      "frequency": "hourly",
+      "documented": true,
+      "steps": [
+        {
+          "step": "Extract Sources",
+          "actor": "agent",
+          "actor_name": "DataPipeline",
+          "required": true,
+          "duration_minutes": 20
+        },
+        {
+          "step": "Transform & Load",
+          "actor": "agent",
+          "actor_name": "DataPipeline",
+          "required": true,
+          "duration_minutes": 30
+        },
+        {
+          "step": "Quality Validation",
+          "actor": "human",
+          "actor_name": "Sophia Chen",
+          "required": true,
+          "duration_minutes": 15
+        }
+      ],
+      "accountable": "Nathan Wright"
+    },
+    {
+      "name": "Incident Response",
+      "owner": "Yuki Tanaka",
+      "backup_owner": "Omar Hassan",
+      "criticality": "critical",
+      "department": "Engineering",
+      "frequency": "on_demand",
+      "documented": false,
+      "steps": [
+        {
+          "step": "Detect & Alert",
+          "actor": "agent",
+          "actor_name": "IncidentResponder",
+          "required": true,
+          "duration_minutes": 2
+        },
+        {
+          "step": "Triage & Classify",
+          "actor": "human",
+          "actor_name": "Yuki Tanaka",
+          "required": true,
+          "duration_minutes": 10
+        },
+        {
+          "step": "Investigate",
+          "actor": "human",
+          "actor_name": "Yuki Tanaka",
+          "required": true,
+          "duration_minutes": 60
+        },
+        {
+          "step": "Resolve",
+          "actor": "agent",
+          "actor_name": "DeployBot",
+          "required": false,
+          "duration_minutes": 15
+        },
+        {
+          "step": "Post-mortem",
+          "actor": "human",
+          "actor_name": "Robert Chen",
+          "required": true,
+          "duration_minutes": 120
+        }
+      ],
+      "accountable": "Yuki Tanaka"
+    },
+    {
+      "name": "Sprint Planning & Execution",
+      "owner": "Carlos Mendez",
+      "backup_owner": null,
+      "criticality": "medium",
+      "department": "Product",
+      "frequency": "weekly",
+      "documented": true,
+      "steps": [
+        {
+          "step": "Backlog Grooming",
+          "actor": "human",
+          "actor_name": "Carlos Mendez",
+          "required": true,
+          "duration_minutes": 60
+        },
+        {
+          "step": "Capacity Planning",
+          "actor": "human",
+          "actor_name": "Lisa Wang",
+          "required": true,
+          "duration_minutes": 30
+        },
+        {
+          "step": "Summarize Action Items",
+          "actor": "agent",
+          "actor_name": "MeetingSummarizer",
+          "required": false,
+          "duration_minutes": 5
+        }
+      ],
+      "accountable": null
+    },
+    {
+      "name": "Financial Reporting",
+      "owner": "Victoria Adams",
+      "backup_owner": null,
+      "criticality": "high",
+      "department": "Finance",
+      "frequency": "monthly",
+      "documented": true,
+      "steps": [
+        {
+          "step": "Data Collection",
+          "actor": "agent",
+          "actor_name": "BudgetTracker",
+          "required": true,
+          "duration_minutes": 30
+        },
+        {
+          "step": "Consolidation",
+          "actor": "human",
+          "actor_name": "Emily Chang",
+          "required": true,
+          "duration_minutes": 120
+        },
+        {
+          "step": "CFO Review",
+          "actor": "human",
+          "actor_name": "Victoria Adams",
+          "required": true,
+          "duration_minutes": 60
+        },
+        {
+          "step": "Board Prep",
+          "actor": "human",
+          "actor_name": "Victoria Adams",
+          "required": true,
+          "duration_minutes": 90
+        }
+      ],
+      "accountable": "Victoria Adams"
+    },
+    {
+      "name": "Employee Offboarding",
+      "owner": "Thomas Garcia",
+      "backup_owner": null,
+      "criticality": "high",
+      "department": "Finance",
+      "frequency": "on_demand",
+      "documented": false,
+      "steps": [
+        {
+          "step": "Knowledge Transfer",
+          "actor": "human",
+          "actor_name": "Thomas Garcia",
+          "required": true,
+          "duration_minutes": 240
+        },
+        {
+          "step": "Access Revocation",
+          "actor": "human",
+          "actor_name": "Alex Novak",
+          "required": true,
+          "duration_minutes": 30
+        },
+        {
+          "step": "Exit Interview",
+          "actor": "human",
+          "actor_name": "Thomas Garcia",
+          "required": true,
+          "duration_minutes": 60
+        }
+      ],
+      "accountable": "Thomas Garcia"
+    },
+    {
+      "name": "Content Publishing",
+      "owner": "Daniel Murphy",
+      "backup_owner": null,
+      "criticality": "low",
+      "department": "Sales",
+      "frequency": "daily",
+      "documented": true,
+      "steps": [
+        {
+          "step": "Draft Content",
+          "actor": "agent",
+          "actor_name": "ContentGenerator",
+          "required": true,
+          "duration_minutes": 20
+        },
+        {
+          "step": "Edit & Review",
+          "actor": "human",
+          "actor_name": "Mia Johnson",
+          "required": true,
+          "duration_minutes": 45
+        },
+        {
+          "step": "SEO Optimization",
+          "actor": "human",
+          "actor_name": "Daniel Murphy",
+          "required": true,
+          "duration_minutes": 30
+        },
+        {
+          "step": "Publish",
+          "actor": "human",
+          "actor_name": "Daniel Murphy",
+          "required": true,
+          "duration_minutes": 10
+        }
+      ],
+      "accountable": null
+    },
+    {
+      "name": "Compliance Review",
+      "owner": "Grace Okonkwo",
+      "backup_owner": "Jennifer Foster",
+      "criticality": "critical",
+      "department": "Operations",
+      "frequency": "monthly",
+      "documented": true,
+      "steps": [
+        {
+          "step": "Policy Scan",
+          "actor": "agent",
+          "actor_name": "ComplianceChecker",
+          "required": true,
+          "duration_minutes": 45
+        },
+        {
+          "step": "Gap Analysis",
+          "actor": "human",
+          "actor_name": "Grace Okonkwo",
+          "required": true,
+          "duration_minutes": 120
+        },
+        {
+          "step": "Risk Assessment",
+          "actor": "human",
+          "actor_name": "Jennifer Foster",
+          "required": true,
+          "duration_minutes": 60
+        },
+        {
+          "step": "Report & Remediate",
+          "actor": "human",
+          "actor_name": "Grace Okonkwo",
+          "required": true,
+          "duration_minutes": 90
+        }
+      ],
+      "accountable": "Jennifer Foster"
+    }
+  ],
+  "processes": [
+    {
+      "name": "Vendor Management",
+      "department": "Operations",
+      "accountable": "Jennifer Foster",
+      "responsible": "Michael Torres"
+    },
+    {
+      "name": "Product Roadmap",
+      "department": "Product",
+      "accountable": "Lisa Wang",
+      "responsible": "Carlos Mendez"
+    }
+  ],
+  "policies": [
+    {
+      "name": "Data Retention Policy",
+      "scope": "tool",
+      "governs": [
+        "ChatGPT Enterprise",
+        "Claude Pro"
+      ],
+      "department": null,
+      "accountable": null,
+      "status": "active"
+    },
+    {
+      "name": "Usage Guidelines",
+      "scope": "tool",
+      "governs": [
+        "ChatGPT Enterprise"
+      ],
+      "department": null,
+      "accountable": null,
+      "status": "active"
+    },
+    {
+      "name": "Code Ownership Policy",
+      "scope": "tool",
+      "governs": [
+        "GitHub Copilot",
+        "Cursor"
+      ],
+      "department": null,
+      "accountable": null,
+      "status": "active"
+    },
+    {
+      "name": "Security Review Policy",
+      "scope": "tool",
+      "governs": [
+        "GitHub Copilot"
+      ],
+      "department": null,
+      "accountable": null,
+      "status": "active"
+    },
+    {
+      "name": "Data Access Policy",
+      "scope": "tool",
+      "governs": [
+        "Tableau AI"
+      ],
+      "department": null,
+      "accountable": null,
+      "status": "active"
+    },
+    {
+      "name": "Content Governance",
+      "scope": "tool",
+      "governs": [
+        "Notion AI"
+      ],
+      "department": null,
+      "accountable": null,
+      "status": "active"
+    },
+    {
+      "name": "Communication Standards",
+      "scope": "tool",
+      "governs": [
+        "Grammarly Business"
+      ],
+      "department": null,
+      "accountable": null,
+      "status": "active"
+    },
+    {
+      "name": "AI Tool Governance",
+      "scope": "organization",
+      "governs": [],
+      "department": "Engineering",
+      "accountable": "Jennifer Foster",
+      "status": "active"
+    },
+    {
+      "name": "Data Privacy & GDPR",
+      "scope": "organization",
+      "governs": [],
+      "department": "Operations",
+      "accountable": "Jennifer Foster",
+      "status": "active"
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "DeployBot",
+      "from_type": "agent",
+      "to": "CodeReviewAgent",
+      "to_type": "agent",
+      "type": "critical",
+      "strength": 90
+    },
+    {
+      "from": "DeployBot",
+      "from_type": "agent",
+      "to": "TestRunner",
+      "to_type": "agent",
+      "type": "critical",
+      "strength": 85
+    },
+    {
+      "from": "DeployBot",
+      "from_type": "agent",
+      "to": "SecurityScanner",
+      "to_type": "agent",
+      "type": "high",
+      "strength": 75
+    },
+    {
+      "from": "SecurityScanner",
+      "from_type": "agent",
+      "to": "ComplianceChecker",
+      "to_type": "agent",
+      "type": "normal",
+      "strength": 50
+    },
+    {
+      "from": "DataPipeline",
+      "from_type": "agent",
+      "to": "KnowledgeIndexer",
+      "to_type": "agent",
+      "type": "high",
+      "strength": 70
+    },
+    {
+      "from": "CustomerInsightBot",
+      "from_type": "agent",
+      "to": "SalesForecaster",
+      "to_type": "agent",
+      "type": "normal",
+      "strength": 45
+    },
+    {
+      "from": "IncidentResponder",
+      "from_type": "agent",
+      "to": "SecurityScanner",
+      "to_type": "agent",
+      "type": "critical",
+      "strength": 88
+    },
+    {
+      "from": "IncidentResponder",
+      "from_type": "agent",
+      "to": "DeployBot",
+      "to_type": "agent",
+      "type": "high",
+      "strength": 65
+    },
+    {
+      "from": "IncidentResponder",
+      "from_type": "agent",
+      "to": "LogAnalyzer",
+      "to_type": "agent",
+      "type": "normal",
+      "strength": 40
+    },
+    {
+      "from": "ContentGenerator",
+      "from_type": "agent",
+      "to": "MeetingSummarizer",
+      "to_type": "agent",
+      "type": "low",
+      "strength": 30
+    },
+    {
+      "from": "ComplianceChecker",
+      "from_type": "agent",
+      "to": "SecurityScanner",
+      "to_type": "agent",
+      "type": "high",
+      "strength": 72
+    },
+    {
+      "from": "TestRunner",
+      "from_type": "agent",
+      "to": "CodeReviewAgent",
+      "to_type": "agent",
+      "type": "normal",
+      "strength": 55
+    },
+    {
+      "from": "KnowledgeIndexer",
+      "from_type": "agent",
+      "to": "DataPipeline",
+      "to_type": "agent",
+      "type": "high",
+      "strength": 68
+    },
+    {
+      "from": "Code Deployment Pipeline",
+      "from_type": "workflow",
+      "to": "DeployBot",
+      "to_type": "agent",
+      "type": "critical",
+      "strength": 95
+    },
+    {
+      "from": "Code Deployment Pipeline",
+      "from_type": "workflow",
+      "to": "CodeReviewAgent",
+      "to_type": "agent",
+      "type": "critical",
+      "strength": 90
+    },
+    {
+      "from": "Code Deployment Pipeline",
+      "from_type": "workflow",
+      "to": "SecurityScanner",
+      "to_type": "agent",
+      "type": "high",
+      "strength": 80
+    },
+    {
+      "from": "Security Audit Process",
+      "from_type": "workflow",
+      "to": "SecurityScanner",
+      "to_type": "agent",
+      "type": "critical",
+      "strength": 95
+    },
+    {
+      "from": "Security Audit Process",
+      "from_type": "workflow",
+      "to": "ComplianceChecker",
+      "to_type": "agent",
+      "type": "high",
+      "strength": 75
+    },
+    {
+      "from": "Data Ingestion Pipeline",
+      "from_type": "workflow",
+      "to": "DataPipeline",
+      "to_type": "agent",
+      "type": "critical",
+      "strength": 92
+    },
+    {
+      "from": "Incident Response",
+      "from_type": "workflow",
+      "to": "IncidentResponder",
+      "to_type": "agent",
+      "type": "critical",
+      "strength": 95
+    },
+    {
+      "from": "Incident Response",
+      "from_type": "workflow",
+      "to": "SecurityScanner",
+      "to_type": "agent",
+      "type": "high",
+      "strength": 85
+    },
+    {
+      "from": "Content Publishing",
+      "from_type": "workflow",
+      "to": "ContentGenerator",
+      "to_type": "agent",
+      "type": "normal",
+      "strength": 60
+    },
+    {
+      "from": "Compliance Review",
+      "from_type": "workflow",
+      "to": "ComplianceChecker",
+      "to_type": "agent",
+      "type": "critical",
+      "strength": 88
+    }
+  ],
+  "collaborations": [
+    {
+      "from": "Robert Chen",
+      "to": "Yuki Tanaka",
+      "basis": "raci",
+      "on": "Code Deployment Pipeline",
+      "weight": 3
+    },
+    {
+      "from": "Grace Okonkwo",
+      "to": "Sarah Mitchell",
+      "basis": "raci",
+      "on": "Security Audit Process",
+      "weight": 3
+    },
+    {
+      "from": "Jennifer Foster",
+      "to": "Robert Chen",
+      "basis": "raci",
+      "on": "Incident Response",
+      "weight": 3
+    },
+    {
+      "from": "Grace Okonkwo",
+      "to": "Jennifer Foster",
+      "basis": "raci",
+      "on": "Compliance Review",
+      "weight": 3
+    },
+    {
+      "from": "Aisha Patel",
+      "to": "Robert Chen",
+      "basis": "raci",
+      "on": "Code Deployment Pipeline",
+      "weight": 2
+    },
+    {
+      "from": "Robert Chen",
+      "to": "Sarah Mitchell",
+      "basis": "raci",
+      "on": "Security Audit Process",
+      "weight": 2
+    },
+    {
+      "from": "Grace Okonkwo",
+      "to": "Robert Chen",
+      "basis": "raci",
+      "on": "Security Audit Process",
+      "weight": 2
+    },
+    {
+      "from": "Amara Diallo",
+      "to": "Chris Anderson",
+      "basis": "raci",
+      "on": "Customer Onboarding",
+      "weight": 2
+    },
+    {
+      "from": "Lisa Wang",
+      "to": "Rebecca Stone",
+      "basis": "raci",
+      "on": "Customer Onboarding",
+      "weight": 2
+    },
+    {
+      "from": "Emily Chang",
+      "to": "Victoria Adams",
+      "basis": "raci",
+      "on": "Financial Reporting",
+      "weight": 2
+    },
+    {
+      "from": "Jennifer Foster",
+      "to": "Victoria Adams",
+      "basis": "raci",
+      "on": "Financial Reporting",
+      "weight": 2
+    },
+    {
+      "from": "Alex Novak",
+      "to": "Thomas Garcia",
+      "basis": "raci",
+      "on": "Employee Offboarding",
+      "weight": 2
+    },
+    {
+      "from": "Jennifer Foster",
+      "to": "Sarah Mitchell",
+      "basis": "raci",
+      "on": "Compliance Review",
+      "weight": 2
+    },
+    {
+      "from": "Lisa Wang",
+      "to": "Robert Chen",
+      "basis": "raci",
+      "on": "AI Tool Governance",
+      "weight": 2
+    },
+    {
+      "from": "Carlos Mendez",
+      "to": "Lisa Wang",
+      "basis": "raci",
+      "on": "Product Roadmap",
+      "weight": 2
+    },
+    {
+      "from": "Aisha Patel",
+      "to": "Yuki Tanaka",
+      "basis": "raci",
+      "on": "Code Deployment Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "James O'Brien",
+      "to": "Yuki Tanaka",
+      "basis": "raci",
+      "on": "Code Deployment Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "James O'Brien",
+      "to": "Robert Chen",
+      "basis": "raci",
+      "on": "Code Deployment Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "Aisha Patel",
+      "to": "James O'Brien",
+      "basis": "raci",
+      "on": "Code Deployment Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "Amara Diallo",
+      "to": "Rebecca Stone",
+      "basis": "raci",
+      "on": "Customer Onboarding",
+      "weight": 1
+    },
+    {
+      "from": "Amara Diallo",
+      "to": "Lisa Wang",
+      "basis": "raci",
+      "on": "Customer Onboarding",
+      "weight": 1
+    },
+    {
+      "from": "Chris Anderson",
+      "to": "Rebecca Stone",
+      "basis": "raci",
+      "on": "Customer Onboarding",
+      "weight": 1
+    },
+    {
+      "from": "Chris Anderson",
+      "to": "Lisa Wang",
+      "basis": "raci",
+      "on": "Customer Onboarding",
+      "weight": 1
+    },
+    {
+      "from": "Nathan Wright",
+      "to": "Sophia Chen",
+      "basis": "raci",
+      "on": "Data Ingestion Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "Kevin Osei",
+      "to": "Sophia Chen",
+      "basis": "raci",
+      "on": "Data Ingestion Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "Robert Chen",
+      "to": "Sophia Chen",
+      "basis": "raci",
+      "on": "Data Ingestion Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "Kevin Osei",
+      "to": "Nathan Wright",
+      "basis": "raci",
+      "on": "Data Ingestion Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "Nathan Wright",
+      "to": "Robert Chen",
+      "basis": "raci",
+      "on": "Data Ingestion Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "Kevin Osei",
+      "to": "Robert Chen",
+      "basis": "raci",
+      "on": "Data Ingestion Pipeline",
+      "weight": 1
+    },
+    {
+      "from": "Jennifer Foster",
+      "to": "Yuki Tanaka",
+      "basis": "raci",
+      "on": "Incident Response",
+      "weight": 1
+    },
+    {
+      "from": "Brian Nelson",
+      "to": "Emily Chang",
+      "basis": "raci",
+      "on": "Financial Reporting",
+      "weight": 1
+    },
+    {
+      "from": "Emily Chang",
+      "to": "Jennifer Foster",
+      "basis": "raci",
+      "on": "Financial Reporting",
+      "weight": 1
+    },
+    {
+      "from": "Brian Nelson",
+      "to": "Victoria Adams",
+      "basis": "raci",
+      "on": "Financial Reporting",
+      "weight": 1
+    },
+    {
+      "from": "Brian Nelson",
+      "to": "Jennifer Foster",
+      "basis": "raci",
+      "on": "Financial Reporting",
+      "weight": 1
+    },
+    {
+      "from": "Thomas Garcia",
+      "to": "Victoria Adams",
+      "basis": "raci",
+      "on": "Employee Offboarding",
+      "weight": 1
+    },
+    {
+      "from": "Alex Novak",
+      "to": "Victoria Adams",
+      "basis": "raci",
+      "on": "Employee Offboarding",
+      "weight": 1
+    },
+    {
+      "from": "Aisha Patel",
+      "to": "Jennifer Foster",
+      "basis": "raci",
+      "on": "AI Tool Governance",
+      "weight": 1
+    },
+    {
+      "from": "Jennifer Foster",
+      "to": "Lisa Wang",
+      "basis": "raci",
+      "on": "AI Tool Governance",
+      "weight": 1
+    },
+    {
+      "from": "Aisha Patel",
+      "to": "Lisa Wang",
+      "basis": "raci",
+      "on": "AI Tool Governance",
+      "weight": 1
+    },
+    {
+      "from": "Grace Okonkwo",
+      "to": "Nathan Wright",
+      "basis": "raci",
+      "on": "Data Privacy & GDPR",
+      "weight": 1
+    },
+    {
+      "from": "Jennifer Foster",
+      "to": "Nathan Wright",
+      "basis": "raci",
+      "on": "Data Privacy & GDPR",
+      "weight": 1
+    },
+    {
+      "from": "Nathan Wright",
+      "to": "Sarah Mitchell",
+      "basis": "raci",
+      "on": "Data Privacy & GDPR",
+      "weight": 1
+    },
+    {
+      "from": "Jennifer Foster",
+      "to": "Michael Torres",
+      "basis": "raci",
+      "on": "Vendor Management",
+      "weight": 1
+    },
+    {
+      "from": "Michael Torres",
+      "to": "Ryan Phillips",
+      "basis": "raci",
+      "on": "Vendor Management",
+      "weight": 1
+    },
+    {
+      "from": "Michael Torres",
+      "to": "Victoria Adams",
+      "basis": "raci",
+      "on": "Vendor Management",
+      "weight": 1
+    },
+    {
+      "from": "Jennifer Foster",
+      "to": "Ryan Phillips",
+      "basis": "raci",
+      "on": "Vendor Management",
+      "weight": 1
+    },
+    {
+      "from": "Ryan Phillips",
+      "to": "Victoria Adams",
+      "basis": "raci",
+      "on": "Vendor Management",
+      "weight": 1
+    },
+    {
+      "from": "Carlos Mendez",
+      "to": "Robert Chen",
+      "basis": "raci",
+      "on": "Product Roadmap",
+      "weight": 1
+    },
+    {
+      "from": "Carlos Mendez",
+      "to": "Rebecca Stone",
+      "basis": "raci",
+      "on": "Product Roadmap",
+      "weight": 1
+    },
+    {
+      "from": "Rebecca Stone",
+      "to": "Robert Chen",
+      "basis": "raci",
+      "on": "Product Roadmap",
+      "weight": 1
+    },
+    {
+      "from": "Daniel Murphy",
+      "to": "Mia Johnson",
+      "basis": "workflow_step",
+      "on": "Content Publishing",
+      "weight": 1
+    }
+  ],
+  "knowledge_areas": [
+    {
+      "area": "Deployment automation configuration",
+      "holders": [
+        "Yuki Tanaka"
+      ],
+      "documented": true,
+      "criticality": "critical"
+    },
+    {
+      "area": "Code review rules and patterns",
+      "holders": [
+        "Aisha Patel"
+      ],
+      "documented": true,
+      "criticality": "unknown"
+    },
+    {
+      "area": "Security scanning configuration",
+      "holders": [
+        "Sarah Mitchell"
+      ],
+      "documented": false,
+      "criticality": "critical"
+    },
+    {
+      "area": "Data pipeline ETL logic",
+      "holders": [
+        "Sophia Chen"
+      ],
+      "documented": true,
+      "criticality": "high"
+    },
+    {
+      "area": "Customer insight algorithms",
+      "holders": [
+        "Rebecca Stone"
+      ],
+      "documented": false,
+      "criticality": "unknown"
+    },
+    {
+      "area": "Incident detection rules",
+      "holders": [
+        "Yuki Tanaka"
+      ],
+      "documented": false,
+      "criticality": "critical"
+    },
+    {
+      "area": "Compliance rule engine",
+      "holders": [
+        "Grace Okonkwo"
+      ],
+      "documented": true,
+      "criticality": "high"
+    },
+    {
+      "area": "Knowledge indexing algorithms",
+      "holders": [
+        "Nathan Wright"
+      ],
+      "documented": false,
+      "criticality": "high"
+    },
+    {
+      "area": "Deployment pipeline procedures",
+      "holders": [
+        "Yuki Tanaka"
+      ],
+      "documented": true,
+      "criticality": "critical"
+    },
+    {
+      "area": "Security audit methodology",
+      "holders": [
+        "Sarah Mitchell"
+      ],
+      "documented": true,
+      "criticality": "high"
+    },
+    {
+      "area": "Data ingestion SLA requirements",
+      "holders": [
+        "Sophia Chen"
+      ],
+      "documented": true,
+      "criticality": "high"
+    },
+    {
+      "area": "Incident response playbook",
+      "holders": [
+        "Yuki Tanaka"
+      ],
+      "documented": false,
+      "criticality": "critical"
+    },
+    {
+      "area": "Financial reporting procedures",
+      "holders": [
+        "Victoria Adams"
+      ],
+      "documented": true,
+      "criticality": "high"
+    },
+    {
+      "area": "Offboarding checklist",
+      "holders": [
+        "Thomas Garcia"
+      ],
+      "documented": false,
+      "criticality": "high"
+    },
+    {
+      "area": "Compliance framework",
+      "holders": [
+        "Grace Okonkwo"
+      ],
+      "documented": true,
+      "criticality": "critical"
+    },
+    {
+      "area": "ChatGPT enterprise configuration",
+      "holders": [
+        "Robert Chen"
+      ],
+      "documented": true,
+      "criticality": "unknown"
+    },
+    {
+      "area": "Copilot workspace settings",
+      "holders": [
+        "Yuki Tanaka"
+      ],
+      "documented": true,
+      "criticality": "unknown"
+    },
+    {
+      "area": "Tableau data connections",
+      "holders": [
+        "Nathan Wright"
+      ],
+      "documented": false,
+      "criticality": "high"
+    },
+    {
+      "area": "DataRobot model configs",
+      "holders": [
+        "Nathan Wright"
+      ],
+      "documented": false,
+      "criticality": "unknown"
+    },
+    {
+      "area": "AWS infrastructure architecture",
+      "holders": [
+        "Robert Chen"
+      ],
+      "documented": true,
+      "criticality": "critical"
+    },
+    {
+      "area": "Database schema documentation",
+      "holders": [
+        "Aisha Patel"
+      ],
+      "documented": true,
+      "criticality": "high"
+    },
+    {
+      "area": "API design standards",
+      "holders": [
+        "Aisha Patel"
+      ],
+      "documented": true,
+      "criticality": "unknown"
+    },
+    {
+      "area": "SOC2 compliance procedures",
+      "holders": [
+        "Grace Okonkwo"
+      ],
+      "documented": true,
+      "criticality": "critical"
+    },
+    {
+      "area": "Vendor evaluation criteria",
+      "holders": [
+        "Michael Torres"
+      ],
+      "documented": false,
+      "criticality": "unknown"
+    },
+    {
+      "area": "Customer data handling policy",
+      "holders": [
+        "Sarah Mitchell"
+      ],
+      "documented": true,
+      "criticality": "critical"
+    },
+    {
+      "area": "Budget allocation framework",
+      "holders": [
+        "Victoria Adams"
+      ],
+      "documented": false,
+      "criticality": "high"
+    },
+    {
+      "area": "Sales territory assignments",
+      "holders": [
+        "Rebecca Stone"
+      ],
+      "documented": true,
+      "criticality": "unknown"
+    },
+    {
+      "area": "Hiring pipeline process",
+      "holders": [
+        "Thomas Garcia"
+      ],
+      "documented": true,
+      "criticality": "unknown"
+    },
+    {
+      "area": "Disaster recovery plan",
+      "holders": [
+        "Jennifer Foster"
+      ],
+      "documented": false,
+      "criticality": "critical"
+    },
+    {
+      "area": "ML model versioning standards",
+      "holders": [
+        "Nathan Wright"
+      ],
+      "documented": false,
+      "criticality": "high"
+    },
+    {
+      "area": "Marketing campaign playbook",
+      "holders": [
+        "Daniel Murphy"
+      ],
+      "documented": true,
+      "criticality": "low"
+    },
+    {
+      "area": "Product roadmap methodology",
+      "holders": [
+        "Lisa Wang"
+      ],
+      "documented": true,
+      "criticality": "unknown"
+    }
+  ],
+  "history": [
+    {
+      "month": "2026-01-01",
+      "headcount": 35,
+      "avg_workload": 62,
+      "tool_cost_usd": 17440,
+      "risk_index": 38.5,
+      "continuity_score": 52,
+      "governance_score": 55
+    },
+    {
+      "month": "2026-02-01",
+      "headcount": 36,
+      "avg_workload": 65,
+      "tool_cost_usd": 18190,
+      "risk_index": 41.2,
+      "continuity_score": 50,
+      "governance_score": 54
+    },
+    {
+      "month": "2026-03-01",
+      "headcount": 37,
+      "avg_workload": 68,
+      "tool_cost_usd": 18830,
+      "risk_index": 44.8,
+      "continuity_score": 48,
+      "governance_score": 52
+    },
+    {
+      "month": "2026-04-01",
+      "headcount": 38,
+      "avg_workload": 71,
+      "tool_cost_usd": 19530,
+      "risk_index": 47.3,
+      "continuity_score": 47,
+      "governance_score": 51
+    },
+    {
+      "month": "2026-05-01",
+      "headcount": 39,
+      "avg_workload": 69,
+      "tool_cost_usd": 19685,
+      "risk_index": 45.6,
+      "continuity_score": 49,
+      "governance_score": 53
+    },
+    {
+      "month": "2026-06-01",
+      "headcount": 40,
+      "avg_workload": 68,
+      "tool_cost_usd": 19940,
+      "risk_index": 43.2,
+      "continuity_score": 51,
+      "governance_score": 55
+    }
+  ],
+  "systems": [
+    {
+      "name": "Core Platform",
+      "owner": "Omar Hassan",
+      "department": "Engineering",
+      "criticality": "critical",
+      "documented": true,
+      "depends_on": [],
+      "used_by": [
+        "DeployBot",
+        "CodeReviewAgent",
+        "SecurityScanner",
+        "TestRunner",
+        "LogAnalyzer"
+      ],
+      "description": "Multi-tenant application runtime. Everything else runs on it."
+    },
+    {
+      "name": "Billing System",
+      "owner": "Aisha Patel",
+      "department": "Engineering",
+      "criticality": "critical",
+      "documented": false,
+      "depends_on": [
+        "Core Platform"
+      ],
+      "used_by": [
+        "BudgetTracker"
+      ],
+      "description": "Subscription billing, invoicing and dunning."
+    },
+    {
+      "name": "Customer Data Warehouse",
+      "owner": "Sophia Chen",
+      "department": "Data",
+      "criticality": "high",
+      "documented": true,
+      "depends_on": [
+        "Core Platform"
+      ],
+      "used_by": [
+        "DataPipeline",
+        "CustomerInsightBot",
+        "SalesForecaster",
+        "KnowledgeIndexer"
+      ],
+      "description": "Analytical store behind every dashboard and forecast."
+    },
+    {
+      "name": "Internal Admin Portal",
+      "owner": "Marcus Rodriguez",
+      "department": "Engineering",
+      "criticality": "medium",
+      "documented": false,
+      "depends_on": [
+        "Core Platform",
+        "Billing System"
+      ],
+      "used_by": [
+        "ComplianceChecker",
+        "OnboardingAssistant"
+      ],
+      "description": "Support and account administration tooling."
+    }
+  ],
+  "incidents": [
+    {
+      "date": "2026-01-30",
+      "entity": "Billing System",
+      "entity_type": "system",
+      "impact": "Duplicate invoices issued to 12 customers over one billing run.",
+      "owner": "Aisha Patel",
+      "resolved_by": "Victoria Adams",
+      "resolution_days": 3,
+      "lesson": "Billing System is critical and undocumented. The fix depended on one engineer reading the code."
+    },
+    {
+      "date": "2026-02-18",
+      "entity": "Code Deployment Pipeline",
+      "entity_type": "workflow",
+      "impact": "All deploys blocked for four hours after a CodeReviewAgent rule change rejected every pull request.",
+      "owner": "Yuki Tanaka",
+      "resolved_by": "Aisha Patel",
+      "resolution_days": 1,
+      "lesson": "Agent configuration changes ship with no review step of their own."
+    },
+    {
+      "date": "2026-03-05",
+      "entity": "SecurityScanner",
+      "entity_type": "agent",
+      "impact": "An exposed credential went undetected for 11 days.",
+      "owner": "Sarah Mitchell",
+      "resolved_by": "Sarah Mitchell",
+      "resolution_days": 2,
+      "lesson": "Sarah Mitchell is both Responsible and Accountable for Security Audit Process, so nobody independent reviews the scanner configuration."
+    },
+    {
+      "date": "2026-03-19",
+      "entity": "Data Ingestion Pipeline",
+      "entity_type": "workflow",
+      "impact": "An upstream schema change dropped two days of product events before anyone noticed.",
+      "owner": "Sophia Chen",
+      "resolved_by": "Kevin Osei",
+      "resolution_days": 2,
+      "lesson": "No contract test between the producer and the pipeline."
+    },
+    {
+      "date": "2026-04-10",
+      "entity": "KnowledgeIndexer",
+      "entity_type": "agent",
+      "impact": "Indexing stalled silently for six days; workspace search returned stale results company-wide.",
+      "owner": "Nathan Wright",
+      "resolved_by": "Sophia Chen",
+      "resolution_days": 6,
+      "lesson": "Indexing algorithms are undocumented and Nathan Wright is the only holder. Nothing alerted on a stalled job, so the outage was invisible until users complained."
+    },
+    {
+      "date": "2026-05-22",
+      "entity": "LogAnalyzer",
+      "entity_type": "agent",
+      "impact": "Agent went inactive unnoticed; three weeks of logs were never analysed.",
+      "owner": "Omar Hassan",
+      "resolved_by": "Yuki Tanaka",
+      "resolution_days": 4,
+      "lesson": "An agent going quiet looks identical to an agent with nothing to do."
+    },
+    {
+      "date": "2026-06-14",
+      "entity": "Incident Response",
+      "entity_type": "workflow",
+      "impact": "On-call engineer had no runbook; time to mitigate ran to three times the target.",
+      "owner": "Yuki Tanaka",
+      "resolved_by": "Robert Chen",
+      "resolution_days": 1,
+      "lesson": "The Incident Response workflow is marked critical and is not documented. Yuki Tanaka owns it alongside DeployBot and IncidentResponder."
+    },
+    {
+      "date": "2026-07-02",
+      "entity": "Customer Onboarding",
+      "entity_type": "workflow",
+      "impact": "Two enterprise customers stalled in onboarding for nine days each.",
+      "owner": "Rebecca Stone",
+      "resolved_by": "Amara Diallo",
+      "resolution_days": 5,
+      "lesson": "Onboarding is undocumented and its owner is a VP with no operational backup."
+    }
+  ],
+  "external_entities": [
+    {
+      "name": "OpenAI",
+      "kind": "vendor",
+      "supplies": [
+        "ChatGPT Enterprise"
+      ],
+      "relationship_owner": "Robert Chen",
+      "criticality": "high"
+    },
+    {
+      "name": "Anthropic",
+      "kind": "vendor",
+      "supplies": [
+        "Claude Pro"
+      ],
+      "relationship_owner": "Lisa Wang",
+      "criticality": "high"
+    },
+    {
+      "name": "GitHub",
+      "kind": "vendor",
+      "supplies": [
+        "GitHub Copilot"
+      ],
+      "relationship_owner": "Robert Chen",
+      "criticality": "critical"
+    },
+    {
+      "name": "Google",
+      "kind": "vendor",
+      "supplies": [
+        "Gemini Advanced"
+      ],
+      "relationship_owner": "Daniel Murphy",
+      "criticality": "medium"
+    },
+    {
+      "name": "Amazon Web Services",
+      "kind": "vendor",
+      "supplies": [],
+      "relationship_owner": "Yuki Tanaka",
+      "criticality": "critical"
+    },
+    {
+      "name": "Ryan Phillips Procurement Desk",
+      "kind": "vendor",
+      "supplies": [],
+      "relationship_owner": "Ryan Phillips",
+      "criticality": "low"
+    },
+    {
+      "name": "Meridian Health",
+      "kind": "customer",
+      "supplies": [],
+      "relationship_owner": "Amara Diallo",
+      "criticality": "critical"
+    },
+    {
+      "name": "Cobalt Logistics",
+      "kind": "customer",
+      "supplies": [],
+      "relationship_owner": "Chris Anderson",
+      "criticality": "high"
+    },
+    {
+      "name": "Harbor Financial",
+      "kind": "customer",
+      "supplies": [],
+      "relationship_owner": "Rebecca Stone",
+      "criticality": "critical"
+    },
+    {
+      "name": "Vertex Retail",
+      "kind": "customer",
+      "supplies": [],
+      "relationship_owner": "Zara Hussein",
+      "criticality": "medium"
+    }
+  ]
+}

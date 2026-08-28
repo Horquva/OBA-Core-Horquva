@@ -3,20 +3,19 @@
 import { Play, Settings2, ShieldAlert, CheckCircle2, Loader2, AlertTriangle, User, Bot, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { Agent, Dependency, AITool } from "../../types";
-import {
-  simulatePersonLeaving,
-  simulateAgentFailing,
-  simulateToolUnavailable,
-  ScenarioResult,
-} from "../../lib/simulation";
-import { deriveRisk } from "../../lib/risk";
+import { ScenarioResult, mapScenario } from "../../lib/simulation";
+import { authHeader } from "../../lib/authFetch";
+import { PredictiveRiskEntry } from "../../lib/predictiveRisk";
 import { getSPOFs } from "../../lib/graph";
 
 interface Props {
   agents?: Agent[];
   dependencies?: Dependency[];
   tools?: AITool[];
+  riskByAgentName?: Map<string, PredictiveRiskEntry>;
 }
+
+const TIER_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 
 type ScenarioKey = "stress" | "node_outage" | "data_breach";
 
@@ -48,71 +47,80 @@ const RISK_COLORS: Record<string, string> = {
   low: "text-emerald-400",
 };
 
-export function ScenarioSandbox({ agents = [], dependencies = [], tools = [] }: Props) {
+export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], riskByAgentName }: Props) {
   const [activeKey, setActiveKey] = useState<ScenarioKey>("stress");
   const [status, setStatus] = useState<"idle" | "executing" | "done">("idle");
   const [result, setResult] = useState<ScenarioResult | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  const handleExecute = () => {
+  const handleExecute = async () => {
     if (agents.length === 0) return;
     setStatus("executing");
     setResult(null);
     setShowAll(false);
 
-    setTimeout(() => {
-      try {
-        let res: ScenarioResult | null = null;
+    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
-        if (activeKey === "stress") {
-          // Pick the person who owns the most critical agents
-          const ownerMap = new Map<string, number>();
-          agents.forEach(a => {
-            if (a.owner) {
-              ownerMap.set(a.owner, (ownerMap.get(a.owner) ?? 0) + 1);
-            }
-          });
-          const topPerson =
-            [...ownerMap.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
-            agents[0]?.owner ??
-            "";
-          if (topPerson) {
-            res = simulatePersonLeaving(topPerson, agents, dependencies);
+    try {
+      let res: ScenarioResult | null = null;
+
+      if (activeKey === "stress") {
+        // Pick the person who owns the most critical agents
+        const ownerMap = new Map<string, number>();
+        agents.forEach(a => {
+          if (a.owner) {
+            ownerMap.set(a.owner, (ownerMap.get(a.owner) ?? 0) + 1);
           }
-        } else if (activeKey === "node_outage") {
-          // Fail the highest-risk agent
-          const spofs = getSPOFs(agents, dependencies).map(s => s.agentId);
-          const ranked = [...agents].sort((a, b) => {
-            const aScore = (spofs.includes(a.id) ? 100 : 0) +
-              (deriveRisk(a) === "critical" ? 4 : deriveRisk(a) === "high" ? 3 : deriveRisk(a) === "medium" ? 2 : 1);
-            const bScore = (spofs.includes(b.id) ? 100 : 0) +
-              (deriveRisk(b) === "critical" ? 4 : deriveRisk(b) === "high" ? 3 : deriveRisk(b) === "medium" ? 2 : 1);
-            return bScore - aScore;
-          });
-          if (ranked[0]) {
-            res = simulateAgentFailing(ranked[0].id, agents, dependencies);
-          }
-        } else if (activeKey === "data_breach") {
-          // Take the most-used critical tool offline
-          const criticalTool =
-            tools
-              .filter(t => t.criticality === "critical" || t.criticality === "high")
-              .sort((a, b) => (b.agents_using?.length ?? 0) - (a.agents_using?.length ?? 0))[0] ??
-            tools[0];
-          if (criticalTool) {
-            res = simulateToolUnavailable(criticalTool, agents, dependencies);
+        });
+        const topPerson =
+          [...ownerMap.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+          agents[0]?.owner ??
+          "";
+        if (topPerson) {
+          const response = await fetch(`${base}/api/simulations/employee-leaves/${encodeURIComponent(topPerson)}`, { headers: authHeader() });
+          if (response.ok) {
+            res = mapScenario(await response.json());
           }
         }
-
-        setResult(res);
-        setStatus("done");
-      } catch {
-        setStatus("idle");
+      } else if (activeKey === "node_outage") {
+        // Fail the highest-risk agent
+        const spofs = getSPOFs(agents, dependencies).map(s => s.agentId);
+        const ranked = [...agents].sort((a, b) => {
+          const aTier = riskByAgentName?.get(a.name)?.threatLevel ?? "low";
+          const bTier = riskByAgentName?.get(b.name)?.threatLevel ?? "low";
+          const aScore = (spofs.includes(a.id) ? 100 : 0) + TIER_WEIGHT[aTier];
+          const bScore = (spofs.includes(b.id) ? 100 : 0) + TIER_WEIGHT[bTier];
+          return bScore - aScore;
+        });
+        if (ranked[0]) {
+          const response = await fetch(`${base}/api/simulations/agent-fails/${encodeURIComponent(ranked[0].name)}`, { headers: authHeader() });
+          if (response.ok) {
+            res = mapScenario(await response.json());
+          }
+        }
+      } else if (activeKey === "data_breach") {
+        // Take the most-used critical tool offline
+        const criticalTool =
+          tools
+            .filter(t => t.criticality === "critical" || t.criticality === "high")
+            .sort((a, b) => (b.agents_using?.length ?? 0) - (a.agents_using?.length ?? 0))[0] ??
+          tools[0];
+        if (criticalTool) {
+          const response = await fetch(`${base}/api/simulations/platform-down/${encodeURIComponent(criticalTool.name)}`, { headers: authHeader() });
+          if (response.ok) {
+            res = mapScenario(await response.json());
+          }
+        }
       }
-    }, 1200);
+
+      setResult(res);
+      setStatus("done");
+    } catch {
+      setStatus("idle");
+    }
   };
 
-  const delta = result?.healthScoreDelta ?? 0;
+  const delta = result?.healthDelta ?? 0;
   const visibleImpacts = showAll
     ? result?.impactedAgents ?? []
     : (result?.impactedAgents ?? []).slice(0, 3);
@@ -196,12 +204,12 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [] }: 
             <div>
               <p className="text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-wide">Target</p>
               <p className="text-xs font-semibold text-[color:var(--text-primary)]">{result.targetName}</p>
-              <p className="text-[10px] text-[color:var(--text-tertiary)]">{result.typeLabel}</p>
+              <p className="text-[10px] text-[color:var(--text-tertiary)]">{SCENARIOS.find(s => s.key === activeKey)?.label}</p>
             </div>
             <div className="text-right">
               <p className="text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-wide">Health Impact</p>
-              <p className={`text-lg font-bold ${delta < 0 ? "text-red-400" : "text-emerald-400"}`}>
-                {delta > 0 ? "+" : ""}{delta}
+              <p className={`text-lg font-bold ${delta > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                {delta > 0 ? "-" : delta < 0 ? "+" : ""}{Math.abs(delta)}
               </p>
               <p className="text-[10px] text-[color:var(--text-tertiary)]">
                 {result.baselineHealthScore} → {result.simulatedHealthScore}
@@ -219,21 +227,16 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [] }: 
               <div className="space-y-1">
                 {visibleImpacts.map((a, i) => (
                   <div
-                    key={a.agentId || i}
+                    key={a.id || i}
                     className="flex justify-between items-start text-[11px] py-1 border-b last:border-0"
                     style={{ borderColor: "var(--border-subtle)" }}
                   >
                     <div className="min-w-0">
-                      <p className="font-medium text-[color:var(--text-primary)] truncate">{a.agentName}</p>
-                      <p className="text-[color:var(--text-tertiary)] truncate">{a.reason}</p>
+                      <p className="font-medium text-[color:var(--text-primary)] truncate">{a.name}</p>
                     </div>
                     <div className="text-right ml-2 shrink-0">
-                      <span className={`font-semibold ${RISK_COLORS[a.beforeRisk] ?? ""}`}>
-                        {a.beforeRisk.toUpperCase()}
-                      </span>
-                      <span className="text-[color:var(--text-tertiary)] mx-0.5">→</span>
-                      <span className={`font-semibold ${RISK_COLORS[a.afterRisk] ?? ""}`}>
-                        {a.afterRisk.toUpperCase()}
+                      <span className={`font-semibold ${RISK_COLORS[a.risk] ?? ""}`}>
+                        {a.risk.toUpperCase()}
                       </span>
                     </div>
                   </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { OutageImpact } from '../../lib/aiToolIntelligence';
-import { Zap, Clock, Users, Workflow, Cpu } from 'lucide-react';
+import { Zap, Users, Workflow, Cpu } from 'lucide-react';
 
 interface Props {
   outageImpacts: OutageImpact[];
@@ -94,12 +94,11 @@ export function OutageImpactPanel({ outageImpacts }: Props) {
               </div>
 
               {/* Impact metrics */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
                 {[
                   { icon: Workflow, val: impact.brokenWorkflows.length, label: 'Workflows' },
                   { icon: Cpu, val: impact.brokenAgents.length, label: 'Agents' },
                   { icon: Users, val: impact.usersAffected, label: 'Users' },
-                  { icon: Clock, val: `${impact.estimatedRecoveryMinutes}m`, label: 'Recovery' },
                 ].map(({ icon: Icon, val, label }) => (
                   <div key={label} style={{
                     textAlign: 'center', padding: '8px 4px',
@@ -107,7 +106,7 @@ export function OutageImpactPanel({ outageImpacts }: Props) {
                     border: '1px solid var(--border-subtle)',
                   }}>
                     <Icon size={12} style={{ color: 'var(--text-tertiary)', marginBottom: '4px' }} />
-                    <p style={{ fontSize: '15px', fontWeight: 700, color: val === 0 || val === '0m' ? 'var(--text-tertiary)' : 'var(--text-primary)', margin: 0 }}>
+                    <p style={{ fontSize: '15px', fontWeight: 700, color: val === 0 ? 'var(--text-tertiary)' : 'var(--text-primary)', margin: 0 }}>
                       {val}
                     </p>
                     <p style={{ fontSize: '9px', color: 'var(--text-tertiary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>

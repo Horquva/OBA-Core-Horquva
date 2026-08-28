@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main, ocos/develop]
+  pull_request:
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      # No SUPABASE_URL/BASE_URL secrets are provided here on purpose: the two
+      # tests that need them (graphLoader.live.test.js, api.smoke.test.js)
+      # self-skip when those env vars are unset, so the offline-safe suite
+      # (brain/graph/culture/orgAnalyses/derived/auth unit tests, plus the
+      # Supabase-stubbed authRoutes tests) still runs on every push.
+      - run: npm test
+
+  frontend-typecheck:
+    name: Frontend typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      # `npm run lint` is deliberately not run here: it currently reports 76
+      # pre-existing errors (mostly no-explicit-any) unrelated to any change
+      # this workflow is meant to gate. Wiring it in now would make CI red
+      # from day one for reasons nobody asked it to check. Add it back once
+      # that backlog is cleared, or narrowed to lint only the changed files.

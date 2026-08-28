@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { Dataset } from '../../types';
-import { deriveRisk } from '../../lib/risk';
 import { Network, Users, Bot, Cpu, GitBranch, ChevronDown, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
+import { resolveCriticality } from '../../lib/criticality';
 
 interface OrgRelationshipMapProps {
   dataset: Dataset;
@@ -83,7 +83,7 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
     agents.forEach(a => {
       if (!map[a.department]) map[a.department] = { agents: 0, criticalAgents: 0, owners: new Set(), workflows: 0 };
       map[a.department].agents += 1;
-      if (a.criticality === 'critical') map[a.department].criticalAgents += 1;
+      if (resolveCriticality(a) === 'critical') map[a.department].criticalAgents += 1;
       if (a.owner) map[a.department].owners.add(a.owner);
     });
     workflows.forEach(w => {

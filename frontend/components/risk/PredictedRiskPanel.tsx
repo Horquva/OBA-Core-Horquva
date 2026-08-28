@@ -43,7 +43,7 @@ export function PredictedRiskPanel() {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Forward-looking threat classification model</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={agents.length > 0} />
       </div>
 
       <div className="grid grid-cols-4 gap-4 mb-8 z-10">

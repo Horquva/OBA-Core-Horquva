@@ -41,71 +41,19 @@ export interface ToolRiskProfile {
   departmentCount: number;
 }
 
-// ─── Score calculation ────────────────────────────────────────────────────────
+// ─── Score (from the backend) ─────────────────────────────────────────────────
 
-function buildToolScore(tool: AITool): { score: number; factors: ToolRiskFactor[] } {
-  const factors: ToolRiskFactor[] = [];
-  let score = 0;
-
-  // No usage policy (documented = false means no policy)
-  if (!tool.documented) {
-    factors.push({ label: 'No Usage Policy Documented', points: 25, severity: 'high' });
-    score += 25;
-  }
-
-  // No backup alternative
-  if (!tool.backup_tool) {
-    factors.push({ label: 'No Backup / Fallback Tool', points: 30, severity: 'critical' });
-    score += 30;
-  }
-
-  // Business criticality weight
-  const critWeights: Record<string, { points: number; severity: ToolRiskFactor['severity'] }> = {
-    critical: { points: 20, severity: 'critical' },
-    high:     { points: 12, severity: 'high' },
-    medium:   { points: 6,  severity: 'medium' },
-    low:      { points: 2,  severity: 'low' },
-  };
-  const cw = critWeights[tool.criticality];
-  if (cw && cw.points > 0) {
-    factors.push({
-      label: `Business Criticality: ${tool.criticality.toUpperCase()}`,
-      points: cw.points,
-      severity: cw.severity,
-    });
-    score += cw.points;
-  }
-
-  // Wide department exposure (≥4 departments = high blast radius)
-  if (tool.departments.length >= 6) {
-    const pts = 20;
-    factors.push({ label: `Org-Wide Exposure (${tool.departments.length} departments)`, points: pts, severity: 'critical' });
-    score += pts;
-  } else if (tool.departments.length >= 4) {
-    const pts = 12;
-    factors.push({ label: `Cross-Dept Exposure (${tool.departments.length} departments)`, points: pts, severity: 'high' });
-    score += pts;
-  }
-
-  // Powers many agents
-  if (tool.agents_using.length >= 3) {
-    const pts = 15;
-    factors.push({ label: `Powers ${tool.agents_using.length} Critical Agents`, points: pts, severity: 'high' });
-    score += pts;
-  } else if (tool.agents_using.length >= 1) {
-    const pts = 8;
-    factors.push({ label: `Used by ${tool.agents_using.length} Agent(s)`, points: pts, severity: 'medium' });
-    score += pts;
-  }
-
-  return { score: Math.min(score, 100), factors };
-}
-
-function scoreToTier(score: number): ToolRiskTier {
-  if (score >= 70) return 'CRITICAL';
-  if (score >= 45) return 'HIGH';
-  if (score >= 20) return 'MEDIUM';
-  return 'LOW';
+/** GET /api/tools now computes compositeScore/tier/isCriticalByRule/riskFactors
+ *  itself (backend/routes/tools.js's computeToolRiskScore()) -- this used to
+ *  be buildToolScore()/scoreToTier(), a client-side reimplementation of the
+ *  identical weights. Callers pass the raw per-tool fields straight through;
+ *  see ToolScoreInput below for what ai-tools/page.tsx must capture from the
+ *  fetch response before normalizing into AITool. */
+export interface ToolScoreInput {
+  compositeScore: number;
+  tier: ToolRiskTier;
+  isCriticalByRule: boolean;
+  factors: ToolRiskFactor[];
 }
 
 // ─── Outage impact simulation ─────────────────────────────────────────────────
@@ -116,7 +64,6 @@ export interface OutageImpact {
   brokenAgents: Agent[];
   departmentsHit: string[];
   usersAffected: number;
-  estimatedRecoveryMinutes: number;
 }
 
 export function simulateOutage(tool: AITool, workflows: Workflow[], agents: Agent[]): OutageImpact {
@@ -131,16 +78,12 @@ export function simulateOutage(tool: AITool, workflows: Workflow[], agents: Agen
     ...brokenAgents.map(a => a.department),
   ]));
 
-  // Rough recovery time estimate: 30 min base + 15 per workflow + 10 per agent
-  const estimatedRecoveryMinutes = 30 + brokenWorkflows.length * 15 + brokenAgents.length * 10;
-
   return {
     tool,
     brokenWorkflows,
     brokenAgents,
     departmentsHit,
     usersAffected: tool.users.length,
-    estimatedRecoveryMinutes,
   };
 }
 
@@ -202,14 +145,14 @@ export interface AIToolReport {
 export function computeAIToolIntelligence(
   tools: AITool[],
   workflows: Workflow[],
-  agents: Agent[]
+  agents: Agent[],
+  scoreByToolId: Map<string, ToolScoreInput>
 ): AIToolReport {
   const profiles: ToolRiskProfile[] = tools.map(tool => {
-    const { score, factors } = buildToolScore(tool);
-    const tier = scoreToTier(score);
-
-    const isCriticalByRule =
-      !tool.documented && !tool.backup_tool && (tool.criticality === 'critical' || tool.criticality === 'high');
+    // Real backend score (backend/routes/tools.js's computeToolRiskScore()) --
+    // falls back to LOW/0 only if a tool is somehow missing from the map
+    // (fetch failure), never re-derived locally.
+    const scored = scoreByToolId.get(tool.id);
     const hasNoBackup = !tool.backup_tool;
     const hasNoPolicy = !tool.documented;
 
@@ -220,12 +163,12 @@ export function computeAIToolIntelligence(
 
     return {
       tool,
-      compositeScore: score,
-      tier: isCriticalByRule ? 'CRITICAL' : tier,
-      isCriticalByRule,
+      compositeScore: scored?.compositeScore ?? 0,
+      tier: scored?.tier ?? 'LOW',
+      isCriticalByRule: scored?.isCriticalByRule ?? false,
       hasNoBackup,
       hasNoPolicy,
-      factors,
+      factors: scored?.factors ?? [],
       affectedWorkflows,
       affectedAgents,
       departmentCount: tool.departments.length,
