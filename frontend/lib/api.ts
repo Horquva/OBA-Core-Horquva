@@ -298,6 +298,7 @@ export interface ForecastSummaryResponse {
     outlookStatus: string;
     weakestDimension: string | null;
   };
+  provenance: { source: string; table: string };
 }
 
 export interface ForecastHealthItem {
@@ -341,6 +342,7 @@ export interface ForecastOutlookResponse {
     workflowsWithoutBackup: ForecastFinding[];
     undocumentedAssets: ForecastFinding[];
   };
+  provenance: { source: string; table: string };
 }
 
 export const forecast = {
@@ -557,7 +559,7 @@ export const selfHealing = {
 // opportunities, capability, alignment, advisor and simulation-universe were
 // stale and wrong.
 //
-// ⚠ These come from lib/orgAnalyses.js (the company dataset), NOT from the
+// ⚠ These come from backend/domain/analyses.js (the company dataset), NOT from the
 // brain. `capability` and `alignment` here are different analyses from
 // orgScience.capabilityByDept and orgScience.strategicAlignment below, which
 // compute different things from the Knowledge Graph despite sharing the module
@@ -650,8 +652,8 @@ export interface CapabilityPayload {
 }
 
 export interface StrategicAlignmentPayload {
-  alignmentScore: number;
-  aligned: boolean;
+  ownershipCoverageScore: number;
+  covered: boolean;
   gaps: string[];
 }
 
@@ -863,41 +865,7 @@ export const execMemoryApi = {
   patterns: () => request<Record<string, unknown>>('/api/executive-memory/patterns'),
 };
 
-// ─── Intelligence Pillars (DI/MI/OI/OCI/GI) — via /api/intelligence/truth ────
-
-export interface IntelligencePillar {
-  key: string;   // DI | MI | OI | OCI | GI
-  label: string;
-  score: number;
-  rating: string;
-}
-
-export interface PillarResponse {
-  pillars?: IntelligencePillar[];
-  // truth route may return different shape — handled in component
-  [key: string]: unknown;
-}
-
-export const pillarApi = {
-  pillars: () => request<PillarResponse>('/api/intelligence/truth'),
-};
-
-// ─── Org Health  (/api/health) ────────────────────────────────────────────────
-
-export interface HealthSummary {
-  healthIndex: number;
-  healthStatus: string;
-  trend: string;
-  snapshotMonth: string;
-  dimensions: {
-    documentation:   { score: number; weight: string };
-    continuity:      { score: number; weight: string };
-    ownershipSpread: { score: number; weight: string };
-    criticalSafety:  { score: number; weight: string };
-    incidentLoad:    { score: number; weight: string };
-  };
-}
-// ─── Health (M50) ──────────────────────────────────────────────────────────
+// ─── Org Health  (/api/health, M50) ──────────────────────────────────────────
 
 export interface HealthSummary {
   healthIndex: number;

@@ -91,7 +91,7 @@ router.post('/login', authRateLimit, async (req, res) => {
 		// Fallback: env admin (MVP/demo) so login works even without a DB table
 		const adminEmail = process.env.ADMIN_EMAIL
 		const adminPass = process.env.ADMIN_PASSWORD
-		if (adminEmail && adminPass && email === adminEmail && pass === adminPass) {
+		if (adminEmail && adminPass && email === adminEmail && password.timingSafeEqualString(pass, adminPass)) {
 			const token = sign({ sub: 'admin', email: adminEmail, role: 'admin', org: process.env.ADMIN_ORG || 'horquva' }, SECRET, TTL)
 			return res.json({ token, user: { id: 'admin', email: adminEmail, name: 'Admin', role: 'admin', org: process.env.ADMIN_ORG || 'horquva' } })
 		}

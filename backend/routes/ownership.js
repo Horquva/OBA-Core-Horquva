@@ -25,14 +25,14 @@ const HUMAN_SPOF_MIN_AGENTS = 3
 // employees who have no `owners` row, and keying on `owners` alone drops them.
 router.get('/', async (req, res) => {
   try {
-    const [ownerByEmployee, agentsRes, employeesRes, roots] = await Promise.all([
+    const [ownerByEmployee, agentsRes, employeesRes, intel] = await Promise.all([
       // Same owners row loadOwnerBackupByEmployee() narrows for its own
       // callers -- one query behind lib/ownerBackups.js, not a second
       // hand-rolled copy.
       loadOwners(),
       supabase.from('agents').select('id, name, status, risk, owner_id'),
       supabase.from('employees').select('id, name, role'),
-      domain.intelligence.compute.loadRoots(),
+      domain.intelligence.all(),
     ])
 
     if (agentsRes.error) return res.status(500).json({ error: agentsRes.error.message })
@@ -44,7 +44,7 @@ router.get('/', async (req, res) => {
     // workflows, tools) -- see derived.js's humanDependencyRisk() for why
     // this replaced two independently-invented frontend scoring schemes.
     const dependencyRiskByEmployee = new Map(
-      domain.intelligence.compute.humanDependencyRisk(roots).map((p) => [p.employeeId, p])
+      intel.humanDependencyRisk.map((p) => [p.employeeId, p])
     )
 
     // Declared owners, plus anyone who owns an agent without being listed as one.

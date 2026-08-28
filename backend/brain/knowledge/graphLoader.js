@@ -14,7 +14,7 @@
  * `ai_agent` type (its own definition is "an AI tool or agent"); metadata.kind
  * distinguishes which table an entity came from.
  *
- * ─── What this loader deliberately does NOT emit ───
+ * ─── Ontology coverage: what's sourced, what still isn't ───
  * The ontology defines `system`, `team`, `customer`, `process` and `project`.
  * Three of the five now have real Supabase tables of their own: `system` from
  * `systems`/`system_dependencies`/`system_agent_usage`, `process` from

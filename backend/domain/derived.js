@@ -1756,6 +1756,16 @@ async function computeAll(supabase) {
     orgHealth: orgHealthResult,
     orgHealthByDepartment: orgHealthByDepartment(roots),
     departmentExposure: departmentExposure(roots),
+    // Added so dashboard.js/ownership.js/continuity.js/knowledge/intelligence.js
+    // (and memory.js) can go through computeAllCached()'s 30-second memo
+    // instead of each calling loadRoots() + their own compute function
+    // directly -- a dashboard mounting several of these at once used to cost
+    // one full 18-query root read per component instead of one shared read.
+    // All four are pure functions of `roots` alone, same as everything above.
+    humanDependencyRisk: humanDependencyRisk(roots),
+    knowledgeConcentration: knowledgeConcentration(roots),
+    orgMemory: orgMemory(roots),
+    assetContinuity: assetContinuity(roots),
     computedAt: new Date().toISOString(),
     source: 'live',
     rootCounts: roots._counts,

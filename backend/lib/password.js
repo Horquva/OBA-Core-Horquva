@@ -25,4 +25,16 @@ function verify(password, stored) {
 	}
 }
 
-module.exports = { hash, verify }
+// For comparing a plaintext secret against another plaintext secret (the
+// ADMIN_PASSWORD env fallback in routes/auth/auth.js — there is no stored hash
+// to run through verify() above). A plain `===` leaks how many leading bytes
+// matched via response timing; crypto.timingSafeEqual() closes that, but only
+// accepts equal-length buffers, so unequal lengths are rejected up front
+// rather than passed to it (which would throw).
+function timingSafeEqualString(a, b) {
+	const bufA = Buffer.from(String(a))
+	const bufB = Buffer.from(String(b))
+	return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB)
+}
+
+module.exports = { hash, verify, timingSafeEqualString }

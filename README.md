@@ -144,13 +144,14 @@ The 51 analyses are owned by four engineers, each responsible for one layer of t
 | Constitutional analyses | **51** (M01–M55 catalog, four retired) |
 | Engineering owners | **4** — Huzaifa 13 · Kamran 21 · Tahir 14 · Anusha 7 |
 | Runtime files (`backend/brain/`) | 21 JavaScript modules |
-| Seeded demo graph | 16 entities · 24 relationships |
-| Registered capabilities | 55 |
+| Live knowledge graph | 157 entities · 423 relationships, built from Supabase on every boot — the synthetic 16-entity/24-relationship seed graph was deleted with `graphSeeder.js` (see `knowledge/graphLoader.js`'s own header) |
 | Stub responses | **0** — every module computes real graph-derived intelligence |
 
 ---
 
 ## Intelligence Modules — Phase 1 (Modules 01–20)
+
+> **On the "Sunrise Care findings" callouts below.** These are illustrative output captured during early development against a demo dataset ("Sunrise Care") that has since been retired — the live app now runs against a different seed company (`data/company.json`, wired in through `backend/sql/`), and none of the specific names, counts or scores quoted below still match what the running system reports. They're kept because they show *what each module's output looks like and how it reasons* — the formulas, thresholds and status vocabulary next to each one are current. For real, current numbers, run the app (`How to Run` below) or call the live API directly; treat every number under a "Sunrise Care findings" heading as historical illustration, not a current fact about this deployment.
 
 ### Module 01 — Ownership Intelligence
 ![Module 01 Output](Images/agent_summary.png)
@@ -350,30 +351,9 @@ Maps where critical organizational knowledge is stored — in people's heads —
 
 ---
 
-### Module 10 — Organizational Memory Intelligence
-![Module 10 Output](Images/Module_10.png)
+### Module 10 — Organizational Memory Intelligence — RETIRED 2026-08-24
 
-Tracks the institutional memory preservation status of every AI asset and calculates how much organizational knowledge would survive a major personnel disruption.
-
-**What it does:**
-- Assigns a memory status to every asset: `PRESERVED / AT RISK / VULNERABLE / LOST`
-- Calculates the **Institutional Memory Health Score™ (0–100)**
-- Identifies critical memory carriers — individuals who are the sole holders of undocumented knowledge
-- Flags assets classified as LOST: no owner, no documentation, no recovery path
-
-**Memory Status Definitions:**
-| Status | Meaning |
-|--------|---------|
-| PRESERVED | Documented + backup owner exists |
-| AT RISK | Has backup but lacks documentation |
-| VULNERABLE | Has documentation but no backup owner |
-| LOST | No owner, no documentation — unrecoverable |
-
-**Sunrise Care findings:**
-- PRESERVED: 14 assets · VULNERABLE: 10 assets · AT RISK: 1 asset · LOST: 2 assets
-- Robert = CRITICAL memory carrier — sole holder of 7 assets, 6 of which are undocumented
-- David = HIGH risk — sole carrier of IT Operations Workflow + both IT tools, all undocumented
-- **Institutional Memory Health Score: 54/100 — AT RISK**
+Measured the software's own run history, not the organization — see [Four analyses were retired](#four-analyses-were-retired-2026-08-24) for the full reasoning. Its question is answered live today by `GET /api/memory/health`, backed by `domain/derived.js`'s `orgMemory()`, not this module.
 
 ---
 
@@ -394,20 +374,9 @@ Predicts which agents are *likely* to escalate to high/critical risk in the near
 
 ---
 
-### Module 12 — Organizational Forecasting Intelligence
+### Module 12 — Organizational Forecasting Intelligence — RETIRED 2026-08-24
 
-Forecasts the future state of the organization across Health, Memory, and Continuity, and projects a 30 / 60 / 90 day outlook.
-
-**What it does:**
-- **Health Forecast** — will the agent + tool ecosystem degrade?
-- **Memory Forecast** — risk of losing institutional knowledge when key owners leave (no backup / no docs)
-- **Continuity Forecast** — can workflows keep running under stress (criticality-weighted resilience)?
-- Rolls the three forecasts into a single 90-Day Organizational Outlook
-
-**Sunrise Care findings:**
-- **90-Day Organizational Outlook: 52/100 — AT RISK**
-- Memory is the weakest dimension — knowledge concentrated on a few owners with no backup
-- Several critical workflows are fragile (no backup owner, undocumented)
+Measured the software's own run history, not the organization — see [Four analyses were retired](#four-analyses-were-retired-2026-08-24) for the full reasoning. Its question is answered live today by `GET /api/forecast/*`, sourced from `organizational_forecasts` (a genuine, never-rewritten time series), not this module.
 
 ---
 
@@ -494,20 +463,9 @@ Determines the next step in every workflow, assigns it to the correct actor, and
 
 ---
 
-### Module 17 — Organizational Learning Intelligence
+### Module 17 — Organizational Learning Intelligence — RETIRED 2026-08-24
 
-Enables the system to learn from the organization's current state — failure patterns, decision follow-through, and incident exposure — and scores overall learning maturity.
-
-**What it does:**
-- **Learn from Failures** — identifies failure-prone assets (undocumented + unbacked + critical) and likely repeat offenders
-- **Learn from Decisions** — measures how many known risks are still unmitigated (critical assets without backup / docs)
-- **Learn from Incidents** — ranks departments by incident exposure (weakest documentation + backup coverage)
-- Computes an overall **Learning Maturity Score**
-
-**Sunrise Care findings:**
-- **Learning Maturity: 40/100 — EARLY STAGE**
-- Several critical assets show repeatable weakness patterns (undocumented + no backup)
-- Departments with the lowest documentation + backup coverage are the most incident-prone
+Measured the software's own run history, not the organization — see [Four analyses were retired](#four-analyses-were-retired-2026-08-24) for the full reasoning. Its question is answered live today by `GET /api/learning/*` (`/failures`, `/decisions`), not this module.
 
 ---
 
@@ -1072,16 +1030,10 @@ The constitutional truth layer: verifies every claimed fact against the underlyi
 - Blocks unverified or contradicted claims from moving forward
 - Acts as the gate that Module 48 must pass through
 
-### Module 47 — Continuous Learning Intelligence
+### Module 47 — Continuous Learning Intelligence — RETIRED 2026-08-24
 **Engineer:** Tahir
 
-Evaluates how accurate past predictions turned out to be and validates whether recorded lessons are actually being applied — the system's self-check loop.
-
-**What it does:**
-- Checks how accurate past predictions turned out to be against what actually happened
-- Validates whether recorded lessons are actually being applied, not just filed away
-- Scores the organization's learning loop — is it getting smarter over time?
-- Flags lessons that were ignored and predictions that missed, so the system self-corrects
+Its own constitutional question was *"How does the Brain improve continuously?"* — but it measured the software's own run history, not the organization. See [Four analyses were retired](#four-analyses-were-retired-2026-08-24) for the full reasoning; nothing depended on it.
 
 ### Module 48 — Autonomous Advisor
 **Engineer:** Kamran · `GET /api/intelligence/advisor`

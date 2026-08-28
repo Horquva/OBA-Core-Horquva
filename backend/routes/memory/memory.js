@@ -21,8 +21,8 @@ const domain = require('../../domain')
 
 router.get('/health', async (req, res) => {
   try {
-    const roots = await domain.intelligence.compute.loadRoots()
-    const report = domain.intelligence.compute.orgMemory(roots)
+    const intel = await domain.intelligence.all()
+    const report = intel.orgMemory
 
     res.json({
       institutionalMemoryHealthScore: report.imhs,
@@ -59,8 +59,8 @@ router.get('/employee/:name', async (req, res) => {
       return res.status(404).json({ error: 'Employee not found' })
     }
 
-    const roots = await domain.intelligence.compute.loadRoots()
-    const report = domain.intelligence.compute.orgMemory(roots)
+    const intel = await domain.intelligence.all()
+    const report = intel.orgMemory
     const carrier = report.carriers.find((c) => c.employeeId === emp.id) || {
       totalOwned: 0, preservedCount: 0, vulnerableCount: 0, atRiskCount: 0, lostCount: 0,
       undocumentedCount: 0, noBackupCount: 0, assets: [], tier: 'LOW', healthScore: null, isCriticalCarrier: false,
@@ -128,8 +128,8 @@ router.get('/employee/:name', async (req, res) => {
 
 router.get('/map', async (req, res) => {
   try {
-    const roots = await domain.intelligence.compute.loadRoots()
-    const report = domain.intelligence.compute.orgMemory(roots)
+    const intel = await domain.intelligence.all()
+    const report = intel.orgMemory
 
     // The full canonical report, not a second reshaping of it -- a prior
     // version of this route remapped each asset into an `assetName`/`isDocumented`

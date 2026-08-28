@@ -43,8 +43,11 @@ export interface HealthCheckResult {
 export const ROUTE_REGISTRY: RouteEntry[] = [
   // ── Reality Layer ──────────────────────────────────────────
   { name: 'Agents',            path: '/api/agents',                 pingPath: '/api/agents',                 category: 'Reality Layer',  mounted: true },
+  { name: 'Employees',         path: '/api/employees',              pingPath: '/api/employees',              category: 'Reality Layer',  mounted: true },
   { name: 'Ownership',         path: '/api/ownership',              pingPath: '/api/ownership',              category: 'Reality Layer',  mounted: true },
   { name: 'Dependencies',      path: '/api/dependencies',           pingPath: '/api/dependencies',           category: 'Reality Layer',  mounted: true },
+  { name: 'Network',           path: '/api/network',                pingPath: '/api/network/centrality',     category: 'Reality Layer',  mounted: true },
+  { name: 'Continuity',        path: '/api/continuity',             pingPath: '/api/continuity',             category: 'Reality Layer',  mounted: true },
   { name: 'Risks',             path: '/api/risks',                  pingPath: '/api/risks',                  category: 'Reality Layer',  mounted: true },
   { name: 'Dashboard',         path: '/api/dashboard',              pingPath: '/api/dashboard',              category: 'Reality Layer',  mounted: true },
   { name: 'Data Quality',      path: '/api/data-quality',           pingPath: '/api/data-quality',           category: 'Reality Layer',  mounted: true },
@@ -63,11 +66,13 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Agent Fails',        path: '/api/simulations/agent-fails',         pingPath: '/api/simulations/agent-fails',         category: 'Simulation', mounted: true },
   { name: 'Platform Down',      path: '/api/simulations/platform-down',       pingPath: '/api/simulations/platform-down',       category: 'Simulation', mounted: true },
   { name: 'Workflow Disruption', path: '/api/simulations/workflow-disruption', pingPath: '/api/simulations/workflow-disruption', category: 'Simulation', mounted: true },
+  { name: 'Simulation Rank',    path: '/api/simulations/rank',                pingPath: '/api/simulations/rank',                category: 'Simulation', mounted: true },
 
   // ── Interaction + Intelligence ─────────────────────────────
   { name: 'Verification',    path: '/api/verification',    pingPath: '/api/verification/summary',  category: 'Interaction', mounted: true },
   { name: 'Orchestration',   path: '/api/orchestration',   pingPath: '/api/orchestration/summary', category: 'Interaction', mounted: true },
   { name: 'Decisions',       path: '/api/decisions',       pingPath: '/api/decisions/all',         category: 'Interaction', mounted: true },
+  { name: 'Decision Intelligence', path: '/api/decision-intelligence', pingPath: '/api/decision-intelligence', category: 'Interaction', mounted: true },
   { name: 'Learning',        path: '/api/learning',        pingPath: '/api/learning/summary',      category: 'Interaction', mounted: true },
   { name: 'Collaboration',   path: '/api/collaboration',   pingPath: '/api/collaboration/score',    category: 'Interaction', mounted: true },
   { name: 'Accountability',  path: '/api/accountability',  pingPath: '/api/accountability/score',   category: 'Interaction', mounted: true },
@@ -85,6 +90,10 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
 
   // ── Constitutional Intelligence ────────────────────────────
   { name: 'Truth Intelligence',   path: '/api/intelligence/truth',              pingPath: '/api/intelligence/truth',              category: 'Constitutional', mounted: true },
+  { name: 'Signal Drilldown',     path: '/api/signals',                         pingPath: '/api/signals/drilldown/:entityName',   category: 'Constitutional', mounted: true, requiresParam: true },
+  { name: 'Recommendations',      path: '/api/intelligence/recommendations',    pingPath: '/api/intelligence/recommendations',    category: 'Constitutional', module: 'M04', mounted: true },
+  { name: 'Continuity Intel',     path: '/api/intelligence/continuity',         pingPath: '/api/intelligence/continuity',         category: 'Constitutional', module: 'M18', mounted: true },
+  { name: 'Governance Intel',     path: '/api/intelligence/governance',         pingPath: '/api/intelligence/governance',         category: 'Constitutional', module: 'M19', mounted: true },
   { name: 'Brain Core',           path: '/api/intelligence/brain-core',         pingPath: '/api/intelligence/brain-core',         category: 'Constitutional', mounted: true },
   { name: 'Intel Orchestrator',   path: '/api/intelligence/orchestrator',       pingPath: '/api/intelligence/orchestrator',       category: 'Constitutional', mounted: true },
   { name: 'Signal Intelligence',  path: '/api/intelligence/signals',           pingPath: '/api/intelligence/signals',            category: 'Constitutional', mounted: true },

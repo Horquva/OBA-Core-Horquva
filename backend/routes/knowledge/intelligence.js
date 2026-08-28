@@ -4,7 +4,7 @@ const supabase = require('../../supabase')
 const domain = require('../../domain')
 
 router.get('/', async (req, res) => {
-  const [{ data, error }, roots] = await Promise.all([
+  const [{ data, error }, intel] = await Promise.all([
     supabase
       .from('knowledge_assets')
       .select(`
@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
         criticality,
         employees ( id, name, role, department )
       `),
-    domain.intelligence.compute.loadRoots(),
+    domain.intelligence.all(),
   ])
 
   if (error) return res.status(500).json({ error: error.message })
@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
   // per-person knowledgeRiskScore below (absolute, not share-based; see the
   // comment on `weights` further down). Was frontend/lib/knowledgeRisk.ts's
   // concentrationScore, computed client-side.
-  const concentration = domain.intelligence.compute.knowledgeConcentration(roots)
+  const concentration = intel.knowledgeConcentration
 
   // Group assets by employee
   const map = {}
@@ -38,8 +38,7 @@ router.get('/', async (req, res) => {
         totalAssets:        0,
         undocumentedAssets: 0,
         criticalAssets:     0,
-        highAssets:         0,
-        rawScore:           0
+        highAssets:         0
       }
     }
     const e = map[emp.id]
@@ -59,7 +58,7 @@ router.get('/', async (req, res) => {
   // frontend/lib/knowledgeRisk.ts now just reads it off this response rather
   // than computing its own; the two were previously named the same thing
   // here by coincidence, not because they compute the same thing.
-  const weights = { critical: 40, high: 20, undocumented: 15, singleOwner: 10 }
+  const weights = { critical: 40, high: 20, undocumented: 15 }
 
   const result = Object.values(map).map(e => {
     const raw =

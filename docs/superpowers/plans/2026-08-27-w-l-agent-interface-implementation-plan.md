@@ -1537,6 +1537,145 @@ a particular model's behaviour.
 
 ---
 
+# 23. Team allocation
+
+## 23.1 How the work divides
+
+Three teams. The split follows the natural seams in the codebase, not job titles — **AI** owns
+everything the model touches, **Backend** owns the platform and the domain layer beneath it, and
+**Frontend** owns everything the executive sees.
+
+| Team | Owns | Tasks | Engineer-days |
+|---|---|---|---|
+| **AI** | Provider adapter, tools, prompt, agent loop, validators, quality suite | 10 | 14.5 |
+| **Backend** | Config, migration, turn context, SSE route, budget, persistence, domain simulations | 13 | 13 |
+| **Frontend** | Navigation, SSE client, panel, route restructure | 6 | 7.5 |
+| **Total** | | **29** | **35** |
+
+## 23.2 A staffing note, before the tables
+
+Thirteen people against 35 engineer-days is roughly **2.7 days of work each**. That is thinner than
+this workstream can absorb: the critical path (§5.2) is eight sequential tasks, and no amount of extra
+people shortens it. Past a certain headcount, coordination costs more than the parallelism gains.
+
+Two ways to make thirteen people work, and the tables below support either:
+
+1. **Pair on every task.** Six pairs plus a tech lead. Each pair gets ~5 days of real work, the
+   `Owner` and `Pair` columns are both filled, and the second person is a genuine reviewer rather than
+   a spectator. **This is the recommendation** — it doubles as knowledge transfer on a codebase where
+   the conventions matter more than the code.
+2. **Staff six or seven people on this and put the rest elsewhere.** Same three-week finish, and the
+   remaining engineers work on something that isn't blocked by this critical path.
+
+What will *not* work is thirteen people each taking two or three tasks solo — the interfaces between
+tasks are where the risk lives, and that structure maximises the number of interfaces.
+
+## 23.3 Roster
+
+Fill in before kickoff. Suggested sizes assume the pairing model.
+
+**AI team** — suggested 5
+
+| # | Name | Focus |
+|---|---|---|
+| 1 | | Team lead — owns the tool contract and the constitution |
+| 2 | | Provider adapter and the agent loop |
+| 3 | | Tools |
+| 4 | | Tools |
+| 5 | | Validators and the quality suite |
+
+**Backend team** — suggested 5
+
+| # | Name | Focus |
+|---|---|---|
+| 1 | | Team lead — owns the turn contract and the SSE route |
+| 2 | | Domain layer and simulations |
+| 3 | | Data, migration and persistence |
+| 4 | | Budget, quota and observability |
+| 5 | | Navigation catalog and page context |
+
+**Frontend team** — suggested 3
+
+| # | Name | Focus |
+|---|---|---|
+| 1 | | Team lead — owns the shell, state and route restructure |
+| 2 | | Panel, message and composer |
+| 3 | | Trace, navigation offer and QA |
+
+## 23.4 AI team — task assignments
+
+| Task | What it is | Days | Depends on | Owner | Pair |
+|---|---|---|---|---|---|
+| 10.3 | Entity resolution — lift and generalise `voice.js` matching | 1 | — | | |
+| 10.4 | Metric glossary — definitions as data | 1 | — | | |
+| 10.7 | Provider adapter + Gemini implementation | 2 | 10.1 | | |
+| 11.1 | Tool registry, envelope, input validation | 1.5 | 10.6 | | |
+| 11.2 | Read tools — the seven grounded lookups | 2 | 11.1, 10.3, 10.4 | | |
+| 11.3 | Simulation tools | 1 | 11.1 | | |
+| 11.4 | Constitution and org roster builder | 1 | 10.6 | | |
+| 11.5 | The agent loop | 2 | 10.7, 11.1, 11.4 | | |
+| 11.8 | Numeric and entity validators | 1.5 | 11.5 | | |
+| 13.4 | Golden-question regression suite | 1.5 | 13.2 | | |
+
+## 23.5 Backend team — task assignments
+
+| Task | What it is | Days | Depends on | Owner | Pair |
+|---|---|---|---|---|---|
+| 10.1 | Provider dependency, config, boot guard | 0.5 | — | | |
+| 10.2 | Split `computeAll` into load and compute | 0.5 | — | | |
+| 10.5 | Migration — the four agent tables | 0.5 | — | | |
+| 10.6 | Turn context — the frozen roots bundle | 0.5 | 10.2 | | |
+| 11.6 | The SSE route | 1.5 | 11.5 | | |
+| 11.7 | Rate limiting, daily budget, usage accounting | 1 | 10.5, 11.6 | | |
+| 11.9 | Conversation persistence and windowing | 1 | 10.5, 11.6 | | |
+| 12.2 | Navigation catalog and `propose_navigation` | 1 | 11.1 | | |
+| 12.7 | `get_page_context` and page metric wiring | 1.5 | 12.2 | | |
+| 13.1 | Succession simulation — **blocked on D-70** | 2 | 10.2 | | |
+| 13.2 | The `simulate_reassignment` tool | 0.5 | 13.1, 11.3 | | |
+| 13.3 | Graph staleness surfacing | 0.5 | 10.6, 11.2 | | |
+| 13.5 | Fallback, feature flag, documentation | 2 | all | | |
+
+## 23.6 Frontend team — task assignments
+
+| Task | What it is | Days | Depends on | Owner | Pair |
+|---|---|---|---|---|---|
+| 12.1 | Extract the single navigation path | 0.5 | — | | |
+| 12.3 | The SSE client | 1 | 11.6 | | |
+| 12.4 | Agent provider and shell mount | 1 | 12.3 | | |
+| 12.5 | Panel, message and composer | 2 | 12.4 | | |
+| 12.6 | Tool trace and navigation offer | 1 | 12.5, 12.2 | | |
+| 12.8 | Route restructure — agent at `/` | 2 | 12.5, 12.2 | | |
+
+## 23.7 Cross-team handoffs
+
+These are the only points where one team waits on another. Each is a contract that should be agreed in
+writing on day one, so the consuming team can build against it before it exists.
+
+| Handoff | From | To | Contract | Needed by |
+|---|---|---|---|---|
+| Frozen turn context | Backend 10.6 | AI 11.1 | `{ roots, intel, snapshotAt, graphSource, graphStale }` (§10.6) | Start of week 2 |
+| Tool declarations | AI 11.1 | Backend 12.2 | Tool module shape and result envelope (§11.1) | Mid week 2 |
+| Agent loop | AI 11.5 | Backend 11.6 | `runTurn({ turnContext, history, userMessage, emit, signal })` (§11.5) | End of week 2 |
+| SSE event protocol | Backend 11.6 | Frontend 12.3 | Appendix B — agree this on **day one**, it unblocks the frontend before the route exists | Start of week 2 |
+| Navigation catalog | Backend 12.2 | Frontend 12.8 | Shared JSON or the drift-tested duplicate, per D-71 | Week 3 |
+| Succession result | Backend 13.1 | AI 13.2 | `employeeLeavesWithSuccessor` return shape (§13.1) | Week 3 |
+
+**The one to get right early is the SSE protocol.** Appendix B is already written; if the frontend team
+agrees it on day one they can build the entire client and panel against a stubbed stream and never wait
+for the backend route.
+
+## 23.8 Who is blocked, and when
+
+- **Nobody is blocked in week 1.** Backend 10.1/10.2/10.5, AI 10.3/10.4, and Frontend 12.1 all have no
+  dependencies.
+- **AI is the critical path in week 2** — 11.1 → 11.5 gates both the SSE route and everything the
+  frontend renders. Staff this pair with the strongest people.
+- **Frontend can run ahead of the backend all the way to 12.5** by stubbing the SSE stream.
+- **Only 13.1 is decision-blocked** (D-70). If it is still open by week 3, move that pair onto 13.5 and
+  the golden-question suite rather than letting them idle.
+
+---
+
 # Appendix A — Tool catalog
 
 All thirteen. Schemas are the OpenAPI subset Gemini accepts: flat objects, enumerated strings, no deep

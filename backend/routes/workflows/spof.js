@@ -46,11 +46,16 @@ router.get('/', async (req, res) => {
     const humanSpof = failures.some(f => f.failure_type === 'human_spof')
     if (humanSpof) reasons.push('single_human_owner')
 
-    // single tool
-    if (toolCount <= 1) reasons.push('single_tool_dependency')
+    // single tool -- zero tools is a different, worse fact than exactly one
+    // ("single tool dependency" asserts a tool exists and there's only one of
+    // it; toolCount===0 means none does), so it gets its own reason instead of
+    // being folded into "single" under a `<= 1` comparison.
+    if (toolCount === 0) reasons.push('no_tool_dependency')
+    else if (toolCount === 1) reasons.push('single_tool_dependency')
 
-    // single critical agent
-    if (agentCount <= 1) reasons.push('single_agent_dependency')
+    // single critical agent -- same distinction for agents.
+    if (agentCount === 0) reasons.push('no_agent_dependency')
+    else if (agentCount === 1) reasons.push('single_agent_dependency')
 
     // explicit critical human spof failure
     const hasCriticalSpof = failures.some(

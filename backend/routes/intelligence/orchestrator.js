@@ -29,10 +29,10 @@ const MODULE_REGISTRY = [
   { key: 'continuity', label: 'Continuity Resilience', weight: 0.15 },
   { key: 'orgHealth', label: 'Organizational Health', weight: 0.12 },
   { key: 'predictiveRisk', label: 'Predictive Risk Intelligence', weight: 0.12 },
-  { key: 'memory', label: 'Memory Intelligence', weight: 0.10 },
+  { key: 'memory', label: 'Management Intelligence', weight: 0.10 },
   { key: 'collaboration', label: 'Human-AI Collaboration', weight: 0.09 },
   { key: 'accountability', label: 'Accountability Intelligence', weight: 0.09 },
-  { key: 'domainInt', label: 'Domain Intelligence', weight: 0.07 },
+  { key: 'domainInt', label: 'Data Intelligence', weight: 0.07 },
   { key: 'decisionQuality', label: 'Decision Quality', weight: 0.05 },
   { key: 'aiAdoption', label: 'AI Adoption Score', weight: 0.02 },
   { key: 'executiveBriefing', label: 'Executive Briefing', weight: 0.02 },
@@ -113,7 +113,7 @@ const readAccountability = (intel) => ({
 
 const readDecisionQuality = (intel) => ({
   score: intel.decisionQuality.score,
-  verified: intel.decisionQuality.hasEvidence,
+  verified: intel.decisionQuality.evidence.sufficient,
   source: 'domain.intelligence.decisionQuality',
 })
 

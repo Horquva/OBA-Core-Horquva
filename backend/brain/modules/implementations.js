@@ -273,7 +273,12 @@ IMPL.M29 = (rt) => {
 // M31 — Ecosystem Intelligence: internal + external ecosystem.
 IMPL.M31 = (rt) => {
   const g = rt.graph
-  const internalTypes = ['department', 'team', 'employee', 'executive', 'system', 'ai_agent', 'workflow', 'process']
+  // Every entity type the ontology defines that ISN'T vendor/customer is
+  // internal by construction (internal/external is a hard binary here, not a
+  // third category) -- this list previously omitted organization, knowledge,
+  // policy and decision, so an "internal ecosystem" of 157 real entities
+  // counted only 89 of them.
+  const internalTypes = ['department', 'team', 'employee', 'executive', 'system', 'ai_agent', 'workflow', 'process', 'organization', 'knowledge', 'policy', 'decision']
   const externalTypes = ['vendor', 'customer']
   const internal = A.byTypes(g, internalTypes)
   const external = A.byTypes(g, externalTypes)
@@ -805,22 +810,32 @@ IMPL.M39 = (rt) => {
 }
 
 // M40 — Strategic Alignment: is execution aligned (coverage vs gaps)?
+// This used to publish its result as `alignmentScore` -- the same word
+// domain/analyses.js's alignmentChecklist() uses for a genuinely different
+// computation (mean of workflow-documentation / decision-tracking /
+// incident-lesson checks). Two unrelated numbers sharing the word
+// "alignment" is exactly the confusion D-06/D-11-style consolidations exist
+// to prevent. This module measures ownership coverage, not alignment to
+// strategy (the "aligned to strategy" framing was an interpretive label on
+// top of a coverage ratio, not a second signal) -- named for what it
+// actually computes so alignmentChecklist() is the only thing that gets to
+// call itself "alignment."
 IMPL.M40 = (rt, context) => {
   const g = rt.graph
   const assets = A.assets(g)
   const covered = assets.filter((a) => A.owners(g, a.id).length > 0).length
-  const alignment = A.round(assets.length ? covered / assets.length : 1)
-  const evidence = [ev('graph', 'coverage', `${covered}/${assets.length} assets owned & aligned`)]
+  const coverage = A.round(assets.length ? covered / assets.length : 1)
+  const evidence = [ev('graph', 'coverage', `${covered}/${assets.length} assets owned`)]
   return {
     type: 'decision',
     payload: {
-      alignmentScore: alignment,
-      aligned: alignment > 0.7,
+      ownershipCoverageScore: coverage,
+      covered: coverage > 0.7,
       gaps: assets.filter((a) => A.owners(g, a.id).length === 0).map((a) => a.name),
     },
-    confidence: A.confidence(evidence.length, alignment),
+    confidence: A.confidence(evidence.length, coverage),
     evidence,
-    recommendations: alignment <= 0.7 ? ['Close ownership gaps to align execution with strategy.'] : [],
+    recommendations: coverage <= 0.7 ? ['Close ownership gaps across the asset estate.'] : [],
   }
 }
 

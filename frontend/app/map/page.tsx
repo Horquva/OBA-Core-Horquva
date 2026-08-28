@@ -126,7 +126,7 @@ export default function DependencyMapPage() {
         <BlastRadiusSimulator agents={agents} dependencies={dependencies} riskByAgentName={riskByAgentName} />
       </div>
 
-      {/* Hidden Dependency Overlay — transitive / shared-resource / shared-owner edges */}
+      {/* Hidden Dependency Overlay — transitive / same-department / shared-owner edges */}
       <div className="mb-8">
         <HiddenDependencyOverlay agents={agents} dependencies={dependencies} />
       </div>

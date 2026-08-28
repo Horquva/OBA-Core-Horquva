@@ -53,8 +53,8 @@ router.get('/', async (req, res) => {
     const orphanedAgents = agents.data.filter(a => !a.owner_id).length
     const criticalDeps   = deps.data.filter(d => d.dependency_type === 'critical').length
 
-    const roots = await domain.intelligence.compute.loadRoots()
-    const risk = domain.intelligence.compute.predictiveRisk(roots)
+    const intel = await domain.intelligence.all()
+    const risk = intel.predictiveRisk
     const riskScore = risk.scores.length
       ? Math.round(risk.scores.reduce((sum, s) => sum + s.predictedScore, 0) / risk.scores.length)
       : 0

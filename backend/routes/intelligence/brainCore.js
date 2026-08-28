@@ -13,9 +13,9 @@ const SIGNAL_CONFIG = [
   { key: 'continuity',         label: 'Continuity Resilience',       weight: 0.15 },
   { key: 'orgHealth',          label: 'Organizational Health',       weight: 0.15 },
   { key: 'predictiveRisk',     label: 'Predictive Risk (inverted)',  weight: 0.15 },
-  { key: 'memoryIntelligence', label: 'Memory Intelligence',         weight: 0.10 },
+  { key: 'memoryIntelligence', label: 'Management Intelligence',     weight: 0.10 },
   { key: 'collaboration',      label: 'Collaboration Score',         weight: 0.10 },
-  { key: 'domainIntelligence', label: 'Domain Intelligence',         weight: 0.08 },
+  { key: 'domainIntelligence', label: 'Data Intelligence',           weight: 0.08 },
   { key: 'accountability',     label: 'Accountability Score',        weight: 0.07 },
   { key: 'aiAdoption',         label: 'AI Adoption Score',           weight: 0.03 },
   { key: 'decisionQuality',    label: 'Decision Quality',            weight: 0.02 }
@@ -104,7 +104,7 @@ const SIGNAL_READERS = {
   decisionQuality: (intel) => ({
     score: intel.decisionQuality.score,
     source: 'domain.intelligence.decisionQuality',
-    verified: intel.decisionQuality.hasEvidence,
+    verified: intel.decisionQuality.evidence.sufficient,
   }),
 }
 
@@ -158,6 +158,60 @@ async function computeBrainCore() {
   // brain-as-library-design.md's open question 3 named as a pair).
   const verifiedSignals = rawSignals.filter(s => s.verified)
 
+  // A signal excluded because its query FAILED is a different fact from one
+  // excluded because no row is seeded, and consumers of a headline score need to
+  // be able to tell. Without this, a partial Supabase outage silently changed
+  // which signals composed the Brain Index.
+  const unavailable = rawSignals.filter(s => s.unavailable)
+
+  // Integrity has TWO axes, and this used to track only one.
+  //
+  // `degraded` answered "did a query fail?" — pure reachability. A row that read
+  // back perfectly counted as verified no matter how old it was, so the six
+  // never-written tables that fed this index scored a clean bill of health
+  // every single time. The metric that existed to catch bad inputs was
+  // structurally incapable of noticing the actual problem.
+  //
+  // `computedAt` closes that: every signal now derives from a computation with
+  // a real timestamp, so freshness is a fact about this response rather than
+  // something a reader has to take on trust.
+  const dataIntegrity = {
+    degraded: unavailable.length > 0,
+    signalsRead: rawSignals.length,
+    signalsVerified: verifiedSignals.length,
+    signalsUnavailable: unavailable.length,
+    unavailableSignals: unavailable.map(s => ({ key: s.key, label: s.label, error: s.error })),
+    computedAt: intel.computedAt,
+    inputsComputedLive: true,
+    rootCounts: intel.rootCounts,
+    warning: unavailable.length
+      ? `${unavailable.length} of ${rawSignals.length} signals could not be read. This index was computed from the rest and is NOT a complete picture.`
+      : null,
+  }
+
+  // Same gate orchestrator.js applies to this identical intel.pillars.orgScore
+  // input (D-07, D-10, D-22): when evidence coverage is insufficient, orgScore
+  // is `null`. Without this guard, `brainIndex >= 80` and `>= 60` both compare
+  // false against null, so an insufficient-evidence organization fell through
+  // to the final `: 'CRITICAL'` branch by construction — reporting elevated
+  // structural risk from an absence of evidence, the exact fabricated-verdict
+  // failure the evidence gate exists to prevent. Short-circuit to an
+  // explanatory verdict instead of computing a posture from a score that was
+  // never published, exactly as orchestrator.js already does for the same input.
+  const orgScoreEvidence = intel.pillars.orgScore.evidence
+  if (!orgScoreEvidence.sufficient) {
+    return {
+      brainIndex: null,
+      posture: null,
+      summary: `Insufficient evidence to compute a Brain Index — ${Math.round((orgScoreEvidence.coverage ?? 0) * 100)}% coverage on at least one pillar. See evidence for detail.`,
+      topSignals: [],
+      explanation: 'No Brain Index was computed this run because evidence coverage was insufficient on at least one pillar.',
+      signals: rawSignals,
+      dataIntegrity,
+      evidence: orgScoreEvidence,
+    }
+  }
+
   const brainIndex = intel.pillars.orgScore.score
 
   // Posture keeps its own STABLE/STRAINED/CRITICAL vocabulary — only what
@@ -191,7 +245,7 @@ async function computeBrainCore() {
   const highest = [...rawSignals].sort((a, b) => b.score - a.score).slice(0, 2)
 
   const explanation = [
-    `Brain Index was computed from ${verifiedSignals.length} verified signals across Modules M01–M26.`,
+    `Brain Index is the organization's weighted pillar score (Governance, Management and Data Intelligence) — the ${verifiedSignals.length} verified signals below explain what is contributing to it, they do not compute it.`,
     `The three weakest signals dragging the score down were: ${lowest.map(s => `${s.label} (${s.score}/100)`).join(', ')}.`,
     `The two strongest positive signals were: ${highest.map(s => `${s.label} (${s.score}/100)`).join(', ')}.`,
     `With a total weighted index of ${brainIndex}/100, the operating posture is classified as ${posture}.`,
@@ -202,38 +256,7 @@ async function computeBrainCore() {
       : 'Continue monitoring. No immediate intervention required.'
   ].join(' ')
 
-  // A signal excluded because its query FAILED is a different fact from one
-  // excluded because no row is seeded, and consumers of a headline score need to
-  // be able to tell. Without this, a partial Supabase outage silently changed
-  // which signals composed the Brain Index.
-  const unavailable = rawSignals.filter(s => s.unavailable)
-
-  // Integrity has TWO axes, and this used to track only one.
-  //
-  // `degraded` answered "did a query fail?" — pure reachability. A row that read
-  // back perfectly counted as verified no matter how old it was, so the six
-  // never-written tables that fed this index scored a clean bill of health
-  // every single time. The metric that existed to catch bad inputs was
-  // structurally incapable of noticing the actual problem.
-  //
-  // `computedAt` closes that: every signal now derives from a computation with
-  // a real timestamp, so freshness is a fact about this response rather than
-  // something a reader has to take on trust.
-  const dataIntegrity = {
-    degraded: unavailable.length > 0,
-    signalsRead: rawSignals.length,
-    signalsVerified: verifiedSignals.length,
-    signalsUnavailable: unavailable.length,
-    unavailableSignals: unavailable.map(s => ({ key: s.key, label: s.label, error: s.error })),
-    computedAt: intel.computedAt,
-    inputsComputedLive: true,
-    rootCounts: intel.rootCounts,
-    warning: unavailable.length
-      ? `${unavailable.length} of ${rawSignals.length} signals could not be read. This index was computed from the rest and is NOT a complete picture.`
-      : null,
-  }
-
-  return { brainIndex, posture, summary, topSignals, explanation, signals: rawSignals, dataIntegrity }
+  return { brainIndex, posture, summary, topSignals, explanation, signals: rawSignals, dataIntegrity, evidence: orgScoreEvidence }
 }
 
 // ─────────────────────────────────────────────
@@ -281,11 +304,19 @@ async function getOrComputeSnapshot() {
   // Compute fresh
   const result = await computeBrainCore()
 
-  // Never cache an incomplete index. Persisting a degraded result would pin a
-  // number computed from a partial outage for the rest of the day, long after
-  // the outage cleared.
-  if (result.dataIntegrity.degraded) {
-    console.warn('[brainCore] not caching a degraded snapshot —', result.dataIntegrity.warning)
+  // Never cache an incomplete OR insufficiently-evidenced index. Persisting a
+  // degraded result would pin a number computed from a partial outage for the
+  // rest of the day, long after the outage cleared; persisting an insufficient-
+  // evidence result (brainIndex/posture both null, since the evidence guard
+  // above short-circuits before either is computed) would pin that null for the
+  // rest of the day even after coverage improves. Same reasoning orchestrator.js
+  // already applies to the identical evidence input.
+  if (result.dataIntegrity.degraded || !result.evidence.sufficient) {
+    if (!result.evidence.sufficient) {
+      console.warn('[brainCore] not caching an insufficient-evidence snapshot')
+    } else {
+      console.warn('[brainCore] not caching a degraded snapshot —', result.dataIntegrity.warning)
+    }
     return { ...result, fromCache: false, computed_at: new Date().toISOString() }
   }
 

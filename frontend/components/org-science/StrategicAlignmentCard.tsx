@@ -50,15 +50,15 @@ export function StrategicAlignmentCard() {
       <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <Target className="w-4 h-4 text-emerald-400" />
-          <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Strategic Alignment</h3>
+          <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Ownership Coverage</h3>
         </div>
         {state === 'success' && data && (
           <span className={clsx(
             "px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border",
-            data.aligned ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+            data.covered ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
             'bg-red-500/10 text-red-400 border-red-500/20'
           )}>
-            {data.aligned ? 'ALIGNED' : 'MISALIGNED'}
+            {data.covered ? 'COVERED' : 'GAPS FOUND'}
           </span>
         )}
       </div>
@@ -95,10 +95,10 @@ export function StrategicAlignmentCard() {
           <div className="space-y-5">
             <div className="text-center">
               <div className="text-4xl font-bold text-[color:var(--text-primary)] tabular-nums tracking-tight mb-1">
-                {Math.round(data.alignmentScore * 100)}%
+                {Math.round(data.ownershipCoverageScore * 100)}%
               </div>
               <p className="text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-widest font-medium">
-                Alignment Score
+                Ownership Coverage
               </p>
             </div>
 

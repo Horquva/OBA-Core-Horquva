@@ -16,8 +16,8 @@ const domain = require('../../domain')
  */
 router.get('/', async (req, res) => {
   try {
-    const roots = await domain.intelligence.compute.loadRoots()
-    res.json(domain.intelligence.compute.assetContinuity(roots))
+    const intel = await domain.intelligence.all()
+    res.json(intel.assetContinuity)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

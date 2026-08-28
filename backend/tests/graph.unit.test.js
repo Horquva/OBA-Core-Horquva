@@ -11,6 +11,7 @@
 
 const EntityRegistry = require('../brain/knowledge/entityRegistry')
 const RelationshipRegistry = require('../brain/knowledge/relationshipRegistry')
+const A = require('../brain/modules/analytics')
 
 let passed = 0
 let failed = 0
@@ -61,6 +62,42 @@ check('dangling source still rejected', (() => {
 })())
 check('dedupe still returns the original edge', rels.add({ from: alice.id, to: system.id, type: 'owns' }).id === owned.id)
 check('graph still validates', rels.validate().valid === true)
+
+// ─── singlePointsOfFailure() must read criticality off the asset itself,
+// not the `owns` edge (regression test for the SPOF criticality-blindness
+// fix: relationshipRegistry.add() defaults an edge's criticality to
+// 'medium', and knowledge/tool-ownership/process/decision `owns` edges never
+// set one explicitly, so reading the edge silently capped every asset of
+// those kinds below the 'high' SPOF threshold regardless of the asset's own
+// risk/criticality column) ───
+{
+  const g2entities = new EntityRegistry()
+  const g2rels = new RelationshipRegistry(g2entities)
+  const g2 = { entities: g2entities, relationships: g2rels }
+
+  const owner = g2entities.upsert({ type: 'employee', name: 'Sole Owner' })
+  const criticalKnowledge = g2entities.upsert({
+    type: 'knowledge', name: 'Security scanning configuration',
+    metadata: { criticality: 'critical' },
+  })
+  // `owns` edge carries no criticality — exactly what knowledge_assets `owns`
+  // edges look like in graphLoader — so it defaults to 'medium' on the edge.
+  g2rels.add({ from: owner.id, to: criticalKnowledge.id, type: 'owns' })
+
+  const spofs = A.singlePointsOfFailure(g2)
+  check(
+    'knowledge asset with high edge-default but critical OWN criticality is now reported as SPOF',
+    spofs.some((s) => s.id === criticalKnowledge.id),
+  )
+
+  // Sanity check the resolver's per-type mapping directly too.
+  check('assetCriticality reads workflow-kind risk off metadata.risk',
+    A.assetCriticality({ type: 'workflow', metadata: { risk: 'critical' } }, 'medium') === 'critical')
+  check('assetCriticality reads platform-kind criticality off metadata.assetCriticality',
+    A.assetCriticality({ type: 'ai_agent', metadata: { kind: 'ai-platform', assetCriticality: 'high' } }, 'medium') === 'high')
+  check('assetCriticality falls back to the edge for process (no own criticality column exists)',
+    A.assetCriticality({ type: 'process', metadata: {} }, 'critical') === 'critical')
+}
 
 console.log(`\n=== Result: ${passed} passed, ${failed} failed ===\n`)
 process.exit(failed === 0 ? 0 : 1)

@@ -65,6 +65,23 @@ function detectTrend(snapshots) {
   return 'STABLE'
 }
 
+// /summary pairs its trend with a LIVE current healthIndex (getCurrentSnapshot()),
+// so it needs a trend spanning "then" to "now" — not detectTrend()'s two most-
+// recent STORED rows, which compares the same two fixed months forever in a
+// series nothing writes to (see fetchAllSnapshots()'s comment: the stored
+// series stops at June while the live index moves every request). Mirrors
+// orchestrator.js's readHealthTrend(): earliest stored row as baseline, the
+// live current value as the other end. `/trend` below deliberately keeps using
+// detectTrend() on the stored series alone — it presents a purely historical
+// monthly series and never claims to reflect "now".
+function detectLiveTrend(historicalSnapshots, currentHealthIndex) {
+  if (!historicalSnapshots.length) return 'INSUFFICIENT_DATA'
+  const earliest = historicalSnapshots[0].health_index
+  if (currentHealthIndex > earliest) return 'IMPROVING'
+  if (currentHealthIndex < earliest) return 'DECLINING'
+  return 'STABLE'
+}
+
 // ─────────────────────────────────────────────
 // LIVE DIMENSION SCORES — pulled from existing modules
 // ─────────────────────────────────────────────
@@ -110,7 +127,7 @@ router.get('/summary', async (req, res) => {
   try {
     const snapshot = await getCurrentSnapshot()
     const allSnapshots = await fetchAllSnapshots()
-    const trend = detectTrend(allSnapshots)
+    const trend = detectLiveTrend(allSnapshots, snapshot.health_index)
 
     res.json({
       healthIndex: snapshot.health_index,
@@ -176,7 +193,7 @@ router.get('/dimensions', async (req, res) => {
         weight: '20%',
         score: snapshot.ownership_spread_score,
         status: healthStatus(snapshot.ownership_spread_score),
-        description: 'Percentage of employees who have backup coverage assigned'
+        description: 'How evenly agent ownership is spread across owners (100 = perfectly even; falls as one owner\'s load exceeds the org average)'
       },
       {
         name: 'Incident Load',
