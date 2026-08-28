@@ -2,39 +2,50 @@ import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import path from 'path';
 
-/**
- * Experience Quality Platform - Playwright Configuration
- *
- * Owner: Castor / Experience Quality
- *
- * BASE_URL is intentionally not hardcoded. Until the real Castor application
- * environment is available, tests read BASE_URL from the environment (see
- * .env.example). This keeps the automation foundation ready to point at a
- * real environment without inventing a fake application URL.
- */
+dotenv.config({
+  path: path.resolve(__dirname, '.env'),
+});
 
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+// The application under test is the Next.js "frontend" package, which binds
+// to port 3001 (`npm run dev` -> `next dev --port 3001`). Playwright starts it
+// automatically so a bare `npx playwright test` works without an externally
+// running server. See frontend/package.json.
+const FRONTEND_DIR = path.resolve(__dirname, '../../../../../../frontend');
+
+// Authenticated storage state written by tests/support/global-setup.ts.
+const STORAGE_STATE = path.resolve(__dirname, 'state/qa-storage.json');
 
 export default defineConfig({
   testDir: './tests',
   outputDir: './reports/test-results',
 
-  // Fail the build on CI if test.only was left in the source.
-  forbidOnly: !!process.env.CI,
+  globalSetup: './tests/support/global-setup.ts',
 
-  // Retries: none locally, retry once on CI to absorb flakiness.
+  // A single web server (the frontend) is shared by every project in the
+  // browser matrix. The frontend reaches the backend through NEXT_PUBLIC_API_URL
+  // (see frontend/.env.local), so no second server is required.
+  webServer: {
+    command: 'npm run dev',
+    cwd: FRONTEND_DIR,
+    url: BASE_URL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+    stdout: 'ignore',
+    stderr: 'pipe',
+  },
+
+  forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
 
-  // Parallelism.
   fullyParallel: true,
   workers: process.env.CI ? 2 : undefined,
 
-  // Reasonable default timeouts (documented, not arbitrary).
-  timeout: 30_000,
+  timeout: Number(process.env.DEFAULT_TIMEOUT || 30000),
+
   expect: {
-    timeout: 5_000,
+    timeout: 15000,
   },
 
   reporter: [
@@ -45,39 +56,38 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
-    navigationTimeout: 30_000,
-    actionTimeout: 15_000,
+    storageState: STORAGE_STATE,
+    navigationTimeout: Number(
+      process.env.NAVIGATION_TIMEOUT || 30000
+    ),
+    actionTimeout: 15000,
 
-    // Capture screenshots only on failure to keep reports lean.
     screenshot: 'only-on-failure',
-
-    // Traces are the primary debugging artifact - capture on first retry.
     trace: 'on-first-retry',
-
-    // Keep video off by default (expensive); enable per-project if needed.
     video: 'retain-on-failure',
   },
 
-  // Browser matrix - Chromium, Firefox, WebKit, plus representative mobile
-  // viewports. Each project can be run independently:
-  //   npx playwright test --project=chromium
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
+
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
     },
+
     {
       name: 'mobile-chrome',
       use: { ...devices['Pixel 7'] },
     },
+
     {
       name: 'mobile-safari',
       use: { ...devices['iPhone 14'] },
