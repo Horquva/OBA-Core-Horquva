@@ -20,7 +20,7 @@ def db_path(tmp_path):
         CREATE TABLE simulation_runs (run_id TEXT PRIMARY KEY, experiment_id TEXT NOT NULL, trace_id TEXT NOT NULL);
         CREATE TABLE validation_results (
             run_id TEXT PRIMARY KEY, passed_rules JSON, failed_rules JSON,
-            flagged_rules JSON, final_status TEXT NOT NULL, reason TEXT, metrics JSON
+            flagged_rules JSON, final_status TEXT NOT NULL, reason TEXT
         );
         CREATE TABLE synthetic_artifacts (
             artifact_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, artifact_type TEXT NOT NULL, content JSON
@@ -38,8 +38,8 @@ def seed_run(db_path, run_id, experiment_id="EXP-001", seed=7, final_status="VAL
                  (run_id, experiment_id, str(uuid4())))
     if final_status is not None:
         conn.execute(
-            "INSERT INTO validation_results (run_id, passed_rules, failed_rules, flagged_rules, final_status, metrics) "
-            "VALUES (?, '[]', '[]', '[]', ?, '{\"workload_pressure\": 0.8}')", (run_id, final_status))
+            "INSERT INTO validation_results (run_id, passed_rules, failed_rules, flagged_rules, final_status) "
+            "VALUES (?, '[]', '[]', '[]', ?)", (run_id, final_status))
     for artifact_id, content in (artifacts or []):
         conn.execute("INSERT INTO synthetic_artifacts (artifact_id, run_id, artifact_type, content) VALUES (?, ?, 'document', ?)",
                      (artifact_id, run_id, json.dumps(content)))
