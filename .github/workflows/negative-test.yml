@@ -125,7 +125,7 @@ jobs:
       - name: Run Trivy against the fixture image
         id: trivy
         continue-on-error: true
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "sentinel-negative-test-container:${{ github.run_id }}"
           format: "json"
@@ -159,7 +159,7 @@ jobs:
       - name: Run Checkov against the fixture Terraform only
         id: checkov
         continue-on-error: true
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@v12.1347.0
         with:
           directory: testing/negative-test-fixtures/terraform/
           output_format: json
