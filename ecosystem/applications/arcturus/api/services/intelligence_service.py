@@ -15,6 +15,8 @@ Anti-hallucination boundary, three layers:
 
 REPO-VERIFY: assumes Settings exposes `gemini_api_key`. Confirm in
 api/config.py before merge.
+
+Status: 🟢 IMPLEMENTED
 """
 
 from __future__ import annotations
