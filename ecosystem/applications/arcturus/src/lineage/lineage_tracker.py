@@ -4,6 +4,8 @@ src/lineage/lineage_tracker.py
 Shared lineage utility: experiment_id -> seed -> config -> tick -> event
 -> data_point. Owned by Ahmed (Day 4), importable by any platform that
 needs to attach a lineage chain to an artifact it produces.
+
+Status: 🟢 IMPLEMENTED
 """
 
 from __future__ import annotations

@@ -43,3 +43,26 @@ class EcosystemBoundaryEnvelope(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp of boundary message creation"
     )
+
+class SimulationCheckpointExport(BaseModel):
+    """Payload type: SIMULATION_CHECKPOINT — exports a run checkpoint to OCOS."""
+    run_id: str
+    experiment_id: str
+    tick: int
+    checkpoint_data: dict[str, Any]
+    status: BoundaryCapabilityStatus = BoundaryCapabilityStatus.FOUNDATION
+
+class EvidenceExportPayload(BaseModel):
+    """Payload type: EVIDENCE_EXPORT — sends validated evidence corpus to OBA Core."""
+    run_id: str
+    artifact_count: int
+    validation_status: str  # VALIDATED | REJECTED | INCONCLUSIVE
+    evidence_summary: dict[str, Any]
+    status: BoundaryCapabilityStatus = BoundaryCapabilityStatus.FOUNDATION
+
+class MetricTelemetryPayload(BaseModel):
+    """Payload type: METRIC_TELEMETRY — forwards simulation metrics to OCOS telemetry layer."""
+    run_id: str
+    tick: int
+    metrics: dict[str, float]
+    status: BoundaryCapabilityStatus = BoundaryCapabilityStatus.FOUNDATION
