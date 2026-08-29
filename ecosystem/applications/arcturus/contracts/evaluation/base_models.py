@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Optional
+from enum import Enum
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -77,4 +78,42 @@ class ValidationResultContract(BaseModel):
     flagged_rules: list[str] = Field(default_factory=list)
     final_status: str = Field(..., description="validated | rejected | inconclusive")
     reason: Optional[str] = Field(default=None, description="Explanation for the final status")
+    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# ---------------------------------------------------------------------------
+# 5. VALIDATION STATUS (tri-state)
+# ---------------------------------------------------------------------------
+class ValidationStatus(str, Enum):
+    """
+    Tri-state classification. No other value is possible — this is the
+    structural guarantee behind the 'never a fake pass' rule.
+    """
+    VALIDATED = "VALIDATED"
+    REJECTED = "REJECTED"
+    INCONCLUSIVE = "INCONCLUSIVE"
+
+
+# ---------------------------------------------------------------------------
+# 6. METRIC SCORES
+# ---------------------------------------------------------------------------
+class MetricScores(BaseModel):
+    """Computed quality metrics for one validation run."""
+    coverage: float = Field(..., ge=0.0, le=1.0, description="Fraction of expected data present")
+    accuracy: float = Field(..., ge=0.0, le=1.0, description="Fraction of accepted artifacts passing quality gates")
+    consistency: float = Field(..., ge=0.0, le=1.0, description="Cross-domain consistency score")
+
+
+# ---------------------------------------------------------------------------
+# 7. VALIDATION RESULT (Day 4 — Validation -> Intelligence)
+# ---------------------------------------------------------------------------
+class ValidationResult(BaseModel):
+    """Day 4 outbound handoff: Validation -> Intelligence."""
+    context: SimulationContext
+    status: ValidationStatus = Field(..., description="Tri-state classification for this corpus")
+    reason: str = Field(..., min_length=1, description="Explicit reasoning behind the status")
+    flagged_rules: list[str] = Field(default_factory=list, description="Soft-check anomalies that did not cause rejection")
+    metrics: MetricScores
+    accepted_artifact_count: int = Field(..., ge=0)
+    rejected_artifact_count: int = Field(..., ge=0)
     evaluated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
