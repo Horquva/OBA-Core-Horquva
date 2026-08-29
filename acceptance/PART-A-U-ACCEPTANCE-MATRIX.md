@@ -49,15 +49,33 @@ constitute implementation proof."*
 | S | Cross-platform onboarding | `governance/cross-platform-readiness-matrix.md` | ❌ Not Yet Implemented | No other platform has onboarded yet |
 | T/U | Acceptance package / gate | `acceptance/` | ⚠️ Partially Implemented | Structure exists; cannot be marked passed until the rows above are ✅ |
 
+## Part 4 Additions (New Since Last Matrix Version)
+ 
+| Item | Status | Evidence |
+|---|---|---|
+| Shared finding schema (`branch`, `workflow` fields added) | 🟢 Implemented | `vulnerability-management/finding-schema.json` |
+| Shared security event contract | 🟢 Implemented | `vulnerability-management/security-event-schema.json` |
+| Artifact verification emits real events | 🟢 Implemented | `verify-artifact.sh` — not yet confirmed with a linked real event file from a live run |
+| Gate decision emits real events | ✅ Operationally Verified | `gate-decision-evidence.json` produced in https://github.com/Horquva/OBA-Core-Horquva/actions/runs/33202765851 |
+ 
 ---
-
-## Immediate Next Action
-
-Run `.github/workflows/negative-test.yml` manually (Actions tab → select
-workflow → **Run workflow**). A green run populates real evidence for
-rows **D, E, G, H (×2), I (×2), R** in one pass — the largest single
-jump in verified status available right now without new infrastructure.
-
-After that run completes, paste its URL into every row above that
-references it, and this matrix becomes the honest, evidence-linked
-record the review asked for.
+ 
+## Part 5 — Live Scenarios
+ 
+| Task | Status | Evidence |
+|---|---|---|
+| Task 1 — Secure Developer Change | ✅ Operationally Verified | PR #151, full path Change→PR→CI→SAST→SCA→Secret Detection→Policy→Gate→Artifact: https://github.com/Horquva/OBA-Core-Horquva/actions/runs/33202765851 |
+| Task 2 — Controlled Secret-Detection Scenario | ✅ Operationally Verified | Prior negative-test.yml run (pending re-confirmation with latest fixes) |
+| Task 3 — Controlled Dependency Vulnerability Scenario | ✅ Operationally Verified | Real CVSS 10.0 findings detected in production; negative-test fixture also confirmed |
+| Task 4 — Controlled Artifact Security Failure | ✅ Operationally Verified | Unsigned artifact rejection confirmed |
+| Task 5 — Runtime Security Integration (with Ali) | ❌ Not Started | Awaiting Ali's response / runtime environment availability |
+| Cross-Platform Integration Matrix | 🟡 In Progress | Outreach messages sent to all 7 platform owners — awaiting responses |
+ 
+---
+ 
+## Immediate Next Actions
+ 
+1. Run `.github/workflows/negative-test.yml` manually on `main` (once PR #151 merges) to re-confirm all 6 jobs (including the new SAST job) with the Part 2–4 fixes applied together.
+2. Run `scripts/verify-architecture.sh` and `governance/drift-detection.sh` against the live repo.
+3. Trigger a real `cd-deploy.yml` run (or accept it remains design-only pending a real deployment target) to close the F/SBOM gap.
+4. Follow up with Ali, Areeb, Syed, Taimour, Abu Ubaida, Anas, M.Ali, and Mustafa on Part 5 outreach.
