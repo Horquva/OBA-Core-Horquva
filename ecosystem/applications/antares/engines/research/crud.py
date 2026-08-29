@@ -16,7 +16,7 @@ from difflib import SequenceMatcher
 
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from . import models, schemas
 
 
 # ---------- Signals ----------

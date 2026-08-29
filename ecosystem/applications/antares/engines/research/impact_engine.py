@@ -42,7 +42,7 @@ Design decisions worth calling out:
 
 from sqlalchemy.orm import Session
 
-from app import crud, models, schemas
+from . import crud, models, schemas
 
 
 # Keyword map for v1 classification. Deliberately simple - a starting

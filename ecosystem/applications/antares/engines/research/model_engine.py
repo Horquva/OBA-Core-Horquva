@@ -44,8 +44,8 @@ Design decisions worth calling out:
 
 from sqlalchemy.orm import Session
 
-from app import crud, models, schemas
-from app.pattern_engine import dimension_set_for_signal
+from . import crud, models, schemas
+from .pattern_engine import dimension_set_for_signal
 
 
 def _signals_supporting_pattern(db: Session, pattern_id: str) -> list[str]:

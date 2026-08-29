@@ -12,8 +12,11 @@ Part-2:
   - retrieving relationships
   - accessing candidate patterns / capabilities
 
-Run it with:
-    uvicorn app.main:app --reload
+Run it with (from the repo root, engines/research/ is the app package):
+    uvicorn engines.research.main:app --reload --app-dir antares
+
+    (or, from inside this folder directly:
+    uvicorn main:app --reload)
 
 Then open http://127.0.0.1:8000/docs to try the endpoints in the
 browser - that's the fastest way I found to sanity check everything
@@ -21,14 +24,15 @@ without writing a separate client.
 """
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from app import models, schemas, crud, impact_engine, pattern_engine, model_engine, capability_engine
-from app.dashboard_html import DASHBOARD_HTML
-from app.database import Base, engine, SessionLocal, get_db
+from . import models, schemas, crud, impact_engine, pattern_engine, model_engine, capability_engine
+from .dashboard_html import DASHBOARD_HTML
+from .database import Base, engine, SessionLocal, get_db
 
 # Create all the tables on startup if they don't already exist.
 Base.metadata.create_all(bind=engine)
@@ -64,6 +68,50 @@ def dashboard():
     page comes from the same API a script or another service would use.
     """
     return DASHBOARD_HTML
+
+
+@app.get("/export/dashboard-snapshot")
+def export_dashboard_snapshot(db: Session = Depends(get_db)):
+    """
+    Din 5 (unify under one Antares product, no new app): the shared
+    shell at apps/web/dashboard/data.js lists this platform ("org-futures")
+    in its platform registry but has no live section for its actual
+    numbers - only a static, dated (2026-08-14) snapshot from the
+    Future-Signal Intelligence platform.
+
+    This endpoint is not a new UI - it's a live export in the same
+    shape the shell's data.js already uses (counts + top records), so
+    whoever owns apps/web/ can pull real org-futures numbers into the
+    existing shell instead of this platform building its own separate
+    dashboard app. Ownership of apps/web/ itself isn't in the current
+    per-member folder mapping, so wiring this in is a Tech Lead call,
+    not something to do unilaterally from here.
+    """
+    signals = crud.list_signals(db)
+    patterns = crud.list_patterns(db)
+    models_ = crud.list_organization_models(db)
+    capabilities = crud.list_candidate_capabilities(db)
+
+    return {
+        "platform_id": "org-futures",
+        "platform_name": "Organizational Futures Engineering",
+        "owner": "Muhammad Muzammel Aslam",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "counts": {
+            "signals": len(signals),
+            "patterns": len(patterns),
+            "models": len(models_),
+            "candidate_capabilities": len(capabilities),
+        },
+        "capabilities": [
+            {"id": c.id, "name": c.name, "state": c.status}
+            for c in capabilities
+        ],
+        "signals": [
+            {"id": s.id, "title": s.title, "state": s.evidence_state.value}
+            for s in signals
+        ],
+    }
 
 
 def seed_dimensions():
@@ -353,6 +401,24 @@ def build_candidate_capability(request: CapabilityBuildRequest, db: Session = De
     if capability is None:
         raise HTTPException(status_code=404, detail="Organization model not found")
     return capability
+
+
+@app.get("/capabilities/{capability_id}/validation-intake")
+def read_capability_validation_intake(capability_id: str, db: Session = Depends(get_db)):
+    """
+    Din 2 contract-freeze fix: shapes a candidate capability into the exact
+    intake format Capability Validation (Zara) declared in her own
+    CONTRACT.md (capability_name, organizational_problem,
+    target_organization, expected_value, expected_outcome,
+    evidence_references), instead of assuming her service can consume our
+    raw CandidateCapabilityOut as-is. See capability_engine.
+    to_capability_validation_intake for exactly what is and isn't filled
+    in, and why.
+    """
+    payload = capability_engine.to_capability_validation_intake(db, capability_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Candidate capability not found")
+    return payload
 
 
 @app.get("/intelligence/trace/{signal_id}")

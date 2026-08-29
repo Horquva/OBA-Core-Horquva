@@ -16,7 +16,7 @@ build, always left in status="candidate", never auto-approved.
 
 from sqlalchemy.orm import Session
 
-from app import crud, models, schemas
+from . import crud, models, schemas
 
 
 def _primary_pattern_id_for_model(db: Session, model_id: str) -> str | None:
@@ -77,6 +77,82 @@ def build_candidate_capability(
     )
 
     return capability
+
+
+def to_capability_validation_intake(db: Session, capability_id: str) -> dict | None:
+    """
+    Din 2 contract-freeze fix (Muzammel -> Zara integration).
+
+    Zara's Capability Validation Platform (services/validation-service, CONTRACT.md)
+    requires an intake shaped as: capability_name, description,
+    organizational_problem, target_organization, expected_value,
+    expected_outcome, evidence_references (structured list) - and marks anything
+    missing those fields INCOMPLETE, never reviewed. Our raw
+    CandidateCapabilityOut only has id/name/description/supporting_pattern_id/
+    evidence_summary/status - different field names, and four required fields
+    don't exist here at all.
+
+    This adapter renames what genuinely maps, and derives
+    organizational_problem from the real OrganizationModel's `purpose` (that
+    IS the organizational problem this capability responds to - real data,
+    not a guess).
+
+    It deliberately does NOT invent target_organization / expected_value /
+    expected_outcome. This platform only observes signals and models
+    organizational futures - it has no evidence to back a business-value or
+    target-organization claim, and the roadmap is explicit that AI/engine
+    output must never be dumped into a downstream system as settled fact.
+    Leaving these blank is the correct behavior, not a gap to silently
+    paper over: Zara's own intake logic is built to catch exactly this and
+    mark the capability INCOMPLETE, which is the honest outcome until a
+    human supplies real business framing.
+
+    Also still open (Din 2 finding, needs Tech Lead confirmation): whether
+    this platform is even Zara's direct producer, or whether Zeeshan's
+    capability-service sits between us - Zara's own CONTRACT.md names
+    Zeeshan as upstream, not this platform. This adapter is written so it
+    can be called either way once that's resolved.
+    """
+    capability = crud.get_candidate_capability(db, capability_id)
+    if capability is None:
+        return None
+
+    source_model = None
+    for r in crud.list_relationships(db):
+        if (
+            r.target_type == "capability"
+            and r.target_id == capability_id
+            and r.relationship_type == "suggests"
+        ):
+            source_model = crud.get_organization_model(db, r.source_id)
+            break
+
+    evidence_references = []
+    if capability.evidence_summary:
+        evidence_references.append(
+            {
+                "evidence_id": capability.id,
+                "source": "organizational-futures-engine",
+                "description": capability.evidence_summary,
+                "url_or_locator": None,
+            }
+        )
+
+    return {
+        "capability_id": capability.id,
+        "capability_name": capability.name,
+        "description": capability.description,
+        "organizational_problem": (source_model.purpose if source_model and source_model.purpose else ""),
+        "target_organization": "",  # not knowable at this platform's stage - left blank on purpose, see docstring
+        "expected_value": "",       # not knowable at this platform's stage - left blank on purpose, see docstring
+        "expected_outcome": "",     # not knowable at this platform's stage - left blank on purpose, see docstring
+        "source_platform": "Organizational Futures Engineering",
+        "submitted_by": "organizational-futures-platform",
+        "dependencies": [],
+        "risks": [],
+        "evidence_references": evidence_references,
+        "initial_readiness": "CANDIDATE",
+    }
 
 
 def trace_signal(db: Session, signal_id: str) -> dict | None:

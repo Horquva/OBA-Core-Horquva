@@ -45,7 +45,7 @@ from collections import defaultdict
 
 from sqlalchemy.orm import Session
 
-from app import crud, models, schemas
+from . import crud, models, schemas
 
 
 def dimension_set_for_signal(db: Session, signal_id: str) -> frozenset[str]:
