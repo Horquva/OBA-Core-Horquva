@@ -1,22 +1,9 @@
-# =========================================================
-# This file tells git what to NEVER upload to GitHub.
-# The most important line is ".env" — that protects your API key.
-# You do not need to edit this file. Just leave it as-is.
-# =========================================================
-
-# Your secret API key lives in .env — never upload it
 .env
-
-# Python junk files that don't need to be shared
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
-
-# Local experiment results (these get regenerated every run, no need to upload)
 results/*.json
-
-# OS/editor junk
 .DS_Store
 .vscode/
 .idea/

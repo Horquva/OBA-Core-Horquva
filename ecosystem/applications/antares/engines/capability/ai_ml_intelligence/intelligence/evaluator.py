@@ -1,9 +1,3 @@
-"""
-Evaluation Harness — turns raw model output into measurable scores.
-Owner: Muhammad Hasnain Ajmal
-Part-2/3: Model Evaluation Foundation
-"""
-
 import re
 from difflib import SequenceMatcher
 
@@ -15,7 +9,6 @@ def score_exact_match(output: str, expected: str) -> float:
 
 
 def score_similarity(output: str, expected: str) -> float:
-    """Fuzzy textual similarity — useful when exact match is too strict."""
     if not output or not expected:
         return 0.0
     return SequenceMatcher(None, output.lower(), expected.lower()).ratio()
@@ -30,22 +23,16 @@ def score_contains_keywords(output: str, keywords: list) -> float:
 
 
 def evaluate_case(output: str, expected, mode: str = "similarity", threshold: float = 0.6) -> dict:
-    """
-    Central evaluation dispatcher. Returns {score, passed}.
-    mode: "exact" | "similarity" | "keywords"
-    """
     if mode == "exact":
         s = score_exact_match(output, expected)
     elif mode == "keywords":
         s = score_contains_keywords(output, expected if isinstance(expected, list) else [expected])
     else:
         s = score_similarity(output, str(expected))
-
     return {"score": round(s, 4), "passed": s >= threshold}
 
 
 def aggregate_summary(results: list) -> dict:
-    """Compute aggregate metrics across a list of ExperimentResult-like dicts."""
     if not results:
         return {"count": 0}
     scores = [r.get("score") for r in results if r.get("score") is not None]
