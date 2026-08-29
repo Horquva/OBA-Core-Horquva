@@ -1,12 +1,27 @@
 import 'package:flutter/widgets.dart';
 
+import '../models/chat_message.dart';
+import '../repositories/ask_castor_repository.dart';
+
 /// ViewModel for the Ask Castor screen.
 ///
-/// Holds the input controller and the suggested prompts. Sending a prompt to
-/// the real AI is not wired yet (that is the AI Experience owner's contract).
+/// Holds the input, the conversation, and the suggested prompts. Sending goes
+/// through [AskCastorRepository] (a demo reply for now; real bot endpoint
+/// later).
 class AskCastorViewModel extends ChangeNotifier {
+  AskCastorViewModel({AskCastorRepository? repository})
+      : _repository = repository ?? AskCastorRepository();
+
+  final AskCastorRepository _repository;
+
   /// The text the user is typing.
   final TextEditingController input = TextEditingController();
+
+  /// The conversation so far.
+  final List<ChatMessage> messages = [];
+
+  /// True while waiting for the assistant's reply.
+  bool sending = false;
 
   /// Suggested starter prompts (demo).
   final List<String> suggestions = const [
@@ -15,16 +30,36 @@ class AskCastorViewModel extends ChangeNotifier {
     'How is our performance trending?',
   ];
 
-  /// Puts a suggestion into the input box.
-  void useSuggestion(String prompt) {
-    input.text = prompt;
-    input.selection = TextSelection.collapsed(offset: prompt.length);
-    notifyListeners();
-  }
+  bool get hasMessages => messages.isNotEmpty;
 
-  /// Sends the current prompt. Wired to the AI backend later.
-  void send() {
-    // AI Experience contract comes later; nothing to do yet.
+  /// Sends whatever is in the input box.
+  Future<void> send() => _sendText(input.text);
+
+  /// Sends a specific prompt (e.g. a tapped suggestion).
+  Future<void> sendPrompt(String prompt) => _sendText(prompt);
+
+  Future<void> _sendText(String raw) async {
+    final text = raw.trim();
+    if (text.isEmpty || sending) return;
+
+    // Add the user's message and clear the input.
+    messages.add(ChatMessage(role: ChatRole.user, text: text));
+    input.clear();
+    sending = true;
+    notifyListeners();
+
+    try {
+      final reply = await _repository.sendMessage(text);
+      messages.add(ChatMessage(role: ChatRole.assistant, text: reply));
+    } catch (e) {
+      messages.add(const ChatMessage(
+        role: ChatRole.assistant,
+        text: 'Sorry, something went wrong. Please try again.',
+      ));
+    } finally {
+      sending = false;
+      notifyListeners();
+    }
   }
 
   @override
