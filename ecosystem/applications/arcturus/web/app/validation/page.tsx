@@ -1,73 +1,122 @@
-"use client";
-import { useState, useEffect } from 'react';
-import { experimentApi } from '../../lib/api-client';
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { apiClient } from '../../lib/api-client';
+
+interface ValidationResult {
+  passed: boolean;
+  score?: number;
+  details?: string;
+  violations?: string[];
+  metrics?: Record<string, number>;
+}
 
 export default function ValidationPage() {
-  const [experimentId, setExperimentId] = useState('exp-test-001');
-  const [validationData, setValidationData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const experimentId = searchParams.get('experimentId') || searchParams.get('id');
+
+  const [validationData, setValidationData] = useState<ValidationResult | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchValidation = async () => {
+    if (!experimentId) return;
+
+    async function fetchValidation() {
       try {
         setLoading(true);
-        // Real API call to Amina's Validation engine[cite: 3]
-        const data = await experimentApi.getValidationResults(experimentId);
-        setValidationData(data);
         setError(null);
+        const data = await apiClient.get<ValidationResult>(
+          `/api/v1/validation/${experimentId}`
+        );
+        setValidationData(data);
       } catch (err: any) {
-        setError(err.message || 'Failed to load validation results');
-        setValidationData(null);
+        setError(err.message || 'Failed to fetch validation report.');
       } finally {
         setLoading(false);
       }
-    };
+    }
 
     fetchValidation();
   }, [experimentId]);
 
-  // Helper function to colorize the tri-state classification
-  const getStatusColor = (status: string) => {
-    if (status === 'VALIDATED') return 'bg-green-100 text-green-800 border-green-300';
-    if (status === 'REJECTED') return 'bg-red-100 text-red-800 border-red-300';
-    if (status === 'INCONCLUSIVE') return 'bg-amber-100 text-amber-800 border-amber-300';
-    return 'bg-gray-100 text-gray-800 border-gray-300';
-  };
+  if (!experimentId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl border border-slate-200">
+        <p className="text-slate-600">Please select an experiment to view validation report.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading validation status...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-700">
+        <h3 className="font-semibold">Unable to load validation report</h3>
+        <p className="text-sm mt-1">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow border">
-        <div>
-          <h1 className="text-3xl font-bold">Validation Results</h1>
-          <p className="text-gray-500 mt-1">Quality Gates & Tri-State Classification</p>
-        </div>
-        <div className="text-sm text-gray-500 font-mono">Experiment: {experimentId}</div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-slate-900">Validation Status</h1>
+        <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-mono">
+          {experimentId}
+        </span>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow border">
-        {loading && <div className="text-blue-600 animate-pulse">Running quality gates...</div>}
-        
-        {/* Honest failure state[cite: 3] */}
-        {error && <div className="text-red-600 font-bold border-l-4 border-red-600 pl-4">Error: {error}</div>}
-        
-        {!loading && !error && validationData && (
-          <div className="space-y-4">
-            <div className={`p-4 rounded-lg border-2 font-bold text-lg text-center uppercase ${getStatusColor(validationData.final_status)}`}>
-              Status: {validationData.final_status || 'UNKNOWN'}
-            </div>
-            
-            <h2 className="font-bold mb-2 mt-6">Validation Payload</h2>
-            <pre className="bg-slate-900 text-blue-300 p-4 rounded-md overflow-x-auto text-sm font-mono">
-              {JSON.stringify(validationData, null, 2)}
-            </pre>
+      {validationData ? (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-slate-700">Validation Gate</span>
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                validationData.passed
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-rose-100 text-rose-800'
+              }`}
+            >
+              {validationData.passed ? 'PASSED' : 'FAILED'}
+            </span>
           </div>
-        )}
-        
-        {!loading && !error && !validationData && (
-          <div className="text-gray-500">No validation results found. Ensure the simulation and data generation are complete.</div>
-        )}
-      </div>
+
+          {validationData.score !== undefined && (
+            <div className="text-sm text-slate-600">
+              Confidence Score: <span className="font-semibold text-slate-900">{(validationData.score * 100).toFixed(1)}%</span>
+            </div>
+          )}
+
+          {validationData.details && (
+            <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+              {validationData.details}
+            </p>
+          )}
+
+          {validationData.violations && validationData.violations.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Detected Violations</h4>
+              <ul className="space-y-1.5 list-disc list-inside text-sm text-rose-600">
+                {validationData.violations.map((v, i) => (
+                  <li key={i}>{v}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="border border-amber-200 bg-amber-50 p-6 rounded-xl">
+          <h2 className="font-semibold text-amber-950">No Validation Data</h2>
+          <p className="mt-2 text-sm text-amber-900">
+            No validation telemetry recorded for this experiment.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

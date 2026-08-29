@@ -1,58 +1,111 @@
-"use client";
-import { useState, useEffect } from 'react';
-import { experimentApi } from '../../lib/api-client';
+'use client';
 
-export default function EvidencePage() {
-  const [experimentId, setExperimentId] = useState('exp-test-001'); // Temporary ID for testing
-  const [evidence, setEvidence] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
+import type { SyntheticDataCorpusPreview } from '@/lib/types';
+
+function EvidenceContent() {
+  const searchParams = useSearchParams();
+  const experimentId = searchParams.get('experimentId') || searchParams.get('id');
+
+  const [evidence, setEvidence] = useState<SyntheticDataCorpusPreview | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchEvidence = async () => {
+    if (!experimentId) return;
+
+    async function fetchEvidence() {
       try {
         setLoading(true);
-        // Backend se real evidence API call
-        const data = await experimentApi.getEvidence(experimentId);
-        setEvidence(data);
         setError(null);
+        const data = await apiClient.get<SyntheticDataCorpusPreview>(
+          `/api/v1/evidence/${experimentId}`
+        );
+        setEvidence(data);
       } catch (err: any) {
-        setError(err.message || 'Failed to load evidence');
-        setEvidence(null);
+        setError(err.message || 'Failed to fetch synthetic evidence.');
       } finally {
         setLoading(false);
       }
-    };
+    }
 
     fetchEvidence();
   }, [experimentId]);
 
+  if (!experimentId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl border border-slate-200">
+        <p className="text-slate-600">Please select an experiment to view synthetic evidence.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading evidence...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-700">
+        <h3 className="font-semibold">Unable to load evidence</h3>
+        <p className="text-sm mt-1">{error}</p>
+      </div>
+    );
+  }
+
+  const artifacts = evidence?.accepted_artifacts || [];
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow border">
-        <h1 className="text-3xl font-bold">Synthetic Evidence</h1>
-        <div className="text-sm text-gray-500 font-mono">Experiment: {experimentId}</div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-slate-900">Synthetic Evidence</h1>
+        <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-mono">
+          {experimentId}
+        </span>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow border">
-        {loading && <div className="text-blue-600 animate-pulse">Loading real evidence data from backend...</div>}
-        
-        {/* Honest failure state jaisa rules mein likha hai */}
-        {error && <div className="text-red-600 font-bold border-l-4 border-red-600 pl-4">Error: {error}</div>}
-        
-        {!loading && !error && evidence && (
-          <div>
-            <h2 className="font-bold mb-2">Validated Corpus</h2>
-            <pre className="bg-slate-900 text-green-400 p-4 rounded-md overflow-x-auto text-sm font-mono">
-              {JSON.stringify(evidence, null, 2)}
-            </pre>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+          <h2 className="font-semibold text-slate-800">Accepted Artifacts</h2>
+          <span className="text-xs font-medium px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full">
+            {evidence?.lineage_available ? 'Lineage Verified' : 'Provisional Lineage'}
+          </span>
+        </div>
+        {artifacts.length === 0 ? (
+          <div className="p-6 text-center text-slate-500 text-sm">No artifacts registered yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-400 font-semibold border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-3">Artifact ID</th>
+                  <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3">Name / Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {artifacts.map((art, idx) => (
+                  <tr key={art.artifact_id || idx} className="hover:bg-slate-50/50">
+                    <td className="px-6 py-3 font-mono text-xs text-indigo-600">{art.artifact_id}</td>
+                    <td className="px-6 py-3">{art.artifact_type}</td>
+                    <td className="px-6 py-3">{art.name || art.description || 'N/A'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-        
-        {!loading && !error && !evidence && (
-          <div className="text-gray-500">No evidence available for this experiment yet. Run the simulation first.</div>
         )}
       </div>
     </div>
+  );
+}
+
+export default function EvidencePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}>
+      <EvidenceContent />
+    </Suspense>
   );
 }

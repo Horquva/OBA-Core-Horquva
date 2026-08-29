@@ -1,92 +1,114 @@
-"use client";
-import { useState, useEffect } from 'react';
-import { experimentApi } from '../../lib/api-client';
+'use client';
 
-export default function IntelligencePage() {
-  const [experimentId, setExperimentId] = useState('exp-test-001');
-  const [assessment, setAssessment] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
+import type { StructuredAssessment } from '@/lib/types';
+
+function IntelligenceContent() {
+  const searchParams = useSearchParams();
+  const experimentId = searchParams.get('experimentId') || searchParams.get('id');
+
+  const [assessment, setAssessment] = useState<StructuredAssessment | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchIntelligence = async () => {
+    if (!experimentId) return;
+
+    async function fetchAssessment() {
       try {
         setLoading(true);
-        // Real API call to Ahmed's Gemini Intelligence engine
-        const data = await experimentApi.getIntelligenceAssessments(experimentId);
-        setAssessment(data);
         setError(null);
+        const data = await apiClient.get<StructuredAssessment>(
+          `/api/v1/intelligence/assessment/${experimentId}`
+        );
+        setAssessment(data);
       } catch (err: any) {
-        setError(err.message || 'Failed to load intelligence assessment');
-        setAssessment(null);
+        setError(err.message || 'Failed to fetch intelligence assessment.');
       } finally {
         setLoading(false);
       }
-    };
+    }
 
-    fetchIntelligence();
+    fetchAssessment();
   }, [experimentId]);
+
+  if (!experimentId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl border border-slate-200">
+        <p className="text-slate-600">Please select an experiment to view intelligence assessment.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading assessment...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-700">
+        <h3 className="font-semibold">Unable to load intelligence assessment</h3>
+        <p className="text-sm mt-1">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow border">
-        <div>
-          <h1 className="text-3xl font-bold text-indigo-700">AI Intelligence Assessment</h1>
-          <p className="text-gray-500 mt-1">Powered by Google Gemini (Evidence-Grounded)</p>
-        </div>
-        <div className="text-sm text-gray-500 font-mono">Experiment: {experimentId}</div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-slate-900">Intelligence Assessment</h1>
+        <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-mono">
+          {experimentId}
+        </span>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow border">
-        {loading && <div className="text-indigo-600 animate-pulse">Generating evidence-grounded assessment via Gemini...</div>}
-        
-        {/* Honest failure state */}
-        {error && <div className="text-red-600 font-bold border-l-4 border-red-600 pl-4">Error: {error}</div>}
-        
-        {!loading && !error && assessment && (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <div className="text-2xl font-bold">Confidence Score:</div>
-              <div className="text-2xl text-indigo-600 font-mono">{(assessment.confidence_score * 100).toFixed(1)}%</div>
-            </div>
-            
-            <div>
-              <h2 className="text-xl font-bold border-b pb-2 mb-3">Executive Summary</h2>
-              <p className="text-gray-800">{assessment.assessment_summary}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-red-50 p-4 rounded border border-red-100">
-                <h3 className="font-bold text-red-800 mb-2">Risk Factors</h3>
-                <ul className="list-disc pl-5 space-y-1 text-red-700 text-sm">
-                  {assessment.risk_factors?.map((risk: string, i: number) => <li key={i}>{risk}</li>)}
-                </ul>
-              </div>
-              <div className="bg-green-50 p-4 rounded border border-green-100">
-                <h3 className="font-bold text-green-800 mb-2">Recommendations</h3>
-                <ul className="list-disc pl-5 space-y-1 text-green-700 text-sm">
-                  {assessment.recommendations?.map((rec: string, i: number) => <li key={i}>{rec}</li>)}
-                </ul>
-              </div>
-            </div>
-
-            <div className="mt-6 bg-gray-50 p-4 rounded border">
-              <h3 className="font-bold text-gray-700 mb-2">Evidence Citations (No Hallucinations)</h3>
-              <div className="flex flex-wrap gap-2">
-                {assessment.evidence_citations?.map((id: string, i: number) => (
-                  <span key={i} className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded font-mono">
-                    {id}
-                  </span>
-                ))}
-              </div>
-            </div>
+      {assessment ? (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-slate-800">Verdict</span>
+            <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full">
+              {assessment.verdict}
+            </span>
           </div>
-        )}
-        
-        {!loading && !error && !assessment && (
-          <div className="text-gray-500">No assessment available. Ensure validation is complete first.</div>
-        )}
-      </div>
+
+          <div className="text-sm text-slate-600">
+            Confidence: <span className="font-semibold text-slate-900">{(assessment.confidence_score * 100).toFixed(1)}%</span>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm text-slate-700">
+            <h3 className="font-semibold text-slate-800 mb-1">Reasoning</h3>
+            <p>{assessment.reasoning}</p>
+          </div>
+
+          {assessment.recommendations && assessment.recommendations.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Recommendations</h4>
+              <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
+                {assessment.recommendations.map((rec, i) => (
+                  <li key={i}>{rec}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="border border-amber-200 bg-amber-50 p-6 rounded-xl">
+          <h2 className="font-semibold text-amber-950">Assessment unavailable</h2>
+          <p className="mt-2 text-sm text-amber-900">
+            No validated Intelligence assessment is available from the backend yet.
+          </p>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function IntelligencePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}>
+      <IntelligenceContent />
+    </Suspense>
   );
 }
