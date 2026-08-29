@@ -12,12 +12,15 @@ export default function EventStream({ events }: { events: RuntimeMessage[] }) {
         <p className="mt-5 text-sm text-slate-600">No runtime events have been received.</p>
       ) : (
         <ol className="mt-4 space-y-3">
-          {events.map((event, index) => (
-            <li key={`${event.type}-${index}`} className="border-l-2 border-sky-300 pl-3">
+          {events.map((event, index) => {
+            const eventKey = event.payload?.run_id ? `${event.payload.run_id}-${event.type}-${index}` : `${event.type}-${index}`;
+            return (
+            <li key={eventKey} className="border-l-2 border-sky-300 pl-3">
               <p className="text-sm font-medium text-slate-800">{event.type}</p>
               <p className="mt-1 break-all text-xs text-slate-500">{event.payload?.message || event.payload?.stage || event.payload?.status || event.payload?.run_id || 'Event received'}</p>
             </li>
-          ))}
+            );
+          })}
         </ol>
       )}
     </Card>

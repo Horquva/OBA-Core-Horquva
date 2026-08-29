@@ -5,7 +5,17 @@ import StatusIndicator from '../ui/StatusIndicator';
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not available';
-  return new Date(value).toLocaleString();
+  try {
+    return new Date(value).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return 'Invalid date';
+  }
 }
 
 export default function ExperimentCard({ experiment }: { experiment: ExperimentRecord }) {
@@ -21,7 +31,7 @@ export default function ExperimentCard({ experiment }: { experiment: ExperimentR
           <dl className="mt-4 grid grid-cols-1 gap-2 text-sm text-slate-600 sm:grid-cols-3">
             <div><dt className="text-xs uppercase tracking-wide text-slate-400">Seed</dt><dd>{experiment.seed}</dd></div>
             <div><dt className="text-xs uppercase tracking-wide text-slate-400">Scenario</dt><dd>{experiment.config.scenario_id || 'Not specified'}</dd></div>
-            <div><dt className="text-xs uppercase tracking-wide text-slate-400">Created</dt><dd>{formatDate(experiment.created_at)}</dd></div>
+            <div suppressHydrationWarning><dt className="text-xs uppercase tracking-wide text-slate-400">Created</dt><dd>{formatDate(experiment.created_at)}</dd></div>
           </dl>
         </div>
         <Link href={`/experiments/${experiment.id}`} className="shrink-0 text-sm font-semibold text-sky-700 hover:text-sky-900">
