@@ -9,82 +9,52 @@
 This module gives Antares agents the ability to plan, reason about goals, and
 have that reasoning measured and validated before being trusted. It does not
 own agent orchestration, platform architecture, governance, or organizational
-modeling — those responsibilities belong to their respective platform owners.
-This layer produces validated AI/ML capabilities that other Antares platforms
-can discover and consume.
-
-## Architecture
-
-```
-Goal → Reasoning Engine → Plan → Plan Evaluation
-                                       ↓
-Experiment Engine → Model Adapter → Evaluator → Scored Evidence
-                                       ↓
-                          Capability Registry → Promotion
-                                       ↓
-                        Agent Layer Discovery (Zeeshan's platform)
-```
+modeling. This layer produces validated AI/ML capabilities that other Antares
+platforms can discover and consume.
 
 ## Components
 
 | File | Purpose |
 |---|---|
-| `intelligence/models.py` | Core data models: ExperimentConfig/Result, Plan, PlanStep, IntelligenceCapability |
-| `intelligence/model_adapter.py` | Swappable interface to the underlying LLM (currently Gemini). Captures latency and errors. |
-| `intelligence/evaluator.py` | Scoring functions (exact match, similarity, keyword) and aggregate metrics |
-| `experiments/engine.py` | Runs reproducible experiments: input → model execution → evaluation → persisted result |
-| `intelligence/reasoning_engine.py` | Agent planning loop: `plan()` → `evaluate_plan()` → `replan()` |
-| `intelligence/capability_registry.py` | Registers and promotes validated capabilities for downstream consumption |
-| `tests/test_intelligence.py` | 18 unit tests covering evaluator logic, plan parsing, and registry behavior |
-| `demo_end_to_end.py` | Full working demonstration of the pipeline against a live model |
+| `intelligence/models.py` | Core data models |
+| `intelligence/model_adapter.py` | Interface to the LLM (Gemini) |
+| `intelligence/evaluator.py` | Scoring functions and aggregate metrics |
+| `experiments/engine.py` | Runs reproducible experiments |
+| `intelligence/reasoning_engine.py` | Planning loop: plan() -> evaluate_plan() -> replan() |
+| `intelligence/capability_registry.py` | Registers and promotes validated capabilities |
+| `zeeshan_planner_adapter.py` | Real integration adapter matching Zeeshan's runtime's pluggable planner/tool_executor interface |
+| `test_real_wiring.py` | Structural integration test proving the adapter fits Zeeshan's real agent_engine.run_agent_task() |
+| `tests/test_intelligence.py` | 18 unit tests |
+| `demo_end_to_end.py` | Full working demonstration |
+| `docs/PART1_REALITY_BASELINE.md` | Honest inventory of what's implemented, tested, and verified |
+| `docs/PART2_INTEGRATION_CONTRACT_DRAFT.md` | Draft request/response contract, pending Zeeshan's confirmation |
 
 ## Setup
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. Add your model API key to `.env`:
-   ```
-   GEMINI_API_KEY=your_key_here
-   ```
-   `.env` is excluded from version control via `.gitignore`.
+```bash
+pip install -r requirements.txt
+```
+Add your Gemini key to `.env` (get one free at aistudio.google.com/apikey).
 
 ## Running
 
 ```bash
-python -m pytest tests/ -v          # run the test suite
-python demo_end_to_end.py           # run the full end-to-end demonstration
+python -m pytest tests/ -v
+python demo_end_to_end.py
 ```
 
-## Integration Point
+## Integration Status
 
-Downstream platforms consume validated capabilities via:
+**Verified:** planning, evaluation, experiment scoring, capability
+registration/promotion — all tested and demonstrated live against Gemini.
 
-```python
-from intelligence.capability_registry import CapabilityRegistry
-registry = CapabilityRegistry()
-available = registry.get_promoted(task_type="planning")
-```
+**Verified (structural):** `zeeshan_planner_adapter.py` was tested against
+Zeeshan's real, unmodified `run_agent_task()` — a task was taken from
+`pending` to `completed` through his real engine. This test used a stubbed
+model response (no network access in the test environment) to isolate and
+confirm the wiring itself; a live-model version of this same test is the
+immediate next step.
 
-Only capabilities that meet the evaluation threshold (based on real experiment
-evidence) are returned — unvalidated or failing capabilities are excluded.
-
-## Status
-
-**Complete:**
-- Experiment engine, reasoning/planning engine, capability registry, evaluator, and model adapter implemented and tested
-- 18/18 unit tests passing
-- End-to-end demonstration verified against a live model
-
-**In progress:**
-- Live integration with the agent layer's execution code
-- Extended performance optimization (caching, batching)
-- Additional adversarial/failure-case test coverage
-
-## Non-Ownership Boundaries
-
-This module does not own: agent orchestration, platform architecture,
-governance/trust enforcement, knowledge operationalization, or organizational
-modeling. It produces validated AI/ML capabilities for those platforms to
-consume through the registry interface above.
+**Not yet done:** live (non-stubbed) run of the integration test with a real
+Gemini call; confirmation from Zeeshan on the exact contract shape in
+`docs/PART2_INTEGRATION_CONTRACT_DRAFT.md`.
