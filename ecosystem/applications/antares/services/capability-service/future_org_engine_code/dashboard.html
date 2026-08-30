@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Antares Product Intelligence Org — Command Interface</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B0E14;
+    --panel: #131720;
+    --border: #232838;
+    --text: #E7E9EE;
+    --muted: #8B93A7;
+    --healthy: #4FD1A5;
+    --pending: #E8A33D;
+    --critical: #E5605A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    padding: 32px; line-height: 1.5;
+  }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  .muted { color: var(--muted); }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px;
+    flex-wrap: wrap; gap: 16px;
+  }
+  .org-name { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .org-mission { color: var(--muted); font-size: 13px; margin-top: 4px; max-width: 520px; }
+  .health-pill {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500;
+    padding: 6px 12px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.06em;
+    border: 1px solid; white-space: nowrap;
+  }
+  .health-healthy { color: var(--healthy); border-color: var(--healthy); background: rgba(79,209,165,0.08); }
+  .health-degraded { color: var(--pending); border-color: var(--pending); background: rgba(232,163,61,0.08); }
+  .health-at_risk { color: var(--critical); border-color: var(--critical); background: rgba(229,96,90,0.08); }
+  .objectives { margin-top: 10px; }
+  .chip {
+    display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    padding: 4px 9px; border: 1px solid var(--border); border-radius: 3px;
+    color: var(--muted); margin-right: 6px; margin-top: 6px;
+  }
+  .meta-row { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); text-align: right; }
+  .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;
+    align-items: start;
+  }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 18px 20px; overflow: hidden;
+  }
+  .panel h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--muted); margin: 0 0 14px 0; font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--muted); font-weight: 500; padding: 0 14px 8px 0; }
+  td { padding: 7px 14px 7px 0; border-top: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+  td:first-child { white-space: normal; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; }
+  ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  li { padding: 7px 0; border-top: 1px solid var(--border); }
+  li:first-child { border-top: none; }
+  .empty { color: var(--muted); font-style: italic; }
+  .ledger {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px 20px; overflow-x: auto; white-space: nowrap;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  }
+  .ledger h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em;
+                color: var(--muted); margin: 0 0 10px 0; font-weight: 600; }
+  .ledger-item { display: inline-block; margin-right: 22px; }
+  .ledger-time { color: var(--muted); margin-right: 8px; }
+  .ledger-entity { color: var(--healthy); margin-right: 6px; }
+  .ledger-action { color: var(--text); }
+  .stat-row { display: flex; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat { font-family: 'IBM Plex Mono', monospace; }
+  .stat-value { font-size: 20px; font-weight: 600; }
+  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div>
+      <div class="org-name">Antares Product Intelligence Org</div>
+      <div class="org-mission">Deliver a governed, multi-agent product intelligence brief combining AI research, AI analysis, and human sign-off.</div>
+      <div class="objectives"><span class="chip">Gather market signal data</span><span class="chip">Analyze market findings</span><span class="chip">Publish product intelligence brief</span></div>
+    </div>
+    <div>
+      <span class="health-pill health-healthy">healthy · 100% success</span>
+      <div class="meta-row" style="margin-top:10px;">Generated 2026-08-29 16:56:16 UTC</div>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="stat-value">2</div><div class="stat-label">Active Agents</div></div>
+    <div class="stat"><div class="stat-value">4</div><div class="stat-label">Completed</div></div>
+    <div class="stat"><div class="stat-value">0</div><div class="stat-label">Blocked</div></div>
+    <div class="stat"><div class="stat-value">0</div><div class="stat-label">Pending Approvals</div></div>
+    <div class="stat"><div class="stat-value">0</div><div class="stat-label">Escalations</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Agents</h2>
+      <table>
+        <tr><th>Agent</th><th>Active</th><th>Completed</th><th>Constraints</th></tr>
+        <tr><td><span class="dot" style="background:#4FD1A5"></span>ResearchAgent</td><td>0</td><td>2</td><td class="muted">—</td></tr><tr><td><span class="dot" style="background:#4FD1A5"></span>AnalysisAgent</td><td>0</td><td>1</td><td class="muted">—</td></tr>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Execution</h2>
+      <table>
+        <tr><th>Task</th><th>Status</th><th>Assignee</th><th>Retries</th></tr>
+        <tr><td><span class="dot" style="background:#4FD1A5"></span>Gather Q3 market signals</td><td>completed</td><td class="mono">agent</td><td class="mono">1/2</td></tr><tr><td><span class="dot" style="background:#4FD1A5"></span>Gather Q4 market signals</td><td>completed</td><td class="mono">agent</td><td class="mono">0/2</td></tr><tr><td><span class="dot" style="background:#4FD1A5"></span>Analyze Q3 market signals</td><td>completed</td><td class="mono">agent</td><td class="mono">0/2</td></tr><tr><td><span class="dot" style="background:#4FD1A5"></span>Review and publish intelligence brief</td><td>completed</td><td class="mono">human</td><td class="mono">0/2</td></tr>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Intelligence — Organizational Memory</h2>
+      <ul><li>Task 'Gather Q3 market signals' succeeded but required 1 retry before completing. This task type may benefit from a revised initial approach.</li></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Intelligence — Decisions</h2>
+      <table>
+        <tr><th>Context</th><th>Status</th><th>Approver</th></tr>
+        <tr><td><span class="dot" style="background:#4FD1A5"></span>Approval required to publish intelligence brief (task 539b97f2-cb44-4cb8-a8f8-9b...</td><td>approved</td><td class="mono">kamil.ejaz</td></tr>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Governance — Pending Approvals</h2>
+      <ul><li class="empty">No pending approvals.</li></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Governance — Escalations &amp; Policies</h2>
+      <ul style="margin-bottom:14px;"><li class="empty">No unresolved escalations.</li></ul>
+      <table>
+        <tr><th>Policy</th><th>Gate</th></tr>
+        <tr><td>Publication requires CTO sign-off</td><td>Requires approval</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="ledger">
+    <h2>Constitutional Ledger — Recent Audit Trail</h2>
+    <span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">agent_action_authorized</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">status_changed</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">status_changed</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">created</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Decision</span><span class="ledger-action">proposed</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Decision</span><span class="ledger-action">approved</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">status_changed</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">status_changed</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">created</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">agent_action_authorized</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">status_changed</span></span><span class="ledger-item"><span class="ledger-time">16:56:16</span><span class="ledger-entity">Task</span><span class="ledger-action">status_changed</span></span>
+  </div>
+
+</body>
+</html>

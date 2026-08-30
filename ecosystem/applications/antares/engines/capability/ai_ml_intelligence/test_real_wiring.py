@@ -16,9 +16,33 @@ This test does NOT prove a live Gemini call succeeded through this path —
 that must be run on a machine with real network access to Gemini, using
 the real GEMINI_API_KEY, which is the next step handed back to Hasnain.
 """
+import os
 import sys
-sys.path.insert(0, "/home/claude/zeeshan_review/final_submission/future_org_engine_code")
-sys.path.insert(0, "/home/claude/antares_ai_ml_connector_full")
+
+# BUGFIX (Kamil, review pass): this used to hardcode two absolute paths from
+# Hasnain's own local machine (/home/claude/zeeshan_review/... and
+# /home/claude/antares_ai_ml_connector_full). That meant the script only ran
+# on his machine -- anyone else (Zeeshan, a grader, CI) would hit
+# ModuleNotFoundError on `from app.models import Base` immediately. Made both
+# paths configurable via env vars with sensible relative defaults, so this
+# runs for whoever has Zeeshan's future_org_engine_code checked out next to
+# (or inside) this repo, without editing the file.
+ZEESHAN_ENGINE_PATH = os.environ.get(
+    "ZEESHAN_ENGINE_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "future_org_engine_code"),
+)
+AI_ML_ROOT = os.environ.get(
+    "AI_ML_ROOT", os.path.dirname(os.path.abspath(__file__))
+)
+sys.path.insert(0, ZEESHAN_ENGINE_PATH)
+sys.path.insert(0, AI_ML_ROOT)
+
+if not os.path.isdir(ZEESHAN_ENGINE_PATH):
+    sys.exit(
+        f"Cannot find Zeeshan's future_org_engine_code at '{ZEESHAN_ENGINE_PATH}'.\n"
+        f"Set ZEESHAN_ENGINE_PATH to point at it, e.g.:\n"
+        f"  ZEESHAN_ENGINE_PATH=/path/to/future_org_engine_code python test_real_wiring.py"
+    )
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

@@ -3,6 +3,17 @@ import time
 import json
 import urllib.request
 import urllib.error
+from dotenv import load_dotenv
+
+# BUGFIX (Kamil, review pass): python-dotenv was listed in requirements.txt
+# and the README told the user to "Add your Gemini key to .env", but nothing
+# in the codebase ever called load_dotenv(). That meant .env was silently
+# inert -- GEMINI_API_KEY only worked if the user manually exported it in
+# their shell, which is not what the Setup instructions say to do. Anyone
+# following the README exactly (pip install -r requirements.txt, edit .env,
+# python demo_end_to_end.py) would get an empty api_key and a fake
+# "No GEMINI_API_KEY found" warning even with a real key sitting in .env.
+load_dotenv()
 
 
 class ModelAdapter:

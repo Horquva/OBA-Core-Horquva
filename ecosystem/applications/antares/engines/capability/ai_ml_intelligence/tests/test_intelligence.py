@@ -90,6 +90,32 @@ def test_registry_promote_below_threshold(tmp_path):
     reg.promote(cap.id, {"avg_score": 0.2}, pass_threshold=0.6)
     assert reg.get_promoted("planning") == []
 
+def test_replan_produces_new_plan_from_stubbed_model():
+    class StubAdapter:
+        def run(self, prompt, system=None):
+            return {
+                "text": '{"steps": [{"description": "Corrected concrete step", "action": "act2"}], '
+                        '"confidence": 0.8, "reasoning": ["fixed the vague step"]}',
+                "latency_ms": 1.0, "error": None,
+            }
+    engine = ReasoningEngine(adapter=StubAdapter())
+    old_plan = Plan(id=new_id("plan"), goal="test goal", steps=[], confidence=0.0)
+    new_plan = engine.replan(old_plan, failure_reason="empty plan")
+    assert new_plan.confidence == 0.8
+    assert len(new_plan.steps) == 1
+    assert new_plan.steps[0].description == "Corrected concrete step"
+    assert new_plan.reasoning_trace[0] == "Replanned after: empty plan"
+
+def test_replan_handles_model_error():
+    class FailingAdapter:
+        def run(self, prompt, system=None):
+            return {"text": None, "latency_ms": 1.0, "error": "connection refused"}
+    engine = ReasoningEngine(adapter=FailingAdapter())
+    old_plan = Plan(id=new_id("plan"), goal="test goal", steps=[], confidence=0.0)
+    new_plan = engine.replan(old_plan, failure_reason="empty plan")
+    assert new_plan.confidence == 0.0
+    assert "Replanning failed" in new_plan.reasoning_trace[0]
+
 def test_registry_unknown_capability_raises(tmp_path):
     reg = CapabilityRegistry(path=os.path.join(tmp_path, "reg3.json"))
     try:

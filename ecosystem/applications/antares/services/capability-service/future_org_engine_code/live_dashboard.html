@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Future Organization Runtime — Live Command Interface</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B0E14; --panel: #131720; --border: #232838;
+    --text: #E7E9EE; --muted: #8B93A7;
+    --healthy: #4FD1A5; --pending: #E8A33D; --critical: #E5605A;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; padding: 32px; line-height: 1.5; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  .muted { color: var(--muted); }
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+  .org-name { font-size: 22px; font-weight: 600; }
+  .live-badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 4px 10px; border-radius: 3px; border: 1px solid var(--healthy); color: var(--healthy); background: rgba(79,209,165,0.08); }
+  .live-badge.offline { border-color: var(--critical); color: var(--critical); background: rgba(229,96,90,0.08); }
+  .live-badge.dot { display:inline-block; width:6px; height:6px; border-radius:50%; background: currentColor; margin-right: 6px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  input, select, button { font-family: 'IBM Plex Mono', monospace; font-size: 12px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--healthy); }
+  .controls { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; }
+  .controls h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin: 0 0 12px 0; }
+  .controls-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 18px 20px; overflow: hidden; }
+  .panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin: 0 0 14px 0; font-family: 'IBM Plex Mono', monospace; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 10px; text-transform: uppercase; color: var(--muted); padding: 0 14px 8px 0; }
+  td { padding: 7px 14px 7px 0; border-top: 1px solid var(--border); white-space: nowrap; }
+  td:first-child { white-space: normal; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; }
+  .empty { color: var(--muted); font-style: italic; }
+  .stat-row { display: flex; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat-value { font-size: 20px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .stat-label { font-size: 10px; text-transform: uppercase; color: var(--muted); }
+  #log { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 12px 20px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; max-height: 140px; overflow-y: auto; }
+  #log div { padding: 2px 0; color: var(--muted); }
+  #log div.ok { color: var(--healthy); }
+  #log div.err { color: var(--critical); }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div>
+      <div class="org-name">Future Organization Runtime — Live Command Interface</div>
+      <div class="muted" style="font-size:13px; margin-top:4px;">Polls the real running API every 3 seconds. Not a static snapshot.</div>
+    </div>
+    <div>
+      <span id="live-badge" class="live-badge offline"><span class="dot"></span>CHECKING...</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <h2>API Connection &amp; Live Actions</h2>
+    <div class="controls-row">
+      <label class="mono muted">API base:</label>
+      <input id="apiBase" value="http://127.0.0.1:8000" style="width:220px">
+      <label class="mono muted">Org ID:</label>
+      <input id="orgId" placeholder="paste an organization_id" style="width:280px">
+      <button onclick="createDemoOrg()">+ Create demo organization</button>
+    </div>
+    <div class="controls-row">
+      <button onclick="refreshNow()">Refresh now</button>
+      <span class="mono muted" id="pollStatus">not polling</span>
+    </div>
+  </div>
+
+  <div class="stat-row" id="stats"></div>
+
+  <div class="grid">
+    <div class="panel"><h2>Agents (live)</h2><table id="agentsTable"><tr><th>Agent</th></tr></table></div>
+    <div class="panel"><h2>Execution (live)</h2><table id="tasksTable"><tr><th>Task</th></tr></table></div>
+    <div class="panel"><h2>Governance — Pending Approvals (live)</h2><ul id="pendingList" style="list-style:none;padding:0;font-size:13px;"></ul></div>
+    <div class="panel"><h2>Governance — Escalations (live)</h2><ul id="escList" style="list-style:none;padding:0;font-size:13px;"></ul></div>
+  </div>
+
+  <div id="log"></div>
+
+<script>
+let pollTimer = null;
+let currentOrgId = null;
+
+function apiBase() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
+function logMsg(msg, cls) {
+  const el = document.createElement('div');
+  el.textContent = new Date().toLocaleTimeString() + '  ' + msg;
+  if (cls) el.className = cls;
+  const log = document.getElementById('log');
+  log.prepend(el);
+  while (log.children.length > 30) log.removeChild(log.lastChild);
+}
+
+async function checkHealth() {
+  const badge = document.getElementById('live-badge');
+  try {
+    const r = await fetch(apiBase() + '/health');
+    if (!r.ok) throw new Error('bad status');
+    badge.className = 'live-badge';
+    badge.innerHTML = '<span class="dot"></span>LIVE — server responding';
+  } catch (e) {
+    badge.className = 'live-badge offline';
+    badge.innerHTML = '<span class="dot"></span>OFFLINE — cannot reach API (honest state, not hidden)';
+  }
+}
+
+async function createDemoOrg() {
+  try {
+    const r = await fetch(apiBase() + '/organizations', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name: 'Live Dashboard Demo Org ' + new Date().toLocaleTimeString(), owner_id: 'dashboard-user'})
+    });
+    const data = await r.json();
+    document.getElementById('orgId').value = data.organization_id;
+    logMsg('Created organization ' + data.organization_id, 'ok');
+    refreshNow();
+  } catch (e) { logMsg('Failed to create organization: ' + e, 'err'); }
+}
+
+async function refreshNow() {
+  const orgId = document.getElementById('orgId').value.trim();
+  await checkHealth();
+  if (!orgId) { logMsg('No org_id set — paste one or create a demo org'); return; }
+  currentOrgId = orgId;
+  try {
+    const r = await fetch(apiBase() + '/organizations/' + orgId + '/state');
+    if (!r.ok) { logMsg('GET /organizations/' + orgId + '/state -> HTTP ' + r.status, 'err'); return; }
+    const state = await r.json();
+    renderState(state);
+
+    const pending = await (await fetch(apiBase() + '/organizations/' + orgId + '/decisions/pending')).json();
+    renderPending(pending);
+    const esc = await (await fetch(apiBase() + '/organizations/' + orgId + '/escalations')).json();
+    renderEscalations(esc);
+
+    logMsg('Refreshed live state for org ' + orgId.slice(0,8) + '...', 'ok');
+  } catch (e) { logMsg('Refresh failed: ' + e, 'err'); }
+}
+
+function renderState(state) {
+  document.getElementById('stats').innerHTML = `
+    <div><div class="stat-value">${state.active_agents}</div><div class="stat-label">Active Agents</div></div>
+    <div><div class="stat-value">${state.completed_tasks}</div><div class="stat-label">Completed</div></div>
+    <div><div class="stat-value">${state.blocked_tasks}</div><div class="stat-label">Blocked</div></div>
+    <div><div class="stat-value">${state.pending_decisions}</div><div class="stat-label">Pending Approvals</div></div>
+    <div><div class="stat-value">${state.unresolved_escalations}</div><div class="stat-label">Escalations</div></div>
+    <div><div class="stat-value">${state.organizational_health.status}</div><div class="stat-label">Health</div></div>
+  `;
+  const agentRows = state.agent_titles.length
+    ? state.agent_titles.map(t => `<tr><td><span class="dot" style="background:#4FD1A5"></span>${t}</td></tr>`).join('')
+    : '<tr><td class="empty">No agents yet.</td></tr>';
+  document.getElementById('agentsTable').innerHTML = '<tr><th>Agent</th></tr>' + agentRows;
+
+  const taskRows = state.active_objectives.length
+    ? state.active_objectives.map(o => `<tr><td>${o}</td></tr>`).join('')
+    : '<tr><td class="empty">No capabilities yet.</td></tr>';
+  document.getElementById('tasksTable').innerHTML = '<tr><th>Active Objective / Capability</th></tr>' + taskRows;
+}
+
+function renderPending(pending) {
+  document.getElementById('pendingList').innerHTML = pending.length
+    ? pending.map(p => `<li style="padding:7px 0;border-top:1px solid var(--border)"><span class="dot" style="background:#E8A33D"></span>${p.context.slice(0,90)}</li>`).join('')
+    : '<li class="empty">No pending approvals.</li>';
+}
+function renderEscalations(esc) {
+  document.getElementById('escList').innerHTML = esc.length
+    ? esc.map(e => `<li style="padding:7px 0;border-top:1px solid var(--border)"><span class="dot" style="background:#E5605A"></span>${e.reason.slice(0,90)}</li>`).join('')
+    : '<li class="empty">No unresolved escalations.</li>';
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(refreshNow, 3000);
+  document.getElementById('pollStatus').textContent = 'polling every 3s';
+}
+
+checkHealth();
+startPolling();
+</script>
+</body>
+</html>
