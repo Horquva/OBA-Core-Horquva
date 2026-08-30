@@ -32,9 +32,9 @@ dependencies:
     sdk: flutter
 
   # --- M.Ali Platform Layer Dependencies ---
-  dio: ^5.4.3+1
-  get: ^4.6.6
-  flutter_secure_storage: ^9.0.0
+  dio: ^5.11.0
+  get: ^4.7.3
+  flutter_secure_storage: ^11.0.0
 
   cupertino_icons: ^1.0.8
 
@@ -44,7 +44,7 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
   # --- Platform Layer Testing ---
-  mocktail: ^1.0.4
+  mocktail: ^1.0.5
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
