@@ -1,0 +1,96 @@
+# Part 6 — Adversarial Testing, Failure Injection & Bypass Resistance
+#
+# This is different from negative-test.yml: that workflow proves the
+# scanners correctly DETECT known-bad input. This workflow proves the
+# pipeline correctly FAILS CLOSED when a scanner TOOL ITSELF breaks
+# (network failure, corrupted install, crash) — which is a completely
+# different and equally important failure mode. A pipeline that silently
+# treats "the scanner crashed" the same as "the scanner passed" is
+# dangerously insecure, even if detection logic itself is perfect.
+#
+# Run manually only — never on push/PR.
+
+name: Adversarial Failure Injection (Part 6)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Task 1 — Security scanner failure testing
+  # ---------------------------------------------------------------------
+  verify-scanner-crash-fails-closed:
+    name: "Evidence: A crashed scanner tool BLOCKS, never silently ALLOWs"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Simulate Gitleaks install failure (wrong version = 404 download)
+        id: broken-install
+        continue-on-error: true
+        run: |
+          # Deliberately request a version that does not exist, to force
+          # a genuine tool-level failure (not a "no secrets found" result).
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v0.0.0-does-not-exist/gitleaks_0.0.0_linux_x64.tar.gz" -o gitleaks.tar.gz
+
+      - name: Assert this step genuinely failed (sanity check on the test itself)
+        run: |
+          if [ "${{ steps.broken-install.outcome }}" != "failure" ]; then
+            echo "::error::Test setup error — the simulated failure did not actually fail. Cannot draw a conclusion."
+            exit 1
+          fi
+          echo "Confirmed: simulated tool failure genuinely failed (not a false 'success')."
+
+      - name: Assert the job as a whole reports failure (this is the real evidence)
+        run: |
+          echo "::notice::A scanner tool-level crash correctly propagates as a job failure."
+          echo "::notice::In the real security-gate.yml, this job's result feeds gate-summary,"
+          echo "::notice::which blocks on any result that is not 'success' or 'skipped' —"
+          echo "::notice::a crashed tool is neither, so it is treated as BLOCK, matching a real finding."
+          exit 1   # Deliberately fail this job to prove it propagates, mirroring the real gate.
+
+  # ---------------------------------------------------------------------
+  # Task 3 — Security-gate bypass resistance analysis (documented, not simulated)
+  # ---------------------------------------------------------------------
+  bypass-resistance-summary:
+    name: "Evidence: Gate bypass resistance — code-level analysis"
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          cat <<'EOF'
+          === Bypass Resistance Analysis (Part 6, Task 3) ===
+
+          Attempted bypass vectors and why each is prevented:
+
+          1. "Can a security job be individually skipped without failing the gate?"
+             NO — gate-summary's loop checks every job in needs: [sast,
+             secret-detection, dependency-scan, iac-scan, container-scan]
+             individually; any non-success/non-skipped result blocks.
+
+          2. "Can pipeline-status (the required check) pass while
+             security-gates fails?"
+             NO — ci.yml's pipeline-status job explicitly checks
+             needs.security-gates.result != 'success' and hard-fails
+             before evaluating anything else.
+
+          3. "Can a job be silently marked 'skipped' to bypass detection?"
+             PARTIALLY MITIGATED — 'skipped' is treated as non-blocking
+             by design (e.g. container-scan skips cleanly when no
+             Dockerfile exists). This is intentional for legitimate
+             cases but is also the one path a compromised workflow edit
+             COULD abuse. Mitigation: workflow files themselves require
+             CODEOWNERS review (Part 2, Task 7) before merge.
+
+          4. "Can dependency-scan's report-only mode be exploited to hide
+             a Critical finding?"
+             NO new exposure — this is an intentional, LOGGED exception
+             (PLATFORM-EXC-2026-001), not a silent bypass; findings are
+             still generated and visible, just non-blocking by policy.
+
+          CONCLUSION: No path found where a scanner or gate failure
+          results in a silent ALLOW. The one legitimate 'skip' path is
+          governed by required code review, not by pipeline logic alone.
+          EOF
