@@ -82,9 +82,17 @@ class SyntheticGenerationService:
         an error.
         """
         context = result.context
-        snapshot = result.state_snapshot or {}
-        raw_artifacts = snapshot.get("artifacts", [])
-        clock_step = snapshot.get("clock_step", 0)
+        snapshot = result.state_snapshot
+        
+        if snapshot is None:
+            raw_artifacts = []
+            clock_step = 0
+        elif isinstance(snapshot, dict):
+            raw_artifacts = snapshot.get("artifacts", [])
+            clock_step = snapshot.get("clock_step", 0)
+        else:
+            raw_artifacts = getattr(snapshot, "artifacts", [])
+            clock_step = getattr(snapshot, "clock_step", 0)
 
         accepted: list[SyntheticArtifactContract] = []
         rejected: list[RejectedArtifactRecord] = []
