@@ -61,29 +61,10 @@ class SyntheticGenerationService:
     )
 
     DEFAULT_ARTIFACT_TYPE = "document"
-    def _generate_corpus_from_result(self, result: ExperimentResultPackage) -> SyntheticDataCorpus:  
-        """
-        Day 4 — trusted corpus boundary, built from ExperimentResultPackage.state_snapshot.
-
-        Per team lead confirmation  state_snapshot is a dict
-        on ExperimentResultPackage, not a separate typed class, with keys:
-            artifacts (list, Ahmed's SyntheticArtifactContract shape,
-                       round-tripped through the runtime)
-            relationships (list — not yet represented in SyntheticDataCorpus,
-                           intentionally out of scope here, see PR note)
-            deterministic_fingerprint (str)
-            clock_step (int — tick the run reached)
-            last_step_at (timestamp)
-
-        Every artifact gets a lineage record. Anything that fails
-        SyntheticArtifactContract validation is rejected with a reason,
-        never silently dropped and never fabricated (Day 6 rule). An
-        empty or missing state_snapshot produces an empty corpus, not
-        an error.
-        """
+    def _generate_corpus_from_result(self, result: ExperimentResultPackage) -> SyntheticDataCorpus:
         context = result.context
         snapshot = result.state_snapshot
-        
+
         if snapshot is None:
             raw_artifacts = []
             clock_step = 0
@@ -94,9 +75,22 @@ class SyntheticGenerationService:
             raw_artifacts = getattr(snapshot, "artifacts", [])
             clock_step = getattr(snapshot, "clock_step", 0)
 
+        if not isinstance(raw_artifacts, list):
+            return SyntheticDataCorpus(
+                context=context,
+                accepted_artifacts=[],
+                rejected_artifacts=[RejectedArtifactRecord(
+                    candidate_artifact_id="UNKNOWN-MALFORMED-SNAPSHOT",
+                    rejection_reason=f"state_snapshot artifacts must be a list, got {type(raw_artifacts).__name__}",
+                    event_id=f"STATE-{context.run_id}-{clock_step}-malformed",
+                )],
+                lineage=[],
+            )
+
         accepted: list[SyntheticArtifactContract] = []
         rejected: list[RejectedArtifactRecord] = []
         lineage: list[LineageRecord] = []
+        accepted_ids_seen: set[str] = set()
 
         for index, raw_artifact in enumerate(raw_artifacts):
             event_id = f"STATE-{context.run_id}-{clock_step}-{index}"
@@ -111,28 +105,29 @@ class SyntheticGenerationService:
                         raw_artifact.get("artifact_id", f"UNKNOWN-{index}")
                         if isinstance(raw_artifact, dict) else f"UNKNOWN-{index}"
                     )
-                    rejected.append(
-                        RejectedArtifactRecord(
-                            candidate_artifact_id=candidate_id,
-                            rejection_reason=f"failed SyntheticArtifactContract validation: {exc}",
-                            event_id=event_id,
-                        )
-                    )
+                    rejected.append(RejectedArtifactRecord(
+                        candidate_artifact_id=candidate_id,
+                        rejection_reason=f"failed SyntheticArtifactContract validation: {exc}",
+                        event_id=event_id,
+                    ))
                     continue
 
+            if artifact.artifact_id in accepted_ids_seen:
+                rejected.append(RejectedArtifactRecord(
+                    candidate_artifact_id=artifact.artifact_id,
+                    rejection_reason=f"duplicate artifact_id already accepted in this batch: {artifact.artifact_id}",
+                    event_id=event_id,
+                ))
+                continue
+
+            accepted_ids_seen.add(artifact.artifact_id)
             accepted.append(artifact)
-            lineage.append(
-                build_lineage_record(
-                    context=context, tick=clock_step,
-                    event_id=event_id, data_point_id=artifact.artifact_id,
-                )
-            )
+            lineage.append(build_lineage_record(
+                context=context, tick=clock_step, event_id=event_id, data_point_id=artifact.artifact_id,
+            ))
 
         return SyntheticDataCorpus(
-            context=context,
-            accepted_artifacts=accepted,
-            rejected_artifacts=rejected,
-            lineage=lineage,
+            context=context, accepted_artifacts=accepted, rejected_artifacts=rejected, lineage=lineage,
         )
 
     def generate_corpus(
