@@ -12,6 +12,8 @@ wheels/
 # Node.js
 backend/node_modules/
 backend_extracted/
+ecosystem/applications/arcturus/web/node_modules/
+ecosystem/applications/arcturus/web/.next/
 web/node_modules/
 web/.next/
 
