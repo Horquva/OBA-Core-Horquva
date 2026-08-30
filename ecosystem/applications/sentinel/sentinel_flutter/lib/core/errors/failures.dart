@@ -26,3 +26,7 @@ class TimeoutFailure extends Failure {
 class UnavailableFailure extends Failure {
   const UnavailableFailure(super.message);
 }
+
+class ParsingFailure extends Failure {
+  const ParsingFailure(super.message);
+}
