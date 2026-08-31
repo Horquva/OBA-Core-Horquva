@@ -1,0 +1,21 @@
+# CODEOWNERS — Horquva Castor
+# Every PR must be reviewed by the Team Lead before merging.
+# Platform owners are responsible for reviewing changes in their own platform folder.
+
+# Global — Team Lead reviews everything
+* @sufyanafzal7
+
+# Platform-specific owners
+/platforms/design-system/             @sufyanafzal7
+/platforms/frontend-engineering/      @sufyanafzal7
+/platforms/executive-workspace/       @sufyanafzal7
+/platforms/ai-experience/             @sufyanafzal7
+/platforms/mobile-experience/         @sufyanafzal7
+/platforms/visualization/             @sufyanafzal7
+/platforms/experience-quality/        @sufyanafzal7
+/platforms/accessibility/             @sufyanafzal7
+/platforms/ai-experience-engineering/ @sufyanafzal7
+
+# Docs and standards — Team Lead only
+/docs/         @sufyanafzal7
+/.github/      @sufyanafzal7

@@ -1,0 +1,2 @@
+exception_id,finding_id,severity,repository,requested_by,security_justification,risk_assessment,compensating_controls,approval_authority,approved_at,expires_at,review_schedule,status,audit_evidence_link
+EXC-2026-000001,SNTL-2026-000001,medium,example/sample-service,engineer-name,"Example: false positive, package not reachable at runtime","Low — code path unused in production","Runtime monitoring alert added as compensating control",engineering_team_lead,2026-08-06,2026-09-05,monthly,active,https://github.com/example/sample-service/issues/1

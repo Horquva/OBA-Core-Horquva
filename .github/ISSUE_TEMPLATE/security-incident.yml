@@ -1,0 +1,70 @@
+name: Security Incident
+description: Report a security incident (SEV-1 through SEV-3) for the Sentinel DevSecOps platform to triage.
+title: "[INCIDENT] "
+labels: ["security-incident", "needs-triage"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: "Per Day 3 §8.3 Severity & Escalation Matrix"
+      options:
+        - "SEV-1 — Active breach / production outage"
+        - "SEV-2 — Confirmed vulnerability, limited active exploitation"
+        - "SEV-3 — Suspicious but unconfirmed activity"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Vulnerability
+        - Secret exposure
+        - Dependency
+        - Supply Chain
+        - Infrastructure
+        - Runtime
+        - Container
+        - Identity
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Include detection source (alert, scan, report), affected repository/service, and timeline.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact / blast radius
+    validations:
+      required: false
+
+  - type: input
+    id: detected-by
+    attributes:
+      label: Detected by (person, system, or alert name)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: lifecycle
+    attributes:
+      label: Incident Lifecycle (Part M)
+      options:
+        - label: Detected
+        - label: Validated
+        - label: Classified
+        - label: Escalated
+        - label: Contained
+        - label: Investigated
+        - label: Remediated
+        - label: Recovered
+        - label: Verified
+        - label: Closed (post-incident review attached)
