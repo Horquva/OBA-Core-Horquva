@@ -1,3 +1,6 @@
+"""
+Status: 🟢 IMPLEMENTED
+"""
 from __future__ import annotations
 
 import logging
@@ -128,18 +131,24 @@ class ExperimentOrchestrator:
         from ecosystem.applications.arcturus.schemas.execution.workflows.base_schemas import (
             ActivityStatus,
         )
+        import random
+        rng = random.Random(context.global_seed)
+        w_id = f"WF-GOV-{rng.randint(100, 999)}"
+        a_id = f"ACT-{rng.randint(1000, 9999)}"
+        ag_id = f"AGENT-{rng.randint(100, 999)}"
+
         workflow = WorkflowDefinitionContract(
             context=context,
-            workflow_id="WF-GOV-001",
+            workflow_id=w_id,
             name="Governance Review Workflow",
             description="A review workflow",
             activities=[
                 ActivityStateContract(
                     context=context,
-                    activity_id="ACT-0001",
+                    activity_id=a_id,
                     name="Contract Review",
                     status=ActivityStatus.PENDING,
-                    assigned_agent_id="AGENT-001",
+                    assigned_agent_id=ag_id,
                 ),
             ],
             organizational_context_ref="REF",
@@ -155,13 +164,18 @@ class ExperimentOrchestrator:
         from ecosystem.applications.arcturus.contracts.control.scenarios.base_models import (
             ScenarioDSLPayload,
         )
+        import random
+        rng = random.Random(context.global_seed)
+        sc_id = f"SCN-GV-{rng.randint(100, 999)}"
+        ag_id = f"AGENT-{rng.randint(100, 999)}"
+
         engine = ScenarioEngine()
         scenario_payload = ScenarioDSLPayload(
             context=context,
-            scenario_id="SCN-GV-101",
+            scenario_id=sc_id,
             description="A scenario",
             trigger_event="system_startup",
-            participants=["AGENT-001"],
+            participants=[ag_id],
             organizational_scope=["DEPT-001"],
             variables={"headcount": 25, "budget_usd": 500000},
             preconditions=["min_agents >= 3", "max_cycle_time_days <= 30"],
@@ -229,6 +243,41 @@ class ExperimentOrchestrator:
         result = engine.run_validation(run)
         return {"validation": result}
 
+    def _step_intelligence(self, context: SimulationContext, run_id: str) -> dict:
+        """
+        Step 9: Generate evidence-grounded intelligence assessment via Gemini.
+
+        Architectural decision — why call IntelligenceService directly?
+        The service already owns all anti-hallucination logic (no validated
+        evidence → None, bad citations → None, Gemini down → IntelligenceUnavailable).
+        The orchestrator must NOT re-implement these rules; it just routes the result.
+
+        Graceful degradation: if Gemini is unavailable (IntelligenceUnavailable),
+        the pipeline is NOT marked FAILED — only this stage is degraded to
+        ASSESSING_UNAVAILABLE. A simulation run is not less valid because the
+        AI assessment layer was temporarily unreachable.
+        """
+        self.stage = "ASSESSING"
+        logger.info(f"[{self.experiment_id}] Stage: ASSESSING")
+
+        from ecosystem.applications.arcturus.api.services.intelligence_service import (
+            IntelligenceService,
+            IntelligenceUnavailable,
+        )
+
+        svc = IntelligenceService()
+        try:
+            assessment = svc.generate_assessment(run_id=run_id)
+            if assessment is None:
+                return {"intelligence_status": "NO_TRUSTED_EVIDENCE", "assessment": None}
+            return {"intelligence_status": "READY", "assessment": assessment}
+        except IntelligenceUnavailable as exc:
+            logger.warning(
+                f"[{self.experiment_id}] Gemini unavailable during ASSESSING: {exc}. "
+                "Pipeline continues — stage recorded as ASSESSING_UNAVAILABLE."
+            )
+            return {"intelligence_status": "ASSESSING_UNAVAILABLE", "assessment": None}
+
     def run_pipeline(self) -> dict:
         """
         Execute the full orchestration pipeline and return a summary dict.
@@ -247,6 +296,9 @@ class ExperimentOrchestrator:
             results["runtime"] = self._step_runtime(context, results["scenario"])
             results["synthetic_data"] = self._step_synthetic_data(context, results["runtime"])
             results["validation"] = self._step_validation(context, results["synthetic_data"])
+            
+            # Step 9: Intelligence Assessment
+            results["intelligence"] = self._step_intelligence(context, self.run_id)
             
             self.stage = "COMPLETED"
             results["status"] = "PIPELINE_COMPLETED"

@@ -23,3 +23,18 @@ export const apiClient = {
     return await response.json();
   },
 };
+
+export const experimentApi = {
+  listExperiments: async () => {
+    return await apiClient.get<any[]>('/api/v1/experiments');
+  },
+  getExperiment: async (id: string) => {
+    return await apiClient.get<any>(`/api/v1/experiments/${id}`);
+  },
+  createExperiment: async (data: { name: string; seed?: number; config?: any }) => {
+    return await apiClient.post<any>('/api/v1/experiments', data);
+  },
+  startSimulation: async (id: string, payload: any = { global_seed: 42, duration_ticks: 10, tick_delay_seconds: 0.1 }) => {
+    return await apiClient.post<any>(`/api/v1/runtime/experiments/${id}/start`, payload);
+  },
+};

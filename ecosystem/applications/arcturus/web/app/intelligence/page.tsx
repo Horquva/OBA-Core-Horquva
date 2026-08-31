@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import type { StructuredAssessment } from '@/lib/types';
+import Card from '../../components/ui/Card';
 
 function IntelligenceContent() {
   const searchParams = useSearchParams();
@@ -36,8 +38,21 @@ function IntelligenceContent() {
 
   if (!experimentId) {
     return (
-      <div className="p-8 text-center bg-white rounded-xl border border-slate-200">
-        <p className="text-slate-600">Please select an experiment to view intelligence assessment.</p>
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wider text-sky-700">Arcturus</p>
+          <h1 className="mt-1 text-3xl font-bold text-slate-950">Intelligence</h1>
+          <p className="mt-2 text-sm text-slate-600">Evidence-grounded assessments for completed simulation runs.</p>
+        </div>
+        <Card className="border-amber-200 bg-amber-50 p-6">
+          <h2 className="font-semibold text-amber-950">Assessment unavailable</h2>
+          <p className="mt-2 text-sm leading-6 text-amber-900">
+            No experiment ID selected or no validated Intelligence assessment is available from the backend yet.
+          </p>
+          <Link href="/experiments" className="mt-4 inline-block text-sm font-semibold text-amber-950 underline underline-offset-4">
+            Return to experiments
+          </Link>
+        </Card>
       </div>
     );
   }
@@ -69,7 +84,7 @@ function IntelligenceContent() {
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-800">Verdict</span>
             <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full">
-              {assessment.verdict}
+              {assessment.verdict || 'ASSESSED'}
             </span>
           </div>
 
@@ -79,7 +94,7 @@ function IntelligenceContent() {
 
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm text-slate-700">
             <h3 className="font-semibold text-slate-800 mb-1">Reasoning</h3>
-            <p>{assessment.reasoning}</p>
+            <p>{assessment.reasoning || assessment.assessment_summary}</p>
           </div>
 
           {assessment.recommendations && assessment.recommendations.length > 0 && (

@@ -97,5 +97,5 @@ export type SSEEvent =
   | { type: 'STAGE_CHANGE'; experiment_id: string; stage: string }
   | { type: 'TICK'; experiment_id: string; payload: { tick: number; state_snapshot: Record<string, any> } }
   | { type: 'EVENT'; experiment_id: string; payload: SimulationEventPayload }
-  | { type: 'STATUS_UPDATE'; experiment_id: string; status: ExecutionStatus }
+  | { type: 'STATUS_UPDATE'; experiment_id: string; status: ExperimentStatus }
   | { type: 'ERROR'; experiment_id: string; error_code: string; message: string };

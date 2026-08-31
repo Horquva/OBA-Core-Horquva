@@ -28,7 +28,6 @@ export function useSimulationStream({
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pausedRef = useRef<boolean>(false);
 
-  // Sync ref with paused state
   useEffect(() => {
     pausedRef.current = isPaused;
   }, [isPaused]);
@@ -124,7 +123,7 @@ export function useSimulationStream({
   }, [experimentId, maxRetries, bufferCap, cleanupSocket]);
 
   const disconnect = useCallback(() => {
-    retryCountRef.current = maxRetries; // Prevent reconnect
+    retryCountRef.current = maxRetries;
     cleanupSocket();
     setStatus('disconnected');
   }, [cleanupSocket, maxRetries]);

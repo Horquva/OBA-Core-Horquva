@@ -1,3 +1,16 @@
+export type ExecutionStatus = 'CREATED' | 'INITIALIZING' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED' | 'BLOCKED' | string;
+
+export interface ExperimentRecord {
+  id: string;
+  name: string;
+  seed: number;
+  config: Record<string, any>;
+  status: ExecutionStatus | string;
+  created_at?: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
 export interface SyntheticArtifact {
   artifact_id: string;
   artifact_type: string;
@@ -5,6 +18,7 @@ export interface SyntheticArtifact {
   description?: string;
   size_bytes?: number;
   created_at?: string;
+  lifecycle_state?: string;
   metadata?: Record<string, any>;
 }
 
@@ -20,10 +34,14 @@ export interface SyntheticDataCorpusPreview {
 export interface StructuredAssessment {
   assessment_id?: string;
   experiment_id: string;
-  verdict: string;
+  context?: string;
+  verdict?: string;
+  assessment_summary?: string;
   confidence_score: number;
-  reasoning: string;
+  reasoning?: string;
+  risk_factors?: string[];
   recommendations?: string[];
+  evidence_citations?: string[];
   metrics?: Record<string, number>;
   generated_at?: string;
 }

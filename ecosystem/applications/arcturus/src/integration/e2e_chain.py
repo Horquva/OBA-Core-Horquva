@@ -191,18 +191,24 @@ def _step_workflows(ctx: SimulationContext) -> dict[str, Any]:
         PolicyViolationAction,
     )
 
+    import random
+    rng = random.Random(ctx.global_seed)
+    w_id = f"WF-GOV-{rng.randint(100, 999)}"
+    a_id = f"ACT-{rng.randint(1000, 9999)}"
+    ag_id = f"AGENT-{rng.randint(100, 999)}"
+
     workflow = WorkflowDefinitionContract(
         context=ctx,
-        workflow_id="WF-GOV-001",
+        workflow_id=w_id,
         name="Governance Review Workflow",
         description="A review workflow",
         activities=[
             ActivityStateContract(
                 context=ctx,
-                activity_id="ACT-0001",
+                activity_id=a_id,
                 name="Contract Review",
                 status=ActivityStatus.PENDING,
-                assigned_agent_id="AGENT-001",
+                assigned_agent_id=ag_id,
             ),
         ],
         organizational_context_ref="REF",
@@ -225,13 +231,18 @@ def _step_scenarios(ctx: SimulationContext) -> dict[str, Any]:
         ScenarioDSLPayload,
     )
 
+    import random
+    rng = random.Random(ctx.global_seed)
+    sc_id = f"SCN-GV-{rng.randint(100, 999)}"
+    ag_id = f"AGENT-{rng.randint(100, 999)}"
+
     engine = ScenarioEngine()
     scenario = ScenarioDSLPayload(
         context=ctx,
-        scenario_id="SCN-GV-101",
+        scenario_id=sc_id,
         description="A scenario",
         trigger_event="system_startup",
-        participants=["AGENT-001"],
+        participants=[ag_id],
         organizational_scope=["DEPT-001"],
         variables={"headcount": 25, "budget_usd": 500000},
         preconditions=["min_agents >= 3", "max_cycle_time_days <= 30"],
