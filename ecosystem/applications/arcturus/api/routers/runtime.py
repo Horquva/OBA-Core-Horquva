@@ -63,9 +63,11 @@ async def start_simulation(
         if isinstance(config_dict, str):
             config_dict = json.loads(config_dict)
             
-        raw_scenario_id = config_dict.get("scenario_id", "SCN-BL-001")
-        if not raw_scenario_id.startswith("SCN-"):
-            raw_scenario_id = "SCN-BL-001"
+        raw_scenario_id = config_dict.get("scenario_id")
+        if not raw_scenario_id or not raw_scenario_id.startswith("SCN-"):
+            import random
+            rng = random.Random(payload.global_seed)
+            raw_scenario_id = f"SCN-RT-{rng.randint(100, 999)}"
 
         config = ExperimentConfig(
             scenario_id=raw_scenario_id,

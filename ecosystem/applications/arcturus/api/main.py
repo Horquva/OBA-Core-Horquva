@@ -75,6 +75,8 @@ try:
     app.include_router(scenarios_router)
 except ImportError:
     pass  # Maryam's scenarios router
+
+try:
     from ecosystem.applications.arcturus.api.routers.synthetic_data import router as synthetic_data_router
     app.include_router(synthetic_data_router)
 except ImportError:

@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+*/node_modules/
+**/node_modules/
+
+# Next.js & Frontend Builds
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Python virtual environments & cache
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Databases & local checkpoints
+*.sqlite
+*.sqlite3
+*.db
+.checkpoints/
+**/checkpoints/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

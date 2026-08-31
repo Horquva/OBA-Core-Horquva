@@ -10,6 +10,7 @@ export default function Sidebar() {
         <li><Link href="/workforce" className="hover:text-blue-400">Workforce</Link></li>
         <li><Link href="/workflows" className="hover:text-blue-400">Workflows</Link></li>
         <li><Link href="/runtime" className="hover:text-blue-400">Runtime</Link></li>
+        <li><Link href="/evidence" className="hover:text-blue-400">Evidence</Link></li>
         <li><Link href="/validation" className="hover:text-blue-400">Validation</Link></li>
         <li><Link href="/intelligence" className="hover:text-blue-400">Intelligence</Link></li>
       </ul>
