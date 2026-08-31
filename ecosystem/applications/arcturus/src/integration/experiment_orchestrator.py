@@ -131,18 +131,24 @@ class ExperimentOrchestrator:
         from ecosystem.applications.arcturus.schemas.execution.workflows.base_schemas import (
             ActivityStatus,
         )
+        import random
+        rng = random.Random(context.global_seed)
+        w_id = f"WF-GOV-{rng.randint(100, 999)}"
+        a_id = f"ACT-{rng.randint(1000, 9999)}"
+        ag_id = f"AGENT-{rng.randint(100, 999)}"
+
         workflow = WorkflowDefinitionContract(
             context=context,
-            workflow_id="WF-GOV-001",
+            workflow_id=w_id,
             name="Governance Review Workflow",
             description="A review workflow",
             activities=[
                 ActivityStateContract(
                     context=context,
-                    activity_id="ACT-0001",
+                    activity_id=a_id,
                     name="Contract Review",
                     status=ActivityStatus.PENDING,
-                    assigned_agent_id="AGENT-001",
+                    assigned_agent_id=ag_id,
                 ),
             ],
             organizational_context_ref="REF",
@@ -158,13 +164,18 @@ class ExperimentOrchestrator:
         from ecosystem.applications.arcturus.contracts.control.scenarios.base_models import (
             ScenarioDSLPayload,
         )
+        import random
+        rng = random.Random(context.global_seed)
+        sc_id = f"SCN-GV-{rng.randint(100, 999)}"
+        ag_id = f"AGENT-{rng.randint(100, 999)}"
+
         engine = ScenarioEngine()
         scenario_payload = ScenarioDSLPayload(
             context=context,
-            scenario_id="SCN-GV-101",
+            scenario_id=sc_id,
             description="A scenario",
             trigger_event="system_startup",
-            participants=["AGENT-001"],
+            participants=[ag_id],
             organizational_scope=["DEPT-001"],
             variables={"headcount": 25, "budget_usd": 500000},
             preconditions=["min_agents >= 3", "max_cycle_time_days <= 30"],
