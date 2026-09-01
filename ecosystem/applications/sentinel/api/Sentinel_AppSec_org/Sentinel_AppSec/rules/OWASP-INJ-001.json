@@ -1,0 +1,25 @@
+{
+    "rule_id": "OWASP-INJ-001",
+    "category": "A03:2021-Injection",
+    "severity": "CRITICAL",
+    "description": "Detects common SQL Injection payloads targeting database termination and UNION-based data exfiltration.",
+    "detection_regex": "(?:DROP\\s+TABLE|SELECT\\s+.*FROM|UNION\\s+ALL|--)",
+    "version": "1.0.0",
+    "owner": "AppSec Team",
+    "status": "DEPLOYED",
+    "expected_behavior": "Block request immediately and return 403 Forbidden.",
+    "false_positive_considerations": "May trigger on text fields discussing SQL queries (e.g., a support ticket). If required, isolate this rule to non-prose inputs.",
+    "evidence_requirements": "Log the exact key path and the matching substring.",
+    "test_fixtures": [
+        {
+            "payload": "prod'; DROP TABLE users; --",
+            "should_flag": true,
+            "description": "Classic boolean-based blind / termination injection"
+        },
+        {
+            "payload": "Valid user input with no special characters",
+            "should_flag": false,
+            "description": "Benign baseline input"
+        }
+    ]
+}
