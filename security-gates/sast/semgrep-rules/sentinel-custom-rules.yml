@@ -1,47 +1,128 @@
 # Sentinel Custom SAST Rules
-# These supplement the community rulesets in config/semgrep.yml with
-# organization-specific patterns.
+#
+# These rules supplement the community rulesets in config/semgrep.yml
+# with organization-specific security patterns.
 
 rules:
-  - id: sentinel-no-hardcoded-secret-service-url
-    languages: [javascript, typescript, python]
+
+  # ============================================================
+  # HARDCODED SECRETS
+  # ============================================================
+
+  - id: sentinel-no-hardcoded-secret-service-token
+    languages:
+      - javascript
+      - typescript
+      - python
     severity: ERROR
     message: >
-      Direct hardcoded credentials/URLs for Sentinel's Secrets Service are not allowed.
-      Retrieve secrets at runtime via the approved Secrets Service SDK instead.
+      Direct hardcoded credentials or access tokens are not allowed.
+      Retrieve secrets at runtime via the approved Secrets Service SDK
+      or secure environment/configuration management.
     patterns:
       - pattern-either:
           - pattern: $VAR = "sk_live_..."
+          - pattern: $VAR = 'sk_live_...'
           - pattern: $VAR = "AKIA..."
+          - pattern: $VAR = 'AKIA...'
     metadata:
       category: security
       constitutional-principle: "Secure by Default"
 
-  - id: sentinel-no-disabled-tls-verification
-    languages: [javascript, typescript, python]
+
+  # ============================================================
+  # DISABLED TLS VERIFICATION — JAVASCRIPT / TYPESCRIPT
+  # ============================================================
+
+  - id: sentinel-no-disabled-tls-verification-js
+    languages:
+      - javascript
+      - typescript
     severity: ERROR
     message: >
-      Disabling TLS/certificate verification violates Sentinel's Zero Trust
-      Engineering principle. All service-to-service calls must be authenticated
-      and encrypted.
+      Disabling TLS/certificate verification violates Sentinel's
+      Zero Trust Engineering principle. All service-to-service calls
+      must be authenticated and encrypted.
     patterns:
       - pattern-either:
+
+          # Example:
+          # options.rejectUnauthorized = false;
+          - pattern: $OBJ.rejectUnauthorized = false
+
+          # Example:
+          # {
+          #   hostname: "...",
+          #   rejectUnauthorized: false
+          # }
           - pattern: |
-              (...).rejectUnauthorized = false
-          - pattern: |
-              (...).verify = False
+              {
+                ...,
+                rejectUnauthorized: false,
+                ...
+              }
+
     metadata:
       category: security
+      technology:
+        - javascript
+        - typescript
       constitutional-principle: "Zero Trust Engineering"
 
+
+  # ============================================================
+  # DISABLED TLS VERIFICATION — PYTHON
+  # ============================================================
+
+  - id: sentinel-no-disabled-tls-verification-python
+    languages:
+      - python
+    severity: ERROR
+    message: >
+      Disabling TLS/certificate verification violates Sentinel's
+      Zero Trust Engineering principle. All service-to-service calls
+      must be authenticated and encrypted.
+    patterns:
+      - pattern-either:
+
+          # Example:
+          # requests.get(url, verify=False)
+          - pattern: $FUNC(..., verify=False, ...)
+
+          # Example:
+          # options.verify = False
+          - pattern: $OBJ.verify = False
+
+          # Example:
+          # {"verify": False}
+          - pattern: |
+              {
+                ...,
+                "verify": False,
+                ...
+              }
+
+    metadata:
+      category: security
+      technology:
+        - python
+      constitutional-principle: "Zero Trust Engineering"
+
+
+  # ============================================================
+  # WILDCARD CORS
+  # ============================================================
+
   - id: sentinel-no-wildcard-cors
-    languages: [javascript, typescript]
+    languages:
+      - javascript
+      - typescript
     severity: WARNING
     message: >
       Wildcard CORS origin ("*") should not be used on services handling
       authenticated or sensitive data. Specify explicit allowed origins.
     patterns:
-      - pattern: 'cors({ origin: "*" })'
+      - pattern: cors({ origin: "*" })
     metadata:
       category: security
       constitutional-principle: "Least Privilege"
