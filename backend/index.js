@@ -5,6 +5,7 @@ const express = require('express')
 const cors = require('cors')
 // Load backend/.env no matter where the process is started from.
 require('dotenv').config({ path: path.join(__dirname, '.env') })
+const agentConfig = require('./agent/config')
 
 console.log("2. Packages loaded")
 
@@ -55,6 +56,28 @@ console.log("3. Middlewares added")
 app.use(requestLogger)
 
 const { requireAuth } = require('./middleware/auth')
+function reportAgentBootState() {
+  if (!agentConfig.enabled) {
+    console.log('Organizational Agent: disabled by AGENT_ENABLED=false')
+    return
+  }
+
+  const readinessError = agentConfig.readinessError()
+
+  if (readinessError) {
+    console.error('='.repeat(78))
+    console.error('Organizational Agent: PROVIDER NOT READY')
+    console.error(readinessError)
+    console.error('Agent routes will remain unmounted.')
+    console.error('The rest of the API will continue normally.')
+    console.error('='.repeat(78))
+    return
+  }
+
+  console.log('Organizational Agent: provider configuration ready')
+}
+
+reportAgentBootState()
 
 // Auth endpoints stay reachable without a token — register and login have to
 // be. Everything else in that router gates itself per-route (GET /me, POST
@@ -151,3 +174,5 @@ orgGuardCheck.then((result) => {
     console.log("Server running on port", PORT)
   })
 })
+
+
