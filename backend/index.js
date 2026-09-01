@@ -121,6 +121,12 @@ app.use('/api/avatar', require('./routes/avatar'))
 app.use('/api/self-healing', require('./routes/selfHealing'))
 app.use('/api/automation', require('./routes/automation'))
 
+// ─── Arcturus Simulation Platform: Validation, Intelligence, & Provenance ───
+app.use('/api/arcturus/validation', require('./routes/arcturus/validation'))
+app.use('/api/arcturus/intelligence', require('./routes/arcturus/intelligence'))
+app.use('/api/arcturus/provenance', require('./routes/arcturus/provenance'))
+app.use('/api/arcturus/synthetic-data', require('./routes/arcturus/synthetic-data'))
+
 // ─── Organizational Brain: the M01–M55 analyses over the Knowledge Graph ───
 // The brain is a library, not a service — nothing is mounted. Routes call
 // brain.run(code) directly (see routes/intelligence/prediction.js). The graph
