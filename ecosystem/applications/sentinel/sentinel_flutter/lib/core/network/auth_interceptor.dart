@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import '../storage/session_storage.dart';
-import '../config/app_config.dart';
+import 'package:sentinel_flutter/core/storage/session_storage.dart';
+import 'package:sentinel_flutter/core/config/app_config.dart';
 
 class AuthInterceptor extends Interceptor {
   final SessionStorage _sessionStorage;
