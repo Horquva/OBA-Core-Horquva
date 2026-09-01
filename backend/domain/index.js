@@ -96,6 +96,7 @@ module.exports = {
     /** The raw computations, for callers supplying their own root bundle. */
     compute: {
       loadRoots: () => derived.loadRoots(requireSupabase()),
+      allFromRoots: derived.computeAllFromRoots,
       accountability: derived.accountability,
       collaboration: derived.collaboration,
       predictiveRisk: derived.predictiveRisk,
