@@ -103,3 +103,18 @@ CREATE TABLE IF NOT EXISTS synthetic_rejected_artifacts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_synthetic_rejected_run ON synthetic_rejected_artifacts(run_id);
+
+-- 9. Intelligence Insights table (Mid-simulation and post-simulation Gemini insights)
+CREATE TABLE IF NOT EXISTS intelligence_insights (
+    insight_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES simulation_runs(run_id) ON DELETE CASCADE,
+    tick INTEGER NOT NULL,
+    insight_type TEXT NOT NULL, -- 'optimization', 'risk', 'anomaly', 'strategic'
+    content TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 0.9,
+    recommendations JSON NOT NULL DEFAULT '[]',
+    risk_factors JSON NOT NULL DEFAULT '[]',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_intelligence_insights_run ON intelligence_insights(run_id);

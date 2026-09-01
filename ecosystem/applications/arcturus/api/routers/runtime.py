@@ -22,6 +22,7 @@ from ecosystem.applications.arcturus.contracts.shared.base_models import (
 from ecosystem.applications.arcturus.contracts.simulation.base_models import ExecutionStatus, ScenarioDSLPayload
 from ecosystem.applications.arcturus.src.simulation.runtime_engine import RuntimeEngine
 from ecosystem.applications.arcturus.src.simulation.runtime_adapters import build_simulation_context
+from ecosystem.applications.arcturus.src.simulation.intelligence_loop import IntelligenceLoop
 
 router = APIRouter(prefix="/api/v1/runtime", tags=["Runtime"])
 settings = Settings()
@@ -63,11 +64,13 @@ async def start_simulation(
         if isinstance(config_dict, str):
             config_dict = json.loads(config_dict)
             
+        import re
         raw_scenario_id = config_dict.get("scenario_id")
-        if not raw_scenario_id or not raw_scenario_id.startswith("SCN-"):
+        if not raw_scenario_id or not re.match(r"^SCN-[A-Z]{2}-\d{3}$", str(raw_scenario_id)):
             import random
             rng = random.Random(payload.global_seed)
             raw_scenario_id = f"SCN-RT-{rng.randint(100, 999)}"
+
 
         config = ExperimentConfig(
             scenario_id=raw_scenario_id,
@@ -146,6 +149,28 @@ async def get_simulation_status(experiment_id: str):
     return {"experiment_id": experiment_id, "status": engine.status.value}
 
 
+@router.get("/active")
+async def get_active_simulation():
+    """Returns the first currently running simulation, if any."""
+    if not _active_engines:
+        return None
+    
+    # Just return the first one for dashboard display
+    exp_id, engine = next(iter(_active_engines.items()))
+    
+    # Try to get world state if available
+    world_state = None
+    if hasattr(engine, '_world_state') and engine._world_state:
+        world_state = engine._world_state.model_dump()
+        
+    return {
+        "experiment_id": exp_id,
+        "status": engine.status.value,
+        "current_tick": getattr(engine, '_clock_step', 0),
+        "world_state": world_state
+    }
+
+
 async def _run_simulation_loop(
     experiment_id: str,
     run_id: str,
@@ -170,9 +195,26 @@ async def _run_simulation_loop(
         if pipeline_results.get("status") == "FAILED":
             raise ArcturusValidationError(pipeline_results.get("error", "Pipeline initialization failed"), "Orchestrator")
 
+        # Persist generated synthetic artifacts and validation results to SQLite for this run
+        try:
+            from ecosystem.applications.arcturus.api.models.evidence import (
+                save_synthetic_artifact,
+                save_validation_result,
+            )
+            artifacts = pipeline_results.get("synthetic_data", {}).get("artifacts", [])
+            for artifact in artifacts:
+                save_synthetic_artifact(settings.db_path, run_id, artifact)
+                
+            val_result = pipeline_results.get("validation", {}).get("validation")
+            if val_result:
+                save_validation_result(settings.db_path, val_result, run_id=run_id)
+        except Exception:
+            pass
+
         # Phase 2: Simulation Execution Loop
         await bus.publish(experiment_id, "STAGE_CHANGE", {"stage": "RUNNING", "run_id": run_id})
         
+        intelligence_loop = IntelligenceLoop(run_id=run_id, interval_ticks=5)
         tick = 0
         while tick < payload.duration_ticks:
             while engine.status == ExecutionStatus.PAUSED:
@@ -187,8 +229,19 @@ async def _run_simulation_loop(
             await bus.publish(experiment_id, "TICK", {
                 "tick": tick,
                 "run_id": run_id,
-                "state_summary": {k: v for k, v in state.items() if k != "artifacts"},
+                "state_summary": state.get("world_state", {})
             })
+
+            # Phase 3: Mid-Simulation Gemini Intelligence Reasoning
+            if engine._world_state is not None:
+                insight = await asyncio.to_thread(intelligence_loop.process_tick, engine._world_state)
+                if insight:
+                    await bus.publish(experiment_id, "INTELLIGENCE_INSIGHT", {
+                        "run_id": run_id,
+                        "experiment_id": experiment_id,
+                        "tick": tick,
+                        "insight": insight,
+                    })
 
             await asyncio.sleep(payload.tick_delay_seconds)
 
@@ -214,3 +267,40 @@ async def _run_simulation_loop(
             db.commit()
 
         _active_engines.pop(experiment_id, None)
+
+
+class MonteCarloRequest(BaseModel):
+    n_runs: int = 5
+    duration_ticks: int = 30
+    base_seed: int = 42
+
+
+@router.post("/experiments/{experiment_id}/monte-carlo")
+async def run_monte_carlo_batch(
+    experiment_id: str,
+    payload: MonteCarloRequest,
+):
+    """
+    Executes a parallel Monte Carlo batch of N simulation runs across different random seeds.
+    Returns statistical confidence intervals and variance distributions.
+    """
+    from ecosystem.applications.arcturus.src.simulation.batch_runner import MonteCarloBatchRunner
+    
+    with get_db_connection(settings.db_path) as db:
+        exp = db.execute("SELECT id FROM experiments WHERE id = ?", (experiment_id,)).fetchone()
+        if not exp:
+            raise HTTPException(status_code=404, detail="Experiment not found")
+
+    checkpoint_root = settings.db_path.parent / "checkpoints"
+    runner = MonteCarloBatchRunner(checkpoint_root=checkpoint_root, max_workers=4)
+
+    # Run batch in threadpool
+    results = await asyncio.to_thread(
+        runner.run_batch,
+        experiment_id=experiment_id,
+        n_runs=payload.n_runs,
+        duration_ticks=payload.duration_ticks,
+        base_seed=payload.base_seed,
+    )
+
+    return results

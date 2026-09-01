@@ -22,6 +22,7 @@ def build_client(db_path, model) -> TestClient:
 
     def _get_db():
         conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
         try:
             yield conn
         finally:

@@ -51,3 +51,55 @@ export interface RuntimeMessage {
   payload: any;
   timestamp?: string;
 }
+
+export interface KpiMetric {
+  id: string;
+  label: string;
+  value: string;
+  trend: string;
+  trendDirection: 'up' | 'down' | 'neutral';
+  sparkline: number[];
+  status: 'success' | 'warning' | 'danger' | 'info';
+}
+
+export interface Signal {
+  id: string;
+  source: string;
+  severity: 'info' | 'warning' | 'danger' | 'critical';
+  message: string;
+  timestamp: string;
+}
+
+export interface Insight {
+  id: string;
+  type: string;
+  content: string;
+  confidence: number;
+  timestamp: string;
+}
+
+export interface SystemComponent {
+  id: string;
+  name: string;
+  status: string;
+  uptime: string;
+  latency_ms: number;
+}
+
+export interface SystemHealth {
+  overall_status: string;
+  components: SystemComponent[];
+  last_updated: string;
+}
+
+export interface PerformanceDataPoint {
+  timestamp: string;
+  throughput: number;
+  latency: number;
+  memory: number;
+}
+
+export interface ExperimentPerformance {
+  experiment_id: string;
+  points: PerformanceDataPoint[];
+}

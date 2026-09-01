@@ -34,9 +34,17 @@ export default function ExperimentCard({ experiment }: { experiment: ExperimentR
             <div suppressHydrationWarning><dt className="text-xs uppercase tracking-wide text-slate-400">Created</dt><dd>{formatDate(experiment.created_at)}</dd></div>
           </dl>
         </div>
-        <Link href={`/experiments/${experiment.id}`} className="shrink-0 text-sm font-semibold text-sky-700 hover:text-sky-900">
-          View details
-        </Link>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Link href={`/intelligence?experimentId=${experiment.id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold transition-colors">
+            🧠 AI Assessment
+          </Link>
+          <Link href={`/evidence?experimentId=${experiment.id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold transition-colors">
+            📋 Evidence
+          </Link>
+          <Link href={`/experiments/${experiment.id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 text-xs font-semibold transition-colors">
+            Details &rarr;
+          </Link>
+        </div>
       </div>
     </Card>
   );

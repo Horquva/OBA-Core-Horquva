@@ -17,7 +17,14 @@ def db_path(tmp_path):
     conn = sqlite3.connect(str(path))
     conn.executescript("""
         CREATE TABLE experiments (id TEXT PRIMARY KEY, seed INTEGER NOT NULL);
-        CREATE TABLE simulation_runs (run_id TEXT PRIMARY KEY, experiment_id TEXT NOT NULL, trace_id TEXT NOT NULL);
+        CREATE TABLE simulation_runs (
+            run_id TEXT PRIMARY KEY,
+            experiment_id TEXT NOT NULL,
+            trace_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'COMPLETED',
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ended_at TIMESTAMP
+        );
         CREATE TABLE validation_results (
             run_id TEXT PRIMARY KEY, passed_rules JSON, failed_rules JSON,
             flagged_rules JSON, final_status TEXT NOT NULL, reason TEXT
@@ -34,7 +41,7 @@ def db_path(tmp_path):
 def seed_run(db_path, run_id, experiment_id="EXP-001", seed=7, final_status="VALIDATED", artifacts=None):
     conn = sqlite3.connect(str(db_path))
     conn.execute("INSERT INTO experiments (id, seed) VALUES (?, ?)", (experiment_id, seed))
-    conn.execute("INSERT INTO simulation_runs (run_id, experiment_id, trace_id) VALUES (?, ?, ?)",
+    conn.execute("INSERT INTO simulation_runs (run_id, experiment_id, trace_id, status) VALUES (?, ?, ?, 'COMPLETED')",
                  (run_id, experiment_id, str(uuid4())))
     if final_status is not None:
         conn.execute(

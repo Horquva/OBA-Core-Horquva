@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import Sidebar from "./sidebar";
+import RightPanel from "@/components/layout/RightPanel";
+import TopBar from "@/components/layout/TopBar";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Arcturus",
+  title: "Arcturus Command Center",
   description: "Arcturus Simulation Platform",
 };
 
@@ -24,12 +26,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="flex h-full bg-gray-100 text-black">
+    <html lang="en" className={`${inter.variable} ${outfit.variable} h-full antialiased`}>
+      <body className="flex h-screen bg-gray-50 text-slate-900 overflow-hidden">
+        {/* Left Column: Global Sidebar */}
         <Sidebar />
-        <main className="flex-1 p-8 overflow-y-auto">
-          {children}
-        </main>
+        
+        {/* Middle Column: Main Content Area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[var(--background)]">
+          <TopBar />
+          <main className="flex-1 overflow-y-auto p-6">
+            {children}
+          </main>
+        </div>
+
+        {/* Right Column: Live Simulation & Intelligence Insights */}
+        <RightPanel />
       </body>
     </html>
   );

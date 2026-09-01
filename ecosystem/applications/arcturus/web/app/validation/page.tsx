@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { apiClient } from '../../lib/api-client';
 
@@ -12,7 +12,7 @@ interface ValidationResult {
   metrics?: Record<string, number>;
 }
 
-export default function ValidationPage() {
+function ValidationContent() {
   const searchParams = useSearchParams();
   const experimentId = searchParams.get('experimentId') || searchParams.get('id');
 
@@ -118,5 +118,13 @@ export default function ValidationPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ValidationPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading component...</div>}>
+      <ValidationContent />
+    </Suspense>
   );
 }

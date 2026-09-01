@@ -6,26 +6,26 @@ import ExperimentCard from '../../components/experiments/ExperimentCard';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ExperimentTimeline from '../../components/experiments/ExperimentTimeline';
 import type { ExperimentRecord } from '../../lib/types';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 export default function ExperimentsPage() {
   const { experiments, loading, error, refetch } = useExperiment();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wider text-sky-700">Arcturus</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-950">Experiments</h1>
-          <p className="mt-2 text-sm text-slate-600">Review experiments returned by the platform API.</p>
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)} 
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-        >
-          + New Experiment
-        </button>
-      </div>
+    <div className="space-y-8 pb-12">
+      <SectionHeader 
+        title="Experiments" 
+        description="Review experiments returned by the platform API."
+        action={
+          <button
+            onClick={() => setIsModalOpen(true)} 
+            className="bg-[var(--brand-primary)] text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition font-medium text-sm shadow-sm"
+          >
+            + New Experiment
+          </button>
+        }
+      />
 
       {loading && <LoadingSpinner label="Loading experiments" />}
       {error && <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">{error}</div>}

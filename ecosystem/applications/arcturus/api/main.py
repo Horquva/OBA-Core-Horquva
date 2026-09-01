@@ -35,9 +35,13 @@ app.add_middleware(
 # Core Day 3 Routers
 from ecosystem.applications.arcturus.api.routers.runtime import router as runtime_router
 from ecosystem.applications.arcturus.api.websocket.simulation_stream import router as ws_router
+from ecosystem.applications.arcturus.api.routers.dashboard import router as dashboard_router
+from ecosystem.applications.arcturus.api.routers.system import router as system_router
 
 app.include_router(runtime_router)
 app.include_router(ws_router)
+app.include_router(dashboard_router)
+app.include_router(system_router)
 
 # Upstream platform routers — mounted as they land
 try:
@@ -77,8 +81,12 @@ except ImportError:
     pass  # Maryam's scenarios router
 
 try:
-    from ecosystem.applications.arcturus.api.routers.synthetic_data import router as synthetic_data_router
+    from ecosystem.applications.arcturus.api.routers.synthetic_data import (
+        router as synthetic_data_router,
+        evidence_router,
+    )
     app.include_router(synthetic_data_router)
+    app.include_router(evidence_router)
 except ImportError:
     pass  # Ahmed's PR not yet merged
 
@@ -93,6 +101,13 @@ try:
     app.include_router(intelligence_router)
 except ImportError:
     pass  # Ahmed's PR not yet merged
+
+try:
+    from ecosystem.applications.arcturus.api.routers.exports import router as exports_router
+    app.include_router(exports_router)
+except ImportError:
+    pass
+
 
 @app.exception_handler(ArcturusValidationError)
 async def arcturus_error_handler(request: Request, exc: ArcturusValidationError):

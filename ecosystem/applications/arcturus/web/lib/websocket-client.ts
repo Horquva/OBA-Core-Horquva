@@ -24,14 +24,29 @@ export class WebSocketClient {
       }
     };
 
-    this.socket.onerror = (error) => console.error('WebSocket Error:', error);
-    this.socket.onclose = () => console.log('WebSocket Disconnected');
+    this.socket.onerror = (event) => {
+      console.warn(`WebSocket connection warning for ${this.url}`);
+    };
+    this.socket.onclose = (event) => {
+      console.log(`WebSocket Disconnected from ${this.url} (code: ${event.code})`);
+    };
   }
 
   disconnect() {
     if (this.socket) {
-      this.socket.close();
+      const sock = this.socket;
       this.socket = null;
+      // Remove listeners to avoid unmount noisy logs
+      sock.onclose = null;
+      sock.onerror = null;
+      sock.onmessage = null;
+      sock.onopen = null;
+
+      if (sock.readyState === WebSocket.OPEN) {
+        sock.close(1000, "Normal Closure");
+      } else if (sock.readyState === WebSocket.CONNECTING) {
+        sock.onopen = () => sock.close(1000, "Normal Closure");
+      }
     }
   }
 }

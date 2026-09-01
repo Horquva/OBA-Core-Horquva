@@ -11,12 +11,14 @@ export default function CreateExperimentModal({ isOpen, onClose, onCreated }: { 
     e.preventDefault();
     setLoading(true);
     try {
-      // Yahan hum ne seed: 42 add kiya hai backend requirement ke mutabiq
-      await experimentApi.createExperiment({ name, seed: 42, config: {} });
+      const newExp = await experimentApi.createExperiment({ name, seed: 42, config: { scenario_id: 'SCN-RT-101' } });
+      if (newExp?.id) {
+        await experimentApi.startSimulation(newExp.id);
+      }
       if (onCreated) onCreated(); 
       onClose(); 
     } catch (error) {
-      console.error("Failed to create experiment", error);
+      console.error("Failed to create and start experiment", error);
     } finally {
       setLoading(false);
     }

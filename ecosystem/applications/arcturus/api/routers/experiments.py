@@ -147,3 +147,31 @@ def delete_experiment(experiment_id: str, db: sqlite3.Connection = Depends(get_d
             message=f"Database error during deletion: {str(e)}",
             platform_source="Governance API"
         )
+
+class PerformanceDataPoint(BaseModel):
+    timestamp: str
+    throughput: float
+    latency: float
+    memory: float
+
+class ExperimentPerformance(BaseModel):
+    experiment_id: str
+    points: List[PerformanceDataPoint]
+
+@router.get("/{experiment_id}/performance", response_model=ExperimentPerformance)
+async def get_experiment_performance(experiment_id: str):
+    """Get performance metrics over time for a specific experiment"""
+    # Mock data for dashboard rendering
+    print(f"[SIMULATED METRICS / FALLBACK] Returning performance curve for experiment_id={experiment_id}", flush=True)
+    return {
+        "experiment_id": experiment_id,
+        "points": [
+            {"timestamp": "00:00", "throughput": 120, "latency": 45, "memory": 2.1},
+            {"timestamp": "01:00", "throughput": 150, "latency": 48, "memory": 2.2},
+            {"timestamp": "02:00", "throughput": 180, "latency": 52, "memory": 2.4},
+            {"timestamp": "03:00", "throughput": 160, "latency": 50, "memory": 2.3},
+            {"timestamp": "04:00", "throughput": 210, "latency": 60, "memory": 2.8},
+            {"timestamp": "05:00", "throughput": 190, "latency": 55, "memory": 2.6},
+            {"timestamp": "06:00", "throughput": 250, "latency": 65, "memory": 3.1},
+        ]
+    }

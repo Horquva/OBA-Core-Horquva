@@ -98,6 +98,24 @@ class VariantCreateRequest(BaseModel):
     parameter_overrides: dict[str, object] = Field(default_factory=dict)
 
 
+class CustomScenarioCreateRequest(BaseModel):
+    id: str = ""
+    name: str
+    domain: str = "Financial Services"
+    seed: int = 42
+    duration: int = 50
+    shock_type: str = "NONE"
+    shock_tick: int = 10
+    description: str = ""
+
+
+_custom_scenarios: list[dict] = [
+    {"id": "SCN-RT-992", "name": "High Market Volatility Stress Test", "domain": "Financial Services", "seed": 42, "duration": 100, "shock_type": "DEMAND_SPIKE", "shock_tick": 20},
+    {"id": "SCN-RT-401", "name": "Global Freight Port Congestion", "domain": "Supply Chain", "seed": 101, "duration": 250, "shock_type": "SUPPLIER_FAILURE", "shock_tick": 30},
+    {"id": "SCN-RT-884", "name": "Cyber Incident Infrastructure Failover", "domain": "IT Operations", "seed": 777, "duration": 50, "shock_type": "SYSTEM_OUTAGE", "shock_tick": 10},
+]
+
+
 # ---------------------------------------------------------------------------
 # Compile
 # ---------------------------------------------------------------------------
@@ -127,7 +145,33 @@ async def list_scenarios():
     return scenario_controller.list_scenario_ids()
 
 
+@router.get("/list/detailed")
+async def list_detailed_scenarios():
+    """Returns rich scenario definitions with parameters and domain tags."""
+    return _custom_scenarios
+
+
+@router.post("/custom")
+async def create_custom_scenario(req: CustomScenarioCreateRequest):
+    """Create and register a custom digital twin scenario."""
+    import random
+    scn_id = req.id if (req.id and req.id.startswith("SCN-")) else f"SCN-CS-{random.randint(100, 999)}"
+    entry = {
+        "id": scn_id,
+        "name": req.name,
+        "domain": req.domain,
+        "seed": req.seed,
+        "duration": req.duration,
+        "shock_type": req.shock_type,
+        "shock_tick": req.shock_tick,
+        "description": req.description,
+    }
+    _custom_scenarios.insert(0, entry)
+    return entry
+
+
 @router.get("/{scenario_id}")
+
 async def get_scenario(scenario_id: str):
     """Return the latest registered (compiled + serialized) version of a scenario."""
     return scenario_controller.get_serialized(scenario_id)
