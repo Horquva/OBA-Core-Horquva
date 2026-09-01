@@ -1,0 +1,25 @@
+{
+    "rule_id": "OWASP-CMD-001",
+    "category": "A03:2021-Injection",
+    "severity": "CRITICAL",
+    "description": "Detects command injection chaining operators and shell binary calls.",
+    "detection_regex": "(?:&&|\\|\\||;\\s*|\\/bin\\/bash)",
+    "version": "1.0.0",
+    "owner": "AppSec Team",
+    "status": "DEPLOYED",
+    "expected_behavior": "Block request immediately and return 403 Forbidden.",
+    "false_positive_considerations": "May trigger on text containing shell scripting syntax or logical operators.",
+    "evidence_requirements": "Log command chaining sequence or binary invocation.",
+    "test_fixtures": [
+        {
+            "payload": "&& /bin/bash -c 'ls'",
+            "should_flag": true,
+            "description": "Command chaining injection"
+        },
+        {
+            "payload": "user_id_123 & metadata",
+            "should_flag": false,
+            "description": "Benign single ampersand string"
+        }
+    ]
+}
