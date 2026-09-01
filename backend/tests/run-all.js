@@ -20,6 +20,8 @@ const tests = [
 	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
 	'simulations.unit.test.js', // pure; asserts cascade/severity/health-delta (W-I)
 	'tools.unit.test.js', // pure; asserts tool-risk composite score/tier (W-K D-58)
+	'agentRegistry.unit.test.js',
+	'agentConstitution.unit.test.js',
 	'definitions.unit.test.js', // pure; asserts the canonical criticality/SPOF definitions
 	'routeEvidence.unit.test.js', // pure; asserts evidence gating in routes outside derived.js
 	'authRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline
