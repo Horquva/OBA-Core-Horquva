@@ -6,6 +6,8 @@ export function useSimulationStream(experimentId?: string | null) {
   const [events, setEvents] = useState<RuntimeMessage[]>([]);
   const [currentTick, setCurrentTick] = useState<number>(0);
   const [status, setStatus] = useState<string>('DISCONNECTED');
+  const [worldState, setWorldState] = useState<any>(null);
+  const [liveInsights, setLiveInsights] = useState<any[]>([]);
   const wsClient = useRef<WebSocketClient | null>(null);
 
   useEffect(() => {
@@ -20,6 +22,14 @@ export function useSimulationStream(experimentId?: string | null) {
     wsClient.current.connect((data: any) => {
       if (data.type === 'TICK') {
         setCurrentTick(data.payload?.tick ?? 0);
+        if (data.payload?.state_summary) {
+          setWorldState(data.payload.state_summary);
+        }
+      } else if (data.type === 'INTELLIGENCE_INSIGHT') {
+        const insight = data.payload?.insight || data.insight;
+        if (insight) {
+          setLiveInsights((prev) => [insight, ...prev.slice(0, 9)]);
+        }
       } else if (data.type === 'EVENT' || data.type === 'STAGE_CHANGE') {
         setEvents((prev) => [...prev.slice(-99), data]);
       } else if (data.type === 'STATUS_UPDATE') {
@@ -36,5 +46,5 @@ export function useSimulationStream(experimentId?: string | null) {
     };
   }, [experimentId]);
 
-  return { events, currentTick, status };
+  return { events, currentTick, status, worldState, liveInsights };
 }

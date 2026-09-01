@@ -1,23 +1,65 @@
-import Card from '../../components/ui/Card';
+"use client";
+
+import SectionHeader from "../../components/ui/SectionHeader";
+import StatusDot from "../../components/ui/StatusDot";
+import { GitMerge, Play, CheckCircle2, Clock } from "lucide-react";
+import { useSimulationStream } from "../../hooks/useSimulationStream";
+import { dashboardApi } from "../../lib/api-client";
+import { useState, useEffect } from "react";
 
 export default function WorkflowsPage() {
-  return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-wider text-sky-700">Arcturus</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-950">Workflows</h1>
-        <p className="mt-2 text-sm text-slate-600">Task DAG Dependencies, Execution Chains & Policies.</p>
-      </div>
+  const [activeExpId, setActiveExpId] = useState<string | null>(null);
 
-      <Card className="p-6">
-        <h2 className="font-semibold text-slate-900">Task Execution Graph</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Dependency-enforced DAG task chains, state transitions, and compliance policy constraints.
-        </p>
-        <div className="mt-4 rounded-lg bg-slate-50 p-4 border border-slate-200">
-          <p className="text-xs font-mono text-slate-700">Workflow Engine: Operational (DAG State Machine Bound)</p>
-        </div>
-      </Card>
+  useEffect(() => {
+    dashboardApi.getActiveSimulation().then(data => {
+      if (data?.experiment_id) {
+        setActiveExpId(data.experiment_id);
+      }
+    });
+  }, []);
+
+  const { worldState } = useSimulationStream(activeExpId);
+  const liveTasks = worldState?.task_queue ? Object.values(worldState.task_queue) : null;
+  
+  const displayTasks = liveTasks || [
+    { task_id: "wf-101", name: "Enterprise Order Fulfillment", complexity: 0.8, status: "completed", required_role: "Supply Chain Team" },
+    { task_id: "wf-102", name: "Financial Settlement & Reconciliation", complexity: 1.2, status: "in_progress", required_role: "Finance Twin Subsystem" },
+    { task_id: "wf-103", name: "Disaster Recovery Failover Simulation", complexity: 0.5, status: "completed", required_role: "DevOps Operations" },
+  ];
+
+  return (
+    <div className="space-y-8 pb-12">
+      <SectionHeader
+        title="Workflow Orchestration"
+        description="View and execute business process Directed Acyclic Graphs (DAGs) across simulation engines."
+        action={
+          <button className="bg-[var(--brand-primary)] text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition font-medium text-sm shadow-sm flex items-center gap-2">
+            <GitMerge className="w-4 h-4" /> Create Workflow DAG
+          </button>
+        }
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {displayTasks.map((wf: any) => (
+          <div key={wf.task_id} className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{wf.task_id}</span>
+                <h3 className="text-base font-bold text-slate-800 mt-1 truncate max-w-[200px]" title={wf.name}>{wf.name}</h3>
+              </div>
+              <StatusDot status={wf.status === "in_progress" ? "info" : wf.status === "completed" ? "success" : "neutral"} animate={wf.status === "in_progress"} />
+            </div>
+            <div className="text-xs text-slate-500 flex justify-between pt-2 border-t border-slate-100">
+              <span>Required Role: <b>{wf.required_role}</b></span>
+              <span>Complexity: <b>{wf.complexity}</b></span>
+            </div>
+            <div className="text-xs text-slate-500 flex justify-between">
+              <span>Progress: <b>{Math.round((wf.progress || 0) * 100)}%</b></span>
+              <span>Status: <b className="uppercase">{wf.status}</b></span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

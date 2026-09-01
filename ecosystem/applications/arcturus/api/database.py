@@ -14,9 +14,10 @@ def init_database(db_path: Path) -> None:
 
 @contextmanager
 def get_db_connection(db_path: Path):
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
     try:
         yield conn
     finally:
         conn.close()
+

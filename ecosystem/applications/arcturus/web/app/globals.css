@@ -1,26 +1,82 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc; /* slate-50 */
+  --foreground: #0f172a; /* slate-900 */
+  
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0; /* slate-200 */
+  
+  /* Brand colors */
+  --brand-primary: #4f46e5; /* indigo-600 */
+  --brand-secondary: #7c3aed; /* violet-600 */
+  --brand-muted: #e0e7ff; /* indigo-100 */
+
+  /* Status colors */
+  --status-success: #10b981; /* emerald-500 */
+  --status-success-bg: #d1fae5; /* emerald-100 */
+  
+  --status-warning: #f59e0b; /* amber-500 */
+  --status-warning-bg: #fef3c7; /* amber-100 */
+  
+  --status-danger: #ef4444; /* red-500 */
+  --status-danger-bg: #fee2e2; /* red-100 */
+  
+  --status-info: #3b82f6; /* blue-500 */
+  --status-info-bg: #dbeafe; /* blue-100 */
+
+  /* Sidebar */
+  --sidebar-bg: #1e1e2e;
+  --sidebar-text: #94a3b8; /* slate-400 */
+  --sidebar-text-active: #ffffff;
+  --sidebar-hover: #334155; /* slate-700 */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-outfit);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f172a; /* slate-900 */
+    --foreground: #f8fafc; /* slate-50 */
+    
+    --card-bg: #1e293b; /* slate-800 */
+    --card-border: #334155; /* slate-700 */
+    
+    --brand-primary: #6366f1; /* indigo-500 */
+    --brand-secondary: #8b5cf6; /* violet-500 */
+    --brand-muted: #312e81; /* indigo-900 */
+
+    --status-success-bg: #064e3b; /* emerald-900 */
+    --status-warning-bg: #78350f; /* amber-900 */
+    --status-danger-bg: #7f1d1d; /* red-900 */
+    --status-info-bg: #1e3a8a; /* blue-900 */
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .shadow-soft {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  }
+  
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--card-border);
+  }
 }

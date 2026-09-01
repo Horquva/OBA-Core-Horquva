@@ -208,7 +208,7 @@ class ExperimentOrchestrator:
             requested_artifact_types=["report", "document", "meeting"],
             requested_artifact_count=100,
         )
-        return {"corpus": evidence}
+        return {"result": result, "artifacts": result.artifacts, "corpus": evidence}
 
     def _step_validation(self, context: SimulationContext, data_corpus: dict) -> dict:
         self.stage = "VALIDATING"
@@ -218,7 +218,7 @@ class ExperimentOrchestrator:
             ValidationRun, EvidenceContract, ValidationRuleContract
         )
         from datetime import datetime, timezone
-        from uuid import uuid4
+        from uuid import UUID, uuid4
         engine = ValidationEngine()
         ev = EvidenceContract(
             context=context,
@@ -233,8 +233,9 @@ class ExperimentOrchestrator:
             description="Verify compliance",
             hard_fail=True
         )
+        run_uuid = context.run_id if isinstance(context.run_id, UUID) else UUID(str(context.run_id))
         run = ValidationRun(
-            run_id=uuid4(),
+            run_id=run_uuid,
             context=context,
             evidence=ev,
             rules_applied=[rule],

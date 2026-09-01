@@ -32,9 +32,10 @@ def save_synthetic_artifact(db_path: Path, run_id: str, artifact: SyntheticArtif
     finally:
         conn.close()
 
-def save_validation_result(db_path: Path, result: ValidationResultContract) -> None:
+def save_validation_result(db_path: Path, result: ValidationResultContract, run_id: str | None = None) -> None:
     conn = sqlite3.connect(str(db_path))
     try:
+        actual_run_id = str(run_id) if run_id else str(result.run_id)
         conn.execute(
             """
             INSERT INTO validation_results 
@@ -42,7 +43,7 @@ def save_validation_result(db_path: Path, result: ValidationResultContract) -> N
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                str(result.run_id),
+                actual_run_id,
                 json.dumps(result.passed_rules),
                 json.dumps(result.failed_rules),
                 json.dumps(result.flagged_rules),

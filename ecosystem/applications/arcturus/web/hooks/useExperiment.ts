@@ -14,6 +14,7 @@ export function useExperiment() {
         setExperiments(data);
       }
     } catch (err) {
+      console.warn('[FALLBACK / ERROR TRIGGERED] useExperiment: Failed to fetch experiments list from backend API. Setting error state.', err);
       setError('Failed to fetch experiments');
     } finally {
       setLoading(false);

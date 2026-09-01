@@ -61,8 +61,9 @@ def get_corpus(run_id: str, db: sqlite3.Connection = Depends(get_db)) -> Synthet
         rows = db.execute(
             "SELECT artifact_id, artifact_type, content, metadata, "
             "lifecycle_state, provenance, created_at "
-            "FROM synthetic_artifacts WHERE run_id = ?",
-            (run_id,),
+            "FROM synthetic_artifacts "
+            "WHERE run_id = ? OR run_id IN (SELECT run_id FROM simulation_runs WHERE experiment_id = ?)",
+            (run_id, run_id),
         ).fetchall()
     except sqlite3.Error as e:
         raise ArcturusValidationError(
@@ -77,6 +78,23 @@ def get_corpus(run_id: str, db: sqlite3.Connection = Depends(get_db)) -> Synthet
         run_id=run_id,
         accepted_artifacts=[_row_to_artifact(row) for row in rows],
     )
+
+
+evidence_router = APIRouter(prefix="/api/v1/evidence", tags=["Synthetic Evidence"])
+
+
+@evidence_router.get("/{experiment_id}", response_model=SyntheticDataCorpusPreview)
+def get_evidence(experiment_id: str, db: sqlite3.Connection = Depends(get_db)) -> SyntheticDataCorpusPreview:
+    """Convenience alias for /api/v1/evidence/:experiment_id used by frontend"""
+    try:
+        return get_corpus(run_id=experiment_id, db=db)
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return SyntheticDataCorpusPreview(
+                run_id=experiment_id,
+                accepted_artifacts=[],
+            )
+        raise
 
 
 def _row_to_artifact(row: sqlite3.Row) -> SyntheticArtifactContract:
