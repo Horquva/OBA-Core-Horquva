@@ -1,12 +1,3 @@
-# Part D & E — Security Gate Engineering, Policy Enforcement & Security Scanning
-# This is Sentinel's ONE централized security gate. Every repository calls this —
-# no repository re-implements its own scanning logic (One Source of Truth).
-#
-# Blocking behaviour:
-#   Critical / High  -> pipeline fails (job exits non-zero)
-#   Medium           -> pipeline fails unless a logged, unexpired waiver exists
-#   Low / Info       -> recorded only, does not block
-
 name: Reusable Security Gate
 
 on:
@@ -25,13 +16,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # FIX: semgrep-action has no "SEMGREP_RULES" env var — that was never
+      # a real input, so our custom rules were silently never loaded, and
+      # only community registry configs ran. Fixed by passing every config
+      # (registry + local custom rules) directly via the action's own
+      # "config" input, which accepts a comma-separated list.
       - name: Run Semgrep
         uses: semgrep/semgrep-action@v1
         with:
-          config: security-gates/sast/config/semgrep.yml
-        env:
-          SEMGREP_RULES: security-gates/sast/semgrep-rules/
-          # Fails the step (blocking) on findings at/above policy threshold defined in semgrep.yml
+          config: >-
+            p/security-audit,p/secrets,p/owasp-top-ten,p/nodejsscan,security-gates/sast/semgrep-rules/
 
       - name: Upload SAST results (evidence)
         if: always()
@@ -48,12 +42,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history — catches secrets in prior commits, not just HEAD
+          fetch-depth: 0
 
       # Using the gitleaks CLI directly (not gitleaks/gitleaks-action) —
       # the Action wrapper now requires a paid license for GitHub
       # organizations. The underlying gitleaks tool itself is free/open
-      # source (MIT licensed); running it directly avoids that requirement.
+      # source; running it directly avoids that requirement.
       - name: Install Gitleaks CLI
         run: |
           GITLEAKS_VERSION="8.18.4"
@@ -71,9 +65,11 @@ jobs:
             --report-format sarif \
             --report-path gitleaks-report.sarif \
             --redact
-        # Any detected secret is treated as compromised — this step blocks unconditionally
-        # (gitleaks exits non-zero on any finding), per Part G (Secret Management):
-        # detection = automatic rotation required, no waiver path.
+        # Any detected secret is treated as compromised — blocks unconditionally.
+        # The production config (.gitleaks.toml) excludes the known,
+        # deliberately-fake test fixture value used by negative-test.yml
+        # (via value-based allowlist, proven reliable) so it doesn't
+        # perpetually block real PRs while still genuinely detecting anything else.
 
       - name: Upload secret scan results (evidence)
         if: always()
@@ -91,13 +87,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ROLLOUT NOTE: continue-on-error is temporary. This repository has
-      # pre-existing dependencies with Critical/High findings (tracked in
-      # governance/exception-register-template.csv) that predate this gate's
-      # introduction. Blocking every future PR on legacy debt isn't useful —
-      # standard practice is to roll a new gate out in report-only mode,
-      # remediate the existing debt on its own timeline, THEN flip this gate
-      # back to blocking (remove continue-on-error) once the register is clear.
+      # ROLLOUT NOTE: continue-on-error is temporary and formally logged as
+      # PLATFORM-EXC-2026-001 in governance/PLATFORM-ROLLOUT-EXCEPTIONS.md.
+      # This repository has pre-existing Critical/High dependency findings
+      # that predate this gate's introduction. Standard rollout practice:
+      # report-only mode, remediate legacy debt, THEN flip to blocking.
+      # NOTE (Part 3, Task 7 — immutable references): this action publishes
+      # no version tags upstream — only @main is documented/supported by
+      # its maintainers. Pinning to a specific commit SHA would be more
+      # correct but requires periodic manual re-verification since no
+      # tagged releases exist to pin against. Flagged as a known,
+      # documented exception rather than silently left as a generic risk.
       - name: Run OWASP Dependency-Check
         id: depcheck
         continue-on-error: true
@@ -121,7 +121,7 @@ jobs:
       - name: Surface findings even though gate is in report-only mode
         if: steps.depcheck.outcome == 'failure'
         run: |
-          echo "::warning::Dependency scan found Critical/High findings — see dependency-check-report artifact. This gate is currently non-blocking (rollout mode); findings must still be logged in governance/exception-register-template.csv and remediated on the SLA defined in security-gates/dependency-scan/policies/severity-policy.json."
+          echo "::warning::Dependency scan found Critical/High findings — see dependency-check-report artifact. Gate is currently non-blocking (rollout mode); findings must be logged in governance/exception-register-template.csv and remediated on the SLA defined in security-gates/dependency-scan/policies/severity-policy.json."
 
   iac-scan:
     name: Infrastructure-as-Code Scan (Checkov)
@@ -131,13 +131,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Checkov
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@v12.1347.0
         with:
           directory: infra/
           config_file: infra/terraform/policies/checkov-config.yaml
           output_format: sarif
           output_file_path: checkov-results.sarif
-          soft_fail: false   # blocking — hard fail on policy violation
+          soft_fail: false
 
       - name: Upload IaC scan results (evidence)
         if: always()
@@ -161,7 +161,7 @@ jobs:
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No Dockerfile at repo root — this repository isn't containerized yet, skipping container scan."
+            echo "::notice::No Dockerfile at repo root — skipping container scan."
           fi
 
       - name: Build image for scanning
@@ -170,13 +170,13 @@ jobs:
 
       - name: Run Trivy
         if: steps.dockerfile-check.outputs.exists == 'true'
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "sentinel-scan-target:${{ github.sha }}"
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"
-          exit-code: "1"          # blocking
+          exit-code: "1"
           trivyignores: "container-security/image-scanning/trivy-config/.trivyignore"
 
       - name: Upload container scan results (evidence)
@@ -195,6 +195,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Evaluate combined gate result
+        id: decision
         run: |
           echo "SAST:              ${{ needs.sast.result }}"
           echo "Secret Detection:   ${{ needs.secret-detection.result }}"
@@ -202,10 +203,58 @@ jobs:
           echo "IaC Scan:           ${{ needs.iac-scan.result }}"
           echo "Container Scan:     ${{ needs.container-scan.result }}"
 
+          BLOCKED=false
           for r in "${{ needs.sast.result }}" "${{ needs.secret-detection.result }}" "${{ needs.dependency-scan.result }}" "${{ needs.iac-scan.result }}" "${{ needs.container-scan.result }}"; do
             if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
-              echo "::error::Security gate FAILED — one or more blocking checks did not pass."
-              exit 1
+              BLOCKED=true
             fi
           done
+          echo "blocked=$BLOCKED" >> "$GITHUB_OUTPUT"
+
+      # Part 2, Task 8 — capture a complete, reconstructable evidence record
+      # for every blocked run: repository, branch, commit, PR/workflow,
+      # per-control finding result, policy decision, gate decision,
+      # timestamp, and artifact reference. Written even when NOT blocked,
+      # so every run (not only failures) has a matching evidence record.
+      - name: Write gate decision evidence record
+        run: |
+          cat <<EOF > gate-decision-evidence.json
+          {
+            "event_id": "SNTL-EVT-${{ github.run_id }}-gate",
+            "event_type": "${{ steps.decision.outputs.blocked == 'true' && 'security_gate_blocked' || 'security_gate_passed' }}",
+            "repository": "${{ github.repository }}",
+            "branch": "${{ github.head_ref || github.ref_name }}",
+            "commit": "${{ github.sha }}",
+            "pull_request": "${{ github.event.pull_request.number || 'n/a' }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "control_results": {
+              "sast": "${{ needs.sast.result }}",
+              "secret_detection": "${{ needs.secret-detection.result }}",
+              "dependency_scan": "${{ needs.dependency-scan.result }}",
+              "iac_scan": "${{ needs.iac-scan.result }}",
+              "container_scan": "${{ needs.container-scan.result }}"
+            },
+            "policy_decision": "${{ steps.decision.outputs.blocked == 'true' && 'VIOLATION' || 'COMPLIANT' }}",
+            "decision": "${{ steps.decision.outputs.blocked == 'true' && 'BLOCK' || 'ALLOW' }}"
+          }
+          EOF
+          cat gate-decision-evidence.json
+
+      - name: Upload gate decision evidence (always, pass or block)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-decision-evidence-${{ github.run_id }}
+          path: gate-decision-evidence.json
+          retention-days: 365
+
+      - name: Enforce gate decision
+        run: |
+          if [ "${{ steps.decision.outputs.blocked }}" = "true" ]; then
+            echo "::error::Security gate FAILED — one or more blocking checks did not pass. See gate-decision-evidence artifact for the full record."
+            exit 1
+          fi
           echo "::notice::All security gates passed."

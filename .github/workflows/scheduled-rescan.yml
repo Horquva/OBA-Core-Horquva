@@ -1,14 +1,9 @@
-# Part K — Security Automation & Orchestration
-# Runs the full security gate on a schedule, independent of pull requests,
-# because a dependency or base image can become vulnerable AFTER merge when
-# a new CVE is disclosed (Day 2 §4.2 note: dependency scan triggers).
-
 name: Scheduled Security Rescan
 
 on:
   schedule:
-    - cron: "0 3 * * *"   # daily at 03:00 UTC
-  workflow_dispatch: {}    # allow manual on-demand trigger
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -19,6 +14,14 @@ jobs:
   full-rescan:
     name: Full Security Gate (scheduled)
     uses: ./.github/workflows/security-gate.yml
+    # FIX: reusable-workflow calls need explicit job-level permissions
+    # matching what the called workflow needs — top-level permissions
+    # above are NOT automatically passed through. Missing pull-requests:
+    # write here previously caused a full "Startup failure".
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
     secrets: inherit
 
   notify-on-failure:
@@ -30,7 +33,3 @@ jobs:
       - name: Post notification
         run: |
           echo "::warning::Scheduled rescan found new blocking issues — notify DevSecOps Platform Owner."
-          # Replace with real webhook, e.g.:
-          # curl -X POST -H 'Content-Type: application/json' \
-          #   -d '{"text":"Scheduled Sentinel rescan failed — see workflow run for details."}' \
-          #   "${{ secrets.SECURITY_ALERTS_WEBHOOK_URL }}"

@@ -1,17 +1,3 @@
-# Part R — Security Validation, Negative Testing & Resilience Engineering
-#
-# This is the operational evidence the review asked for: every job here
-# deliberately introduces a real, known-bad input (fake secret, vulnerable
-# dependency, vulnerable container, misconfigured IaC, unsigned artifact)
-# against the SAFE fixtures in testing/negative-test-fixtures/ — never
-# against real source — and asserts that the corresponding gate actually
-# detects and blocks it. A green run of this workflow IS the "positive +
-# controlled negative case" evidence required per Part R.
-#
-# Run manually (Actions tab -> this workflow -> Run workflow) whenever
-# operational evidence needs to be (re)generated. Never runs on push/PR —
-# it is a proof exercise, not a normal gate.
-
 name: Negative Security Testing (Resilience Check)
 
 on:
@@ -19,13 +5,10 @@ on:
 
 permissions:
   contents: read
-  packages: write   # required to push the throwaway test images used below
-  id-token: write   # required for keyless Cosign signing
+  packages: write
+  id-token: write
 
 jobs:
-  # ---------------------------------------------------------------------
-  # 1. Secret detection: fake AWS-format credential must be caught.
-  # ---------------------------------------------------------------------
   verify-secret-detection-blocks:
     name: "Evidence: Secret detection blocks a known-fake secret"
     runs-on: ubuntu-latest
@@ -46,24 +29,21 @@ jobs:
           gitleaks detect \
             --source testing/negative-test-fixtures/ \
             --no-git \
-            --config security-gates/secret-detection/gitleaks-rules/.gitleaks.toml \
+            --config security-gates/secret-detection/gitleaks-rules/.gitleaks-negative-test.toml \
             --report-format json \
             --report-path gitleaks-negative-test-result.json \
             --redact
-        # --no-git: scans files on disk directly rather than git commit
-        # history, since this subdirectory is not itself a git repo root.
-
-      - name: Show what gitleaks found (debug visibility)
-        if: always()
-        run: cat gitleaks-negative-test-result.json 2>/dev/null || echo "(no report file produced)"
+        # Uses the TEST-ONLY config (no exclusion of this fixture) — the
+        # production config (.gitleaks.toml) excludes it so real PRs
+        # aren't blocked by our own known fixture.
 
       - name: Assert detection occurred (this IS the evidence)
         run: |
           if [ "${{ steps.gitleaks.outcome }}" != "failure" ]; then
-            echo "::error::RESILIENCE FAILURE — secret detection did NOT flag the known fixture. Gate is not working."
+            echo "::error::RESILIENCE FAILURE — secret detection did NOT flag the known fixture."
             exit 1
           fi
-          echo "PASS — secret detection correctly flagged the fixture and would have blocked the pipeline."
+          echo "PASS — secret detection correctly flagged the fixture."
 
       - name: Upload evidence
         if: always()
@@ -74,9 +54,6 @@ jobs:
           retention-days: 365
           if-no-files-found: ignore
 
-  # ---------------------------------------------------------------------
-  # 2. Dependency scan: known-vulnerable lodash version must be caught.
-  # ---------------------------------------------------------------------
   verify-dependency-scan-blocks:
     name: "Evidence: Dependency scan blocks a known-vulnerable package"
     runs-on: ubuntu-latest
@@ -96,7 +73,7 @@ jobs:
             echo "::error::RESILIENCE FAILURE — dependency scan did NOT flag the known-vulnerable fixture."
             exit 1
           fi
-          echo "PASS — dependency scan correctly flagged the fixture and would have blocked the pipeline."
+          echo "PASS — dependency scan correctly flagged the fixture."
 
       - name: Upload evidence
         if: always()
@@ -107,9 +84,32 @@ jobs:
           retention-days: 365
           if-no-files-found: ignore
 
-  # ---------------------------------------------------------------------
-  # 3. Container scan: deliberately old/vulnerable base image must be caught.
-  # ---------------------------------------------------------------------
+  verify-sast-blocks:
+    name: "Evidence: SAST blocks a known-insecure code pattern"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Semgrep
+        run: pip install semgrep --break-system-packages -q
+
+      - name: Run Semgrep against the fixture directory only
+        id: semgrep
+        continue-on-error: true
+        run: |
+          semgrep scan \
+            --config security-gates/sast/semgrep-rules/ \
+            testing/negative-test-fixtures/sast-trigger.js \
+            --error
+
+      - name: Assert detection occurred (this IS the evidence)
+        run: |
+          if [ "${{ steps.semgrep.outcome }}" != "failure" ]; then
+            echo "::error::RESILIENCE FAILURE — SAST did NOT flag the known-insecure fixture."
+            exit 1
+          fi
+          echo "PASS — SAST correctly flagged the fixture."
+
   verify-container-scan-blocks:
     name: "Evidence: Container scan blocks a known-vulnerable image"
     runs-on: ubuntu-latest
@@ -125,7 +125,7 @@ jobs:
       - name: Run Trivy against the fixture image
         id: trivy
         continue-on-error: true
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "sentinel-negative-test-container:${{ github.run_id }}"
           format: "json"
@@ -139,7 +139,7 @@ jobs:
             echo "::error::RESILIENCE FAILURE — container scan did NOT flag the known-vulnerable fixture image."
             exit 1
           fi
-          echo "PASS — container scan correctly flagged the fixture image and would have blocked the pipeline."
+          echo "PASS — container scan correctly flagged the fixture image."
 
       - name: Upload evidence
         if: always()
@@ -150,9 +150,6 @@ jobs:
           retention-days: 365
           if-no-files-found: ignore
 
-  # ---------------------------------------------------------------------
-  # 4. IaC scan: deliberately misconfigured Terraform must be caught.
-  # ---------------------------------------------------------------------
   verify-iac-scan-blocks:
     name: "Evidence: IaC scan blocks a known misconfiguration"
     runs-on: ubuntu-latest
@@ -162,7 +159,7 @@ jobs:
       - name: Run Checkov against the fixture Terraform only
         id: checkov
         continue-on-error: true
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@v12.1347.0
         with:
           directory: testing/negative-test-fixtures/terraform/
           output_format: json
@@ -175,7 +172,7 @@ jobs:
             echo "::error::RESILIENCE FAILURE — IaC scan did NOT flag the known misconfiguration."
             exit 1
           fi
-          echo "PASS — IaC scan correctly flagged the fixture and would have blocked the pipeline."
+          echo "PASS — IaC scan correctly flagged the fixture."
 
       - name: Upload evidence
         if: always()
@@ -186,10 +183,6 @@ jobs:
           retention-days: 365
           if-no-files-found: ignore
 
-  # ---------------------------------------------------------------------
-  # 5. Artifact signing: real sign + real verify (positive), then verify
-  #    against a real UNSIGNED image and confirm rejection (negative).
-  # ---------------------------------------------------------------------
   verify-signing-and-verification:
     name: "Evidence: Artifact signing works and unsigned artifacts are rejected"
     runs-on: ubuntu-latest
@@ -199,12 +192,12 @@ jobs:
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
       - name: Compute lowercase repository name (Docker/GHCR require lowercase)
         id: repo
         run: echo "lower=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
 
       - name: Build and push a real (tiny) test image — SIGNED case
         id: signed
@@ -214,16 +207,11 @@ jobs:
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
-      # Correct SLSA Provenance v0.2 predicate shape — "builder" must be an
-      # OBJECT with an "id" field, not a plain string. cosign validates this
-      # schema strictly and rejects malformed predicates.
       - name: Generate provenance.json for the test image
         run: |
           cat <<EOF > provenance.json
           {
-            "builder": {
-              "id": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            },
+            "builder": { "id": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" },
             "buildType": "https://github.com/actions/runner",
             "invocation": {
               "configSource": {
@@ -232,14 +220,9 @@ jobs:
                 "entryPoint": "${{ github.workflow }}"
               }
             },
-            "metadata": {
-              "buildInvocationId": "${{ github.run_id }}"
-            },
+            "metadata": { "buildInvocationId": "${{ github.run_id }}" },
             "materials": [
-              {
-                "uri": "git+https://github.com/${{ github.repository }}",
-                "digest": { "sha1": "${{ github.sha }}" }
-              }
+              { "uri": "git+https://github.com/${{ github.repository }}", "digest": { "sha1": "${{ github.sha }}" } }
             ]
           }
           EOF
@@ -258,7 +241,6 @@ jobs:
           echo "FROM alpine:latest" | docker build -t "$IMAGE" -
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-          # Deliberately NOT signing this one.
 
       - name: Verify the UNSIGNED image — must FAIL (this IS the negative-case evidence)
         id: verify-unsigned
@@ -268,17 +250,17 @@ jobs:
       - name: Assert rejection occurred
         run: |
           if [ "${{ steps.verify-unsigned.outcome }}" != "failure" ]; then
-            echo "::error::RESILIENCE FAILURE — an unsigned image PASSED verification. This is a critical control failure."
+            echo "::error::RESILIENCE FAILURE — an unsigned image PASSED verification."
             exit 1
           fi
-          echo "PASS — signed image verified successfully; unsigned image was correctly rejected."
+          echo "PASS — signed image verified; unsigned image correctly rejected."
 
-  # ---------------------------------------------------------------------
   resilience-report:
     name: Control Effectiveness Report (Part R evidence)
     needs:
       - verify-secret-detection-blocks
       - verify-dependency-scan-blocks
+      - verify-sast-blocks
       - verify-container-scan-blocks
       - verify-iac-scan-blocks
       - verify-signing-and-verification
@@ -289,8 +271,7 @@ jobs:
           echo "=== Part R Control Effectiveness Report ==="
           echo "Secret detection gate:        ${{ needs.verify-secret-detection-blocks.result }}"
           echo "Dependency scan gate:         ${{ needs.verify-dependency-scan-blocks.result }}"
+          echo "SAST gate:                    ${{ needs.verify-sast-blocks.result }}"
           echo "Container scan gate:          ${{ needs.verify-container-scan-blocks.result }}"
           echo "IaC scan gate:                ${{ needs.verify-iac-scan-blocks.result }}"
           echo "Signing / verification gate:  ${{ needs.verify-signing-and-verification.result }}"
-          echo ""
-          echo "This run's URL is the operational evidence link for the Part A-U Acceptance Matrix."

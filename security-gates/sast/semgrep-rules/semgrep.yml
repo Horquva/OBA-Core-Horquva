@@ -1,0 +1,2 @@
+rules:
+  - include: sentinel-custom-rules.yml

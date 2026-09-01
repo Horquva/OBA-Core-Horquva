@@ -1,7 +1,3 @@
-# Part F & I — SBOM Generation + Build Provenance
-# Runs after a successful build; produces the evidence artifacts required
-# before signing (artifact-signing/signing-scripts/sign-artifact.sh).
-
 name: SBOM & Provenance Generation
 
 on:
@@ -13,7 +9,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write   # required for keyless cosign signing (OIDC)
+  id-token: write
 
 jobs:
   sbom:
@@ -34,18 +30,17 @@ jobs:
         with:
           name: sbom
           path: sbom.cyclonedx.json
-          retention-days: 365   # SBOMs retained long-term for supply-chain audit
+          retention-days: 365
 
   provenance:
     name: Generate Build Provenance
     needs: sbom
     runs-on: ubuntu-latest
     steps:
-      # Correct SLSA Provenance v0.2 predicate shape, matching what
-      # cosign's `--type slsaprovenance` expects. NOTE: "builder" must be
-      # an OBJECT with an "id" field — a previous version of this file
-      # used a plain string here, which cosign rejects with:
-      # "cannot unmarshal string into Go struct field ProvenancePredicate.builder"
+      # FIX: "builder" must be an OBJECT with an "id" field, not a plain
+      # string — Cosign's SLSA predicate validator rejected the previous
+      # string-only version with "cannot unmarshal string into Go struct
+      # field ProvenancePredicate.builder".
       - name: Record build provenance metadata
         run: |
           cat <<EOF > provenance.json
@@ -57,9 +52,7 @@ jobs:
             "invocation": {
               "configSource": {
                 "uri": "git+https://github.com/${{ github.repository }}@${{ github.ref }}",
-                "digest": {
-                  "sha1": "${{ github.sha }}"
-                },
+                "digest": { "sha1": "${{ github.sha }}" },
                 "entryPoint": "${{ github.workflow }}"
               }
             },

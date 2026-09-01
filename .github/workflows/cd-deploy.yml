@@ -1,13 +1,8 @@
-# Part C — Secure CI/CD Pipeline: Deployment stage
-# Stage: Artifact Validation -> Signing -> Approval -> Deployment -> Runtime Monitoring hook
-#
 # ⚠️ OPERATIONAL STATUS: DESIGN-ONLY, NOT YET OPERATIONAL.
-# The "Deploy to staging/production" steps below are documented placeholders
-# (echo statements), not real deployment commands, because no real
-# cluster/hosting target has been provided to this implementation yet.
-# Do NOT treat this workflow as proof of a working deployment pipeline until
-# those steps are replaced with the agreed real deployment integration and
-# have produced real execution evidence (see acceptance/acceptance-package-readme.md).
+# The "Deploy to staging/production" steps below are documented placeholders,
+# not real deployment commands — no real cluster/hosting target has been
+# provided yet. Do NOT treat this workflow as proof of a working deployment
+# pipeline until those steps are replaced with the agreed real integration.
 
 name: CD - Staging & Production Deployment
 
@@ -19,7 +14,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write   # OIDC for keyless artifact signing/verification
+  id-token: write
 
 jobs:
   build-image:
@@ -31,10 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Compute lowercase repository name (Docker/GHCR require lowercase)
+        id: repo
+        run: echo "lower=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Build container image
         id: build
         run: |
-          IMAGE="ghcr.io/${{ github.repository }}:${{ github.sha }}"
+          IMAGE="ghcr.io/${{ steps.repo.outputs.lower }}:${{ github.sha }}"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
           echo "image-ref=$IMAGE" >> "$GITHUB_OUTPUT"
@@ -56,9 +55,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # This is the fix for the review comment: sign-artifact.sh needs a real
-      # provenance.json produced by generate-evidence — it was previously
-      # never downloaded into this job, so signing was attesting nothing real.
+      # FIX: sign-artifact.sh needs a real provenance.json — previously
+      # never downloaded into this job, so signing attested nothing real.
       - name: Download provenance produced by generate-evidence
         uses: actions/download-artifact@v4
         with:
@@ -68,10 +66,9 @@ jobs:
       - name: Verify provenance.json was actually downloaded
         run: |
           if [ ! -f provenance.json ]; then
-            echo "::error::provenance.json missing — generate-evidence job did not produce it. Refusing to sign without real provenance."
+            echo "::error::provenance.json missing — refusing to sign without real provenance."
             exit 1
           fi
-          echo "provenance.json present, proceeding to sign."
 
       - name: Sign artifact
         run: bash artifact-signing/signing-scripts/sign-artifact.sh "${{ needs.build-image.outputs.image-ref }}"
@@ -89,20 +86,20 @@ jobs:
 
       - name: Deploy to staging (PLACEHOLDER — not a real deployment command)
         run: |
-          echo "::warning::This is a design-only placeholder, not a real deployment. Replace with kubectl/helm/etc. before treating CD as operational."
+          echo "::warning::Design-only placeholder — not a real deployment."
           echo "Would deploy ${{ needs.build-image.outputs.image-ref }} to staging..."
 
       - name: Run smoke tests (PLACEHOLDER)
-        run: echo "::warning::Smoke test step is a placeholder — no real smoke tests are executed yet."
+        run: echo "::warning::Smoke test step is a placeholder."
 
   approval-gate:
     name: Production Approval Gate
     needs: deploy-staging
     runs-on: ubuntu-latest
-    environment: production-approval   # GitHub Environment with required reviewers configured
+    environment: production-approval
     steps:
       - name: Approval recorded
-        run: echo "Production deployment approved by required reviewer (via GitHub Environment protection rule)."
+        run: echo "Production deployment approved by required reviewer."
 
   deploy-production:
     name: Deploy to Production [DESIGN-ONLY]
@@ -112,12 +109,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify artifact before deploy (defense in depth — re-verify at prod gate)
+      - name: Verify artifact before deploy (defense in depth)
         run: bash artifact-signing/verification-scripts/verify-artifact.sh "${{ needs.build-image.outputs.image-ref }}"
 
       - name: Deploy to production (PLACEHOLDER — not a real deployment command)
         run: |
-          echo "::warning::This is a design-only placeholder, not a real deployment."
+          echo "::warning::Design-only placeholder — not a real deployment."
           echo "Would deploy ${{ needs.build-image.outputs.image-ref }} to production..."
 
       - name: Record deployment evidence
@@ -130,4 +127,3 @@ jobs:
           name: deployment-evidence
           path: deployment-evidence.json
           retention-days: 365
-
