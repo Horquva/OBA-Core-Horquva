@@ -922,8 +922,66 @@ console.log('\nNo route computes a second Organizational Intelligence Score (D-0
 	}
 }
 
-console.log('\n----------------------------------------')
-console.log('passed: ' + passed + '   failed: ' + failed)
-console.log(failed === 0 ? 'DERIVED INTELLIGENCE TESTS PASSED ✅' : 'DERIVED INTELLIGENCE TESTS FAILED ❌')
-console.log('----------------------------------------\n')
-process.exit(failed === 0 ? 0 : 1)
+console.log('\ncomputeAll / computeAllFromRoots parity:')
+
+;(async () => {
+  const parityRoots = roots()
+
+  const fakeSupabase = {
+    from(table) {
+      return {
+        async select() {
+          return {
+            data: parityRoots[table],
+            error: null,
+          }
+        },
+      }
+    },
+  }
+
+  const fromRoots = d.computeAllFromRoots(parityRoots)
+  const fromLegacy = await d.computeAll(fakeSupabase)
+
+  const normalize = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(normalize)
+  }
+
+  if (value && typeof value === 'object') {
+    const result = {}
+
+    for (const [key, entry] of Object.entries(value)) {
+      if (key === 'computedAt') continue
+      result[key] = normalize(entry)
+    }
+
+    return result
+  }
+
+  return value
+}
+
+  check(
+    'computeAllFromRoots matches computeAll apart from computedAt',
+    JSON.stringify(normalize(fromRoots)) === JSON.stringify(normalize(fromLegacy)),
+    {
+      fromRoots: normalize(fromRoots),
+      fromLegacy: normalize(fromLegacy),
+    },
+  )
+
+  console.log('\n----------------------------------------')
+  console.log('passed: ' + passed + '   failed: ' + failed)
+  console.log(
+    failed === 0
+      ? 'DERIVED INTELLIGENCE TESTS PASSED ✅'
+      : 'DERIVED INTELLIGENCE TESTS FAILED ❌',
+  )
+  console.log('----------------------------------------\n')
+
+  process.exit(failed === 0 ? 0 : 1)
+})().catch((err) => {
+  console.error('\nDerived parity test threw:', err)
+  process.exit(1)
+})
