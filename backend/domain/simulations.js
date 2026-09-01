@@ -13,7 +13,7 @@
  */
 
 const derived = require('./derived')
-const { entityCriticality, atOrAbove } = require('./definitions')
+const { entityCriticality, atOrAbove, spofVerdict } = require('./definitions')
 
 // ─── Cascade ─────────────────────────────────────────────────────────────────
 
@@ -160,6 +160,120 @@ function employeeLeaves(employeeId, roots) {
     impactedPeople: [employee],
     severity: severityFor(entities),
     healthDelta: healthDelta(roots, mutated),
+  }
+}
+
+/**
+ * Succession: employeeId leaves, successorId inherits their agents and
+ * workflow ownership. Unlike employeeLeaves(), nothing is orphaned — but
+ * per D-70, coverage does NOT ride along with the transfer:
+ *
+ *   - agents.owner_id and workflow_runbooks.owner_id move to successorId.
+ *   - documentation (knowledge_assets.is_documented / workflow_runbooks.
+ *     is_documented) is untouched either way — it was never owner-linked.
+ *   - the departing employee's own `owners` row (and therefore their
+ *     backup_owner) is removed, same as employeeLeaves().
+ *   - any OTHER owners row whose backup_owner named the departing employee
+ *     is cleared — a backup pointing at someone who just left is not real
+ *     coverage and must not be carried forward silently.
+ *   - the successor's own backup_owner is left exactly as it was. It is
+ *     NOT inherited from the departing employee — the successor's coverage
+ *     is whatever they already had, nothing more.
+ *
+ * TODO(D-70): the rules above are written per the plan's stated intent but
+ * are pending explicit sign-off. Confirm before this ships.
+ */
+function employeeLeavesWithSuccessor(employeeId, successorId, roots) {
+  const employee = roots.employees.find((e) => e.id === employeeId)
+  const successor = roots.employees.find((e) => e.id === successorId)
+  if (!employee || !successor) return null
+
+  const ownedAgents = roots.agents.filter((a) => a.owner_id === employeeId)
+  const ownedRunbooks = roots.workflow_runbooks.filter((r) => r.owner_id === employeeId)
+  const index = buildDependencyIndex(roots)
+
+  const impactedAgentIds = new Set(ownedAgents.map((a) => a.id))
+  for (const agent of ownedAgents) {
+    for (const hit of cascadeFrom('agent', agent.id, index)) {
+      if (hit.type === 'agent') impactedAgentIds.add(hit.id)
+    }
+  }
+
+  const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
+  const impactedWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
+  const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  // ── Mutation: reassign, don't orphan ────────────────────────────────────
+  const mutated = cloneRoots(roots)
+
+  mutated.agents = mutated.agents.map((a) =>
+    a.owner_id === employeeId ? { ...a, owner_id: successorId } : a)
+
+  mutated.workflow_runbooks = mutated.workflow_runbooks.map((r) =>
+    r.owner_id === employeeId ? { ...r, owner_id: successorId } : r)
+
+  mutated.employees = mutated.employees.filter((e) => e.id !== employeeId)
+
+  mutated.owners = mutated.owners
+    .filter((o) => o.employee_id !== employeeId) // their own backup slot leaves with them
+    .map((o) => (o.backup_owner === employee.name ? { ...o, backup_owner: null } : o)) // stale backups pointing at them are cleared
+
+  recount(mutated)
+
+  // ── Residual risk on the successor, post-transfer ───────────────────────
+  const successorAgentsAfter = mutated.agents.filter((a) => a.owner_id === successorId)
+  const successorRunbooksAfter = mutated.workflow_runbooks.filter((r) => r.owner_id === successorId)
+  const successorConcentrationAfter = successorAgentsAfter.length + successorRunbooksAfter.length
+
+  // Local, not derived.backupIndex() — that helper isn't part of derived.js's
+  // exported surface, so this mirrors its one-line lookup rather than
+  // reaching into another module's internals.
+  const successorOwnerRow = mutated.owners.find((o) => o.employee_id === successorId)
+  const successorHasBackup = Boolean(successorOwnerRow?.backup_owner)
+
+  const assetsWithoutBackup = successorHasBackup ? 0 : successorConcentrationAfter
+
+  const transferredAgentIds = new Set(ownedAgents.map((a) => a.id))
+  const transferredWorkflowIds = new Set(ownedRunbooks.map((r) => r.workflow_id))
+  const undocumentedTransferredAgents = roots.knowledge_assets.filter(
+    (ka) => ka.asset_type === 'agent' && transferredAgentIds.has(ka.asset_id) && !ka.is_documented,
+  ).length
+  const undocumentedTransferredWorkflows = ownedRunbooks.filter((r) => !r.is_documented).length
+  const assetsUndocumented = undocumentedTransferredAgents + undocumentedTransferredWorkflows
+
+  const successorBecomesSpof = [...successorAgentsAfter].some((a) => {
+    const criticality = entityCriticality('agent', a)
+    return spofVerdict({ criticality, ownerCount: 1, hasBackup: successorHasBackup }).status === 'spof'
+  }) || [...successorRunbooksAfter].some((r) => {
+    const workflow = roots.workflows.find((w) => w.id === r.workflow_id)
+    const criticality = workflow ? entityCriticality('workflow', workflow) : 'unknown'
+    return spofVerdict({ criticality, ownerCount: 1, hasBackup: successorHasBackup }).status === 'spof'
+  })
+
+  const noSuccessor = employeeLeaves(employeeId, roots)
+
+  return {
+    scenario: `If ${employee.name} leaves and ${successor.name} takes over`,
+    targetType: 'employee',
+    targetId: employeeId,
+    targetName: employee.name,
+    successorId,
+    successorName: successor.name,
+    impactedAgents,
+    impactedWorkflows,
+    impactedPeople: [employee],
+    severity: severityFor(entities),
+    healthDelta: healthDelta(roots, mutated),
+    residualRisk: {
+      assetsWithoutBackup,
+      assetsUndocumented,
+      successorConcentrationAfter,
+      successorBecomesSpof,
+    },
+    comparedToNoSuccessor: {
+      healthDelta: noSuccessor ? noSuccessor.healthDelta : null,
+      severity: noSuccessor ? noSuccessor.severity : null,
+    },
   }
 }
 
@@ -313,6 +427,7 @@ module.exports = {
   healthDelta,
   baselineHealthScore,
   employeeLeaves,
+  employeeLeavesWithSuccessor,
   agentFails,
   platformDown,
   workflowDisruption,
