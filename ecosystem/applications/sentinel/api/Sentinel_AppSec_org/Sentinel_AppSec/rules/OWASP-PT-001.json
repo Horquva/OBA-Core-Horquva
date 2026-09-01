@@ -1,0 +1,25 @@
+{
+    "rule_id": "OWASP-PT-001",
+    "category": "A01:2021-Broken Access Control",
+    "severity": "HIGH",
+    "description": "Detects path traversal escapes and direct access attempts to system files.",
+    "detection_regex": "(?:\\.\\.\\/|\\.\\.\\\\|etc\\/passwd)",
+    "version": "1.0.0",
+    "owner": "AppSec Team",
+    "status": "DEPLOYED",
+    "expected_behavior": "Block request immediately and return 403 Forbidden.",
+    "false_positive_considerations": "May trigger on file managers handling relative path references.",
+    "evidence_requirements": "Log the directory traversal string and path depth.",
+    "test_fixtures": [
+        {
+            "payload": "../../../etc/passwd",
+            "should_flag": true,
+            "description": "Directory traversal targeting system file"
+        },
+        {
+            "payload": "uploads/documents/report.pdf",
+            "should_flag": false,
+            "description": "Benign file path"
+        }
+    ]
+}
