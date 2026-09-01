@@ -1,143 +1,122 @@
 'use client';
 
-import { useState } from 'react';
-import { useValidationResult } from '../../hooks/useValidationResult';
-import Card from '../../components/ui/Card';
-import ValidationSummary from '../../components/validation/ValidationSummary';
-import QualityGateIndicator from '../../components/validation/QualityGateIndicator';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import Link from 'next/link';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { apiClient } from '../../lib/api-client';
+
+interface ValidationResult {
+  passed: boolean;
+  score?: number;
+  details?: string;
+  violations?: string[];
+  metrics?: Record<string, number>;
+}
 
 export default function ValidationPage() {
-  const [selectedExperimentId, setSelectedExperimentId] = useState('exp-001');
-  const { result, loading, error, refetch } = useValidationResult(selectedExperimentId);
+  const searchParams = useSearchParams();
+  const experimentId = searchParams.get('experimentId') || searchParams.get('id');
+
+  const [validationData, setValidationData] = useState<ValidationResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!experimentId) return;
+
+    async function fetchValidation() {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await apiClient.get<ValidationResult>(
+          `/api/v1/validation/${experimentId}`
+        );
+        setValidationData(data);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch validation report.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchValidation();
+  }, [experimentId]);
+
+  if (!experimentId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl border border-slate-200">
+        <p className="text-slate-600">Please select an experiment to view validation report.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading validation status...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-700">
+        <h3 className="font-semibold">Unable to load validation report</h3>
+        <p className="text-sm mt-1">{error}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-wider text-sky-700">Arcturus</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-950">Validation</h1>
-        <p className="mt-2 text-sm text-slate-600">Validation results and quality gate status for completed experiments.</p>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-slate-900">Validation Status</h1>
+        <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-mono">
+          {experimentId}
+        </span>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-semibold text-slate-700">Select Experiment</label>
-          <select
-            value={selectedExperimentId}
-            onChange={(e) => setSelectedExperimentId(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-          >
-            <option value="exp-001">exp-001 (Sunrise Care Scenario)</option>
-            <option value="exp-002">exp-002 (Attrition Scenario)</option>
-          </select>
-        </div>
-
-        {loading && <LoadingSpinner label="Loading validation results" />}
-
-        {error && (
-          <Card className="border-rose-200 bg-rose-50 p-6">
-            <h2 className="font-semibold text-rose-950">Error loading validation</h2>
-            <p className="mt-2 text-sm text-rose-900">{error}</p>
-            <button
-              onClick={() => refetch()}
-              className="mt-4 text-sm font-semibold text-rose-950 underline underline-offset-2"
+      {validationData ? (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-slate-700">Validation Gate</span>
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                validationData.passed
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-rose-100 text-rose-800'
+              }`}
             >
-              Try again
-            </button>
-          </Card>
-        )}
-
-        {!loading && result && (
-          <div className="space-y-6">
-            <ValidationSummary
-              experimentId={selectedExperimentId}
-              status={result.final_status}
-              reason={result.reason || undefined}
-            />
-
-            <QualityGateIndicator status={result.final_status} />
-
-            <Card className="p-5">
-              <h2 className="font-semibold text-slate-950">Validation Rules Applied</h2>
-
-              {result.passed_rules.length > 0 && (
-                <div className="mt-4">
-                  <h3 className="text-sm font-semibold text-emerald-700">Passed Rules ({result.passed_rules.length})</h3>
-                  <ul className="mt-2 space-y-1">
-                    {result.passed_rules.map((rule) => (
-                      <li key={rule} className="text-sm text-emerald-700">
-                        ✓ {rule}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {result.failed_rules.length > 0 && (
-                <div className="mt-4">
-                  <h3 className="text-sm font-semibold text-rose-700">Failed Rules ({result.failed_rules.length})</h3>
-                  <ul className="mt-2 space-y-1">
-                    {result.failed_rules.map((rule) => (
-                      <li key={rule} className="text-sm text-rose-700">
-                        ✗ {rule}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {result.flagged_rules.length > 0 && (
-                <div className="mt-4">
-                  <h3 className="text-sm font-semibold text-amber-700">Flagged Rules ({result.flagged_rules.length})</h3>
-                  <ul className="mt-2 space-y-1">
-                    {result.flagged_rules.map((rule) => (
-                      <li key={rule} className="text-sm text-amber-700">
-                        ⚠ {rule}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {result.passed_rules.length === 0 &&
-                result.failed_rules.length === 0 &&
-                result.flagged_rules.length === 0 && (
-                  <p className="mt-4 text-sm text-slate-600">No validation rules available for this experiment.</p>
-                )}
-            </Card>
-
-            <Card className="border-slate-200 bg-slate-50 p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">Evaluation Timestamp</p>
-              <p className="mt-2 break-all font-mono text-xs text-slate-700">{result.evaluated_at}</p>
-            </Card>
-
-            <div className="flex gap-4">
-              <Link
-                href="/evidence"
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-              >
-                View Evidence
-              </Link>
-              <Link
-                href="/intelligence"
-                className="rounded-lg bg-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
-              >
-                View Intelligence
-              </Link>
-            </div>
+              {validationData.passed ? 'PASSED' : 'FAILED'}
+            </span>
           </div>
-        )}
 
-        {!loading && !result && !error && (
-          <Card className="border-amber-200 bg-amber-50 p-6">
-            <h2 className="font-semibold text-amber-950">Validation results not available</h2>
-            <p className="mt-2 text-sm leading-6 text-amber-900">
-              No validation results have been generated for this experiment yet. Once validation completes on the backend, the results will appear here.
+          {validationData.score !== undefined && (
+            <div className="text-sm text-slate-600">
+              Confidence Score: <span className="font-semibold text-slate-900">{(validationData.score * 100).toFixed(1)}%</span>
+            </div>
+          )}
+
+          {validationData.details && (
+            <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+              {validationData.details}
             </p>
-          </Card>
-        )}
-      </div>
+          )}
+
+          {validationData.violations && validationData.violations.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Detected Violations</h4>
+              <ul className="space-y-1.5 list-disc list-inside text-sm text-rose-600">
+                {validationData.violations.map((v, i) => (
+                  <li key={i}>{v}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="border border-amber-200 bg-amber-50 p-6 rounded-xl">
+          <h2 className="font-semibold text-amber-950">No Validation Data</h2>
+          <p className="mt-2 text-sm text-amber-900">
+            No validation telemetry recorded for this experiment.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

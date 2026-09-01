@@ -43,3 +43,11 @@ def test_full_pipeline_execution(minimal_corpus):
     assert "runtime" in results
     assert "synthetic_data" in results
     assert "validation" in results
+    
+    assert "intelligence" in results
+    # In CI (no DB/Gemini), intelligence_status will be NO_TRUSTED_EVIDENCE or ASSESSING_UNAVAILABLE — both are honest
+    assert results["intelligence"]["intelligence_status"] in (
+        "READY",
+        "NO_TRUSTED_EVIDENCE",
+        "ASSESSING_UNAVAILABLE",
+    )

@@ -7,8 +7,19 @@ from ecosystem.applications.arcturus.contracts.evaluation.base_models import (
     ValidationRun,
     ValidationRuleContract,
     ValidationResultContract,
+    ValidationStatus,
+    MetricScores,
+    ValidationResult,
 )
 
+from ecosystem.applications.arcturus.contracts.synthetic_data.base_models import (
+    SyntheticDataCorpus,
+    SyntheticArtifactContract,
+)
+
+from ecosystem.applications.arcturus.src.evaluation_plane.validation_adapters import (
+    check_cross_domain_consistency,
+)
 
 class ValidationEngine:
     """
@@ -149,3 +160,108 @@ class ValidationEngine:
             final_status=final_status,
             reason=" | ".join(reasons),
         )
+
+def _artifact_passes_structural_gates(artifact: SyntheticArtifactContract) -> tuple[bool, list[str]]:
+    """
+    Structural-only gates: checks contract-level fields, not the open
+    `content` dict. We don't assume what's inside content since Ahmed's
+    generation service owns that shape and hasn't published a fixed schema.
+    """
+    failures: list[str] = []
+
+    if not artifact.lifecycle_state or not artifact.lifecycle_state.strip():
+        failures.append(f"{artifact.artifact_id}: missing lifecycle_state")
+
+    if not artifact.provenance:
+        failures.append(f"{artifact.artifact_id}: missing provenance (no lineage)")
+
+    if artifact.version < 1:
+        failures.append(f"{artifact.artifact_id}: invalid version {artifact.version}")
+
+    return (len(failures) == 0, failures)
+
+def run_corpus_validation(result: SyntheticDataCorpus) -> ValidationResult:
+    """
+    Day 4: evaluates a SyntheticDataCorpus (Ahmed's corpus) and
+    produces a tri-state ValidationResult.
+
+    INCONCLUSIVE = no accepted artifacts at all -> no evidence to judge, not a failure.
+    REJECTED = at least one accepted artifact, but one or more failed structural
+               gates (hard-fail: missing lifecycle_state, missing provenance,
+               invalid version). No partial credit.
+    VALIDATED = at least one accepted artifact, all passed structural gates.
+               May still carry flagged_rules (soft-check anomalies) without
+               being downgraded to REJECTED, per Hashim's Day 4 guidance:
+               cross-domain lifecycle conflicts are flagged, not hard-fail.
+    """
+    context = result.context
+    artifacts = result.accepted_artifacts
+
+    if not artifacts:
+        return ValidationResult(
+            context=context,
+            status=ValidationStatus.INCONCLUSIVE,
+            reason="No accepted artifacts present in SyntheticDataCorpus; no evidence to evaluate.",
+            flagged_rules=[],
+            metrics=MetricScores(coverage=0.0, accuracy=0.0, consistency=0.0),
+            accepted_artifact_count=0,
+            rejected_artifact_count=0,
+        )
+
+    all_failures: list[str] = []
+    accepted_count = 0
+    rejected_count = 0
+    non_empty_content_count = 0
+
+    for artifact in artifacts:
+        if artifact.content:
+            non_empty_content_count += 1
+
+        passed, failures = _artifact_passes_structural_gates(artifact)
+        if passed:
+            accepted_count += 1
+        else:
+            rejected_count += 1
+            all_failures.extend(failures)
+
+    # Soft check: cross-domain consistency. Never causes REJECTED on its own.
+    consistency_passed, consistency_issues = check_cross_domain_consistency(result)
+
+    total = len(artifacts)
+    coverage = non_empty_content_count / total
+    accuracy = accepted_count / total
+    consistency = 1.0 if consistency_passed else max(0.0, 1.0 - (len(consistency_issues) / total))
+
+    metrics = MetricScores(coverage=coverage, accuracy=accuracy, consistency=consistency)
+
+    if rejected_count > 0:
+        # Hard-fail: structural gate violations only.
+        reason = (
+            f"Structural quality gates failed for {rejected_count} artifact(s): "
+            + "; ".join(all_failures)
+        )
+        return ValidationResult(
+            context=context,
+            status=ValidationStatus.REJECTED,
+            reason=reason,
+            flagged_rules=consistency_issues,  # still recorded, even though this corpus is rejected for a harder reason
+            metrics=metrics,
+            accepted_artifact_count=accepted_count,
+            rejected_artifact_count=rejected_count,
+        )
+
+    # All artifacts passed structural gates. Cross-domain issues, if any,
+    # are flagged but do not downgrade the status.
+    reason = f"All {total} artifact(s) passed structural quality gates (lifecycle_state, provenance, version)."
+    if consistency_issues:
+        reason += f" {len(consistency_issues)} cross-domain consistency issue(s) flagged (non-fatal)."
+
+    return ValidationResult(
+        context=context,
+        status=ValidationStatus.VALIDATED,
+        reason=reason,
+        flagged_rules=consistency_issues,
+        metrics=metrics,
+        accepted_artifact_count=accepted_count,
+        rejected_artifact_count=0,
+    )

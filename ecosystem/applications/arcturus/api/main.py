@@ -82,6 +82,12 @@ try:
 except ImportError:
     pass  # Amina's PR not yet merged
 
+try:
+    from ecosystem.applications.arcturus.api.routers.intelligence import router as intelligence_router
+    app.include_router(intelligence_router)
+except ImportError:
+    pass  # Ahmed's PR not yet merged
+
 @app.exception_handler(ArcturusValidationError)
 async def arcturus_error_handler(request: Request, exc: ArcturusValidationError):
     response = APIErrorResponse(

@@ -1,0 +1,21 @@
+{
+  "run_id": "GOLDEN-RUN-001",
+  "experiment_id": "EXP-GOLDEN-A",
+  "seed": 42,
+  "final_status": "VALIDATED",
+  "passed_rules": ["RULE-001", "RULE-002"],
+  "failed_rules": [],
+  "flagged_rules": [],
+  "artifacts": [
+    {
+      "artifact_id": "ART-GOLDEN-001",
+      "artifact_type": "document",
+      "content": {"title": "Workforce Analysis", "body": "Engineering attrition elevated by 18%"}
+    },
+    {
+      "artifact_id": "ART-GOLDEN-002",
+      "artifact_type": "report",
+      "content": {"title": "Scenario Outcome", "body": "Cascade risk in senior IC roles"}
+    }
+  ]
+}

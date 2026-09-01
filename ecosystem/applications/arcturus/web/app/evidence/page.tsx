@@ -1,98 +1,111 @@
 'use client';
 
-import { useState } from 'react';
-import { useSyntheticCorpus } from '../../hooks/useSyntheticCorpus';
-import { useProvenanceLineage } from '../../hooks/useProvenanceLineage';
-import Card from '../../components/ui/Card';
-import EvidenceTable from '../../components/evidence/EvidenceTable';
-import LineageGraph from '../../components/evidence/LineageGraph';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import Link from 'next/link';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
+import type { SyntheticDataCorpusPreview } from '@/lib/types';
 
-export default function EvidencePage() {
-  const [selectedRunId, setSelectedRunId] = useState('run-001');
-  const { corpus, loading: corpusLoading, error: corpusError } = useSyntheticCorpus(selectedRunId);
-  const { records, lineageAvailable, loading: lineageLoading } = useProvenanceLineage('exp-001');
+function EvidenceContent() {
+  const searchParams = useSearchParams();
+  const experimentId = searchParams.get('experimentId') || searchParams.get('id');
+
+  const [evidence, setEvidence] = useState<SyntheticDataCorpusPreview | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!experimentId) return;
+
+    async function fetchEvidence() {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await apiClient.get<SyntheticDataCorpusPreview>(
+          `/api/v1/evidence/${experimentId}`
+        );
+        setEvidence(data);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch synthetic evidence.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchEvidence();
+  }, [experimentId]);
+
+  if (!experimentId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl border border-slate-200">
+        <p className="text-slate-600">Please select an experiment to view synthetic evidence.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading evidence...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-700">
+        <h3 className="font-semibold">Unable to load evidence</h3>
+        <p className="text-sm mt-1">{error}</p>
+      </div>
+    );
+  }
+
+  const artifacts = evidence?.accepted_artifacts || [];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-wider text-sky-700">Arcturus</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-950">Evidence & Provenance</h1>
-        <p className="mt-2 text-sm text-slate-600">Synthetic artifacts and lineage tracing for simulation runs.</p>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-slate-900">Synthetic Evidence</h1>
+        <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-mono">
+          {experimentId}
+        </span>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-semibold text-slate-700">Select Simulation Run</label>
-          <select
-            value={selectedRunId}
-            onChange={(e) => setSelectedRunId(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-          >
-            <option value="run-001">run-001 (Sunrise Care - exp-001)</option>
-            <option value="run-002">run-002 (Attrition - exp-002)</option>
-          </select>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+          <h2 className="font-semibold text-slate-800">Accepted Artifacts</h2>
+          <span className="text-xs font-medium px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full">
+            {evidence?.lineage_available ? 'Lineage Verified' : 'Provisional Lineage'}
+          </span>
         </div>
-
-        {corpusLoading && <LoadingSpinner label="Loading synthetic corpus" />}
-
-        {corpusError && (
-          <Card className="border-rose-200 bg-rose-50 p-6">
-            <h2 className="font-semibold text-rose-950">Error loading corpus</h2>
-            <p className="mt-2 text-sm text-rose-900">{corpusError}</p>
-          </Card>
-        )}
-
-        {!corpusLoading && corpus && (
-          <div className="space-y-6">
-            <EvidenceTable
-              artifacts={corpus.accepted_artifacts}
-              provisional={!corpus.lineage_available}
-            />
-
-            {corpus.rejected_artifacts_available && (
-              <Card className="border-amber-200 bg-amber-50 p-6">
-                <h2 className="font-semibold text-amber-950">Rejected artifacts available</h2>
-                <p className="mt-2 text-sm text-amber-900">
-                  This run contains artifacts that did not pass validation. Use the validation endpoint to view detailed failure reasons.
-                </p>
-              </Card>
-            )}
-
-            <div>
-              <h2 className="mb-4 text-lg font-semibold text-slate-950">Provenance & Lineage</h2>
-              {lineageLoading ? (
-                <LoadingSpinner label="Loading lineage records" />
-              ) : lineageAvailable && records.length > 0 ? (
-                <LineageGraph records={records} />
-              ) : (
-                <Card className="border-slate-200 bg-slate-50 p-6">
-                  <h3 className="font-semibold text-slate-900">Provenance unavailable</h3>
-                  <p className="mt-2 text-sm text-slate-700">
-                    Complete lineage tracking is not yet persisted by the backend. Once available, this section will display the complete causal chain from experiment configuration through each artifact generation event.
-                  </p>
-                </Card>
-              )}
-            </div>
-
-            <div className="mt-8 flex gap-4">
-              <Link
-                href="/validation"
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-              >
-                View Validation Results
-              </Link>
-              <Link
-                href="/intelligence"
-                className="rounded-lg bg-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
-              >
-                View Intelligence Assessments
-              </Link>
-            </div>
+        {artifacts.length === 0 ? (
+          <div className="p-6 text-center text-slate-500 text-sm">No artifacts registered yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-400 font-semibold border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-3">Artifact ID</th>
+                  <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3">Name / Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {artifacts.map((art, idx) => (
+                  <tr key={art.artifact_id || idx} className="hover:bg-slate-50/50">
+                    <td className="px-6 py-3 font-mono text-xs text-indigo-600">{art.artifact_id}</td>
+                    <td className="px-6 py-3">{art.artifact_type}</td>
+                    <td className="px-6 py-3">{art.name || art.description || 'N/A'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+export default function EvidencePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}>
+      <EvidenceContent />
+    </Suspense>
   );
 }
