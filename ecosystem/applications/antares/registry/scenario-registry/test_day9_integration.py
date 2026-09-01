@@ -8,13 +8,35 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "day8"))
 
-if os.path.exists("./antres_production_knowledge.db"):
-    os.remove("./antres_production_knowledge.db")
+# DIN7 FIX: removed this file's own os.remove("./antres_production_knowledge.db")
+# at module (collection) time — see the matching note in test_part8_production.py
+# for why a raw delete here raced with test_part8_production.py /
+# test_day10_final_demo.py sharing the same engine.
+#
+# A plain replacement reset at module level isn't enough either: pytest collects
+# every test file before it executes any of them, and test_day10_final_demo.py
+# (which ingests these same sample IDs and correctly resets before running) is
+# collected AND executed before this module's tests run. A collection-time reset
+# here would happen before day10 even runs, so day10's leftover data would still
+# be sitting in the table by the time this module's tests actually execute.
+# The autouse fixture below resets at the right point instead — right before
+# this module's own tests run, whatever ran before it.
 
+import pytest
 from fastapi.testclient import TestClient
 from day9_cross_team_integration import app, CROSS_TEAM_SAMPLE_PAYLOADS
 
 client = TestClient(app)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _clean_slate_for_day9_suite():
+    from part8_production_antres_platform import engine, Base, PROD_DB_URL
+    engine.dispose()
+    db_path = PROD_DB_URL.replace("sqlite:///./", "")
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    Base.metadata.create_all(bind=engine)
 
 
 def test_cross_team_check_integrates_all_upstream_platforms():

@@ -2,12 +2,17 @@
 Comprehensive Acceptance Test Suite for Part 8: Final Working Antres Knowledge Layer
 """
 
-import os
 from fastapi.testclient import TestClient
 
-if os.path.exists("./antres_production_knowledge.db"):
-    os.remove("./antres_production_knowledge.db")
-
+# DIN7 FIX: removed this file's own os.remove("./antres_production_knowledge.db").
+# test_part8_production.py, test_day9_integration.py, and test_day10_final_demo.py
+# all import the SAME part8 module (same cached engine/connection), so each file
+# deleting the shared db file at its own import time raced with the others and
+# caused "attempt to write a readonly database" whenever all three ran together
+# in one pytest session (confirmed in Din 1 / Din 6: 6 of 10 tests failed this way,
+# though each file passed 100% alone). conftest.py already deletes all *.db files
+# exactly once, before any test module is collected — that single cleanup is now
+# the only one relied on.
 from part8_production_antres_platform import app
 
 client = TestClient(app)

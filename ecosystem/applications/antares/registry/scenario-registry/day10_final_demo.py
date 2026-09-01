@@ -30,6 +30,19 @@ if os.path.exists(DEMO_DB):
 from fastapi.testclient import TestClient
 from day9_cross_team_integration import app, CROSS_TEAM_SAMPLE_PAYLOADS
 
+# DIN7 FIX: the import above is a no-op if day9/part8 were already imported
+# earlier in this process (e.g. test_part8_production.py or
+# test_day9_integration.py ran first in the same pytest session) — in that case
+# part8's module-level Base.metadata.create_all() from its own original import
+# does NOT run again, so the DEMO_DB delete above leaves the file gone with no
+# schema recreated. Disposing the engine's stale connections and recreating the
+# schema here, unconditionally, makes this correct whether this file is run
+# standalone (python day10_final_demo.py) or combined with the other test files
+# in one pytest session — confirmed live in both scenarios during Din 7 verification.
+from part8_production_antres_platform import engine, Base
+engine.dispose()
+Base.metadata.create_all(bind=engine)
+
 client = TestClient(app)
 
 

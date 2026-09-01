@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, status, Header, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import create_engine, Column, String, Boolean, Float, Integer, DateTime, JSON, PrimaryKeyConstraint
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import logging
 
@@ -214,7 +215,24 @@ class ProductionAntresEngine:
         )
 
         db.add(db_obj)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # DIN7 FIX: the existing_active pre-check above is not atomic under
+            # true concurrency — two requests can both pass the check before either
+            # commits, then race on the same (id, version) UNIQUE constraint. Before
+            # this fix that raised an unhandled sqlalchemy.exc.IntegrityError that
+            # propagated out of the request entirely (confirmed live in Din 6: 2 of
+            # 10 truly-concurrent identical inserts crashed instead of getting a
+            # response). This turns that same condition into the same honest 409
+            # the pre-check already returns for the non-concurrent case, so the
+            # failure mode is now consistent regardless of timing.
+            db.rollback()
+            logger.error(f"Concurrent version conflict on commit for '{req.id}' v{req.version}.")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Version Conflict: '{req.id}' at version {req.version} was created concurrently by another request."
+            )
         db.refresh(db_obj)
         logger.info(f"Successfully operationalized production knowledge object: {db_obj.id} at v{db_obj.version}")
         return db_obj
