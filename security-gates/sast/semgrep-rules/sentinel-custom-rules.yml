@@ -26,10 +26,10 @@ rules:
       and encrypted.
     patterns:
       - pattern-either:
-          - pattern: $OBJ.rejectUnauthorized = false
-          - pattern: rejectUnauthorized = false
-          - pattern: $OBJ.verify = False
-          - pattern: verify = False
+          - pattern: |
+              (...).rejectUnauthorized = false
+          - pattern: |
+              (...).verify = False
     metadata:
       category: security
       constitutional-principle: "Zero Trust Engineering"
