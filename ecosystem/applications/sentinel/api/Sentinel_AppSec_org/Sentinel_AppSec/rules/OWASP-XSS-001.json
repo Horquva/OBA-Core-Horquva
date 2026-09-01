@@ -1,0 +1,25 @@
+{
+    "rule_id": "OWASP-XSS-001",
+    "category": "A03:2021-Injection",
+    "severity": "HIGH",
+    "description": "Detects Cross-Site Scripting (XSS) script tags and inline event handlers.",
+    "detection_regex": "(?:<script.*?>|javascript:|onload=)",
+    "version": "1.0.0",
+    "owner": "AppSec Team",
+    "status": "DEPLOYED",
+    "expected_behavior": "Block request immediately and return 403 Forbidden.",
+    "false_positive_considerations": "May trigger on benign HTML documentation or raw code snippets.",
+    "evidence_requirements": "Log the script payload or event handler string.",
+    "test_fixtures": [
+        {
+            "payload": "<script>alert(1)</script>",
+            "should_flag": true,
+            "description": "Basic script tag injection"
+        },
+        {
+            "payload": "hello world, standard user input",
+            "should_flag": false,
+            "description": "Benign text string"
+        }
+    ]
+}
