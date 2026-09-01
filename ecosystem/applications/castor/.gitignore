@@ -1,0 +1,29 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Flutter/Dart (for when Week 3 coding starts)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.g.dart
+pubspec.lock
+
+# Node (if any tooling is added)
+node_modules/
+
+# Environment files — NEVER commit these
+.env
+.env.local
+*.env
+
+# Temporary files
+*.tmp
+*.log
