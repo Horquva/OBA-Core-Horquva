@@ -34,39 +34,24 @@ rules:
   # DISABLED TLS VERIFICATION — JAVASCRIPT / TYPESCRIPT
   # ============================================================
 
-  - id: sentinel-no-disabled-tls-verification-js
+    - id: sentinel-no-disabled-tls-verification-js
     languages:
       - javascript
       - typescript
     severity: ERROR
     message: >
-      Disabling TLS/certificate verification violates Sentinel's
-      Zero Trust Engineering principle. All service-to-service calls
-      must be authenticated and encrypted.
-    patterns:
-      - pattern-either:
-
-          # Example:
-          # options.rejectUnauthorized = false;
-          - pattern: $OBJ.rejectUnauthorized = false
-
-          # Example:
-          # {
-          #   hostname: "...",
-          #   rejectUnauthorized: false
-          # }
-          - pattern: |
-              {
-                ...,
-                rejectUnauthorized: false,
-                ...
-              }
-
+      Disabling TLS/certificate verification violates Sentinel's Zero Trust
+      Engineering principle.
+    pattern-either:
+      - pattern: $OBJ.rejectUnauthorized = false
+      - pattern: |
+          {
+            ...
+            rejectUnauthorized: false
+            ...
+          }
     metadata:
       category: security
-      technology:
-        - javascript
-        - typescript
       constitutional-principle: "Zero Trust Engineering"
 
 
