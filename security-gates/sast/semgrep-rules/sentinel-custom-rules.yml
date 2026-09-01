@@ -28,8 +28,8 @@ rules:
       - pattern-either:
           - pattern: $OBJ.rejectUnauthorized = false
           - pattern: rejectUnauthorized = false
-          - pattern: verify = False
           - pattern: $OBJ.verify = False
+          - pattern: verify = False
     metadata:
       category: security
       constitutional-principle: "Zero Trust Engineering"
