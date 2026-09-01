@@ -141,6 +141,10 @@ async function main() {
     check('tool_done carries a one-line summary', /orgHealth/.test(rec.first('tool_done').data.summary), rec.first('tool_done').data)
     check('tool_done reports a duration', typeof rec.first('tool_done').data.durationMs === 'number')
     check('the trace records the call', out.toolTrace.length === 1 && out.toolTrace[0].name === 'get_org_snapshot', out.toolTrace)
+    check('the trace keeps the full envelope for 11.8', out.toolTrace[0].result !== undefined, Object.keys(out.toolTrace[0]))
+    check('the numbers themselves are reachable', out.toolTrace[0].result.data.orgHealth === 62, out.toolTrace[0].result.data)
+    check('provenance rides along for the name checks', typeof out.toolTrace[0].result.provenance.snapshotAt === 'string', out.toolTrace[0].result.provenance)
+    check('tool_done still carries only the summary', rec.first('tool_done').data.result === undefined, rec.first('tool_done').data)
     check('text arrived as token events', rec.of('token').length > 0)
   }
 

@@ -232,6 +232,14 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
           args: call.args,
           summary,
           durationMs,
+          // The full envelope, kept for 11.8: the numeric validator walks these
+          // to confirm every number in the answer traces back to real tool data,
+          // and the summary is far too lossy for that. Callers that serialise
+          // the trace (11.6's payload, 11.9's agent_tool_calls rows) should
+          // decide for themselves whether to persist or ship this field —
+          // the registry caps each result at 20 KB, so a multi-tool turn can
+          // carry a few hundred KB here.
+          result,
           ...(result && result.toolError ? { toolError: result.toolError.code } : {}),
         })
 
