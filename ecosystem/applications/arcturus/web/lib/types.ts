@@ -69,6 +69,22 @@ export interface StructuredAssessment {
   evidence_citations: string[];
 }
 
+export interface ValidationResultContract {
+  run_id: string;
+  context: {
+    experiment_id: string;
+    global_seed: number;
+    run_id?: string;
+    trace_id?: string;
+  };
+  passed_rules: string[];
+  failed_rules: string[];
+  flagged_rules: string[];
+  final_status: 'validated' | 'rejected' | 'inconclusive';
+  reason: string | null;
+  evaluated_at: string;
+}
+
 export interface User {
   id: string;
   name: string;
