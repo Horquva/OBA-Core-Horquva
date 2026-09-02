@@ -6,9 +6,13 @@
  * exchanges a structured Intelligence Package: source, type, confidence,
  * evidence, recommendations, relationships, context, timestamp, version.
  *
- * This is the common structure every analysis returns, and how M11/M23/M24/M48/
- * M50/M55 read each other's output. Provides schema validation and confidence
- * fusion.
+ * This is the common structure every analysis returns. Provides schema
+ * validation and confidence fusion (`runMany()`'s fusedConfidence). The six
+ * modules that used to read each other's output through this shape — M11,
+ * M23, M24, M48, M50, M55 — were retired 2026-09-02 (see
+ * data/constitutional-modules.js); the dependency-ordering machinery this
+ * protocol rides on is kept regardless, since `dependsOn` still expresses
+ * real prerequisite structure among the 24 modules that remain.
  *
  * The publish/subscribe IntelligenceBus that used to live here was removed with
  * the runtime: its only readers were four analyses reporting on the log of Brain

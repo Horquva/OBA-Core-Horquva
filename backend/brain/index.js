@@ -1,8 +1,10 @@
 /**
  * ORGANIZATIONAL BRAIN — an analysis library, not a runtime
  * ---------------------------------------------------------
- * Holds the organizational Knowledge Graph and runs the M01–M55 analyses over
- * it. Callers ask for one analysis by code; its declared dependencies run first
+ * Holds the organizational Knowledge Graph and runs the 24-module analysis
+ * catalog over it (M01–M55, most codes retired — see
+ * data/constitutional-modules.js's header for the full retirement history).
+ * Callers ask for one analysis by code; its declared dependencies run first
  * so it receives the same `priorIntel` it always has.
  *
  * This replaces a 1,154-line constitutional runtime — execution engine, event
@@ -13,20 +15,15 @@
  *
  * What was kept, deliberately:
  *   - the dependency ordering, byte-identical to the old engine's (Kahn's with
- *     a sorted queue), plus the two constitutional rules — Truth (M46) before
- *     Advisor (M48), and Meta-Brain (M55) last. Six analyses (M11, M23, M24,
- *     M48, M50, M55) read prior intelligence and return different answers
- *     without it, so this is behaviour, not ceremony.
+ *     a sorted queue).
  *   - `createIntelligence` / `propagateConfidence`, so every analysis returns
  *     the same validated package shape it always did.
  *
- * ⚠ Seven analyses previously read runtime internals rather than organizational
- * data — M10, M12, M17, M47 and M46 read a log of *Brain runs*; M39 and M49
- * read the registry's own size and the runtime's health. All are null-guarded
- * and now return empty for those fields. That is open question 1 in the design
- * document: retire them, or re-point them at `decision_history` /
- * `workflow_failures` / `documentation_trend`. Until that is answered they
- * report nothing rather than reporting on the machinery.
+ * The two constitutional ordering rules this library used to also enforce —
+ * Truth (M46) before Advisor (M48), and Meta-Brain (M55) last — were retired
+ * with those three modules on 2026-09-02 (see constitutional-modules.js):
+ * each had a richer, already-live SQL/derived.js answer to the same question,
+ * so the rule that gated them no longer has anything to gate.
  */
 
 const KnowledgeGraph = require('./knowledge/knowledgeGraph')
@@ -150,17 +147,6 @@ function resolveOrder(ids) {
     throw new Error('Circular dependency among analyses: ' + all.join(', '))
   }
 
-  // Constitutional rules: Truth gates the Advisor, Meta-Brain fuses last.
-  const ia = order.indexOf('M46')
-  const ib = order.indexOf('M48')
-  if (ia > -1 && ib > -1 && ia > ib) {
-    order.splice(ia, 1)
-    order.splice(order.indexOf('M48'), 0, 'M46')
-  }
-  if (order.includes('M55')) {
-    order.splice(order.indexOf('M55'), 1)
-    order.push('M55')
-  }
   return order
 }
 
@@ -203,10 +189,8 @@ async function run(id, context = {}) {
 }
 
 /**
- * Run several analyses in constitutional order and return all of them, plus a
- * fused confidence. When M55 ran, its own confidence IS the fused answer — it
- * is constitutionally the analysis that fuses everything — so re-fusing over
- * the whole set would double-count the same signals.
+ * Run several analyses in dependency order and return all of them, plus a
+ * fused confidence (weakest-link/average — see propagateConfidence()).
  */
 async function runMany(ids, context = {}) {
   const unknown = ids.filter((c) => !toCode(c))
@@ -220,10 +204,7 @@ async function runMany(ids, context = {}) {
     priorIntel.push({ module: c, package: intel })
     results.push({ module: c, ...intel })
   }
-  const m55 = results.find((r) => r.module === 'M55')
-  const fusedConfidence = m55
-    ? m55.confidence ?? 0
-    : propagateConfidence(results.map((r) => ({ confidence: r.confidence ?? 0 })))
+  const fusedConfidence = propagateConfidence(results.map((r) => ({ confidence: r.confidence ?? 0 })))
   return {
     order,
     results,

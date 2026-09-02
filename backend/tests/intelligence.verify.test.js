@@ -7,9 +7,15 @@
  * These scenarios previously ran through the Brain runtime's Execution Engine.
  * The runtime is gone (docs/superpowers/specs/2026-08-24-brain-as-library-design.md);
  * the same scenarios now run through brain.runMany(), which resolves the same
- * dependency order. The assertions are unchanged in substance, and one was
- * added: a scenario's declared dependencies must actually appear in its order,
- * which is what proves composition survived the refactor.
+ * dependency order. The assertions are unchanged in substance: every scenario
+ * checks that its declared dependencies actually ran, and ran first, which is
+ * what proves composition survived the refactor.
+ *
+ * Scenarios rebuilt 2026-09-02: M11/M05/M54/M50/M55 were all retired that day
+ * (see data/constitutional-modules.js's header) -- each had a richer, already-
+ * live SQL/derived.js answer to the same question. Replaced with scenarios
+ * over the 24 modules that remain, chosen to still exercise real multi-level
+ * dependency chains rather than single, dependency-free modules.
  */
 
 const brain = require('../brain')
@@ -30,13 +36,19 @@ function check(name, condition, detail) {
 
 // Intelligence-side scenarios (analysis ids from the module catalog)
 const SCENARIOS = [
-	{ name: 'Predictive Risk (M11)', modules: ['M03', 'M11'], question: 'Predict upcoming risks' },
-	// M12/M17/M47 retired 2026-08-24 (they measured brain runs, not the
-	// organization). Governance replaces them: a real M01 → M20 → M19 chain.
+	// M01 -> M02 -> M03: a real two-level ownership/dependency/risk chain.
+	{ name: 'Risk Intelligence (M03)', modules: ['M03'], question: 'Where is the organization vulnerable?' },
+	// M01 -> M20 -> M19: governance needs accountability needs ownership.
 	{ name: 'Governance (M19)', modules: ['M19'], question: 'How well governed are we?' },
-	{ name: 'What-If Simulation (M05/M54)', modules: ['M05', 'M54'], question: 'Simulate a key person leaving' },
+	// M02/M34 -> M28: hidden dependencies feed the universal dependency graph.
+	{ name: 'Universal Dependency Graph (M28)', modules: ['M28'], question: 'How is everything connected?' },
+	// M28/M29/M31 -> M49, and M28/M29 each resolve further down to M01/M02/M34:
+	// the deepest chain in the current catalog, six modules from one request.
 	{ name: 'Digital Twin (M49)', modules: ['M49'], question: 'Sync the digital twin' },
-	{ name: 'Brain Core + Orchestrator (M50/M55)', modules: ['M50', 'M55'], question: 'Full brain reasoning' },
+	// M28/M29 -> M35: a second, independent path through the same mid-level
+	// modules M49 also depends on, so this checks they're each computed once
+	// and shared rather than re-run per consumer.
+	{ name: 'Network Intelligence (M35)', modules: ['M35'], question: 'Who are the central actors?' },
 ]
 
 ;(async () => {

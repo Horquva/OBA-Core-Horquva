@@ -8,9 +8,13 @@
  * 55 modules "discovered", 55 capabilities "registered", a graph "valid" flag.
  * The runtime is gone (see docs/superpowers/specs/2026-08-24-brain-as-library-design.md).
  * Every assertion below is the same claim re-expressed against the library —
- * all 51 analyses exist and run, ownership is as the catalog declares, the
- * graph is valid, and the two constitutional ordering rules still hold.
- * (51, not 55: M10/M12/M17/M47 were retired — see the catalog's header.)
+ * all 24 analyses exist and run, ownership is as the catalog declares, the
+ * graph is valid, and dependency ordering still holds.
+ * (24, not 55: M10/M12/M17/M47 were retired 2026-08-24, then a further 27 on
+ * 2026-09-02 — see the catalog's header for both retirement audits. The two
+ * constitutional ordering rules this file used to assert — Truth (M46) before
+ * Advisor (M48), Meta-Brain (M55) last — were retired along with those three
+ * modules; there is nothing left to gate.)
  */
 
 const fs = require('fs')
@@ -39,17 +43,21 @@ function check(name, condition, detail) {
 		const { MODULES } = brain
 
 		// ─── the catalog is intact ───
-		check('51 analyses in the catalog', MODULES.length === 51, `${MODULES.length}`)
+		check('24 analyses in the catalog', MODULES.length === 24, `${MODULES.length}`)
 		const missing = MODULES.filter((m) => typeof IMPL[m.code] !== 'function')
 		check('every analysis has an implementation', missing.length === 0,
-			missing.length ? missing.map((m) => m.code).join(', ') : '51/51')
+			missing.length ? missing.map((m) => m.code).join(', ') : '24/24')
 
 		const byOwner = {}
 		for (const m of MODULES) byOwner[m.owner] = (byOwner[m.owner] || 0) + 1
-		check('Owner Huzaifa = 13', byOwner.Huzaifa === 13, String(byOwner.Huzaifa))
-		check('Owner Kamran = 20', byOwner.Kamran === 20, String(byOwner.Kamran))
-		check('Owner Tahir = 11', byOwner.Tahir === 11, String(byOwner.Tahir))
-		check('Owner Anusha = 7', byOwner.Anusha === 7, String(byOwner.Anusha))
+		// Anusha's whole executive layer (M15/M16/M21/M23/M51/M52/M53) was retired
+		// 2026-09-02 -- each was redundant with a richer live SQL system -- so she
+		// no longer owns any module in this catalog. That is a fact about which
+		// analyses turned out to be duplicates, not a statement about her work.
+		check('Owner Huzaifa = 11', byOwner.Huzaifa === 11, String(byOwner.Huzaifa))
+		check('Owner Kamran = 5', byOwner.Kamran === 5, String(byOwner.Kamran))
+		check('Owner Tahir = 8', byOwner.Tahir === 8, String(byOwner.Tahir))
+		check('Owner Anusha owns none remaining', byOwner.Anusha === undefined, String(byOwner.Anusha))
 
 		// ─── every analysis has a unique, resolvable name ───
 		// Slugs are derived from catalog names, so a rename could silently collide
@@ -91,16 +99,12 @@ function check(name, condition, detail) {
 		check('no route answers with a brain module code', squatters.length === 0,
 			squatters.length ? squatters.join(' | ') : `${routeFiles.length} route files clean`)
 
-		// ─── constitutional ordering survives the runtime's removal ───
+		// ─── dependency ordering survives the runtime's removal ───
 		const order = brain.resolveOrder(MODULES.map((m) => m.code))
-		check('ordering covers all 51', order.length === 51, `${order.length}`)
-		check('Constitutional: Truth (M46) before Advisor (M48)',
-			order.indexOf('M46') < order.indexOf('M48'),
-			`M46@${order.indexOf('M46')} M48@${order.indexOf('M48')}`)
-		check('Constitutional: Meta-Brain (M55) runs last', order[order.length - 1] === 'M55', order[order.length - 1])
+		check('ordering covers all 24', order.length === 24, `${order.length}`)
 		const misordered = MODULES.filter((m) => m.dependsOn.some((d) => order.indexOf(d) > order.indexOf(m.code)))
 		check('every dependency precedes its dependent', misordered.length === 0,
-			misordered.length ? misordered.map((m) => m.code).join(', ') : 'all 51')
+			misordered.length ? misordered.map((m) => m.code).join(', ') : 'all 24')
 
 		// ─── every analysis actually runs over a graph ───
 		const g = buildTestGraph()
@@ -110,16 +114,23 @@ function check(name, condition, detail) {
 		for (const m of MODULES) {
 			try { await IMPL[m.code]({ graph: g }, {}) } catch (e) { errors.push(`${m.code}: ${e.message}`) }
 		}
-		check('all 51 analyses run without error', errors.length === 0,
-			errors.length ? errors.slice(0, 3).join(' | ') : '51/51')
+		check('all 24 analyses run without error', errors.length === 0,
+			errors.length ? errors.slice(0, 3).join(' | ') : '24/24')
 
-		// ─── composition still feeds priorIntel (M48 is gated by M46) ───
+		// ─── composition (dependsOn resolution + priorIntel population) still
+		// works for a real multi-level chain: M31 needs M28+M29, M28 needs
+		// M02+M34, M29 needs M01+M28, M02 needs M01, M34 needs M02 -- the full
+		// transitive closure is exactly {M01, M02, M34, M28, M29, M31}, six
+		// modules pulled in and ordered from one request for M31 alone.
 		brain.setGraph(g)
-		const fused = await brain.runMany(['M46', 'M48', 'M55'], { role: 'CEO' })
-		check('runMany returns an order', Array.isArray(fused.order) && fused.order.length > 0,
+		const fused = await brain.runMany(['M31'], { role: 'CEO' })
+		const expectedChain = ['M01', 'M02', 'M34', 'M28', 'M29', 'M31']
+		check('runMany pulls in exactly the transitive dependency closure',
+			fused.order.length === expectedChain.length && expectedChain.every((c) => fused.order.includes(c)),
 			fused.order.join(' → '))
+		check('M31 runs last (it is the requested target, and depends on the rest)',
+			fused.order[fused.order.length - 1] === 'M31', fused.order[fused.order.length - 1])
 		check('Fused confidence is a number', typeof fused.fusedConfidence === 'number', String(fused.fusedConfidence))
-		check('Constitutional: orchestrator runs last', fused.order[fused.order.length - 1] === 'M55')
 	} catch (e) {
 		failed++
 		console.error('  ✗ Brain smoke test threw:', e.message)
