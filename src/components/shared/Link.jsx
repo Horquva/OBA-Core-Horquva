@@ -1,4 +1,4 @@
-import Link from './components/shared/Link';
+import { Link } from 'react-router-dom';
 
 function LinkTest() {
   return (
