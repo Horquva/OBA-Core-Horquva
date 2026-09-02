@@ -1,8 +1,8 @@
 # Organizational Brain — analysis library (`backend/brain/`)
 
-Builds the organizational Knowledge Graph from Supabase and runs the 24
-analyses over it. (The catalog is numbered M01–M55; 31 codes have been
-retired across two passes — see Known gaps.)
+Builds the organizational Knowledge Graph from Supabase and runs the 23
+analyses over it. (The catalog is numbered M01–M55; 32 codes have been
+retired across three passes — see Known gaps.)
 
 **It is a library, not a service.** Nothing is mounted; there is no `/api/brain`.
 Routes call it directly:
@@ -41,7 +41,7 @@ its own self-description. See
 | `runMany(ids, context)` | Several analyses in dependency order, plus a fused confidence. |
 | `resolveOrder(ids)` | The execution order (always codes), dependencies included. |
 | `toCode(idOrSlug)` | Resolve a slug or code to the canonical code; `null` if unknown. |
-| `MODULES` | The analysis catalog — 24 entries. |
+| `MODULES` | The analysis catalog — 23 entries. |
 
 ## Files
 
@@ -55,7 +55,7 @@ its own self-description. See
 | `knowledge/intelligenceExchange.js` | The package shape every analysis returns, plus confidence fusion |
 | `data/ontology.js` | One constitutional meaning per entity and relationship type |
 | `data/constitutional-modules.js` | The analysis catalog: names, owners, dependencies |
-| `modules/implementations.js` | All 24 analyses |
+| `modules/implementations.js` | All 23 analyses |
 | `modules/analytics.js` | Shared graph algorithms — SPOF, centrality, cycles, transitive deps |
 
 ## What survived the runtime, because it is behaviour
@@ -63,7 +63,7 @@ its own self-description. See
 **Dependency ordering.** `run()`/`runMany()` resolve and execute an analysis's
 declared prerequisites first, so `context.priorIntel` is populated by the time
 it runs — Kahn's algorithm with a sorted queue, byte-identical to the retired
-engine's. As of the 2026-09-02 retirement (below), none of the 24 remaining
+engine's. As of the 2026-09-02 retirements (below), none of the 23 remaining
 modules actually read `context.priorIntel` themselves — the six that did
 (M11, M23, M24, M48, M50, M55) were retired along with it. The mechanism is
 kept because `dependsOn` still expresses genuine prerequisite structure (e.g.
@@ -105,7 +105,34 @@ findings from that audit are worth keeping in mind if this catalog grows again:
   questions. If this catalog's fusion behaviour is ever needed again, prefer
   extending one of the two live fusion systems over reviving M55.
 
-Both retirement passes are recoverable from git history.
+**One more, M30 Knowledge Concentration, was found and retired later the same
+day (24 → 23),** while auditing the 24 survivors for live wiring rather than
+just SQL duplication. Its `ownershipConcentration()` was a flat asset count
+per owner; `domain/derived.js`'s `knowledgeConcentration()`, already live at
+`GET /api/knowledge/intelligence`, is criticality-*weighted* and answers the
+exact same question ("Where is knowledge dangerously concentrated?") with a
+strictly richer signal. `analytics.js`'s `ownershipConcentration()` was
+deleted with it — nothing else called it.
+
+**That same audit found five of the 24 survivors had real capability nothing
+else computes but no route calling them: M28, M29, M31, M34, M35.** Each is
+now live under `routes/intelligence/reality.js` (`/api/intelligence/
+dependency-graph`, `/relationships`, `/ecosystem`, `/hidden-dependencies`,
+`/network-centrality`). A second look at the rest found five more whose
+nearest SQL analogue reads only one source table, where `graphLoader.js`
+unifies several into the `depends_on`/`owns`/`governs` edges these modules
+read — a genuine, not just presentational, difference in coverage: M02/M03
+(vs. the single-table, agent-scoped `GET /api/dependencies` and
+`GET /api/risks`), M07 (vs. `GET /api/tool-intelligence`, which is
+`ai_platforms` only and never covers automation agents), M32 (vs. the
+agent-only `GET /api/dependencies/agent-spofs`), and M49 (a full graph
+snapshot; nothing else returns one). M02/M03/M07 joined M28/M29/M31/M34/M35
+in `reality.js`; M32/M49 are in `routes/intelligence/prediction.js`
+alongside the rest of the Tahir/Kamran layer. No frontend card consumes any
+of the ten yet — that is a separate, later decision.
+
+All three retirement passes, and both wiring passes, are recoverable from git
+history.
 
 M39's `brainConstitutionalCapabilities` (the registry's own size) and M49's
 `runtimeHealth` were self-description and were deleted with the original

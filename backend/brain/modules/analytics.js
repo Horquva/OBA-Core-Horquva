@@ -149,19 +149,6 @@ const A = {
     return cycles
   },
 
-  // Ownership concentration: how many critical assets each owner holds.
-  ownershipConcentration(g) {
-    const counts = new Map()
-    for (const a of A.assets(g)) {
-      for (const r of A.owners(g, a.id)) {
-        counts.set(r.from, (counts.get(r.from) || 0) + 1)
-      }
-    }
-    return [...counts.entries()]
-      .map(([id, n]) => ({ id, name: A.nameOf(g, id), assetsOwned: n }))
-      .sort((a, b) => b.assetsOwned - a.assetsOwned)
-  },
-
   round(n) { return Math.round(n * 100) / 100 },
 
   // Confidence derived from evidence volume + coverage (never hard-coded).

@@ -19,6 +19,11 @@
  *   GovernanceTab           -> M19 Governance Intelligence
  *   RecommendationsPage     -> M04 Recommendation Engine (D-62)
  *
+ * Two more were wired up 2026-09-02 with no card consumer yet — see the
+ * routes below for why each has real content its nearest SQL analogue
+ * lacks: M32 Dependency Impact (/dependency-impact), M49 Digital Twin
+ * (/digital-twin).
+ *
  * Mounted at /api/intelligence (see backend/index.js).
  *
  * The URL paths below are named for what each endpoint actually returns,
@@ -71,6 +76,18 @@ router.get('/continuity', moduleEndpoint('organizational-continuity')) // Contin
 router.get('/governance', moduleEndpoint('governance')) // GovernanceTab (M19)
 router.get('/recommendations', moduleEndpoint('recommendation-engine')) // RecommendationsPage (M04, D-62)
 
+// Wired up 2026-09-02, alongside reality.js's M02/M03/M07/M28/M29/M31/M34/
+// M35 — see modules/implementations.js's header for the audit. No frontend
+// card consumes either yet.
+//
+// M32 ranks blast radius (direct + cascade impact) across EVERY entity type
+// in the graph — GET /api/dependencies/agent-spofs answers the same shape
+// of question but only for agents.
+router.get('/dependency-impact', moduleEndpoint('dependency-impact')) // M32, no card yet
+// M49 mirrors the full graph — every entity and relationship, plus stats —
+// as one snapshot. Nothing else returns the whole graph in a single call.
+router.get('/digital-twin', moduleEndpoint('digital-twin')) // M49, no card yet
+
 // ── Graph lifecycle (D-14) ───────────────────────────────────────
 // loadGraph() otherwise runs exactly once, at backend/index.js boot — nothing
 // ever calls it again, so a Supabase edit after boot is invisible until the
@@ -108,6 +125,8 @@ router.get('/prediction', (req, res) => {
       capabilityInventory: '/api/intelligence/capability-inventory',
       continuity: '/api/intelligence/continuity',
       governance: '/api/intelligence/governance',
+      dependencyImpact: '/api/intelligence/dependency-impact',
+      digitalTwin: '/api/intelligence/digital-twin',
     },
   })
 })

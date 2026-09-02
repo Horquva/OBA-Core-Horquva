@@ -34,6 +34,16 @@
  * because verification/advice/fusion aren't real questions. Both retirement
  * passes are recoverable from git.
  *
+ * ⚠ One more, M30 Knowledge Concentration, was found the same way later the
+ * same day while auditing the remaining 24 for live wiring (see
+ * modules/implementations.js's header) and RETIRED on 2026-09-02, taking the
+ * catalog from 24 to 23. Its `ownershipConcentration()` (a flat count of
+ * assets per owner) is a strictly weaker duplicate of derived.js's
+ * knowledgeConcentration() — criticality-WEIGHTED, already live at
+ * GET /api/knowledge/intelligence (routes/knowledge/intelligence.js) — the
+ * exact question M30 asks ("Where is knowledge dangerously concentrated?"),
+ * already answered richer.
+ *
  * The remaining definitions are locked: no renaming, merging, or
  * duplication. Ownership reflects the MVP Execution Guides (constitutional
  * engineering assignment); module names reflect the locked Master Registry.
@@ -88,7 +98,6 @@ const RAW = [
   ['M20', 'Accountability Intelligence', 'Huzaifa', LAYER.REALITY, 'Who is accountable for what?'],
   ['M28', 'Universal Dependency Graph', 'Huzaifa', LAYER.REALITY, 'How is everything connected as one dependency network?'],
   ['M29', 'Organizational Relationship Intelligence', 'Huzaifa', LAYER.REALITY, 'How strong and healthy are organizational relationships?'],
-  ['M30', 'Knowledge Concentration Intelligence', 'Kamran', LAYER.REASONING, 'Where is knowledge dangerously concentrated?'],
   ['M31', 'Organizational Ecosystem Intelligence', 'Huzaifa', LAYER.REALITY, 'What is the full internal and external ecosystem?'],
   ['M32', 'Dependency Impact Intelligence', 'Tahir', LAYER.PREDICTION, 'What is the impact if a dependency fails?'],
   ['M34', 'Hidden Dependency Intelligence', 'Huzaifa', LAYER.REALITY, 'What dependencies are undocumented but real?'],

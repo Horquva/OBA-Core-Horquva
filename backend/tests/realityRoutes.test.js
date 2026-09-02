@@ -1,17 +1,21 @@
 /*
- * OBA Core — Reality-Layer Graph Route Test (2026-09-02 M28/M29/M31/M34/M35 wire-up).
+ * OBA Core — Graph Wire-Up Route Test (2026-09-02: M02/M03/M07/M28/M29/M31/
+ * M32/M34/M35/M49 wire-up).
  *
- * Covers GET /api/intelligence/{dependency-graph,relationships,ecosystem,
- * hidden-dependencies,network-centrality} — the five modules found to have
- * genuinely missing live capability in the retirement audit (see
- * brain/modules/implementations.js's header and brain/README.md's "Known
- * gaps"). Unlike graphRoutes.test.js, this boots the REAL brain library
- * against the shared test fixture (tests/fixtures/graph.js), not a fake —
- * the point of this test is that the real M28/M29/M31/M34/M35
- * implementations are actually reachable end-to-end over HTTP, not just
- * that a router forwards a stubbed response. brain.smoke.test.js and
- * intelligence.verify.test.js already prove those implementations are
- * individually correct; this proves the wiring on top of them.
+ * Covers the ten brain modules found to have genuinely missing live
+ * capability during the 2026-09-02 audit (see brain/modules/
+ * implementations.js's header and brain/README.md's "Known gaps"): five
+ * with no route at all (M28/M29/M31/M34/M35), and five more whose nearest
+ * SQL analogue reads only one source table where the graph unifies several
+ * (M02/M03/M07/M32/M49). Unlike graphRoutes.test.js, this boots the REAL
+ * brain library against the shared test fixture (tests/fixtures/graph.js),
+ * not a fake — the point of this test is that the real implementations are
+ * actually reachable end-to-end over HTTP, not just that a router forwards
+ * a stubbed response. brain.smoke.test.js and intelligence.verify.test.js
+ * already prove those implementations are individually correct; this
+ * proves the wiring on top of them, through both routers exactly as
+ * index.js mounts them (reality.js for M02/M03/M07/M28/M29/M31/M34/M35,
+ * prediction.js for M32/M49).
  *
  * backend/supabase.js is stubbed because domain/dataset.js requires it
  * unconditionally at module load time, even though this test never calls
@@ -43,12 +47,14 @@ require.cache[supabasePath] = {
 const brain = require('../brain')
 const { buildTestGraph } = require('./fixtures/graph')
 
-// ── Boot the real router ──────────────────────────────────────────────────
+// ── Boot both real routers, mounted the same way index.js mounts them. ────
 const realityRouter = require('../routes/intelligence/reality')
+const predictionRouter = require('../routes/intelligence/prediction')
 
 const app = express()
 app.use(express.json())
 app.use('/api/intelligence', realityRouter)
+app.use('/api/intelligence', predictionRouter)
 
 async function main() {
 	const server = app.listen(0)
@@ -61,7 +67,7 @@ async function main() {
 		return { status: res.status, json }
 	}
 
-	console.log('\n=== OBA Core — Reality-Layer Graph Route Test ===\n')
+	console.log('\n=== OBA Core — Graph Wire-Up Route Test ===\n')
 
 	console.log('Before any graph is loaded:')
 	{
@@ -73,11 +79,16 @@ async function main() {
 	brain.setGraph(buildTestGraph())
 
 	const cases = [
+		{ path: '/api/intelligence/dependency-fanin', code: 'M02', payloadKeys: ['dependencyCount', 'mostDependedUpon', 'criticalDependencies'] },
+		{ path: '/api/intelligence/organizational-risk', code: 'M03', payloadKeys: ['riskScore', 'riskLevel', 'singlePointsOfFailure', 'criticalDependencyCount'] },
+		{ path: '/api/intelligence/ai-agent-governance', code: 'M07', payloadKeys: ['aiAgentCount', 'agents', 'ungovernedAgents'] },
 		{ path: '/api/intelligence/dependency-graph', code: 'M28', payloadKeys: ['nodes', 'dependencyEdges', 'cyclesDetected', 'hasCycles', 'longestDependencyChain', 'adjacency'] },
 		{ path: '/api/intelligence/relationships', code: 'M29', payloadKeys: ['totalRelationships', 'typeDistribution', 'collaborationLinks', 'isolatedEntities'] },
 		{ path: '/api/intelligence/ecosystem', code: 'M31', payloadKeys: ['internalEntities', 'externalEntities', 'externalActors', 'composition'] },
+		{ path: '/api/intelligence/dependency-impact', code: 'M32', payloadKeys: ['impactCount', 'impacts', 'highestImpact'] },
 		{ path: '/api/intelligence/hidden-dependencies', code: 'M34', payloadKeys: ['hiddenDependencyCount', 'hiddenDependencies'] },
 		{ path: '/api/intelligence/network-centrality', code: 'M35', payloadKeys: ['centralActors', 'mostConnected', 'averageDegree'] },
+		{ path: '/api/intelligence/digital-twin', code: 'M49', payloadKeys: ['digitalTwin', 'synchronized', 'simulationReady'] },
 	]
 
 	console.log('\nOnce the graph is loaded, each endpoint runs its real analysis:')
@@ -113,7 +124,7 @@ async function main() {
 
 	console.log('\n----------------------------------------')
 	console.log('passed: ' + passed + '   failed: ' + failed)
-	console.log(failed === 0 ? 'REALITY ROUTE TESTS PASSED ✅' : 'REALITY ROUTE TESTS FAILED ❌')
+	console.log(failed === 0 ? 'GRAPH WIRE-UP ROUTE TESTS PASSED ✅' : 'GRAPH WIRE-UP ROUTE TESTS FAILED ❌')
 	console.log('----------------------------------------\n')
 	process.exit(failed === 0 ? 0 : 1)
 }

@@ -9,10 +9,10 @@
  * (runtime.graph) and, where constitutional, consumes prior modules'
  * intelligence via context.priorIntel.
  *
- * Ownership (of the 24 modules remaining after the 2026-09-02 retirement —
+ * Ownership (of the 23 modules remaining after the 2026-09-02 retirements —
  * see the note below):
  *   Huzaifa  (reality)   — M01 M02 M03 M07 M19 M20 M28 M29 M31 M34 M35
- *   Kamran   (reasoning) — M04 M18 M30 M39 M40
+ *   Kamran   (reasoning) — M04 M18 M39 M40
  *   Tahir    (prediction)— M32 M37 M41 M42 M43 M44 M45 M49
  *
  * RESOLVED module-code overlap: until 2026-08-24, M39, M40, M46, M48 and M54
@@ -43,6 +43,33 @@
  * This is the same retirement M10/M12/M17/M47 already went through on
  * 2026-08-24, for the same reason: the question was already answered live,
  * by something else, better.
+ *
+ * RETIRED 2026-09-02, LATER THE SAME DAY (1 module, catalog 24 → 23): M30
+ * Knowledge Concentration. Found while auditing the other 23 for live
+ * wiring — its ownershipConcentration() (analytics.js) was a flat asset
+ * count per owner; derived.js's knowledgeConcentration(), already live at
+ * GET /api/knowledge/intelligence, is criticality-WEIGHTED and answers the
+ * exact same constitutional question ("Where is knowledge dangerously
+ * concentrated?") with a strictly richer signal. analytics.js's
+ * ownershipConcentration() was deleted with it — no other caller.
+ *
+ * WIRED UP 2026-09-02: the retirement audit above also checked the other 23
+ * modules for a live route, not just for SQL duplication. Five had neither —
+ * M28, M29, M31, M34, M35 — and were exposed at
+ * routes/intelligence/reality.js. A further five were found to compute real
+ * content their nearest SQL analogue does not (each unifies MULTIPLE source
+ * tables into one graph via graphLoader.js, where the SQL route reads only
+ * one): M02 and M03's depends_on-derived rankings cover agent_platform/
+ * workflow_tool_dependencies/system_dependencies/system_agent_usage, which
+ * GET /api/dependencies and GET /api/risks (both single-table, agent-scoped)
+ * do not; M07 exposes governedBy/dependsOn/supports detail per AI agent
+ * (including automation agents, which GET /api/tool-intelligence never
+ * covers — that route is ai_platforms/"tools" only); M32 ranks blast radius
+ * across every entity type, not just agents (GET /api/dependencies/agent-
+ * spofs's scope); M49 mirrors the full graph as one snapshot, which nothing
+ * else returns in one call. M02/M03/M07 are in reality.js alongside
+ * M28/M29/M31/M34/M35 (same owner/layer); M32/M49 are in prediction.js
+ * (Tahir/prediction layer, alongside M37/M41-45).
  */
 
 const A = require('./analytics')
@@ -526,28 +553,6 @@ IMPL.M18 = (rt) => {
     confidence: A.confidence(evidence.length || 1, continuityScore),
     evidence,
     recommendations: spofs.slice(0, 5).map((s) => `Create a continuity/recovery plan for "${s.name}".`),
-  }
-}
-
-// M30 — Knowledge Concentration: where ownership is dangerously concentrated.
-IMPL.M30 = (rt) => {
-  const g = rt.graph
-  const conc = A.ownershipConcentration(g)
-  const total = A.assets(g).length
-  const top = conc[0]
-  const concentrationRatio = top && total ? A.round(top.assetsOwned / total) : 0
-  const evidence = conc.map((c) => ev('entity', c.id, `${c.name} owns ${c.assetsOwned} assets`))
-  return {
-    type: 'risk',
-    payload: {
-      concentration: conc,
-      mostConcentratedOwner: top ? top.name : null,
-      concentrationRatio,
-      dangerous: concentrationRatio > 0.4,
-    },
-    confidence: A.confidence(evidence.length, 1),
-    evidence,
-    recommendations: concentrationRatio > 0.4 && top ? [`"${top.name}" owns ${Math.round(concentrationRatio * 100)}% of critical assets — distribute ownership.`] : [],
   }
 }
 

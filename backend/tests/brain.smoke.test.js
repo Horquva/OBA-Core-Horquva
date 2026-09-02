@@ -8,13 +8,13 @@
  * 55 modules "discovered", 55 capabilities "registered", a graph "valid" flag.
  * The runtime is gone (see docs/superpowers/specs/2026-08-24-brain-as-library-design.md).
  * Every assertion below is the same claim re-expressed against the library —
- * all 24 analyses exist and run, ownership is as the catalog declares, the
+ * all 23 analyses exist and run, ownership is as the catalog declares, the
  * graph is valid, and dependency ordering still holds.
- * (24, not 55: M10/M12/M17/M47 were retired 2026-08-24, then a further 27 on
- * 2026-09-02 — see the catalog's header for both retirement audits. The two
- * constitutional ordering rules this file used to assert — Truth (M46) before
- * Advisor (M48), Meta-Brain (M55) last — were retired along with those three
- * modules; there is nothing left to gate.)
+ * (23, not 55: M10/M12/M17/M47 were retired 2026-08-24, then a further 27 on
+ * 2026-09-02, then M30 later the same day — see the catalog's header for all
+ * three retirement audits. The two constitutional ordering rules this file
+ * used to assert — Truth (M46) before Advisor (M48), Meta-Brain (M55) last —
+ * were retired along with those three modules; there is nothing left to gate.)
  */
 
 const fs = require('fs')
@@ -43,10 +43,10 @@ function check(name, condition, detail) {
 		const { MODULES } = brain
 
 		// ─── the catalog is intact ───
-		check('24 analyses in the catalog', MODULES.length === 24, `${MODULES.length}`)
+		check('23 analyses in the catalog', MODULES.length === 23, `${MODULES.length}`)
 		const missing = MODULES.filter((m) => typeof IMPL[m.code] !== 'function')
 		check('every analysis has an implementation', missing.length === 0,
-			missing.length ? missing.map((m) => m.code).join(', ') : '24/24')
+			missing.length ? missing.map((m) => m.code).join(', ') : '23/23')
 
 		const byOwner = {}
 		for (const m of MODULES) byOwner[m.owner] = (byOwner[m.owner] || 0) + 1
@@ -55,7 +55,7 @@ function check(name, condition, detail) {
 		// no longer owns any module in this catalog. That is a fact about which
 		// analyses turned out to be duplicates, not a statement about her work.
 		check('Owner Huzaifa = 11', byOwner.Huzaifa === 11, String(byOwner.Huzaifa))
-		check('Owner Kamran = 5', byOwner.Kamran === 5, String(byOwner.Kamran))
+		check('Owner Kamran = 4', byOwner.Kamran === 4, String(byOwner.Kamran))
 		check('Owner Tahir = 8', byOwner.Tahir === 8, String(byOwner.Tahir))
 		check('Owner Anusha owns none remaining', byOwner.Anusha === undefined, String(byOwner.Anusha))
 
@@ -101,10 +101,10 @@ function check(name, condition, detail) {
 
 		// ─── dependency ordering survives the runtime's removal ───
 		const order = brain.resolveOrder(MODULES.map((m) => m.code))
-		check('ordering covers all 24', order.length === 24, `${order.length}`)
+		check('ordering covers all 23', order.length === 23, `${order.length}`)
 		const misordered = MODULES.filter((m) => m.dependsOn.some((d) => order.indexOf(d) > order.indexOf(m.code)))
 		check('every dependency precedes its dependent', misordered.length === 0,
-			misordered.length ? misordered.map((m) => m.code).join(', ') : 'all 24')
+			misordered.length ? misordered.map((m) => m.code).join(', ') : 'all 23')
 
 		// ─── every analysis actually runs over a graph ───
 		const g = buildTestGraph()
@@ -114,8 +114,8 @@ function check(name, condition, detail) {
 		for (const m of MODULES) {
 			try { await IMPL[m.code]({ graph: g }, {}) } catch (e) { errors.push(`${m.code}: ${e.message}`) }
 		}
-		check('all 24 analyses run without error', errors.length === 0,
-			errors.length ? errors.slice(0, 3).join(' | ') : '24/24')
+		check('all 23 analyses run without error', errors.length === 0,
+			errors.length ? errors.slice(0, 3).join(' | ') : '23/23')
 
 		// ─── composition (dependsOn resolution + priorIntel population) still
 		// works for a real multi-level chain: M31 needs M28+M29, M28 needs
