@@ -109,6 +109,12 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Graph Status',         path: '/api/intelligence/graph/status',      pingPath: '/api/intelligence/graph/status',       category: 'Constitutional', mounted: true },
   { name: 'Autonomous Advisor',   path: '/api/intelligence/advisor',           pingPath: '/api/intelligence/advisor',            category: 'Constitutional', mounted: true },
   { name: 'Simulation Universe',  path: '/api/intelligence/simulation-universe', pingPath: '/api/intelligence/simulation-universe', category: 'Constitutional', mounted: true },
+  // Wired up 2026-09-02 alongside the 27-module retirement — see backend/routes/intelligence/reality.js
+  { name: 'Dependency Graph',     path: '/api/intelligence/dependency-graph',   pingPath: '/api/intelligence/dependency-graph',   category: 'Constitutional', module: 'M28', mounted: true },
+  { name: 'Relationship Intel',   path: '/api/intelligence/relationships',      pingPath: '/api/intelligence/relationships',      category: 'Constitutional', module: 'M29', mounted: true },
+  { name: 'Ecosystem Intel',      path: '/api/intelligence/ecosystem',          pingPath: '/api/intelligence/ecosystem',          category: 'Constitutional', module: 'M31', mounted: true },
+  { name: 'Hidden Dependencies',  path: '/api/intelligence/hidden-dependencies', pingPath: '/api/intelligence/hidden-dependencies', category: 'Constitutional', module: 'M34', mounted: true },
+  { name: 'Network Centrality (Graph)', path: '/api/intelligence/network-centrality', pingPath: '/api/intelligence/network-centrality', category: 'Constitutional', module: 'M35', mounted: true },
 
   // ── Automation Layer ─────────────────────────
   { name: 'Self-Healing',           path: '/api/self-healing',            pingPath: '/api/self-healing/detect',            category: 'Automation', mounted: true, disabled: false },

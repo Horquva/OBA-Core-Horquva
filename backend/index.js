@@ -115,6 +115,7 @@ app.use('/api/executive-memory', require('./routes/executiveMemory/executiveMemo
 app.use('/api/context', require('./routes/context/context'))
 app.use('/api/intelligence/orchestrator', require('./routes/intelligence/orchestrator'))
 app.use('/api/intelligence', require('./routes/intelligence/prediction'))
+app.use('/api/intelligence', require('./routes/intelligence/reality'))
 app.use('/api/signals', require('./routes/signals/signals'))
 app.use('/api/intelligence', require('./routes/intelligence/constitutional'))
 app.use('/api/avatar', require('./routes/avatar'))
