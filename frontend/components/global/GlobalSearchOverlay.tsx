@@ -10,9 +10,10 @@
  *   • entities   — live people / agents / workflows / tools from the API
  *
  * Picking a result navigates to the route AND scrolls to the exact block,
- * flashing it so the executive can see where they landed. Everything is role
- * filtered with the same gating the sidebar uses, so a result is never offered
- * for a page the current role cannot open.
+ * flashing it so the executive can see where they landed. Results used to be
+ * role-filtered to mirror the sidebar's gating; both were removed together
+ * (FE-4) once that gating turned out to hide links without enforcing
+ * anything D-05 didn't already remove server-side.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,7 +33,6 @@ import {
   Workflow as WorkflowIcon,
 } from 'lucide-react';
 import { useGlobalPanels } from './GlobalPanelsContext';
-import { useAuth } from '@/lib/AuthContext';
 import { useSearchIndex, SearchEntry } from '@/lib/search';
 import {
   CommandTarget,
@@ -91,7 +91,6 @@ function iconFor(t: CommandTarget) {
 
 export default function GlobalSearchOverlay() {
   const { isSearchOpen, toggleSearch, closeAllPanels } = useGlobalPanels();
-  const { user } = useAuth();
   const { index } = useSearchIndex(isSearchOpen);
   const router = useRouter();
   const pathname = usePathname();
@@ -100,17 +99,15 @@ export default function GlobalSearchOverlay() {
   const [cursor, setCursor] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const role = (user?.role || 'employee').toLowerCase();
-
   const pool = useMemo(
     () => [...STATIC_TARGETS, ...index.map(entityToTarget)],
     [index],
   );
 
   const results = useMemo(() => {
-    if (!query.trim()) return defaultSuggestions(role);
-    return searchTargets(pool, query, role, 24);
-  }, [query, pool, role]);
+    if (!query.trim()) return defaultSuggestions();
+    return searchTargets(pool, query, 24);
+  }, [query, pool]);
 
   const grouped = useMemo(() => {
     const buckets = new Map<string, CommandTarget[]>();
