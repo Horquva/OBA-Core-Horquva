@@ -1,11 +1,22 @@
 import { Agent, Dependency } from '../types';
-import { RiskLevel } from '../types';
 
+/**
+ * A `Dependency` edge means `from` depends_on `to` (same reading
+ * backend/domain/derived.js's dependencyIndex() uses). So the things that
+ * BREAK when `startId` fails are whatever points AT it -- walk backward.
+ *
+ * This function used to walk forward (returning what `startId` itself
+ * depends on -- its own prerequisites, not its victims) while getUpstream()
+ * below had the correct backward walk under the wrong name. Every caller
+ * (DependencyTable's "Cascade Impact" column, FlowCanvas's downstream count,
+ * riskIntelligence.ts's downstreamCount, getSPOFs()'s victim count) was
+ * silently reading the inverse of what it displayed.
+ */
 export function getDownstream(startId: string, dependencies: Dependency[]): Set<string> {
-  const adj: Record<string, string[]> = {};
+  const dependentsOf: Record<string, string[]> = {};
   dependencies.forEach(d => {
-    if (!adj[d.from]) adj[d.from] = [];
-    adj[d.from].push(d.to);
+    if (!dependentsOf[d.to]) dependentsOf[d.to] = [];
+    dependentsOf[d.to].push(d.from);
   });
 
   const visited = new Set<string>();
@@ -13,8 +24,8 @@ export function getDownstream(startId: string, dependencies: Dependency[]): Set<
 
   while (q.length > 0) {
     const curr = q.shift()!;
-    if (adj[curr]) {
-      adj[curr].forEach(neighbor => {
+    if (dependentsOf[curr]) {
+      dependentsOf[curr].forEach(neighbor => {
         if (!visited.has(neighbor)) {
           visited.add(neighbor);
           q.push(neighbor);
@@ -26,11 +37,12 @@ export function getDownstream(startId: string, dependencies: Dependency[]): Set<
   return visited;
 }
 
+/** What `startId` itself depends on (its prerequisites), walking forward. */
 export function getUpstream(startId: string, dependencies: Dependency[]): Set<string> {
-  const adjRev: Record<string, string[]> = {};
+  const dependsOn: Record<string, string[]> = {};
   dependencies.forEach(d => {
-    if (!adjRev[d.to]) adjRev[d.to] = [];
-    adjRev[d.to].push(d.from);
+    if (!dependsOn[d.from]) dependsOn[d.from] = [];
+    dependsOn[d.from].push(d.to);
   });
 
   const visited = new Set<string>();
@@ -38,8 +50,8 @@ export function getUpstream(startId: string, dependencies: Dependency[]): Set<st
 
   while (q.length > 0) {
     const curr = q.shift()!;
-    if (adjRev[curr]) {
-      adjRev[curr].forEach(neighbor => {
+    if (dependsOn[curr]) {
+      dependsOn[curr].forEach(neighbor => {
         if (!visited.has(neighbor)) {
           visited.add(neighbor);
           q.push(neighbor);

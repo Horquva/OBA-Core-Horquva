@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { optional } = require('../../lib/supabaseQuery')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -70,11 +71,11 @@ router.get('/summary', async (req, res) => {
 
     const topDecision = queue[0]
 
-    const { data: history } = await supabase
+    const history = await optional('decision_history(revisit_flags)', supabase
       .from('decision_history')
-      .select('outcome, should_revisit')
+      .select('outcome, should_revisit'), [])
 
-    const revisitCount = history?.filter(h => h.should_revisit).length ?? 0
+    const revisitCount = history.filter(h => h.should_revisit).length
 
     res.json({
       totalDecisions: total,

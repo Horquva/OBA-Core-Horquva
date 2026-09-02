@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { PersonProfile } from '../../lib/knowledgeRisk';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { Users, AlertTriangle } from 'lucide-react';
@@ -66,7 +66,9 @@ export function KnowledgeConcentrationGauge({ profiles, totalAssets }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Bus factor, HHI distribution, and single-holder counts</p>
         </div>
-        <TruthBadge verified />
+        {/* Bus factor / HHI below are local heuristics over computeKnowledgeRisk()'s
+            output, not a backend-verified score -- not something to badge as verified. */}
+        <TruthBadge verified={false} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 z-10">

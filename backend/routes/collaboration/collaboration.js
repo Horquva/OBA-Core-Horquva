@@ -1,42 +1,51 @@
 const express = require('express')
 const router = express.Router()
-const supabase = require('../../supabase')
+const domain = require('../../domain')
 
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
 
-async function fetchAllScores() {
-  const { data, error } = await supabase
-    .from('collaboration_scores')
-    .select(`
-      id,
-      employee_id,
-      adoption_score,
-      dependency_score,
-      collaboration_score,
-      ai_tools_used,
-      ai_agents_used,
-      critical_agents_owned,
-      has_backup,
-      computed_at,
-      employees ( name, role, department, risk )
-    `)
+// `collaboration_scores` and `collaboration_summary` were both seeded once by
+// SQL and written by nothing afterwards. Adoption could not rise when somebody
+// started using a tool, and dependency could not fall when a backup owner was
+// finally named — the two things this page exists to show were the two things
+// it could not see.
+//
+// Both now come from one live computation. The row shape below is deliberately
+// kept identical to the old SELECT (snake_case, nested `employees`) so the
+// scoring and weak-area logic further down this file stays untouched; the only
+// thing that changed is where the numbers come from.
 
-  if (error) throw new Error(error.message)
-  return data
+async function fetchAllScores() {
+  const intel = await domain.intelligence.all()
+  return intel.collaboration.perEmployee.map(e => ({
+    employee_id:           e.employeeId,
+    adoption_score:        e.adoptionScore,
+    dependency_score:      e.dependencyScore,
+    collaboration_score:   e.collaborationScore,
+    ai_tools_used:         e.aiToolsUsed,
+    ai_agents_used:        e.aiAgentsUsed,
+    critical_agents_owned: e.criticalAgentsOwned,
+    has_backup:            e.hasBackup,
+    computed_at:           intel.collaboration.computedAt,
+    employees: { name: e.name, department: e.department, role: null, risk: null },
+  }))
 }
 
 async function fetchSummary() {
-  const { data, error } = await supabase
-    .from('collaboration_summary')
-    .select('*')
-    .order('computed_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (error) throw new Error(error.message)
-  return data
+  const intel = await domain.intelligence.all()
+  const s = intel.collaboration.summary
+  return {
+    ai_adoption_score:           s.aiAdoptionScore,
+    adoption_level:              s.adoptionLevel,
+    human_dependency_score:      s.humanDependencyScore,
+    highest_dependency_employee: s.highestDependencyEmployee,
+    collaboration_score:         s.collaborationScore,
+    collaboration_level:         s.collaborationLevel,
+    computed_at:                 intel.collaboration.computedAt,
+    source:                      intel.collaboration.source,
+  }
 }
 
 function collaborationLevelLabel(score) {

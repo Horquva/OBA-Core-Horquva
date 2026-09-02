@@ -1,8 +1,23 @@
 /**
  * CONSTITUTIONAL MODULE CATALOG — Master Registry (M01–M55, LOCKED)
  * ------------------------------------------------------------------
- * Single source of truth for the Organizational Brain's 55 constitutional
- * modules. Module definitions are locked: no renaming, merging, or
+ * Single source of truth for the Organizational Brain's constitutional
+ * analyses.
+ *
+ * ⚠ Four were RETIRED on 2026-08-24, taking the catalog from 55 to 51:
+ *   M10 Organizational Memory  — counted intelligence packages on the message bus
+ *   M12 Organizational Forecasting — projected entity growth as 1.1 + brain usage
+ *   M17 Organizational Learning — learningIndex = min(1, brainRuns / 100)
+ *   M47 Continuous Learning — compared confidence across brain runs
+ * All four measured the software rather than the organization; M47's own
+ * constitutional question was "How does the Brain improve continuously?".
+ * Every question they claimed is already answered from real tables by
+ * routes/learning (/failures, /decisions — workflow_failures + decision_history),
+ * routes/forecast (organizational_forecasts) and routes/memory. Nothing depended
+ * on them. See docs/superpowers/specs/2026-08-24-brain-as-library-design.md §6.1.
+ * Recoverable from git.
+ *
+ * The remaining definitions are locked: no renaming, merging, or
  * duplication. Ownership reflects the MVP Execution Guides (constitutional
  * engineering assignment); module names reflect the locked Master Registry.
  *
@@ -35,6 +50,7 @@ const LAYER = {
 const DEPENDENCIES = {
   M02: ['M01'],            // Dependency needs Ownership
   M03: ['M01', 'M02'],     // Risk needs Ownership + Dependency
+  M14: ['M01', 'M03'],     // Decision Intelligence needs Ownership + Risk
   M19: ['M01', 'M20'],     // Governance needs Ownership + Accountability
   M20: ['M01'],            // Accountability needs Ownership
   M28: ['M02', 'M34'],     // Universal Dependency Graph needs Dependency + Hidden Dependency
@@ -43,16 +59,15 @@ const DEPENDENCIES = {
   M34: ['M02'],            // Hidden Dependency needs Dependency
   M35: ['M28', 'M29'],     // Network needs graph + relationships
   M11: ['M02', 'M03', 'M28'], // Predictive Risk grounded in reality
-  M12: ['M11'],            // Forecasting needs Predictive Risk
   M24: ['M01', 'M02', 'M03', 'M46'], // Decision Support needs reality + Truth
   M46: ['M01', 'M02', 'M03', 'M19', 'M20'], // Truth verifies reality
   M48: ['M46'],            // Autonomous Advisor gated by Truth
   M49: ['M28', 'M29', 'M31'], // Digital Twin needs full graph
   M50: ['M46', 'M24'],     // Brain Core Logic
   M54: ['M05', 'M49'],     // Simulation Universe
-  M55: ['M46', 'M48', 'M50'], // Meta-Brain Orchestrator (runs last)
+  M55: ['M46', 'M48', 'M50', 'M25'], // Meta-Brain Orchestrator (runs last)
   M22: ['M01', 'M29', 'M19'], // Voice/OBA retrieves ownership/relationship/governance
-  M23: ['M25', 'M46'],     // Executive Briefing
+  M23: ['M25', 'M46', 'M48', 'M11'], // Executive Briefing
   M16: ['M08'],            // Workflow Orchestration needs Workflow Intelligence
   M51: ['M03', 'M18'],     // Self-Healing
   M52: ['M19'],            // Governance Automation
@@ -70,14 +85,11 @@ const RAW = [
   ['M07', 'AI Tool Intelligence', 'Huzaifa', LAYER.REALITY, 'Which AI tools exist and how are they governed?'],
   ['M08', 'Workflow Intelligence', 'Huzaifa', LAYER.REALITY, 'How does work actually flow?'],
   ['M09', 'Knowledge Risk Intelligence', 'Kamran', LAYER.REASONING, 'Where is critical knowledge concentrated or at risk?'],
-  ['M10', 'Organizational Memory Intelligence', 'Kamran', LAYER.REASONING, 'What does the organization remember?'],
   ['M11', 'Predictive Risk Intelligence', 'Tahir', LAYER.PREDICTION, 'Which risks are likely to materialize?'],
-  ['M12', 'Organizational Forecasting Intelligence', 'Tahir', LAYER.PREDICTION, 'What is the organization likely to look like ahead?'],
   ['M13', 'Human-AI Collaboration Intelligence', 'Tahir', LAYER.PREDICTION, 'How well do humans and AI collaborate?'],
   ['M14', 'Decision Intelligence', 'Kamran', LAYER.REASONING, 'How are decisions made and with what quality?'],
   ['M15', 'Verification Intelligence', 'Anusha', LAYER.EXECUTIVE, 'Is this intelligence verified and trustworthy?'],
   ['M16', 'Workflow Orchestration Intelligence', 'Anusha', LAYER.EXECUTIVE, 'How should workflows be coordinated and automated?'],
-  ['M17', 'Organizational Learning Intelligence', 'Tahir', LAYER.PREDICTION, 'What is the organization learning over time?'],
   ['M18', 'Organizational Continuity Intelligence', 'Kamran', LAYER.REASONING, 'Can the organization survive disruption?'],
   ['M19', 'Governance Intelligence', 'Huzaifa', LAYER.REALITY, 'How is the organization governed?'],
   ['M20', 'Accountability Intelligence', 'Huzaifa', LAYER.REALITY, 'Who is accountable for what?'],
@@ -107,7 +119,6 @@ const RAW = [
   ['M44', 'Organizational Behavior Intelligence', 'Tahir', LAYER.PREDICTION, 'How does the organization behave?'],
   ['M45', 'Benchmark Intelligence', 'Tahir', LAYER.PREDICTION, 'How does the organization compare?'],
   ['M46', 'Truth Intelligence', 'Kamran', LAYER.REASONING, 'What organizational truth can be trusted? (gates M48)'],
-  ['M47', 'Continuous Learning Intelligence', 'Tahir', LAYER.PREDICTION, 'How does the Brain improve continuously?'],
   ['M48', 'Autonomous Advisor', 'Kamran', LAYER.REASONING, 'What does the Brain autonomously advise? (gated by M46)'],
   ['M49', 'Digital Twin Intelligence', 'Tahir', LAYER.PREDICTION, 'What is the live virtual model of the organization?'],
   ['M50', 'Organizational Brain Core Logic', 'Kamran', LAYER.REASONING, 'What is the core reasoning of the Brain?'],
@@ -127,6 +138,16 @@ const MODULES = RAW.map(([code, name, owner, layer, question]) => {
   return {
     code,
     name,
+    // A readable alias derived from the name, so callers can say
+    // brain.run('culture') instead of brain.run('M42'). The code stays the
+    // canonical id — it is what dependsOn and the ordering rules key on — but
+    // route files read far better with the slug. Verified collision-free.
+    slug: name
+      .replace(/\s*Intelligence\s*/g, ' ')
+      .replace(/\(.*?\)/g, '')
+      .trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, ''),
     owner,
     layer,
     question,

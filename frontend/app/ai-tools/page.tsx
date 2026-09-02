@@ -1,19 +1,49 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { computeAIToolIntelligence, AIToolReport } from '../../lib/aiToolIntelligence';
-import { AITool, Agent, Workflow } from '../../types';
+import { computeAIToolIntelligence, AIToolReport, ToolScoreInput } from '../../lib/aiToolIntelligence';
+import { AITool, Agent, Workflow, RiskLevel } from '../../types';
 import { AIToolHeader } from '../../components/ai-tools/AIToolHeader';
 import { CriticalToolPanel } from '../../components/ai-tools/CriticalToolPanel';
 import { ToolRiskTable } from '../../components/ai-tools/ToolRiskTable';
 import { OutageImpactPanel } from '../../components/ai-tools/OutageImpactPanel';
 import { DeptExposureTable } from '../../components/ai-tools/DeptExposureTable';
+import { authHeader } from '../../lib/authFetch';
+import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
 import { ExternalEcosystemTab } from '../../components/ai-tools/ExternalEcosystemTab';
+
+interface RawTool {
+  id?: string | number;
+  name?: string;
+  vendor?: string;
+  provider?: string;
+  category?: string;
+  users?: string[];
+  departments?: string[];
+  department?: string;
+  workflows?: string[];
+  agents_using?: (string | number)[];
+  monthly_cost_usd?: number;
+  monthly_cost?: number;
+  criticality?: string;
+  risk?: string;
+  documented?: boolean;
+  has_policy?: boolean;
+  backup_tool?: string | null;
+  fallback_tool?: string | null;
+  access_owner?: string;
+  owner?: string;
+  compositeScore?: number;
+  tier?: string;
+  isCriticalByRule?: boolean;
+  riskFactors?: unknown[];
+}
 
 export default function AIToolsPage() {
   const [tools, setTools]       = useState<AITool[]>([]);
   const [agents, setAgents]     = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [scoreByToolId, setScoreByToolId] = useState<Map<string, ToolScoreInput>>(new Map());
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
@@ -21,13 +51,15 @@ export default function AIToolsPage() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] }),
+      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
     .then(([toolsData, agentsData, wData]) => {
+      const rawTools = Array.isArray(toolsData) ? toolsData : [];
+
       // Normalize tools
-      const normalizedTools: AITool[] = (Array.isArray(toolsData) ? toolsData : []).map((t: any) => ({
+      const normalizedTools: AITool[] = rawTools.map((t: RawTool) => ({
         id: t.id?.toString() || '',
         name: t.name || 'Unknown Tool',
         vendor: t.vendor || t.provider || 'Unknown',
@@ -37,49 +69,43 @@ export default function AIToolsPage() {
         workflows: Array.isArray(t.workflows) ? t.workflows : [],
         agents_using: Array.isArray(t.agents_using) ? t.agents_using.map(String) : [],
         monthly_cost_usd: Number(t.monthly_cost_usd ?? t.monthly_cost ?? 0),
-        criticality: t.criticality || t.risk || 'low',
+        criticality: (t.criticality || t.risk || 'low') as RiskLevel,
         documented: Boolean(t.documented ?? t.has_policy ?? false),
         backup_tool: t.backup_tool || t.fallback_tool || null,
         access_owner: t.access_owner || t.owner || 'Unassigned',
       }));
 
-      // Normalize agents
-      const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map((a: any) => ({
-        id: a.id?.toString() || '',
-        name: a.name || 'Unknown Agent',
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : (a.owner || null),
-        backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : (a.backup_owner || null),
-        criticality: a.risk || a.criticality || 'low',
-        department: a.department || 'Operations',
-        documented: Boolean(a.documented ?? false),
-      }));
+      // Real score/tier/factors from backend/routes/tools.js's
+      // computeToolRiskScore() -- captured separately from AITool since the
+      // shared type is used by pages that don't need it.
+      const scoreMap = new Map<string, ToolScoreInput>(
+        rawTools
+          .filter((t: RawTool) => t.id != null && typeof t.compositeScore === 'number')
+          .map((t: RawTool) => [String(t.id), {
+            compositeScore: t.compositeScore as number,
+            tier: t.tier as ToolScoreInput['tier'],
+            isCriticalByRule: Boolean(t.isCriticalByRule),
+            factors: (Array.isArray(t.riskFactors) ? t.riskFactors : []) as ToolScoreInput['factors'],
+          }])
+      );
 
-      // Normalize workflows
-      const rawWorkflows = Array.isArray(wData.workflows) ? wData.workflows : [];
-      const normalizedWorkflows: Workflow[] = rawWorkflows.map((w: any) => ({
-        id: w.id?.toString() || '',
-        name: w.name || 'Unknown Workflow',
-        owner: w.owner || 'Unassigned',
-        backup_owner: w.backup_owner || null,
-        department: w.department || 'Operations',
-        criticality: w.criticality || 'low',
-        documented: Boolean(w.documented ?? false),
-        steps: Array.isArray(w.steps) ? w.steps : [],
-      }));
+      const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
+      const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
 
       setTools(normalizedTools);
       setAgents(normalizedAgents);
       setWorkflows(normalizedWorkflows);
+      setScoreByToolId(scoreMap);
     })
     .catch(err => setError(err.message))
     .finally(() => setLoading(false));
   }, []);
 
   const report: AIToolReport | null = useMemo(() => {
-    if (tools.length === 0 && !loading) return computeAIToolIntelligence([], [], []);
+    if (tools.length === 0 && !loading) return computeAIToolIntelligence([], [], [], scoreByToolId);
     if (loading) return null;
-    return computeAIToolIntelligence(tools, workflows, agents);
-  }, [tools, agents, workflows, loading]);
+    return computeAIToolIntelligence(tools, workflows, agents, scoreByToolId);
+  }, [tools, agents, workflows, scoreByToolId, loading]);
 
   if (loading || !report) {
     return (
@@ -138,8 +164,9 @@ export default function AIToolsPage() {
         totalMonthlySpend={report.totalMonthlySpend}
       />
 
-      {/* External ecosystem tab receives live tools for vendor derivation */}
-      <ExternalEcosystemTab tools={tools} />
+      {/* External ecosystem tab groups the same canonical per-tool risk
+          profiles ToolRiskTable/CriticalToolPanel use -- see aiToolIntelligence.ts */}
+      <ExternalEcosystemTab profiles={report.profiles} />
     </div>
   );
 }

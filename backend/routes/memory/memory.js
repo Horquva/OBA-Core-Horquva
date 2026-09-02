@@ -1,87 +1,19 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { must } = require('../../lib/supabaseQuery')
+const domain = require('../../domain')
 
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
-
-function computeMemoryStatus(asset) {
-  const documented = asset.is_documented === true
-  const hasCriticality = asset.criticality === 'critical' || asset.criticality === 'high'
-  const hasOwner = !!asset.owner_id
-
-  if (!hasOwner) return 'LOST'
-  if (!documented && hasCriticality) return 'LOST'
-  if (!documented) return 'AT_RISK'
-  if (documented && hasCriticality) return 'VULNERABLE'
-  return 'PRESERVED'
-}
-
-function computeHealthScore(statuses) {
-  const points = { PRESERVED: 100, VULNERABLE: 60, AT_RISK: 30, LOST: 0 }
-  if (!statuses.length) return 0
-  const total = statuses.reduce((sum, s) => sum + (points[s] ?? 0), 0)
-  return Math.round(total / statuses.length)
-}
-
-function overallStatus(score) {
-  if (score >= 80) return 'HEALTHY'
-  if (score >= 60) return 'STABLE'
-  if (score >= 35) return 'AT RISK'
-  return 'CRITICAL'
-}
-
-function countByStatus(assets) {
-  return assets.reduce((acc, a) => {
-    acc[a.memoryStatus] = (acc[a.memoryStatus] || 0) + 1
-    return acc
-  }, { PRESERVED: 0, VULNERABLE: 0, AT_RISK: 0, LOST: 0 })
-}
-
-async function fetchAllAssets() {
-  const { data, error } = await supabase
-    .from('knowledge_assets')
-    .select(`
-      id,
-      asset_type,
-      asset_id,
-      is_documented,
-      criticality,
-      owner_id,
-      employees (
-        id,
-        name,
-        role,
-        department
-      )
-    `)
-
-  if (error) throw new Error(error.message)
-
-  return data.map(a => ({
-    ...a,
-    memoryStatus: computeMemoryStatus(a)
-  }))
-}
-
-async function resolveAssetName(assetType, assetId) {
-  const tableMap = {
-    agent:    'agents',
-    workflow: 'workflows',
-    platform: 'ai_platforms'
-  }
-  const table = tableMap[assetType]
-  if (!table) return 'Unknown'
-
-  const { data } = await supabase
-    .from(table)
-    .select('name')
-    .eq('id', assetId)
-    .single()
-
-  return data?.name ?? 'Unknown'
-}
+/**
+ * All three routes below used to run their own `computeMemoryStatus()`/IMHS
+ * -- a formula that ignored backup_owner entirely and nothing actually
+ * consumed for data (only a health pinger touched `/health`; `/map` and
+ * `/employee/:name` had zero real callers). D-60 picked
+ * domain.intelligence.compute.orgMemory() (backup_owner + documentation
+ * based, ported from the live frontend formula) as canonical -- see that
+ * function's header comment in domain/derived.js for the full decision.
+ * Every route here now reads that one computation instead of re-deriving it.
+ */
 
 // ─────────────────────────────────────────────
 // GET /api/memory/health
@@ -89,16 +21,20 @@ async function resolveAssetName(assetType, assetId) {
 
 router.get('/health', async (req, res) => {
   try {
-    const assets = await fetchAllAssets()
-    const statuses = assets.map(a => a.memoryStatus)
-    const score = computeHealthScore(statuses)
-    const breakdown = countByStatus(assets)
+    const intel = await domain.intelligence.all()
+    const report = intel.orgMemory
 
     res.json({
-      institutionalMemoryHealthScore: score,
-      overallStatus: overallStatus(score),
-      totalAssets: assets.length,
-      breakdown
+      institutionalMemoryHealthScore: report.imhs,
+      overallStatus: report.imhsVerdict,
+      totalAssets: report.totalAssets,
+      breakdown: {
+        PRESERVED: report.preserved.length,
+        VULNERABLE: report.vulnerable.length,
+        AT_RISK: report.atRisk.length,
+        LOST: report.lost.length,
+      },
+      evidence: report.evidence,
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -113,7 +49,6 @@ router.get('/employee/:name', async (req, res) => {
   try {
     const { name } = req.params
 
-    // Get employee
     const { data: emp, error: empError } = await supabase
       .from('employees')
       .select('id, name, role, department, risk')
@@ -124,62 +59,48 @@ router.get('/employee/:name', async (req, res) => {
       return res.status(404).json({ error: 'Employee not found' })
     }
 
-    // Get all knowledge assets owned by this employee
-    const { data: rawAssets, error: assetError } = await supabase
-      .from('knowledge_assets')
-      .select('id, asset_type, asset_id, is_documented, criticality, owner_id')
-      .eq('owner_id', emp.id)
+    const intel = await domain.intelligence.all()
+    const report = intel.orgMemory
+    const carrier = report.carriers.find((c) => c.employeeId === emp.id) || {
+      totalOwned: 0, preservedCount: 0, vulnerableCount: 0, atRiskCount: 0, lostCount: 0,
+      undocumentedCount: 0, noBackupCount: 0, assets: [], tier: 'LOW', healthScore: null, isCriticalCarrier: false,
+    }
 
-    if (assetError) throw new Error(assetError.message)
-
-    // Resolve asset names and compute status
-    const assets = await Promise.all(
-      rawAssets.map(async a => {
-        const assetName = await resolveAssetName(a.asset_type, a.asset_id)
-        const memoryStatus = computeMemoryStatus(a)
-        return { ...a, assetName, memoryStatus }
-      })
-    )
-
-    // Workflow runbooks owned by employee
-    const { data: runbooks } = await supabase
+    // Workflow runbooks owned by employee. This feeds both the department list
+    // and impactIfLeaves, so a failed read must not pass as "owns no
+    // runbooks" — that understates the person's risk.
+    const runbooks = await must('workflow_runbooks', supabase
       .from('workflow_runbooks')
       .select('workflow_id, is_documented, last_updated, workflows(name, department)')
-      .eq('owner_id', emp.id)
+      .eq('owner_id', emp.id))
 
     // Departments impacted
     const departments = [
       ...new Set([
         emp.department,
-        ...(runbooks ?? []).map(r => r.workflows?.department).filter(Boolean)
+        ...runbooks.map(r => r.workflows?.department).filter(Boolean)
       ])
     ]
 
-    const breakdown = countByStatus(assets)
-    const score = computeHealthScore(assets.map(a => a.memoryStatus))
-
-    // Carrier risk
-    const lostOrAtRisk = (breakdown.LOST ?? 0) + (breakdown.AT_RISK ?? 0)
-    const carrierRisk =
-      lostOrAtRisk >= 4 ? 'CRITICAL'
-      : lostOrAtRisk >= 2 ? 'HIGH'
-      : lostOrAtRisk >= 1 ? 'MEDIUM'
-      : 'LOW'
-
     res.json({
       employee: emp,
-      memoryCarrierRisk: carrierRisk,
-      memoryHealthScore: score,
-      totalAssetsOwned: assets.length,
-      breakdown,
-      assets: assets.map(a => ({
-        assetName:    a.assetName,
-        assetType:    a.asset_type,
-        isDocumented: a.is_documented,
+      memoryCarrierRisk: carrier.tier,
+      memoryHealthScore: carrier.healthScore,
+      totalAssetsOwned: carrier.totalOwned,
+      breakdown: {
+        PRESERVED: carrier.preservedCount,
+        VULNERABLE: carrier.vulnerableCount,
+        AT_RISK: carrier.atRiskCount,
+        LOST: carrier.lostCount,
+      },
+      assets: carrier.assets.map(a => ({
+        assetName:    a.name,
+        assetType:    a.type,
+        isDocumented: a.documented,
         criticality:  a.criticality,
         memoryStatus: a.memoryStatus
       })),
-      workflowRunbooks: (runbooks ?? []).map(r => ({
+      workflowRunbooks: runbooks.map(r => ({
         workflowName:  r.workflows?.name,
         department:    r.workflows?.department,
         isDocumented:  r.is_documented,
@@ -187,11 +108,11 @@ router.get('/employee/:name', async (req, res) => {
       })),
       impactIfLeaves: {
         departmentsImpacted: departments,
-        assetsAtRisk: assets.filter(a =>
+        assetsAtRisk: carrier.assets.filter(a =>
           a.memoryStatus === 'AT_RISK' || a.memoryStatus === 'LOST'
         ).map(a => ({
-          assetName:    a.assetName,
-          assetType:    a.asset_type,
+          assetName:    a.name,
+          assetType:    a.type,
           memoryStatus: a.memoryStatus
         }))
       }
@@ -207,42 +128,28 @@ router.get('/employee/:name', async (req, res) => {
 
 router.get('/map', async (req, res) => {
   try {
-    const assets = await fetchAllAssets()
+    const intel = await domain.intelligence.all()
+    const report = intel.orgMemory
 
-    // Resolve all asset names in parallel
-    const map = await Promise.all(
-      assets.map(async a => {
-        const assetName = await resolveAssetName(a.asset_type, a.asset_id)
-
-        return {
-          assetName,
-          assetType:    a.asset_type,
-          criticality:  a.criticality,
-          isDocumented: a.is_documented,
-          memoryStatus: a.memoryStatus,
-          owner: a.employees
-            ? { name: a.employees.name, role: a.employees.role, department: a.employees.department }
-            : null
-        }
-      })
-    )
-
-    // Group by status for quick overview
-    const grouped = {
-      PRESERVED:  map.filter(a => a.memoryStatus === 'PRESERVED'),
-      VULNERABLE: map.filter(a => a.memoryStatus === 'VULNERABLE'),
-      AT_RISK:    map.filter(a => a.memoryStatus === 'AT_RISK'),
-      LOST:       map.filter(a => a.memoryStatus === 'LOST')
-    }
-
-    const score = computeHealthScore(map.map(a => a.memoryStatus))
-
+    // The full canonical report, not a second reshaping of it -- a prior
+    // version of this route remapped each asset into an `assetName`/`isDocumented`
+    // shape that dropped `id`/`backup_owner`/`documented`, fields the frontend's
+    // carrier and lost-assets panels need. Nothing outside this route consumed
+    // that old shape (confirmed before D-60), so there is no compatibility
+    // reason to keep it.
     res.json({
-      institutionalMemoryHealthScore: score,
-      overallStatus: overallStatus(score),
-      totalAssets: map.length,
-      organizationMemoryMap: map,
-      groupedByStatus: grouped
+      assets: report.assets,
+      preserved: report.preserved,
+      atRisk: report.atRisk,
+      vulnerable: report.vulnerable,
+      lost: report.lost,
+      carriers: report.carriers,
+      criticalCarriers: report.criticalCarriers,
+      highCarriers: report.highCarriers,
+      imhs: report.imhs,
+      imhsVerdict: report.imhsVerdict,
+      evidence: report.evidence,
+      totalAssets: report.totalAssets,
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

@@ -24,8 +24,10 @@ function HeroChip({ h }: { h: HeroDependency }) {
       <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" style={{ color: isCritical ? '#f87171' : '#fb923c' }} />
       <div>
         <span className="font-semibold text-[color:var(--text-primary)]">{h.personName}</span>
-        <span className="text-[color:var(--text-tertiary)] ml-1">· {h.department}</span>
-        <p className="text-[color:var(--text-tertiary)] mt-0.5">{h.resolutionCount} incidents resolved — sole owner risk</p>
+        {h.department && <span className="text-[color:var(--text-tertiary)] ml-1">· {h.department}</span>}
+        <p className="text-[color:var(--text-tertiary)] mt-0.5">
+          {h.criticalAssetCount} critical {h.criticalAssetCount === 1 ? 'asset' : 'assets'} owned, no backup
+        </p>
       </div>
     </div>
   );
@@ -72,7 +74,7 @@ export function ExecutiveMemoryPanel() {
             Executive Memory
           </span>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={items.length > 0 || heroes.length > 0} />
       </div>
 
       {loading && (

@@ -19,3 +19,13 @@ backend/.env
 
 # Internal planning docs
 FRONTEND_PLAN.md
+
+# Never commit any env file (BUILD_SPEC Part F, threat 5)
+.env*
+!.env.example
+
+# Git worktrees for isolated workstream execution (SDD)
+.worktrees/
+
+# SDD scratch workspace (ledger, briefs, review packages)
+.superpowers/

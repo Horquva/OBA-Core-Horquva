@@ -7,6 +7,8 @@
  * dependencies, cycles, concentration). No random or hard-coded results.
  */
 
+const { spofVerdict, entityCriticality, normalizeLevel } = require('../../domain/definitions')
+
 const ASSET_TYPES = ['system', 'ai_agent', 'workflow', 'knowledge', 'policy', 'process', 'asset', 'project']
 const HUMAN_TYPES = ['executive', 'employee']
 
@@ -54,15 +56,59 @@ const A = {
     return [...seen]
   },
 
-  // Single points of failure: things others depend on but that have <=1 owner.
+  // Criticality of an asset for SPOF purposes, read off the asset's OWN
+  // metadata wherever the schema carries one — never off the `owns` edge.
+  // relationshipRegistry.add() defaults an edge's criticality to 'medium'
+  // whenever a caller doesn't set one explicitly, and knowledge, tool
+  // (tool_ownership), system and vendor/customer `owns` edges never do —
+  // reading the edge silently capped every asset of those kinds at 'medium',
+  // regardless of what the asset's own risk/criticality column said. Mirrors
+  // domain/definitions.js's entityCriticality() (agent/workflow -> `risk`,
+  // knowledge -> `criticality`) exactly, since rowMeta() spreads those raw
+  // columns straight onto entity.metadata; platforms get their pre-resolved
+  // `assetCriticality` (no single `risk` column of their own — see
+  // graphLoader). Process and decision entities carry no criticality column
+  // anywhere in the schema (accountability_entities / decision_queue), so the
+  // edge is the only signal available for them and stays the fallback there.
+  assetCriticality(e, edgeCriticality) {
+    const kind = e.metadata && e.metadata.kind
+    if (e.type === 'ai_agent' && kind === 'ai-platform') return normalizeLevel(e.metadata.assetCriticality)
+    if (e.type === 'ai_agent') return entityCriticality('agent', e.metadata)
+    if (e.type === 'workflow') return entityCriticality('workflow', e.metadata)
+    if (e.type === 'knowledge') return entityCriticality('knowledge_asset', e.metadata)
+    if (e.type === 'system' || e.type === 'customer' || e.type === 'vendor') {
+      return normalizeLevel(e.metadata && e.metadata.criticality)
+    }
+    return normalizeLevel(edgeCriticality)
+  },
+
+  // Single points of failure — D-06's spofVerdict(): sole owner AND no backup
+  // AND criticality >= high. Criticality comes off the asset's OWN metadata
+  // via A.assetCriticality() above (edge as fallback only where the entity
+  // itself carries no signal); backup comes off the owning entity's
+  // `metadata.backup_owner` (graphLoader wires this from lib/ownerBackups.js,
+  // the same helper agents.js/dependencies.js use). This used to be
+  // dependents>=1 && owners<=1 — a materially different, undisclosed
+  // definition presented to users under the same "SPOF" label as every other
+  // consumer of spofVerdict(); orphaned (owners===0) and sole-owner-with-
+  // backup were both wrongly counted as "SPOF" before.
   singlePointsOfFailure(g) {
     return A.assets(g)
-      .map((e) => ({
-        id: e.id, name: e.name, type: e.type,
-        dependents: A.dependents(g, e.id).length,
-        owners: A.owners(g, e.id).length,
-      }))
-      .filter((x) => x.dependents >= 1 && x.owners <= 1)
+      .map((e) => {
+        const ownerRels = A.owners(g, e.id)
+        const ownerCount = ownerRels.length
+        const edgeCriticality = ownerRels[0] ? ownerRels[0].criticality : 'unknown'
+        const criticality = A.assetCriticality(e, edgeCriticality)
+        const ownerEntity = ownerCount === 1 ? A.entity(g, ownerRels[0].from) : null
+        const hasBackup = Boolean(ownerEntity && ownerEntity.metadata && ownerEntity.metadata.backup_owner)
+        return {
+          id: e.id, name: e.name, type: e.type,
+          dependents: A.dependents(g, e.id).length,
+          owners: ownerCount,
+          verdict: spofVerdict({ criticality, ownerCount, hasBackup }),
+        }
+      })
+      .filter((x) => x.verdict.status === 'spof')
       .sort((a, b) => b.dependents - a.dependents)
   },
 

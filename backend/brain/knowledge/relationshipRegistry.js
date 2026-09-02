@@ -17,7 +17,15 @@ class RelationshipRegistry {
     this._dedupe = new Set() // `${from}|${type}|${to}`
   }
 
-  add({ from, to, type, confidence = 1, evidence = [], criticality = 'medium', direction = 'directed', failureImpact = null }) {
+  /**
+   * `metadata` carries provenance: which system of record asserted this edge,
+   * and on what basis. BUILD_SPEC D1 requires it on every `owns` edge — the
+   * ownership precedence rules (human > codeowners > team_permission >
+   * contribution) all read `metadata.source`. Note this signature destructures
+   * a fixed field list, so any key not named here is silently dropped; that is
+   * why provenance goes inside `metadata` rather than as a loose top-level key.
+   */
+  add({ from, to, type, confidence = 1, evidence = [], criticality = 'medium', direction = 'directed', failureImpact = null, metadata = {} }) {
     ontology.assertRelationshipType(type)
     if (!this.entities.has(from)) throw new Error(`Relationship rejected: source entity ${from} does not exist`)
     if (!this.entities.has(to)) throw new Error(`Relationship rejected: target entity ${to} does not exist`)
@@ -30,7 +38,7 @@ class RelationshipRegistry {
     const id = `rel_${crypto.randomBytes(6).toString('hex')}`
     const rel = {
       id, from, to, type,
-      confidence, evidence, criticality, direction, failureImpact,
+      confidence, evidence, criticality, direction, failureImpact, metadata,
       timestamp: new Date().toISOString(),
     }
     this._rels.set(id, rel)

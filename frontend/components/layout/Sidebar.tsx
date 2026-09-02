@@ -20,11 +20,10 @@ import {
   Sun,
   Moon,
   Activity,
-  Network,
   Bell,
-  MessageCircle,
   Search,
   LogOut,
+  KeyRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
@@ -33,7 +32,10 @@ import { useAuth } from '@/lib/AuthContext';
 
 type NavItem = { name: string; href: string; icon: LucideIcon; roles?: string[] };
 
-// Role gating for the Role-Based Executive Experience.
+// Role gating for the Role-Based Executive Experience. Presentation only —
+// D-05 deleted requireRole() server-side, so every authenticated user can
+// still reach any endpoint directly; this only decides which nav items
+// render for a given role, not what that role is allowed to do.
 const EXEC = ['admin', 'ceo', 'cto', 'coo'];
 const MANAGER_UP = [...EXEC, 'manager'];
 
@@ -58,7 +60,7 @@ const navigation: NavItem[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const { toggleNotificationPanel, toggleAvatarPanel, toggleSearch } = useGlobalPanels();
+  const { toggleNotificationPanel, toggleSearch } = useGlobalPanels();
   const { user, logout } = useAuth();
 
   const role = (user?.role || 'employee').toLowerCase();
@@ -369,35 +371,6 @@ export function Sidebar() {
             <Bell size={16} />
           </button>
 
-          {/* Avatar Voice Button */}
-          <button
-            onClick={toggleAvatarPanel}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: 'transparent',
-              border: '1px solid transparent',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
-            aria-label="OBA Assistant"
-          >
-            <MessageCircle size={16} />
-          </button>
-
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
@@ -427,6 +400,28 @@ export function Sidebar() {
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
+
+          {/* Account — change your own password. Ungated: every signed-in user
+              has one, whatever their role. */}
+          <Link
+            href="/account"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              backgroundColor: pathname === '/account' ? 'var(--bg-hover)' : 'transparent',
+              border: '1px solid transparent',
+              color: pathname === '/account' ? 'var(--accent)' : 'var(--text-secondary)',
+              transition: 'all 0.2s ease',
+              flexShrink: 0,
+            }}
+            aria-label="Account settings"
+          >
+            <KeyRound size={16} />
+          </Link>
 
           {/* Logout Button */}
           <button

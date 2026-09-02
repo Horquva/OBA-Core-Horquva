@@ -1,11 +1,50 @@
 "use client";
 
 import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Agent } from '../../types';
 
 interface ConcentrationBarProps {
   agents: Agent[];
+}
+
+interface TooltipPayloadEntry {
+  color: string;
+  name: string;
+  value: number;
+}
+
+function ConcentrationTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadEntry[]; label?: string }) {
+  if (active && payload && payload.length) {
+    const total = payload.reduce((sum: number, entry) => sum + entry.value, 0);
+    return (
+      <div className="bg-[var(--bg-surface)]/90 backdrop-blur-md border border-[var(--border-default)] p-4 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] text-sm min-w-[200px]">
+        <div className="flex items-center space-x-3 mb-3 pb-3 border-b border-[var(--border-subtle)]">
+          <div className="w-8 h-8 rounded-lg bg-[var(--bg-hover)] flex items-center justify-center border border-[var(--border-default)] text-[color:var(--text-primary)] font-bold text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            {label?.charAt(0)}
+          </div>
+          <p className="font-semibold text-[color:var(--text-primary)] tracking-tight">{label}&apos;s Portfolio</p>
+        </div>
+        {payload.map((entry, index) => {
+          if (entry.value === 0) return null;
+          return (
+            <div key={index} className="flex justify-between items-center space-x-4 mb-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                <span className="text-[color:var(--text-primary)] capitalize text-xs tracking-wide">{entry.name}</span>
+              </div>
+              <span className="font-bold text-[color:var(--text-primary)] text-base">{entry.value}</span>
+            </div>
+          );
+        })}
+        <div className="mt-3 pt-3 flex justify-between items-center bg-[var(--bg-elevated)] -mx-4 -mb-4 px-4 py-3 rounded-b-xl border-t border-[var(--border-subtle)]">
+          <span className="text-[10px] uppercase tracking-widest font-semibold text-[color:var(--text-tertiary)]">Total Agents</span>
+          <span className="font-bold text-[color:var(--text-primary)]">{total}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
 
 export function ConcentrationBar({ agents }: ConcentrationBarProps) {
@@ -34,39 +73,6 @@ export function ConcentrationBar({ agents }: ConcentrationBarProps) {
     });
   }, [agents]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const total = payload.reduce((sum: number, entry: any) => sum + entry.value, 0);
-      return (
-        <div className="bg-[var(--bg-surface)]/90 backdrop-blur-md border border-[var(--border-default)] p-4 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] text-sm min-w-[200px]">
-          <div className="flex items-center space-x-3 mb-3 pb-3 border-b border-[var(--border-subtle)]">
-            <div className="w-8 h-8 rounded-lg bg-[var(--bg-hover)] flex items-center justify-center border border-[var(--border-default)] text-[color:var(--text-primary)] font-bold text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              {label.charAt(0)}
-            </div>
-            <p className="font-semibold text-[color:var(--text-primary)] tracking-tight">{label}'s Portfolio</p>
-          </div>
-          {payload.map((entry: any, index: number) => {
-            if (entry.value === 0) return null;
-            return (
-              <div key={index} className="flex justify-between items-center space-x-4 mb-2">
-                <div className="flex items-center space-x-2">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                  <span className="text-[color:var(--text-primary)] capitalize text-xs tracking-wide">{entry.name}</span>
-                </div>
-                <span className="font-bold text-[color:var(--text-primary)] text-base">{entry.value}</span>
-              </div>
-            );
-          })}
-          <div className="mt-3 pt-3 flex justify-between items-center bg-[var(--bg-elevated)] -mx-4 -mb-4 px-4 py-3 rounded-b-xl border-t border-[var(--border-subtle)]">
-            <span className="text-[10px] uppercase tracking-widest font-semibold text-[color:var(--text-tertiary)]">Total Agents</span>
-            <span className="font-bold text-[color:var(--text-primary)]">{total}</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="card p-7 flex flex-col w-full animate-fade-up delay-400 relative overflow-hidden group">
       <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/[0.02] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
@@ -94,7 +100,7 @@ export function ConcentrationBar({ agents }: ConcentrationBarProps) {
               tick={{ fill: 'var(--text-primary)', fontSize: 13, fontWeight: 500 }}
               width={140}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)', opacity: 0.5 }} />
+            <Tooltip content={<ConcentrationTooltip />} cursor={{ fill: 'var(--bg-hover)', opacity: 0.5 }} />
             {/* Exposed (Red gradient-like hex) */}
             <Bar dataKey="exposed" name="Exposed (No Backup)" stackId="a" fill="#f87171" radius={[0, 0, 0, 0]} />
             {/* Covered (Emerald gradient-like hex) */}

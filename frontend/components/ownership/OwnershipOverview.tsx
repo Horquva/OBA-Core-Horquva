@@ -1,14 +1,33 @@
+import type { ComponentType } from 'react';
 import { Agent } from '../../types';
 import { Users, AlertTriangle, UserMinus, ShieldAlert } from 'lucide-react';
 import clsx from 'clsx';
 
 interface OwnershipOverviewProps {
   agents: Agent[];
+  /** Owner names flagged by the backend's isHumanSpof (>=3 unbacked agents,
+   *  GET /api/ownership) -- the one canonical definition, replacing this
+   *  component's own independently-coded >=3 threshold. */
+  humanSpofOwners: Set<string>;
 }
 
-function KpiCard({ 
+interface KpiCardProps {
+  title: string;
+  value: number;
+  subtitle?: string;
+  icon: ComponentType<{ className?: string }>;
+  colorClass?: string;
+  delayClass: string;
+  borderClass: string;
+  bgGlowClass: string;
+  iconBgClass: string;
+  iconTextClass: string;
+  glowColor?: string;
+}
+
+function KpiCard({
   title, value, subtitle, icon: Icon, colorClass, delayClass, borderClass, bgGlowClass, iconBgClass, iconTextClass, glowColor
-}: any) {
+}: KpiCardProps) {
   return (
     <div className={clsx("card p-6 animate-fade-up relative overflow-hidden group border-t", delayClass, borderClass)}>
       <div className={clsx("absolute top-0 right-0 w-32 h-32 blur-3xl -mr-10 -mt-10 pointer-events-none", bgGlowClass)} />
@@ -29,7 +48,7 @@ function KpiCard({
   );
 }
 
-export function OwnershipOverview({ agents }: OwnershipOverviewProps) {
+export function OwnershipOverview({ agents, humanSpofOwners }: OwnershipOverviewProps) {
   const owners = new Set(agents.map(a => a.owner).filter(Boolean));
   const totalOwners = owners.size;
 
@@ -37,13 +56,7 @@ export function OwnershipOverview({ agents }: OwnershipOverviewProps) {
 
   const coverageGaps = agents.filter(a => !a.owner || !a.backup_owner).length;
 
-  const ownerToNoBackupCount: Record<string, number> = {};
-  agents.forEach(a => {
-    if (a.owner && !a.backup_owner) {
-      ownerToNoBackupCount[a.owner] = (ownerToNoBackupCount[a.owner] || 0) + 1;
-    }
-  });
-  const humanSPOFs = Object.values(ownerToNoBackupCount).filter(count => count >= 3).length;
+  const humanSPOFs = humanSpofOwners.size;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mt-8">

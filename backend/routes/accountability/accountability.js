@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const domain = require('../../domain')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -21,22 +22,28 @@ async function fetchAllLinksWithEntity() {
   return data
 }
 
+// Per-entity RACI scores used to be SELECTed from `accountability_scores`, a
+// pre-aggregate of exactly the links this file already reads directly, seeded
+// once and never recomputed. Adding a missing Accountable to an entity changed
+// nothing on this page.
+//
+// They are computed from `accountability_links` now. The row shape below
+// matches the old SELECT so the formatting below stays untouched.
 async function fetchAllEntityScores() {
-  const { data, error } = await supabase
-    .from('accountability_scores')
-    .select(`
-      id,
-      entity_id,
-      score,
-      status,
-      same_r_and_a,
-      missing_responsible,
-      missing_accountable,
-      accountability_entities ( entity_name, entity_type, department )
-    `)
-
-  if (error) throw new Error(error.message)
-  return data
+  const intel = await domain.intelligence.all()
+  return intel.accountability.perEntity.map(e => ({
+    entity_id:           e.entityId,
+    score:               e.score,
+    status:              e.status,
+    same_r_and_a:        e.sameResponsibleAndAccountable,
+    missing_responsible: e.missingResponsible,
+    missing_accountable: e.missingAccountable,
+    accountability_entities: {
+      entity_name: e.entityName,
+      entity_type: e.entityType,
+      department:  e.department,
+    },
+  }))
 }
 
 function groupByEntity(links) {
@@ -63,23 +70,19 @@ function groupByEntity(links) {
 
 router.get('/score', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('accountability_summary')
-      .select('*')
-      .order('computed_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (error) throw new Error(error.message)
+    const intel = await domain.intelligence.all()
+    const a = intel.accountability
 
     res.json({
-      accountabilityScore: data.accountability_score,
-      status: data.status,
-      totalEntities: data.total_entities,
-      entitiesWithLinks: data.entities_with_links,
-      sameResponsibleAccountableCount: data.same_r_and_a_count,
-      uniquePeopleCount: data.unique_people_count,
-      computedAt: data.computed_at
+      accountabilityScore: a.accountabilityScore,
+      status: a.status,
+      totalEntities: a.totalEntities,
+      entitiesWithLinks: a.entitiesWithLinks,
+      sameResponsibleAccountableCount: a.sameRandACount,
+      uniquePeopleCount: a.uniquePeopleCount,
+      computedAt: a.computedAt,
+      source: a.source,
+      inputs: a.inputs
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

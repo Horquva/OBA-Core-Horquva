@@ -4,11 +4,10 @@ import { createContext, useContext, useState, ReactNode } from "react";
 
 interface GlobalPanelsContextType {
   isNotificationPanelOpen: boolean;
-  isAvatarPanelOpen: boolean;
   isSearchOpen: boolean;
   toggleNotificationPanel: () => void;
-  toggleAvatarPanel: () => void;
   toggleSearch: () => void;
+  openSearch: () => void;
   closeAllPanels: () => void;
 }
 
@@ -16,30 +15,25 @@ const GlobalPanelsContext = createContext<GlobalPanelsContextType | undefined>(u
 
 export function GlobalPanelsProvider({ children }: { children: ReactNode }) {
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [isAvatarPanelOpen, setIsAvatarPanelOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const toggleNotificationPanel = () => {
     setIsNotificationPanelOpen((prev) => !prev);
-    setIsAvatarPanelOpen(false); // Close other panel
-    setIsSearchOpen(false);
-  };
-
-  const toggleAvatarPanel = () => {
-    setIsAvatarPanelOpen((prev) => !prev);
-    setIsNotificationPanelOpen(false); // Close other panel
     setIsSearchOpen(false);
   };
 
   const toggleSearch = () => {
     setIsSearchOpen((prev) => !prev);
     setIsNotificationPanelOpen(false);
-    setIsAvatarPanelOpen(false);
+  };
+
+  const openSearch = () => {
+    setIsSearchOpen(true);
+    setIsNotificationPanelOpen(false);
   };
 
   const closeAllPanels = () => {
     setIsNotificationPanelOpen(false);
-    setIsAvatarPanelOpen(false);
     setIsSearchOpen(false);
   };
 
@@ -47,11 +41,10 @@ export function GlobalPanelsProvider({ children }: { children: ReactNode }) {
     <GlobalPanelsContext.Provider
       value={{
         isNotificationPanelOpen,
-        isAvatarPanelOpen,
         isSearchOpen,
         toggleNotificationPanel,
-        toggleAvatarPanel,
         toggleSearch,
+        openSearch,
         closeAllPanels,
       }}
     >

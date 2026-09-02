@@ -52,15 +52,13 @@ export function CapabilityByDeptCard() {
           <Building2 className="w-4 h-4 text-emerald-400" />
           <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Capability Intel</h3>
         </div>
-        {state === 'success' && data && (
-          <span className={clsx(
-            "px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border",
-            data.brainConstitutionalCapabilities >= 50 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-            'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-          )}>
-            {data.brainConstitutionalCapabilities >= 50 ? 'STRONG' : 'DEVELOPING'}
-          </span>
-        )}
+        {/*
+          The badge here used to read STRONG/DEVELOPING off
+          brainConstitutionalCapabilities — the brain's own module count, always
+          55, so it always said STRONG. It measured the machinery rather than the
+          organization and was removed with the runtime. Nothing in this payload
+          currently supports a health verdict, so the card states counts only.
+        */}
       </div>
 
       <div className="p-6 flex-1 flex flex-col justify-center">
@@ -95,23 +93,29 @@ export function CapabilityByDeptCard() {
           <div className="space-y-5">
             <div className="text-center">
               <div className="text-4xl font-bold text-[color:var(--text-primary)] tabular-nums tracking-tight mb-1">
-                {data.brainConstitutionalCapabilities}
+                {data.workflowCapabilities.length}
               </div>
               <p className="text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-widest font-medium">
-                Brain Capabilities
+                Workflow Capabilities
               </p>
             </div>
 
             <div>
-              <MetricRow 
-                label="System Capabilities" 
-                value={data.systemCapabilities.length} 
-                color="text-[color:var(--text-primary)]" 
+              {/*
+                "Not modelled", not "none exist" — no Supabase table sources the
+                `system` entity type, so this is a gap in what we capture rather
+                than a fact about the organization. Shown in muted text so it
+                does not read as a measured zero.
+              */}
+              <MetricRow
+                label="System Capabilities"
+                value={data.systemCapabilities.length > 0 ? data.systemCapabilities.length : 'not modelled'}
+                color="text-[color:var(--text-tertiary)]"
               />
-              <MetricRow 
-                label="Workflow Capabilities" 
-                value={data.workflowCapabilities.length} 
-                color="text-[color:var(--text-primary)]" 
+              <MetricRow
+                label="Workflows Mapped"
+                value={data.workflowCapabilities.length}
+                color="text-[color:var(--text-primary)]"
               />
             </div>
 

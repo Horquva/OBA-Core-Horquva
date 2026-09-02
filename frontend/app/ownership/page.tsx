@@ -8,45 +8,67 @@ import { DependencyPipeline } from '../../components/ownership/DependencyPipelin
 import { HumanDependencyRisks } from '../../components/ownership/HumanDependencyRisks';
 import { OrgRelationshipMap } from '../../components/ownership/OrgRelationshipMap';
 import { AccountabilityChainTable } from '../../components/dashboard/AccountabilityChainTable';
-import { Dataset } from '../../types';
+import { authHeader } from '../../lib/authFetch';
+import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
+import { AITool, Dataset } from '../../types';
+import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
+import { DependencyRiskProfile } from '../../components/ownership/HumanDependencyRisks';
+
+interface RawOwnerRow {
+  name?: string;
+  isHumanSpof?: boolean;
+  dependencyRiskScore?: number;
+  dependencyRiskTier?: string;
+  ownedWorkflowCount?: number;
+  criticalWorkflowCount?: number;
+  ownedToolCount?: number;
+  unbackedToolCount?: number;
+}
 
 export default function OwnershipPage() {
   const [dataset, setDataset] = useState<Dataset | null>(null);
+  const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
+  const [humanSpofOwners, setHumanSpofOwners] = useState<Set<string>>(new Set());
+  const [dependencyRiskByName, setDependencyRiskByName] = useState<Map<string, DependencyRiskProfile>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    
-    Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/tools`).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows/intelligence`).then(r => r.ok ? r.json() : { workflows: [] })
-    ])
-    .then(([agentsData, toolsData, wfsData]) => {
-      const agents = Array.isArray(agentsData) ? agentsData.map((a: any) => ({
-        ...a,
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
-        backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner,
-        criticality: a.risk || a.criticality || 'low',
-        department: a.department || (a.owner?.department) || 'Unassigned',
-        documented: true,
-      })) : [];
 
-      const ai_tools = Array.isArray(toolsData) ? toolsData.map((t: any) => ({
+    Promise.all([
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      fetch(`${base}/api/ownership`, { headers: authHeader() }).then(r => r.ok ? r.json() : { owners: [] })
+    ])
+    .then(([agentsData, toolsData, wfsData, predictiveData, ownershipData]) => {
+      setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
+      const ownerRows = Array.isArray(ownershipData.owners) ? ownershipData.owners : [];
+      setHumanSpofOwners(new Set(ownerRows.filter((o: RawOwnerRow) => o.isHumanSpof).map((o: RawOwnerRow) => o.name)));
+      setDependencyRiskByName(new Map(
+        ownerRows
+          .filter((o: RawOwnerRow) => o.name && o.dependencyRiskScore != null)
+          .map((o: RawOwnerRow) => [o.name, {
+            totalRiskScore: o.dependencyRiskScore,
+            tier: o.dependencyRiskTier,
+            ownedWorkflowCount: o.ownedWorkflowCount,
+            criticalWorkflowCount: o.criticalWorkflowCount,
+            ownedToolCount: o.ownedToolCount,
+            unbackedToolCount: o.unbackedToolCount,
+          }])
+      ));
+      const agents = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
+
+      const ai_tools = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
         ...t,
         access_owner: t.owner || t.access_owner || 'Unassigned',
         backup_tool: t.backupAssigned ? 'Yes' : null,
-        users: [], 
-      })) : [];
+        users: [],
+      } as unknown as AITool)) : [];
 
-      const workflows = Array.isArray(wfsData.workflows) ? wfsData.workflows.map((w: any) => ({
-        name: w.workflow,
-        owner: w.owner?.name || null,
-        backup_owner: w.totalTools > 1 ? 'Yes' : null, // Fallback heuristic
-        department: 'Operations', // Fallback
-        criticality: w.riskScore > 50 ? 'critical' : 'medium',
-      })) : [];
+      const workflows = Array.isArray(wfsData) ? wfsData.map(normalizeWorkflow) : [];
 
       setDataset({
         company: 'Horquva',
@@ -96,17 +118,17 @@ export default function OwnershipPage() {
         <p className="text-[color:var(--text-secondary)] mt-1">Human-agent dependency map identifying single points of failure and coverage gaps.</p>
       </div>
 
-      <OwnershipOverview agents={dataset.agents} />
+      <OwnershipOverview agents={dataset.agents} humanSpofOwners={humanSpofOwners} />
 
       <div className="mt-8">
         <AccountabilityChainTable />
       </div>
 
       <ConcentrationBar agents={dataset.agents} />
-      <DependencyPipeline dataset={dataset} />
-      <HumanDependencyRisks dataset={dataset} />
+      <DependencyPipeline dataset={dataset} riskByAgentName={riskByAgentName} humanSpofOwners={humanSpofOwners} />
+      <HumanDependencyRisks dataset={dataset} riskByAgentName={riskByAgentName} dependencyRiskByName={dependencyRiskByName} />
       <OrgRelationshipMap dataset={dataset} />
-      <OwnershipList agents={dataset.agents} />
+      <OwnershipList agents={dataset.agents} riskByAgentName={riskByAgentName} humanSpofOwners={humanSpofOwners} />
     </div>
   );
 }

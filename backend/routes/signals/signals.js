@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const domain = require('../../domain')
 
 // GET /api/signals/drilldown/:entityName
 // Returns a trend direction and the contributing reasons for a given entity.
@@ -36,24 +37,23 @@ router.get('/drilldown/:entityName', async (req, res) => {
         })
       }
 
-      const { data: prs } = await supabase
-        .from('predictive_risk_scores')
-        .select('predicted_score')
-        .eq('agent_id', agent.id)
-        .maybeSingle()
+      // Was a lookup in `predictive_risk_scores`, a table seeded once and
+      // written by nothing — so an agent's trend could never actually trend.
+      const intel = await domain.intelligence.all()
+      const prs = intel.predictiveRisk.scores.find(p => p.agentId === agent.id)
 
-      if (prs && typeof prs.predicted_score === 'number') {
+      if (prs && typeof prs.predictedScore === 'number') {
         trendDirection =
-          prs.predicted_score >= 70
+          prs.predictedScore >= 70
             ? 'worsening'
-            : prs.predicted_score >= 40
+            : prs.predictedScore >= 40
               ? 'watch'
               : 'improving'
         reasons.push({
           id: 'predicted-score',
           factor: 'Predicted risk score',
-          description: `Model predicts a risk score of ${prs.predicted_score}.`,
-          impactWeight: prs.predicted_score >= 70 ? 'HIGH' : 'MEDIUM',
+          description: `Model predicts a risk score of ${prs.predictedScore}.`,
+          impactWeight: prs.predictedScore >= 70 ? 'HIGH' : 'MEDIUM',
         })
       }
     }

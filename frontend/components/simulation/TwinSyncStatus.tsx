@@ -11,37 +11,40 @@ interface TwinSyncStatusProps {
 export function TwinSyncStatus({ agents = [], tools = [] }: TwinSyncStatusProps) {
   const totalNodes = agents.length + tools.length;
 
-  // Derive sync quality from completeness of ownership/documentation data
+  // This card previously framed itself as a live replication process --
+  // "Synchronized"/"Out of Sync" states and a "Replication Lag" in ms with no
+  // real basis (Math.max(8, round(totalNodes*0.4)), pure invention). There is
+  // no async twin/replica in this architecture to have a lag: the brain graph
+  // (M49, "Digital Twin") is recomputed synchronously from the same live data
+  // on every request, so "synchronized" is always true by construction, never
+  // a measured fact. What IS real here is ownership coverage, so that's what
+  // this card now honestly shows instead of a fabricated sync metaphor.
   const unownedAgents = agents.filter(a => !a.owner).length;
-  const statusRatio = totalNodes > 0 ? unownedAgents / totalNodes : 0;
+  const coverageRatio = totalNodes > 0 ? unownedAgents / totalNodes : 0;
 
-  const status: "Synchronized" | "Partially Synced" | "Out of Sync" =
-    statusRatio === 0
-      ? "Synchronized"
-      : statusRatio < 0.2
-      ? "Partially Synced"
-      : "Out of Sync";
-
-  const lagMs = totalNodes > 0 ? Math.max(8, Math.round(totalNodes * 0.4)) : 0;
-  const lag = totalNodes === 0 ? "—" : `${lagMs}ms`;
+  const status: "Fully Owned" | "Partial Coverage" | "Coverage Gap" =
+    coverageRatio === 0
+      ? "Fully Owned"
+      : coverageRatio < 0.2
+      ? "Partial Coverage"
+      : "Coverage Gap";
 
   const StatusIcon =
-    status === "Synchronized"
+    status === "Fully Owned"
       ? CheckCircle2
-      : status === "Partially Synced"
+      : status === "Partial Coverage"
       ? RefreshCw
       : AlertCircle;
 
   const statusColor =
-    status === "Synchronized"
+    status === "Fully Owned"
       ? "text-emerald-400"
-      : status === "Partially Synced"
+      : status === "Partial Coverage"
       ? "text-amber-400"
       : "text-red-400";
 
   const rows: { label: string; value: string | number; highlight?: string }[] = [
-    { label: "State", value: status, highlight: statusColor },
-    { label: "Replication Lag", value: lag },
+    { label: "Coverage Status", value: status, highlight: statusColor },
     { label: "Agents Monitored", value: agents.length },
     { label: "Tools Monitored", value: tools.length },
     {
@@ -58,11 +61,11 @@ export function TwinSyncStatus({ agents = [], tools = [] }: TwinSyncStatusProps)
     >
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-cyan-500">
-          Sync Status
+          Ownership Coverage
         </h3>
         <StatusIcon
           className={`h-5 w-5 ${statusColor} ${
-            status === "Partially Synced" ? "animate-spin" : ""
+            status === "Partial Coverage" ? "animate-spin" : ""
           }`}
         />
       </div>

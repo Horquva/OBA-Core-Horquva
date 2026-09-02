@@ -4,9 +4,14 @@ import React, { useMemo, useState } from 'react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { Globe, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { AITool } from '../../types';
+import { ToolRiskProfile, ToolRiskTier } from '../../lib/aiToolIntelligence';
 
 interface Props {
-  tools: AITool[];
+  /** Per-tool profiles from computeAIToolIntelligence() -- the same scoring
+   *  ToolRiskTable/CriticalToolPanel use, so a tool can't show a different
+   *  risk tier here than it does elsewhere on this page. Previously this
+   *  component ran its own deriveVendorRisk() rule cascade independently. */
+  profiles: ToolRiskProfile[];
 }
 
 const RISK_META = {
@@ -15,14 +20,6 @@ const RISK_META = {
   MEDIUM:   { label: 'Medium',   color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20', bar: 'bg-yellow-400' },
   LOW:      { label: 'Low',      color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', bar: 'bg-emerald-400' },
 };
-
-function deriveVendorRisk(tool: AITool): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
-  if ((tool.criticality === 'critical' || tool.criticality === 'high') && !tool.backup_tool && !tool.documented) return 'CRITICAL';
-  if (tool.criticality === 'critical' && !tool.backup_tool) return 'HIGH';
-  if (tool.criticality === 'high') return 'HIGH';
-  if (tool.criticality === 'medium') return 'MEDIUM';
-  return 'LOW';
-}
 
 function vendorEmoji(vendor: string): string {
   const v = vendor.toLowerCase();
@@ -38,25 +35,39 @@ function vendorEmoji(vendor: string): string {
   return '🔧';
 }
 
-export function ExternalEcosystemTab({ tools }: Props) {
+export function ExternalEcosystemTab({ profiles }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'no-alternative'>('ALL');
+  const tools = useMemo(() => profiles.map(p => p.tool), [profiles]);
 
-  // Group by vendor — one card per unique vendor, aggregating their tools
+  // Group by vendor — one card per unique vendor, aggregating their tools.
+  //
+  // D-68: "Org concentration" used to be
+  // `agents_using.length*12 + departments.length*8` (+6 per merged tool),
+  // capped at 100 -- three constants with no stated basis, the same
+  // fabricated-number pattern already fixed elsewhere (D-54/D-58/D-63). It's
+  // now this vendor's real share of the org's total agent-tool usage: sum of
+  // `agents_using.length` across the vendor's tools, divided by that same
+  // sum across every tool -- a genuine ratio over real counts already on
+  // `profiles`, no invented weights, matching `knowledgeConcentration()`'s
+  // own share-of-total methodology (D-59).
   const vendors = useMemo(() => {
+    const totalAgentLinks = profiles.reduce((sum, p) => sum + p.tool.agents_using.length, 0);
+
     const vendorMap = new Map<string, {
       id: string;
       name: string;
       category: string;
       logo: string;
       hasAlternative: boolean;
-      riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+      riskLevel: ToolRiskTier;
       monthlySpend: number;
-      concentrate: number;
+      agentLinks: number;
       tools: AITool[];
     }>();
 
-    for (const tool of tools) {
+    for (const profile of profiles) {
+      const tool = profile.tool;
       const vendorKey = tool.vendor || 'Unknown Vendor';
       if (!vendorMap.has(vendorKey)) {
         vendorMap.set(vendorKey, {
@@ -65,32 +76,36 @@ export function ExternalEcosystemTab({ tools }: Props) {
           category: tool.category || 'General',
           logo: vendorEmoji(vendorKey),
           hasAlternative: Boolean(tool.backup_tool),
-          riskLevel: deriveVendorRisk(tool),
+          riskLevel: profile.tier,
           monthlySpend: tool.monthly_cost_usd,
-          concentrate: Math.min(tool.agents_using.length * 12 + tool.departments.length * 8, 100),
+          agentLinks: tool.agents_using.length,
           tools: [tool],
         });
       } else {
         const entry = vendorMap.get(vendorKey)!;
         entry.monthlySpend += tool.monthly_cost_usd;
         entry.tools.push(tool);
+        entry.agentLinks += tool.agents_using.length;
         // Escalate risk if any tool from that vendor is more severe
-        const newRisk = deriveVendorRisk(tool);
         const order = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-        if (order.indexOf(newRisk) > order.indexOf(entry.riskLevel)) {
-          entry.riskLevel = newRisk;
+        if (order.indexOf(profile.tier) > order.indexOf(entry.riskLevel)) {
+          entry.riskLevel = profile.tier;
         }
         // If any tool has a backup, the vendor is considered alternatives-available
         if (tool.backup_tool) entry.hasAlternative = true;
-        entry.concentrate = Math.min(entry.concentrate + tool.agents_using.length * 6, 100);
       }
     }
 
-    return Array.from(vendorMap.values()).sort((a, b) => {
-      const order = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
-      return order.indexOf(a.riskLevel) - order.indexOf(b.riskLevel);
-    });
-  }, [tools]);
+    return Array.from(vendorMap.values())
+      .map((v) => ({
+        ...v,
+        concentrate: totalAgentLinks > 0 ? Math.round((v.agentLinks / totalAgentLinks) * 100) : 0,
+      }))
+      .sort((a, b) => {
+        const order = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+        return order.indexOf(a.riskLevel) - order.indexOf(b.riskLevel);
+      });
+  }, [profiles]);
 
   const noAlternative = vendors.filter(v => !v.hasAlternative);
   const displayed = filter === 'no-alternative' ? noAlternative : vendors;
@@ -120,7 +135,9 @@ export function ExternalEcosystemTab({ tools }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Vendor map, supported assets, and single-vendor concentration flags</p>
         </div>
-        <TruthBadge verified />
+        {/* profile.tier (computeAIToolIntelligence) is a local heuristic with
+            no backend equivalent -- not something to badge as verified. */}
+        <TruthBadge verified={false} />
       </div>
 
       {/* KPI strip */}

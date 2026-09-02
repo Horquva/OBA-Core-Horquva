@@ -3,12 +3,12 @@ const router   = express.Router()
 const supabase = require('../../supabase')
 
 // helpers
-function calcRiskScore({ is_documented, ownerCount, toolCount, failures }) {
+function calcRiskScore({ is_documented, humanSpofFailure, toolCount, failures }) {
   let score = 0
 
-  if (!is_documented)  score += 30  // undocumented
-  if (ownerCount <= 1) score += 30  // single human dependency
-  if (toolCount  <= 1) score += 20  // single tool dependency
+  if (!is_documented)     score += 30  // undocumented
+  if (humanSpofFailure)   score += 30  // recorded single-human-dependency failure
+  if (toolCount  <= 1)    score += 20  // single tool dependency
 
   // failure severity weight  critical=10  high=6  medium=3  low=1
   const weights = { critical: 10, high: 6, medium: 3, low: 1 }
@@ -62,19 +62,21 @@ router.get('/', async (req, res) => {
       .map(l => l.ai_platforms)
       .filter(Boolean)
 
-    const is_documented = runbook?.is_documented ?? false
-    const ownerCount    = runbook ? 1 : 0
-    const riskScore     = calcRiskScore({
+    const is_documented    = runbook?.is_documented ?? false
+    // The schema has no concept of multiple runbook owners — every workflow has
+    // at most one — so "owner count" can never discriminate risk. The real signal
+    // for single-human dependency is a recorded human_spof failure on this workflow.
+    const humanSpofFailure = failures.some(f => f.failure_type === 'human_spof')
+    const riskScore         = calcRiskScore({
       is_documented,
-      ownerCount,
+      humanSpofFailure,
       toolCount: impactedTools.length,
       failures
     })
 
     const spofDetected =
-      ownerCount <= 1 ||
-      impactedTools.length  <= 1 ||
-      failures.some(f => f.failure_type === 'human_spof' && f.severity === 'critical')
+      humanSpofFailure ||
+      impactedTools.length <= 1
 
     return {
       workflow:       wf.name,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -18,7 +18,7 @@ import dagre from 'dagre';
 
 import { AgentNode, AgentNodeData } from './CustomNodes';
 import { Agent, Dependency } from '../../types';
-import { getDownstream, getSPOFs } from '../../lib/graph';
+import { getDownstream } from '../../lib/graph';
 import { AlertTriangle, Info, Lock, Unlock } from 'lucide-react';
 
 const nodeTypes = {
@@ -29,7 +29,6 @@ const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
 const getLayoutedElements = (nodes: Node<AgentNodeData>[], edges: Edge[], direction = 'TB') => {
-  const isHorizontal = direction === 'LR';
   dagreGraph.setGraph({ rankdir: direction });
 
   nodes.forEach((node) => {
@@ -59,16 +58,17 @@ const getLayoutedElements = (nodes: Node<AgentNodeData>[], edges: Edge[], direct
 interface FlowCanvasProps {
   agents: Agent[];
   dependencies: Dependency[];
+  /** Server-computed SPOF agent ids (backend/routes/dependencies.js
+   *  GET /agent-spofs) — one definition of "SPOF", not reimplemented here. */
+  spofIds: Set<string>;
 }
 
-export function FlowCanvas({ agents, dependencies }: FlowCanvasProps) {
+export function FlowCanvas({ agents, dependencies, spofIds }: FlowCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<AgentNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  
+
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(true);
-  
-  const spofs = useMemo(() => getSPOFs(agents, dependencies).map(s => s.agentId), [agents, dependencies]);
 
   useEffect(() => {
     const initialNodes: Node<AgentNodeData>[] = agents.map(agent => ({
@@ -77,7 +77,7 @@ export function FlowCanvas({ agents, dependencies }: FlowCanvasProps) {
       position: { x: 0, y: 0 },
       data: {
         agent,
-        isSPOF: spofs.includes(agent.id),
+        isSPOF: spofIds.has(agent.id),
       }
     }));
 
@@ -105,7 +105,7 @@ export function FlowCanvas({ agents, dependencies }: FlowCanvasProps) {
 
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-  }, [agents, dependencies, spofs, setNodes, setEdges]);
+  }, [agents, dependencies, spofIds, setNodes, setEdges]);
 
   const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setSelectedAgentId(prev => prev === node.id ? null : node.id);

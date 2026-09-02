@@ -1,4 +1,6 @@
 import type { RiskLevel } from '../types';
+import { authHeader } from './authFetch';
+import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Base ────────────────────────────────────────────────────────────────────
 
@@ -8,7 +10,7 @@ const BASE =
 /** Minimal wrapper — throws on non-2xx so callers can catch uniformly. */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeader(), ...init?.headers },
     ...init,
   });
 
@@ -56,7 +58,7 @@ export interface WorkflowTool {
 }
 
 export interface WorkflowFailure {
-  failure_type: 'human_spof' | 'tool_spof' | 'agent_spof';
+  failure_type: 'human_spof' | 'tool_failure' | 'process_gap' | 'escalation_failure';
   severity: RiskLevel;
   description: string;
 }
@@ -116,8 +118,9 @@ export interface WorkflowFailureItem {
   severitySummary: WorkflowFailureSeveritySummary;
   breakdown: {
     human_spof: WorkflowFailureBreakdownGroup;
-    tool_spof: WorkflowFailureBreakdownGroup;
-    agent_spof: WorkflowFailureBreakdownGroup;
+    tool_failure: WorkflowFailureBreakdownGroup;
+    process_gap: WorkflowFailureBreakdownGroup;
+    escalation_failure: WorkflowFailureBreakdownGroup;
   };
 }
 
@@ -267,7 +270,7 @@ export const orchestration = {
   blocked: () =>
     request<BlockedResponse>('/api/orchestration/blocked'),
 
-  /** GET /api/orchestration/mode — may not be implemented yet */
+  /** GET /api/orchestration/mode — read-only; there is no endpoint to set it */
   mode: () =>
     request<{ executionMode: string }>('/api/orchestration/mode'),
 };
@@ -295,12 +298,18 @@ export interface ForecastSummaryResponse {
     outlookStatus: string;
     weakestDimension: string | null;
   };
+  provenance: { source: string; table: string };
 }
 
 export interface ForecastHealthItem {
   horizonDays: number;
   healthScore: number;
   trend: string;
+}
+
+export interface ForecastHealthResponse {
+  forecasts: ForecastHealthItem[];
+  provenance: { source: string; table: string };
 }
 
 export interface ForecastFinding {
@@ -333,6 +342,7 @@ export interface ForecastOutlookResponse {
     workflowsWithoutBackup: ForecastFinding[];
     undocumentedAssets: ForecastFinding[];
   };
+  provenance: { source: string; table: string };
 }
 
 export const forecast = {
@@ -340,7 +350,7 @@ export const forecast = {
     request<ForecastSummaryResponse>('/api/forecast/summary'),
 
   health: () =>
-    request<ForecastHealthItem[]>('/api/forecast/health'),
+    request<ForecastHealthResponse>('/api/forecast/health'),
 
   memory: () =>
     request<ForecastMemoryResponse>('/api/forecast/memory'),
@@ -404,7 +414,7 @@ export interface LearningIncidentsResponse {
   rankedByExposure: (DepartmentExposure & { rank: number })[];
 }
 
-export interface LearningDepartmentsResponse extends Array<DepartmentExposure> {}
+export type LearningDepartmentsResponse = DepartmentExposure[];
 
 export const learning = {
   summary: () =>
@@ -543,51 +553,63 @@ export const selfHealing = {
     }),
 };
 
-// ─── Constitutional / Intelligence  — NOT ALL MOUNTED ────────────────────────
-// Only /api/intelligence/truth, /api/intelligence/brain-core, and
-// /api/intelligence/orchestrator are mounted.  The rest (signals, opportunities,
-// capability, alignment, advisor, simulation-universe) are in API_REFERENCE.md
-// but have no mount in index.js.
+// ─── Dataset-derived organizational analyses ─────────────────────────────────
+// All seven ARE mounted — index.js mounts routes/intelligence/constitutional.js
+// at /api/intelligence. The previous "NOT MOUNTED" comments on signals,
+// opportunities, capability, alignment, advisor and simulation-universe were
+// stale and wrong.
+//
+// ⚠ These come from backend/domain/analyses.js (the company dataset), NOT from the
+// brain. `capability` and `alignment` here are different analyses from
+// orgScience.capabilityByDept and orgScience.strategicAlignment below, which
+// compute different things from the Knowledge Graph despite sharing the module
+// numbers M39 and M40. See docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
+//
+// Nothing currently imports this object.
 
 export const intelligence = {
-  /** MOUNTED — /api/intelligence/truth */
+  /** Served by routes/truth/truth.js, not constitutional.js */
   truth: () =>
     request<Record<string, unknown>>('/api/intelligence/truth'),
 
-  /** MOUNTED — /api/intelligence/brain-core */
   brainCore: () =>
     request<Record<string, unknown>>('/api/intelligence/brain-core'),
 
-  /** MOUNTED — /api/intelligence/orchestrator */
   orchestrator: () =>
     request<Record<string, unknown>>('/api/intelligence/orchestrator'),
 
-  /** NOT MOUNTED — /api/intelligence/signals */
   signals: () =>
     request<Record<string, unknown>>('/api/intelligence/signals'),
 
-  /** NOT MOUNTED — /api/intelligence/opportunities */
   opportunities: () =>
     request<Record<string, unknown>>('/api/intelligence/opportunities'),
 
-  /** NOT MOUNTED — /api/intelligence/capability */
+  /** Per-department capability scores — not the brain's M39 capability counts */
   capability: () =>
     request<Record<string, unknown>>('/api/intelligence/capability'),
 
-  /** NOT MOUNTED — /api/intelligence/alignment */
+  /**
+   * Alignment across three dimensions. `alignment` is null and `state` is
+   * 'NO_SIGNAL' when no dimension has data — it is not scored 100.
+   */
   alignment: () =>
     request<Record<string, unknown>>('/api/intelligence/alignment'),
 
-  /** NOT MOUNTED — /api/intelligence/advisor */
   advisor: () =>
     request<Record<string, unknown>>('/api/intelligence/advisor'),
 
-  /** NOT MOUNTED — /api/intelligence/simulation-universe */
   simulationUniverse: () =>
     request<Record<string, unknown>>('/api/intelligence/simulation-universe'),
 };
 
 // ─── Org Science Predictions (M37, M39-M45) ──────────────────────────────────
+
+export interface GraphSource {
+  live: boolean;
+  stats: Record<string, unknown> | null;
+  loadedAt: string | null;
+  error: string | null;
+}
 
 export interface IntelligenceResponse<T> {
   module: string;
@@ -596,6 +618,21 @@ export interface IntelligenceResponse<T> {
   payload: T;
   recommendations: string[];
   generatedAt: string;
+  /** Present on the 8 graph-backed cards (domain.graph.run) — absent elsewhere. */
+  dataSource?: GraphSource;
+}
+
+export interface GraphStatus {
+  isReady: boolean;
+  source: GraphSource;
+}
+
+export interface GraphReloadResult {
+  reloaded: boolean;
+  stats?: Record<string, unknown>;
+  loadedAt?: string;
+  error?: string;
+  source?: GraphSource;
 }
 
 export interface PatternPayload {
@@ -606,14 +643,17 @@ export interface PatternPayload {
 }
 
 export interface CapabilityPayload {
+  /**
+   * Empty because no Supabase table sources the `system` entity type — that is
+   * "not modelled", not "this organization has none". See graphLoader's header.
+   */
   systemCapabilities: string[];
   workflowCapabilities: string[];
-  brainConstitutionalCapabilities: number;
 }
 
 export interface StrategicAlignmentPayload {
-  alignmentScore: number;
-  aligned: boolean;
+  ownershipCoverageScore: number;
+  covered: boolean;
   gaps: string[];
 }
 
@@ -628,9 +668,18 @@ export interface DNAPayload {
 export interface CulturePayload {
   collaborationLinks: number;
   people: number;
+  /** Links PER PERSON — unbounded, not a fraction. Never render as a percentage. */
   collaborationDensity: number;
-  cultureSignal: string;
-  siloedPeople: string[];
+  peopleWithCollaborationRecord: number;
+  /**
+   * People appearing in no shared-work record at all. This is UNKNOWN, not a
+   * finding that they work alone — M42 no longer emits a `siloedPeople` verdict
+   * because no available source can distinguish the two.
+   */
+  peopleWithoutRecord: string[];
+  /** Share of people the collaboration sources actually observe (0–1). */
+  collaborationCoverage: number;
+  cultureSignal: 'no_signal' | 'transitional' | 'collaborative';
 }
 
 export interface MaturityPayload {
@@ -662,18 +711,21 @@ export const orgScience = {
   maturity: () => request<IntelligenceResponse<MaturityPayload>>('/api/intelligence/maturity'),
   behavior: () => request<IntelligenceResponse<BehaviorPayload>>('/api/intelligence/behavior'),
   benchmark: () => request<IntelligenceResponse<BenchmarkPayload>>('/api/intelligence/benchmark'),
+  graphStatus: () => request<GraphStatus>('/api/intelligence/graph/status'),
+  graphReload: () => request<GraphReloadResult>('/api/intelligence/graph/reload', { method: 'POST' }),
 };
 
 // ─── Orchestrator / M55  (/api/intelligence/orchestrator) ───────────────────
 
 export interface OrchestratorSummary {
-  organizationalIntelligenceScore: number;
-  rating: string;
+  organizationalIntelligenceScore: number | null;
+  rating: string | null;
   brainPosture: string | null;
   trustScore: number;
   finalVerdict: string;
   topRecommendations: string[];
   generatedAt: string;
+  evidence?: EvidenceInfo | null;
 }
 
 export interface OrchestratorModule {
@@ -725,10 +777,6 @@ export interface BriefingLatest {
 
 export const briefingApi = {
   latest: () => request<BriefingLatest>('/api/briefing/today'),
-  risks: () => request<Record<string, unknown>>('/api/briefing/risks'),
-  health: () => request<Record<string, unknown>>('/api/briefing/health'),
-  recommendations: () =>
-    request<{ type: string; message: string }[]>('/api/briefing/recommendations'),
 };
 
 // ─── Context Feed / M27  (/api/context) ──────────────────────────────────────
@@ -784,8 +832,12 @@ export interface ExecMemoryItemsResponse {
 
 export interface HeroDependency {
   personName: string;
-  department: string;
-  resolutionCount: number;
+  department: string | null;
+  /** Critical assets this person owns with no backup owner named. Replaces the
+   *  old `resolutionCount`, which came from a seeded table and claimed a count
+   *  of resolved incidents that nothing in the schema actually records. */
+  criticalAssetCount: number;
+  criticalAssets: string[];
   riskLevel: string;
   description: string;
 }
@@ -813,41 +865,7 @@ export const execMemoryApi = {
   patterns: () => request<Record<string, unknown>>('/api/executive-memory/patterns'),
 };
 
-// ─── Intelligence Pillars (DI/MI/OI/OCI/GI) — via /api/intelligence/truth ────
-
-export interface IntelligencePillar {
-  key: string;   // DI | MI | OI | OCI | GI
-  label: string;
-  score: number;
-  rating: string;
-}
-
-export interface PillarResponse {
-  pillars?: IntelligencePillar[];
-  // truth route may return different shape — handled in component
-  [key: string]: unknown;
-}
-
-export const pillarApi = {
-  pillars: () => request<PillarResponse>('/api/intelligence/truth'),
-};
-
-// ─── Org Health  (/api/health) ────────────────────────────────────────────────
-
-export interface HealthSummary {
-  healthIndex: number;
-  healthStatus: string;
-  trend: string;
-  snapshotMonth: string;
-  dimensions: {
-    documentation:   { score: number; weight: string };
-    continuity:      { score: number; weight: string };
-    ownershipSpread: { score: number; weight: string };
-    criticalSafety:  { score: number; weight: string };
-    incidentLoad:    { score: number; weight: string };
-  };
-}
-// ─── Health (M50) ──────────────────────────────────────────────────────────
+// ─── Org Health  (/api/health, M50) ──────────────────────────────────────────
 
 export interface HealthSummary {
   healthIndex: number;
@@ -908,19 +926,6 @@ export const accountabilityApi = {
   issues: () => request<AccountabilityIssues>('/api/accountability/issues'),
 };
 
-// ─── Relationship (M29) ─────────────────────────────────────────────────────
-
-export interface RelationshipHealth {
-  healthy: number;
-  atRisk: number;
-  fragile: number;
-  totalRelationships: number;
-}
-
-export const relationshipApi = {
-  health: () => request<RelationshipHealth>('/api/relationships/health'),
-};
-
 // ─── Predictive Risk (M11) ───────────────────────────────────────────────────
 
 export interface PredictiveSummary {
@@ -965,6 +970,30 @@ export const signalApi = {
   drilldown: (entityName: string) => request<SignalDrilldownResponse>(`/api/signals/drilldown/${entityName}`),
 };
 
+// ─── Auth  (/api/auth)  — LIVE ───────────────────────────────────────────────
+// Login and register stay in AuthContext, because they run before a token
+// exists and their whole job is to produce one. Everything here is an
+// authenticated call and belongs on the shared client like any other.
+
+export interface ChangePasswordResponse {
+  ok: boolean;
+  message: string;
+}
+
+export const authApi = {
+  /**
+   * Changes the signed-in user's own password. Takes no email: the account is
+   * whichever one the bearer token identifies, so there is no way to aim this
+   * at somebody else. The server revokes the current token on success, so the
+   * caller must send the user back to /login afterwards.
+   */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<ChangePasswordResponse>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+};
+
 // ─── Health Check Utility ────────────────────────────────────────────────────
 
 export const API_BASE = BASE;
@@ -985,6 +1014,7 @@ export async function pingEndpoint(path: string): Promise<PingResult> {
     const res = await fetch(`${BASE}${path}`, {
       method: 'GET',
       signal: controller.signal,
+      headers: { ...authHeader() },
     });
     clearTimeout(timeoutId);
     return {

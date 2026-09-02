@@ -1,69 +1,136 @@
-// run_migrations.js — Execute SQL migrations via Supabase JS client
-// Splits each migration file into individual statements and runs them
+// run_migrations.js — apply SQL migrations to Postgres, in order, exactly once.
+//
+//   node run_migrations.js              apply everything not yet applied
+//   node run_migrations.js --dry-run    list what would run, change nothing
+//   node run_migrations.js --baseline   record every file as applied WITHOUT running it
+//
+// Requires DATABASE_URL (Supabase: Project Settings -> Database -> Connection string -> URI).
+//
+// Order: schema.sql first, then sql/*.sql sorted by filename.
+// Applied files are recorded in schema_migrations so re-running is safe. This
+// matters because 01_schema_migration.sql uses bare CREATE TABLE and the seed
+// files use bare INSERT — running either twice fails or duplicates rows.
+//
+// On a database that already has tables (created before this runner worked),
+// run --baseline ONCE to record the existing files, then normal runs apply only
+// what is new.
 
-const { createClient } = require('@supabase/supabase-js')
 const fs = require('fs')
 const path = require('path')
-require('dotenv').config()
+const { Client } = require('pg')
+require('dotenv').config({ path: path.join(__dirname, '.env') })
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-)
+const DRY_RUN = process.argv.includes('--dry-run')
+const BASELINE = process.argv.includes('--baseline')
 
-// Split SQL into individual statements (split on ';' + newline)
-function splitStatements(sql) {
-  return sql
-    .replace(/--.*$/gm, '')          // remove line comments
-    .replace(/\/\*[\s\S]*?\*\//g, '') // remove block comments
-    .split(/;\s*\n/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0)
-}
+/** schema.sql first — it defines escalation_logs, verification_logs,
+ *  orchestration_state, execution_intents and execution_mode, which exist
+ *  nowhere else — then sql/*.sql in filename order. */
+function migrationFiles() {
+  const files = []
+  const root = path.join(__dirname, 'schema.sql')
+  if (fs.existsSync(root)) files.push({ name: 'schema.sql', path: root })
 
-async function runMigration(filename) {
-  const filePath = path.join(__dirname, 'sql', filename)
-  const sql = fs.readFileSync(filePath, 'utf8')
-  const statements = splitStatements(sql)
-  
-  console.log(`\n=== ${filename}: ${statements.length} statements ===`)
-  
-  let passed = 0
-  let failed = 0
-  
-  for (let i = 0; i < statements.length; i++) {
-    const stmt = statements[i]
-    if (!stmt) continue
-    
-    try {
-      // Use rpc to run raw SQL — requires the 'exec_sql' function OR
-      // we use the pg connection via the service role
-      const { error } = await supabase.rpc('exec_sql', { sql_text: stmt + ';' })
-      
-      if (error) {
-        // Try direct query approach if RPC not available
-        console.error(`  [${i+1}] FAILED: ${error.message}`)
-        console.error(`  Statement: ${stmt.slice(0, 100)}...`)
-        failed++
-      } else {
-        console.log(`  [${i+1}] OK`)
-        passed++
-      }
-    } catch (err) {
-      console.error(`  [${i+1}] ERROR: ${err.message}`)
-      failed++
+  const dir = path.join(__dirname, 'sql')
+  if (fs.existsSync(dir)) {
+    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
+      files.push({ name: f, path: path.join(dir, f) })
     }
   }
-  
-  console.log(`  => ${passed} passed, ${failed} failed`)
-  return failed === 0
+  return files
+}
+
+async function ensureLedger(client) {
+  await client.query(`
+    create table if not exists schema_migrations (
+      filename   text primary key,
+      applied_at timestamptz not null default now()
+    )
+  `)
+}
+
+async function applied(client) {
+  const { rows } = await client.query('select filename from schema_migrations')
+  return new Set(rows.map((r) => r.filename))
 }
 
 async function main() {
-  console.log('Running migrations...')
-  await runMigration('03_fizza_modules_schema.sql')
-  await runMigration('04_fizza_modules_seed.sql')
-  console.log('\nDone.')
+  if (!process.env.DATABASE_URL) {
+    console.error(
+      'DATABASE_URL is not set.\n\n' +
+      'Supabase: Project Settings -> Database -> Connection string -> URI.\n' +
+      'Add it to backend/.env as DATABASE_URL=postgresql://...\n\n' +
+      'Note: SUPABASE_KEY is a PostgREST API key and cannot execute DDL.'
+    )
+    process.exit(1)
+  }
+
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  })
+  await client.connect()
+
+  try {
+    await ensureLedger(client)
+    const done = await applied(client)
+    const pending = migrationFiles().filter((f) => !done.has(f.name))
+
+    if (!pending.length) {
+      console.log('Nothing to apply — all migrations recorded.')
+      return
+    }
+
+    console.log(`${pending.length} pending: ${pending.map((f) => f.name).join(', ')}\n`)
+
+    if (DRY_RUN) {
+      console.log('--dry-run: nothing was changed.')
+      return
+    }
+
+    if (BASELINE) {
+      for (const f of pending) {
+        await client.query(
+          'insert into schema_migrations (filename) values ($1) on conflict do nothing',
+          [f.name]
+        )
+        console.log(`  recorded (not run)  ${f.name}`)
+      }
+      console.log('\nBaseline complete. Future runs apply only new files.')
+      return
+    }
+
+    // Each file runs inside one transaction: it applies completely or not at
+    // all, and a half-applied file never gets recorded as done.
+    for (const f of pending) {
+      const sql = fs.readFileSync(f.path, 'utf8')
+      process.stdout.write(`  ${f.name} ... `)
+      try {
+        await client.query('begin')
+        await client.query(sql)
+        await client.query(
+          'insert into schema_migrations (filename) values ($1)',
+          [f.name]
+        )
+        await client.query('commit')
+        console.log('OK')
+      } catch (err) {
+        await client.query('rollback')
+        console.log('FAILED')
+        console.error(`\n${f.name}: ${err.message}\n`)
+        console.error('Nothing from this file was applied. Fix it and re-run.')
+        process.exitCode = 1
+        return
+      }
+    }
+
+    console.log('\nAll migrations applied.')
+  } finally {
+    await client.end()
+  }
 }
 
-main().catch(console.error)
+main().catch((err) => {
+  console.error(err.message)
+  process.exit(1)
+})

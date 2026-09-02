@@ -1,76 +1,95 @@
-# Organizational Brain — Constitutional Runtime (`backend/brain/`)
+# Organizational Brain — analysis library (`backend/brain/`)
 
-This module is the real, running heart of the Horquva Organizational Brain. It
-boots all **55 constitutional modules (M01–M55)**, builds the organizational
-knowledge graph, and answers executive requests through a constitutional
-execution pipeline.
+Builds the organizational Knowledge Graph from Supabase and runs the 51
+analyses over it. (The catalog is numbered M01–M55; four were retired — see
+Known gaps.)
 
-It is split into the two ownership layers defined by the MVP Execution Guides:
+**It is a library, not a service.** Nothing is mounted; there is no `/api/brain`.
+Routes call it directly:
 
-## 1. Knowledge Platform — *Huzaifa* (`brain/knowledge/`)
-The foundation: discovers organizational reality and stores it as one shared truth.
+```js
+const brain = require('../../brain')
 
-| Component | File | Role |
-|---|---|---|
-| Module Registry Loader | `moduleRegistry.js` | Auto-discovers & validates all 55 modules; rejects duplicates/invalid |
-| Capability Registry | `capabilityRegistry.js` | Turns modules into discoverable organizational services |
-| Intelligence Exchange Protocol | `intelligenceExchange.js` | The common language: validated Intelligence Packages + confidence propagation |
-| Entity Registry | `entityRegistry.js` | Every org object exists once (Single Source of Truth) |
-| Relationship Registry | `relationshipRegistry.js` | Relationships as first-class assets; no dangling edges |
-| Unified Knowledge Graph | `knowledgeGraph.js` | Long-term memory: traversal, dependency paths, context search |
-| Ontology Runtime | `data/ontology.js` | One constitutional meaning per concept & relationship |
-| Graph APIs | `knowledge/graphApi.js` | The only gateway to knowledge (registry + graph + exchange) |
-
-## 2. Brain Runtime — *Kamran* (`brain/runtime/`)
-The engineering brain that makes the modules act as one organ.
-
-| Component | File | Role |
-|---|---|---|
-| Event & Signal Bus | `eventBus.js` | Event-driven backbone; loose coupling + observability |
-| Brain State Manager | `brainState.js` | Lifecycle phase, module health, executions, boot report |
-| Constitutional Communication Layer | `communicationLayer.js` | No module talks directly; every call is routed + contract-checked |
-| Brain Execution Engine | `executionEngine.js` | Capability discovery + topological dependency ordering + fusion |
-| Organizational Brain Runtime | `runtime.js` | Boots the whole Brain; produces the **Boot Report** |
-| Constitutional API Gateway | `runtime/brainApi.js` | Executive APIs: `/status`, `/boot-report`, `/ask`, `/plan`, `/signals` |
-
-## Constitutional rules enforced
-- **Truth (M46) gates Autonomous Advisor (M48)** — Truth always executes first.
-- **Meta-Brain Orchestrator (M55) always runs last.**
-- **Discovery before execution** — no module is ever hard-referenced.
-- **Every result is a validated Intelligence Package** (source, type, confidence, evidence, timestamp).
-
-## The source of truth
-`data/constitutional-modules.js` is the LOCKED catalog of M01–M55 (names,
-owners, layers, dependencies, capabilities). Everything discovers from here.
-
-## Run standalone (Boot Report)
-```bash
-node backend/brain/boot.js
-```
-Expected: `Accepted: YES`, 55/55 modules, 55 capabilities, graph valid, and a
-demo executive request executed in constitutional order.
-
-## Runs inside the API server
-`backend/index.js` mounts the Brain automatically at **`/api/brain`**:
-```
-GET  /api/brain/status
-GET  /api/brain/boot-report
-GET  /api/brain/registry/modules?owner=Huzaifa
-GET  /api/brain/registry/capabilities?discover=risk
-GET  /api/brain/graph/entities?type=system
-GET  /api/brain/graph/traverse/:id?depth=2
-GET  /api/brain/graph/dependency-path/:id
-GET  /api/brain/graph/validate
-POST /api/brain/plan   { "modules": ["M03","M48","M55"] }
-POST /api/brain/ask    { "need": "risk", "context": { "role": "CEO" } }
+await brain.loadGraph()                   // build from Supabase, swap in atomically
+const intel = await brain.run('culture')  // one analysis + its dependencies
 ```
 
-## Where teammates plug in
-- **Tahir (prediction M11–M13, M17, M32–M49):** bind real handlers via
-  `communicationLayer.bindCapability(capabilityId, handler)`; publish results as
-  Intelligence Packages — they auto-sync into the graph.
-- **Anusha (executive M15,M16,M21,M23,M51–M53):** consume `/api/brain/*` for
-  Executive OS, OBA, verification & automation.
-- **Backend (Fizza/Shawal):** replace `graphSeeder.js` with live discovery /
-  Supabase-Neo4j import; the graph contract stays identical.
-- **Frontend:** consume `/api/brain/*` read APIs only (no business logic).
+Analyses are addressable by a readable slug derived from the catalog name
+(`'culture'`, `'strategic-alignment'`, `'ownership'`) or by their catalog code
+(`'M42'`). The code stays canonical — `dependsOn` and the ordering rules key on
+it — but route files read better with the name.
+
+**M01–M55 belongs to this catalog and nothing else.** The dataset analyses in
+`domain/analyses.js` used to claim M36/M38/M39/M40/M46/M48/M54 as well, so
+"fix M39" had two possible meanings; they were renamed for what they compute.
+
+This replaced a 1,154-line constitutional runtime — execution engine, event bus,
+communication layer, module and capability registries, brain state manager,
+intelligence bus and an `/api/brain` surface. None of it had a consumer outside
+its own self-description. See
+[the design document](../../docs/superpowers/specs/2026-08-24-brain-as-library-design.md).
+
+## API
+
+| Function | Purpose |
+|---|---|
+| `loadGraph()` | Build the graph from Supabase and swap it in. Throws on failure, leaving any previous graph in place. |
+| `setGraph(g)` | Use an already-built graph (tests, fixtures). `graphSource().live` stays `false`. |
+| `getGraph()` / `isReady()` | The current graph, and whether one is loaded. |
+| `graphSource()` | Provenance — `{ live, stats, loadedAt, error }`. **Check this before trusting an answer.** |
+| `run(id, context)` | One analysis, by slug (`'culture'`) or code (`'M42'`). Its declared dependencies run first, so `context.priorIntel` is populated. |
+| `runMany(ids, context)` | Several analyses in constitutional order, plus a fused confidence. |
+| `resolveOrder(ids)` | The execution order (always codes), dependencies included. |
+| `toCode(idOrSlug)` | Resolve a slug or code to the canonical code; `null` if unknown. |
+| `MODULES` | The analysis catalog — 51 entries. |
+
+## Files
+
+| File | Role |
+|---|---|
+| `index.js` | The library: graph lifecycle, dependency ordering, `run` / `runMany` |
+| `knowledge/graphLoader.js` | Supabase → Knowledge Graph. **The one place organizational data enters.** |
+| `knowledge/knowledgeGraph.js` | The graph: traversal, dependency paths, context search |
+| `knowledge/entityRegistry.js` | Every organizational object exists once |
+| `knowledge/relationshipRegistry.js` | Relationships as first-class assets; no dangling edges |
+| `knowledge/intelligenceExchange.js` | The package shape every analysis returns, plus confidence fusion |
+| `data/ontology.js` | One constitutional meaning per entity and relationship type |
+| `data/constitutional-modules.js` | The analysis catalog: names, owners, dependencies |
+| `modules/implementations.js` | All 51 analyses |
+| `modules/analytics.js` | Shared graph algorithms — SPOF, centrality, cycles, transitive deps |
+
+## Two things that survived the runtime, because they are behaviour
+
+**Dependency ordering.** Six analyses (M11, M23, M24, M48, M50, M55) read prior
+analyses' output through `context.priorIntel` and return different answers
+without it. `run()` resolves and executes the dependency chain first. The
+ordering is byte-identical to the retired engine's — Kahn's algorithm with a
+sorted queue.
+
+**The two constitutional rules.** Truth (M46) runs before the Advisor (M48),
+which it gates. Meta-Brain (M55) always runs last, because it fuses everything.
+
+## Known gaps
+
+**Four analyses were retired, taking the catalog from 55 to 51.** M10
+Organizational Memory, M12 Forecasting, M17 Organizational Learning and M47
+Continuous Learning all read a log of *Brain runs* — how much the brain had been
+used, not what the organization did. M47's own constitutional question was "How
+does the Brain improve continuously?". Every question they claimed is already
+answered from real tables by `/api/learning` (`/failures`, `/decisions`),
+`/api/forecast` and `/api/memory`. Nothing depended on them.
+
+M39's `brainConstitutionalCapabilities` (the registry's own size) and M49's
+`runtimeHealth` were self-description and were deleted with the runtime. M46
+still reads bus-derived package counts, which are now always empty — it is
+otherwise graph-derived and was kept.
+
+**The graph has no time dimension.** Entities carry their full source row now,
+including timestamps like `last_used` and `hire_date` — but a timestamp field is
+not a temporal model. The graph is a snapshot of *now*; nothing records what
+changed. Trend questions belong in SQL, and recording change is BUILD_SPEC W5.
+
+**Five ontology types have no source.** `system`, `team`, `customer`, `process`
+and `project` are defined and queried but no Supabase table supplies them, so
+they are absent rather than approximated. M39's empty `systemCapabilities` and
+M31's empty `externalActors` are correct until W2 wires `data/company.json` in.

@@ -1,18 +1,14 @@
 const express = require('express')
 const router = express.Router()
-const supabase = require('../../supabase')
+const domain = require('../../domain')
 
-// Base list — which workflows can be simulated
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('workflows')
-      .select('id, name, status, risk, department')
-    if (error) return res.status(500).json({ error: error.message })
+    const roots = await domain.simulations.loadRoots()
     res.json({
       scenario: 'workflow-disruption',
       hint: 'Call /api/simulations/workflow-disruption/{name} to run a scenario',
-      available: data || [],
+      available: roots.workflows.map((w) => ({ id: w.id, name: w.name, status: w.status, risk: w.risk, department: w.department })),
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -20,40 +16,29 @@ router.get('/', async (req, res) => {
 })
 
 router.get('/:workflow', async (req, res) => {
-  const { workflow } = req.params
+  try {
+    const { workflow } = req.params
+    const roots = await domain.simulations.loadRoots()
+    const target = roots.workflows.find((w) => w.name.toLowerCase() === workflow.toLowerCase())
+    if (!target) return res.status(404).json({ error: 'Workflow not found' })
 
-  // Get workflow
-  const { data: wf } = await supabase
-    .from('workflows')
-    .select('id, name, status, risk')
-    .ilike('name', workflow)
-    .single()
-
-  if (!wf) return res.status(404).json({ error: 'Workflow not found' })
-
-  // Get agents in this workflow
-  const { data: agentLinks } = await supabase
-    .from('workflow_dependencies')
-    .select('agents(id, name, status, risk), is_critical')
-    .eq('workflow_id', wf.id)
-
-  const impactedAgents = agentLinks.map(l => ({
-    ...l.agents,
-    is_critical: l.is_critical
-  }))
-
-  const hasCritical = agentLinks.some(l => l.is_critical)
-  const riskLevel   = hasCritical ? 'critical' : 'high'
-
-  res.json({
-    scenario:         `If ${wf.name} is disrupted`,
-    impactedAgents,
-    impactedWorkflows: [wf],
-    impactedPeople:   [],
-    healthBefore:     'stable',
-    healthAfter:      hasCritical ? 'critical' : 'degraded',
-    riskLevel
-  })
+    const result = domain.simulations.workflowDisruption(target.id, roots)
+    const baseline = domain.simulations.baselineHealthScore(roots)
+    res.json({
+      scenario: result.scenario,
+      impactedAgents: result.impactedAgents,
+      impactedWorkflows: result.impactedWorkflows,
+      impactedPeople: result.impactedPeople,
+      healthBefore: 'stable',
+      healthAfter: result.severity === 'critical' ? 'critical' : result.severity === 'low' ? 'stable' : 'degraded',
+      riskLevel: result.severity,
+      healthDelta: result.healthDelta,
+      baselineHealthScore: baseline,
+      simulatedHealthScore: baseline != null && result.healthDelta != null ? baseline - result.healthDelta : null,
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 module.exports = router

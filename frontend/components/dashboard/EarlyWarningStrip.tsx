@@ -11,11 +11,11 @@ function scoreColor(score: number) {
   return '#f87171';
 }
 
-function DimensionChip({ label, score }: { label: string; score: number }) {
+function DimensionChip({ label, score, title }: { label: string; score: number; title?: string }) {
   const color = scoreColor(score);
   const pulse = score < 40;
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${pulse ? 'animate-pulse-soft' : ''}`}
+    <div title={title} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${pulse ? 'animate-pulse-soft' : ''}`}
       style={{
         background: score < 40 ? 'rgba(220 38 38 / 0.08)' : score < 60 ? 'rgba(202 138 4 / 0.08)' : 'rgba(22 163 74 / 0.08)',
         border: `1px solid ${score < 40 ? 'rgba(220 38 38 / 0.2)' : score < 60 ? 'rgba(202 138 4 / 0.2)' : 'rgba(22 163 74 / 0.2)'}`,
@@ -106,7 +106,8 @@ export function EarlyWarningStrip() {
         {dims && (
           <div className="flex flex-wrap gap-2 flex-1">
             <DimensionChip label="Critical Safety"  score={dims.criticalSafety.score} />
-            <DimensionChip label="Continuity"       score={dims.continuity.score} />
+            <DimensionChip label="Continuity (Coverage)" score={dims.continuity.score}
+              title="Runbook documentation + backup-owner coverage. A different, differently-scaled number from the SPOF-based 'Org Continuity Score (M18)' shown on /continuity — both are real, they answer different questions." />
             <DimensionChip label="Documentation"    score={dims.documentation.score} />
             <DimensionChip label="Ownership Spread" score={dims.ownershipSpread.score} />
             <DimensionChip label="Incident Load"    score={dims.incidentLoad.score} />
@@ -114,7 +115,7 @@ export function EarlyWarningStrip() {
         )}
 
         <div className="shrink-0">
-          <TruthBadge verified confidence={score} />
+          <TruthBadge confidence={score} />
         </div>
       </div>
     </div>

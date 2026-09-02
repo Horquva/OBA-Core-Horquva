@@ -1,18 +1,29 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const domain = require('../../domain')
 
 router.get('/', async (req, res) => {
-  const { data, error } = await supabase
-    .from('knowledge_assets')
-    .select(`
-      owner_id,
-      is_documented,
-      criticality,
-      employees ( id, name, role, department )
-    `)
+  const [{ data, error }, intel] = await Promise.all([
+    supabase
+      .from('knowledge_assets')
+      .select(`
+        owner_id,
+        is_documented,
+        criticality,
+        employees ( id, name, role, department )
+      `),
+    domain.intelligence.all(),
+  ])
 
   if (error) return res.status(500).json({ error: error.message })
+
+  // Criticality-weighted share of org-wide assets (agents+workflows+tools)
+  // one person owns -- a genuinely different question from this route's own
+  // per-person knowledgeRiskScore below (absolute, not share-based; see the
+  // comment on `weights` further down). Was frontend/lib/knowledgeRisk.ts's
+  // concentrationScore, computed client-side.
+  const concentration = intel.knowledgeConcentration
 
   // Group assets by employee
   const map = {}
@@ -27,8 +38,7 @@ router.get('/', async (req, res) => {
         totalAssets:        0,
         undocumentedAssets: 0,
         criticalAssets:     0,
-        highAssets:         0,
-        rawScore:           0
+        highAssets:         0
       }
     }
     const e = map[emp.id]
@@ -38,8 +48,17 @@ router.get('/', async (req, res) => {
     if (asset.criticality === 'high')     e.highAssets++
   }
 
-  // Score each employee
-  const weights = { critical: 40, high: 20, undocumented: 15, singleOwner: 10 }
+  // Score each employee. This is NOT a concentration/share metric (nothing
+  // here is normalized against other employees or org totals) -- it's an
+  // absolute score over what THIS person's own knowledge holdings look like:
+  // how much of what they hold is critical, undocumented, or unbacked. A
+  // sole owner of one critical, undocumented item scores the same whether
+  // the org has 10 knowledge assets or 10,000. The unrelated, genuinely
+  // share-based metric is `concentration` above (domain.knowledgeConcentration) --
+  // frontend/lib/knowledgeRisk.ts now just reads it off this response rather
+  // than computing its own; the two were previously named the same thing
+  // here by coincidence, not because they compute the same thing.
+  const weights = { critical: 40, high: 20, undocumented: 15 }
 
   const result = Object.values(map).map(e => {
     const raw =
@@ -61,13 +80,13 @@ router.get('/', async (req, res) => {
       totalAssets:        e.totalAssets,
       undocumentedAssets: e.undocumentedAssets,
       criticalAssets:     e.criticalAssets,
-      concentrationScore: score,
+      knowledgeRiskScore: score,
       riskLevel
     }
   })
 
-  result.sort((a, b) => b.concentrationScore - a.concentrationScore)
-  res.json({ total: result.length, employees: result })
+  result.sort((a, b) => b.knowledgeRiskScore - a.knowledgeRiskScore)
+  res.json({ total: result.length, employees: result, concentration })
 })
 
 module.exports = router

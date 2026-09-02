@@ -1,14 +1,21 @@
 "use client";
 
 import { useMemo } from 'react';
-import { Agent, AITool, Workflow, Dataset } from '../../types';
+import { Dataset } from '../../types';
 import { Users, Bot, Cpu, GitBranch, ArrowRight, AlertTriangle, Shield } from 'lucide-react';
 import clsx from 'clsx';
-import { deriveRisk } from '../../lib/risk';
+import { PredictiveRiskEntry } from '../../lib/predictiveRisk';
 
 interface DependencyPipelineProps {
   dataset: Dataset;
+  riskByAgentName: Map<string, PredictiveRiskEntry>;
+  /** Owner names flagged by the backend's isHumanSpof (>=3 unbacked agents,
+   *  GET /api/ownership) -- replaces this component's own independently-coded
+   *  `noBackupAgents.length >= 3` check. */
+  humanSpofOwners: Set<string>;
 }
+
+const TIER_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 
 type PersonNode = {
   name: string;
@@ -19,7 +26,7 @@ type PersonNode = {
   riskScore: number;
 };
 
-export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
+export function DependencyPipeline({ dataset, riskByAgentName, humanSpofOwners }: DependencyPipelineProps) {
   const { agents, ai_tools, workflows } = dataset;
 
   const peopleMap = useMemo(() => {
@@ -43,8 +50,8 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
       const ownedWorkflows = workflows.filter(w => w.owner === name);
       const noBackupAgents = ownedAgents.filter(a => !a.backup_owner);
       const riskScore = noBackupAgents.reduce((acc, a) => {
-        const r = deriveRisk(a);
-        return acc + (r === 'critical' ? 4 : r === 'high' ? 3 : r === 'medium' ? 2 : 1);
+        const tier = riskByAgentName.get(a.name)?.threatLevel ?? 'low';
+        return acc + TIER_WEIGHT[tier];
       }, 0);
 
       map[name] = {
@@ -52,13 +59,13 @@ export function DependencyPipeline({ dataset }: DependencyPipelineProps) {
         agentCount: ownedAgents.length,
         toolCount: ownedTools.length,
         workflowCount: ownedWorkflows.length,
-        isSpof: noBackupAgents.length >= 3,
+        isSpof: humanSpofOwners.has(name),
         riskScore,
       };
     });
 
     return Object.values(map).sort((a, b) => b.riskScore - a.riskScore);
-  }, [agents, ai_tools, workflows]);
+  }, [agents, ai_tools, workflows, riskByAgentName, humanSpofOwners]);
 
   // Column totals
   const uniqueAgents = agents.length;

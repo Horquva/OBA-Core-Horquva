@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { forecast, ApiError, type ForecastOutlookResponse, type ForecastSummaryResponse } from '../../lib/api';
-import { Calendar, AlertTriangle, ChevronRight, Activity, Database, Zap } from 'lucide-react';
+import { Calendar, AlertTriangle, Activity, Database, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { RiskBadge } from '../ui/RiskBadge';
+import { ProvenanceBadge } from '../ui/ProvenanceBadge';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
 
@@ -65,14 +66,19 @@ export function OutlookSummary() {
 
   return (
     <div className="animate-fade-up delay-150">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-          <Calendar className="w-4 h-4 text-blue-400" />
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+            <Calendar className="w-4 h-4 text-blue-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Organizational Outlook</h2>
+            <p className="text-xs text-[color:var(--text-secondary)]">30, 60, and 90-day trajectory forecasts</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Organizational Outlook</h2>
-          <p className="text-xs text-[color:var(--text-secondary)]">30, 60, and 90-day trajectory forecasts</p>
-        </div>
+        {state === 'success' && data && (
+          <ProvenanceBadge provenance={data.outlook.provenance} />
+        )}
       </div>
 
       {state === 'loading' && (
@@ -164,7 +170,7 @@ export function OutlookSummary() {
                     <th className="px-5 py-3.5 font-medium">Health</th>
                     <th className="px-5 py-3.5 font-medium">Memory Score</th>
                     <th className="px-5 py-3.5 font-medium">Knowledge Loss Risk</th>
-                    <th className="px-5 py-3.5 font-medium">Continuity</th>
+                    <th className="px-5 py-3.5 font-medium" title="Authored/historical forecast, not a live computation -- see the Historical badge above. A different, differently-scaled number from /continuity's and the dashboard's continuity figures.">Continuity</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#111116]">
