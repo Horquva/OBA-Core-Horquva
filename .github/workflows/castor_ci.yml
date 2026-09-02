@@ -1,0 +1,52 @@
+name: Castor Platform CI Quality Gate
+
+on:
+  push:
+    branches:
+      - 'feature/castor'
+      - 'castor/**'
+  pull_request:
+    branches:
+      - 'main'
+      - 'feature/castor'
+
+jobs:
+  validate-castor-mobile:
+    name: Validate Castor Unified App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java Environment
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: |
+          cd ecosystem/applications/castor/apps/mobile
+          flutter pub get
+
+      - name: Verify Formatting
+        run: |
+          cd ecosystem/applications/castor/apps/mobile
+          dart format --output=none --set-exit-if-changed .
+
+      - name: Run Static Analysis
+        run: |
+          cd ecosystem/applications/castor/apps/mobile
+          flutter analyze
+
+      - name: Execute Unit and Widget Tests
+        run: |
+          cd ecosystem/applications/castor/apps/mobile
+          flutter test
