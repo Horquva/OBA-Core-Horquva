@@ -69,8 +69,13 @@ class IntelligenceService:
             if validation_row is None or not self._is_validated(validation_row["final_status"]):
                 return None
 
+            # --- Cache check: return persisted assessment if already generated ---
+            cached = self._load_cached_assessment(db, run_id)
+            if cached is not None:
+                return cached
+
             artifact_rows = self._fetch_artifacts(db, run_id)
-       
+
         if not artifact_rows:
             return None
 
@@ -81,11 +86,18 @@ class IntelligenceService:
         except Exception as exc:
             raise IntelligenceUnavailable(f"Gemini call failed: {exc}") from exc
 
-        return self._to_structured_assessment(
+        assessment = self._to_structured_assessment(
             raw_response=raw_response,
             run_context=run_context,
             known_artifact_ids={row["artifact_id"] for row in artifact_rows},
         )
+
+        # --- Persist assessment so subsequent calls skip Gemini (quota protection) ---
+        if assessment is not None:
+            with get_db_connection(self.settings.db_path) as db:
+                self._save_assessment(db, run_id, assessment)
+
+        return assessment
 
     def _fetch_run_context(self, db: sqlite3.Connection, run_id: str) -> sqlite3.Row | None:
         return db.execute(
@@ -111,6 +123,34 @@ class IntelligenceService:
             "WHERE run_id = ? OR run_id IN (SELECT run_id FROM simulation_runs WHERE experiment_id = ?)",
             (run_id, run_id),
         ).fetchall()
+
+    def _load_cached_assessment(self, db: sqlite3.Connection, run_id: str) -> StructuredAssessment | None:
+        """Return the previously persisted StructuredAssessment for this run, or None if not cached."""
+        try:
+            row = db.execute(
+                "SELECT assessment_json FROM intelligence_assessments WHERE run_id = ? LIMIT 1",
+                (run_id,),
+            ).fetchone()
+            if row:
+                data = json.loads(row["assessment_json"])
+                return StructuredAssessment(**data)
+        except Exception:
+            pass  # Cache miss or schema not yet migrated — fall through to live call
+        return None
+
+    def _save_assessment(self, db: sqlite3.Connection, run_id: str, assessment: StructuredAssessment) -> None:
+        """Persist StructuredAssessment to DB so repeated calls skip Gemini."""
+        try:
+            db.execute(
+                """
+                INSERT OR REPLACE INTO intelligence_assessments (run_id, assessment_json, created_at)
+                VALUES (?, ?, datetime('now'))
+                """,
+                (run_id, assessment.model_dump_json()),
+            )
+            db.commit()
+        except Exception:
+            pass  # Non-fatal: missing table (old schema) just means no caching this call
 
     def _build_prompt(self, validation_row: sqlite3.Row, artifact_rows: list[sqlite3.Row]) -> str:
         evidence = [
@@ -354,8 +394,9 @@ class IntelligenceService:
                 )
                 return json.loads(response.text)
         except Exception as exc:
-            # Fallback heuristic
-            print(f"[FALLBACK TRIGGERED] Agent LLM Decision (agent_id={agent_id}): Diverted to fatigue heuristic fallback due to: {exc}", flush=True)
+            # Fallback heuristic — agent_info.get() used because agent_id is not a local variable here
+            _agent_id = agent_info.get("agent_id", "unknown")
+            print(f"[FALLBACK TRIGGERED] Agent LLM Decision (agent_id={_agent_id}): Diverted to fatigue heuristic fallback due to: {exc}", flush=True)
             fatigue = agent_info.get("fatigue", 0.0)
             if fatigue > 0.8:
                 return {"action": "take_break", "reason": "Fatigue exceeds safety threshold (heuristic fallback)", "target": None}

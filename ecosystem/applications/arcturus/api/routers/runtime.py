@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ecosystem.applications.arcturus.api.config import Settings
 from ecosystem.applications.arcturus.api.database import get_db_connection
@@ -23,6 +23,7 @@ from ecosystem.applications.arcturus.contracts.simulation.base_models import Exe
 from ecosystem.applications.arcturus.src.simulation.runtime_engine import RuntimeEngine
 from ecosystem.applications.arcturus.src.simulation.runtime_adapters import build_simulation_context
 from ecosystem.applications.arcturus.src.simulation.intelligence_loop import IntelligenceLoop
+from ecosystem.applications.arcturus.src.simulation.checkpoint_store import CheckpointStore
 
 router = APIRouter(prefix="/api/v1/runtime", tags=["Runtime"])
 settings = Settings()
@@ -32,8 +33,8 @@ _active_engines: dict[str, RuntimeEngine] = {}
 
 class StartRunRequest(BaseModel):
     global_seed: int = 42
-    duration_ticks: int = 100
-    tick_delay_seconds: float = 0.5
+    duration_ticks: int = Field(default=100, ge=1, le=10000, description="Must be at least 1 tick")
+    tick_delay_seconds: float = Field(default=0.5, ge=0.0, le=5.0, description="Must be between 0 and 5 seconds")
 
 
 @router.post("/experiments/{experiment_id}/start", status_code=202)
@@ -129,12 +130,57 @@ async def pause_simulation(experiment_id: str, request: Request):
 
 @router.post("/experiments/{experiment_id}/resume", status_code=200)
 async def resume_simulation(experiment_id: str, request: Request):
-    """Resume a paused simulation."""
+    """Resume a paused simulation. If the backend was restarted and the engine is no
+    longer in memory, restores state from the latest on-disk checkpoint before resuming."""
     bus: EventBus = request.app.state.event_bus
     engine = _active_engines.get(experiment_id)
-    if not engine or engine.status != ExecutionStatus.PAUSED:
+
+    if engine is None:
+        # Backend was restarted — try to restore from on-disk checkpoint.
+        with get_db_connection(settings.db_path) as db:
+            run_row = db.execute(
+                "SELECT run_id, trace_id FROM simulation_runs "
+                "WHERE experiment_id = ? ORDER BY started_at DESC LIMIT 1",
+                (experiment_id,),
+            ).fetchone()
+        if not run_row:
+            raise HTTPException(status_code=404, detail="No simulation run found for this experiment")
+
+        run_id = run_row["run_id"]
+        checkpoint_root = settings.db_path.parent / "checkpoints"
+        store = CheckpointStore(checkpoint_root)
+        try:
+            checkpoint_state = store.load_latest(run_id)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Engine not in memory and no checkpoint found on disk: {exc}",
+            )
+
+        # Re-hydrate SimulationContext from DB
+        with get_db_connection(settings.db_path) as db:
+            exp_row = db.execute(
+                "SELECT seed, config FROM experiments WHERE id = ?", (experiment_id,)
+            ).fetchone()
+        import json as _json
+        from ecosystem.applications.arcturus.src.simulation.runtime_adapters import build_simulation_context
+        from ecosystem.applications.arcturus.contracts.simulation.base_models import ScenarioDSLPayload
+        config_dict = _json.loads(exp_row["config"]) if isinstance(exp_row["config"], str) else exp_row["config"]
+        scenario = ScenarioDSLPayload(
+            scenario_id=config_dict.get("scenario_id", "SCN-RESTORED"),
+            seed=exp_row["seed"],
+        )
+        context = build_simulation_context(scenario, experiment_id=experiment_id)
+
+        engine = RuntimeEngine(checkpoint_root=checkpoint_root)
+        engine.restore_from_checkpoint(context, checkpoint_state)
+        _active_engines[experiment_id] = engine
+        print(f"[CHECKPOINT RESTORED] experiment_id={experiment_id} run_id={run_id} "
+              f"tick={checkpoint_state.get('clock_step', '?')} (cold-restart resume)", flush=True)
+
+    if engine.status != ExecutionStatus.PAUSED:
         raise HTTPException(status_code=409, detail="Simulation is not in PAUSED state")
-    
+
     engine.resume()
     await bus.publish(experiment_id, "STATUS_UPDATE", {"status": "RUNNING"})
     return {"status": "RUNNING", "experiment_id": experiment_id}
