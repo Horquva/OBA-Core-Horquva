@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { authHeader } from './authFetch';
-
-const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
+import { request } from './api';
 
 export interface SearchEntry {
   id: string;
@@ -21,13 +19,8 @@ interface RawIndexItem {
 }
 
 async function safeJson(path: string): Promise<RawIndexItem[]> {
-  try {
-    const res = await fetch(`${BASE}${path}`, { cache: 'no-store', headers: authHeader() });
-    const data = res.ok ? await res.json() : [];
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+  const data = await request<unknown>(path, { cache: 'no-store' }).catch(() => []);
+  return Array.isArray(data) ? (data as RawIndexItem[]) : [];
 }
 
 /**

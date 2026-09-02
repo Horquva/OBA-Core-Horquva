@@ -29,7 +29,7 @@ const TARGET_TYPE_TO_SCENARIO_TYPE: Record<string, ScenarioType> = {
   platform: 'TOOL_UNAVAILABLE',
 };
 
-interface RawScenario {
+export interface RawScenario {
   targetType?: string;
   targetId?: string | number;
   targetName?: string;

@@ -3,8 +3,8 @@
 import { Play, Settings2, ShieldAlert, CheckCircle2, Loader2, AlertTriangle, User, Bot, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { Agent, Dependency, AITool } from "../../types";
-import { ScenarioResult, mapScenario } from "../../lib/simulation";
-import { authHeader } from "../../lib/authFetch";
+import { ScenarioResult, mapScenario, RawScenario } from "../../lib/simulation";
+import { request } from "../../lib/api";
 import { PredictiveRiskEntry } from "../../lib/predictiveRisk";
 import { getSPOFs } from "../../lib/graph";
 
@@ -59,8 +59,6 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], ri
     setResult(null);
     setShowAll(false);
 
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     try {
       let res: ScenarioResult | null = null;
 
@@ -77,10 +75,8 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], ri
           agents[0]?.owner ??
           "";
         if (topPerson) {
-          const response = await fetch(`${base}/api/simulations/employee-leaves/${encodeURIComponent(topPerson)}`, { headers: authHeader() });
-          if (response.ok) {
-            res = mapScenario(await response.json());
-          }
+          const raw = await request<RawScenario>(`/api/simulations/employee-leaves/${encodeURIComponent(topPerson)}`).catch(() => null);
+          if (raw) res = mapScenario(raw);
         }
       } else if (activeKey === "node_outage") {
         // Fail the highest-risk agent
@@ -93,10 +89,8 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], ri
           return bScore - aScore;
         });
         if (ranked[0]) {
-          const response = await fetch(`${base}/api/simulations/agent-fails/${encodeURIComponent(ranked[0].name)}`, { headers: authHeader() });
-          if (response.ok) {
-            res = mapScenario(await response.json());
-          }
+          const raw = await request<RawScenario>(`/api/simulations/agent-fails/${encodeURIComponent(ranked[0].name)}`).catch(() => null);
+          if (raw) res = mapScenario(raw);
         }
       } else if (activeKey === "data_breach") {
         // Take the most-used critical tool offline
@@ -106,10 +100,8 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], ri
             .sort((a, b) => (b.agents_using?.length ?? 0) - (a.agents_using?.length ?? 0))[0] ??
           tools[0];
         if (criticalTool) {
-          const response = await fetch(`${base}/api/simulations/platform-down/${encodeURIComponent(criticalTool.name)}`, { headers: authHeader() });
-          if (response.ok) {
-            res = mapScenario(await response.json());
-          }
+          const raw = await request<RawScenario>(`/api/simulations/platform-down/${encodeURIComponent(criticalTool.name)}`).catch(() => null);
+          if (raw) res = mapScenario(raw);
         }
       }
 

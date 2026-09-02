@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NotificationItem, NotificationGroup, NotificationSeverity } from '../types/notification';
-import { authHeader } from './authFetch';
-
-const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
+import { request } from './api';
 
 function timeAgo(iso?: string | null): string {
   if (!iso) return '';
@@ -35,12 +33,7 @@ function titleCase(s: string): string {
 }
 
 async function safeJson<T>(path: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${BASE}${path}`, { cache: 'no-store', headers: authHeader() });
-    return res.ok ? await res.json() : null;
-  } catch {
-    return null;
-  }
+  return request<T>(path, { cache: 'no-store' }).catch(() => null);
 }
 
 interface EscalationRaw {

@@ -7,9 +7,9 @@ import { TwinHealthIndex } from '../../components/simulation/TwinHealthIndex';
 import { TwinSyncStatus } from '../../components/simulation/TwinSyncStatus';
 import { ScenarioSandbox } from '../../components/simulation/ScenarioSandbox';
 import { Agent, Dependency, AITool } from '../../types';
-import { authHeader } from '../../lib/authFetch';
-import { ScenarioResult, mapScenario } from '../../lib/simulation';
-import { normalizeAgent } from '../../lib/normalize';
+import { request, predictiveApi, healthApi, ApiError } from '../../lib/api';
+import { ScenarioResult, mapScenario, RawScenario } from '../../lib/simulation';
+import { normalizeAgent, RawAgent } from '../../lib/normalize';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 
 interface RawDependency {
@@ -31,30 +31,13 @@ export default function SimulationPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load agents');
-        return r.json();
-      }),
-      fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load dependencies');
-        return r.json();
-      }),
-      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load tools');
-        return r.json();
-      }),
-      fetch(`${base}/api/simulations/rank`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load simulations');
-        return r.json();
-      }),
-      fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load org health');
-        return r.json();
-      }),
-      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : [])
+      request<RawAgent[]>('/api/agents'),
+      request<{ dependencies: RawDependency[] }>('/api/dependencies'),
+      request<Record<string, unknown>[]>('/api/tools'),
+      request<{ scenarios: RawScenario[] }>('/api/simulations/rank'),
+      healthApi.summary(),
+      predictiveApi.agents().catch(() => []),
     ])
     .then(([agentsData, depsData, toolsData, rankData, healthData, predictiveData]) => {
       setHealthIndex(healthData.healthIndex ?? 0);
@@ -67,8 +50,8 @@ export default function SimulationPage() {
           .map((d: RawDependency) => ({
             from: d.source_id?.toString() || '',
             to: d.target_id?.toString() || '',
-            type: d.dependency_type || 'sequential',
-          })) 
+            type: (d.dependency_type || 'normal') as Dependency['type'],
+          }))
         : [];
 
       const mappedTools: AITool[] = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
@@ -83,8 +66,8 @@ export default function SimulationPage() {
       setTools(mappedTools);
       setScenarios(Array.isArray(rankData.scenarios) ? rankData.scenarios.map(mapScenario) : []);
     })
-    .catch((err) => {
-      setError(err.message);
+    .catch((err: unknown) => {
+      setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to load simulation data');
     })
     .finally(() => {
       setLoading(false);
