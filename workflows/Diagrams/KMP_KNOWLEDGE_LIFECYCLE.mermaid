@@ -1,0 +1,46 @@
+graph LR
+    A["💭 Knowledge<br/>Identified"] --> B["✍️ Content<br/>Created"]
+    B --> C["📂 Organized<br/>in Domain"]
+    C --> D["👁️ Peer<br/>Review"]
+    
+    D -->|Changes Needed| E["🔄 Revision<br/>Cycle"]
+    E --> D
+    
+    D -->|Approved| F["✅ Quality<br/>Validation"]
+    F --> G["🔐 Access<br/>Control Set"]
+    G --> H["📤 Published<br/>to Main"]
+    
+    H --> I["🔍 Discoverable<br/>& Searchable"]
+    I --> J["👥 Used by<br/>Teams"]
+    
+    J --> K{"📅 Review<br/>Cycle?"}
+    
+    K -->|Needs Update| L["♻️ Refresh<br/>Content"]
+    L --> D
+    
+    K -->|Obsolete| M["📦 Archive<br/>with Rationale"]
+    M --> N["🗂️ Archived<br/>Knowledge"]
+    
+    K -->|Still Current| O["✓ Mark<br/>as Current"]
+    O --> J
+    
+    J --> P["📈 Metrics<br/>Tracked"]
+    P --> Q["🎯 Measure<br/>Impact"]
+
+    style A fill:#e3f2fd,stroke:#1976d2
+    style B fill:#e8f5e9,stroke:#388e3c
+    style C fill:#f3e5f5,stroke:#7b1fa2
+    style D fill:#fff3e0,stroke:#f57c00
+    style E fill:#ffebee,stroke:#c62828
+    style F fill:#e1f5fe,stroke:#0277bd
+    style G fill:#f1f8e9,stroke:#558b2f
+    style H fill:#ede7f6,stroke:#512da8
+    style I fill:#ffe0b2,stroke:#e65100
+    style J fill:#c8e6c9,stroke:#2e7d32
+    style K fill:#b2dfdb,stroke:#00897b
+    style L fill:#fff9c4,stroke:#f9a825
+    style M fill:#ffccbc,stroke:#d84315
+    style N fill:#d7ccc8,stroke:#5d4037
+    style O fill:#c8e6c9,stroke:#558b2f
+    style P fill:#b3e5fc,stroke:#0288d1
+    style Q fill:#a5d6a7,stroke:#43a047

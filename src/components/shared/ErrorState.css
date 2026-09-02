@@ -1,0 +1,121 @@
+/* Error State Component Styling */
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  min-height: 300px;
+  background-color: #fef2f2;
+  border-radius: 8px;
+  border: 1px solid #fee2e2;
+}
+
+.error-state__icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.error-state__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #991b1b;
+  margin: 0 0 8px 0;
+}
+
+.error-state__message {
+  font-size: 14px;
+  color: #7f1d1d;
+  margin: 0 0 24px 0;
+  max-width: 400px;
+}
+
+.error-state__details {
+  width: 100%;
+  max-width: 500px;
+  margin-bottom: 16px;
+  text-align: left;
+  background-color: #ffffff;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.error-state__details summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #991b1b;
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.error-state__details summary:hover {
+  background-color: #fef2f2;
+}
+
+.error-state__details[open] summary {
+  border-bottom: 1px solid #fca5a5;
+  background-color: #fef2f2;
+}
+
+.error-state__code {
+  margin: 0;
+  padding: 12px;
+  font-size: 12px;
+  background-color: #ffffff;
+  color: #7f1d1d;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-state__action {
+  margin-top: 8px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .error-state {
+    padding: 32px 16px;
+    min-height: 200px;
+  }
+
+  .error-state__icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+
+  .error-state__title {
+    font-size: 18px;
+  }
+
+  .error-state__message {
+    font-size: 13px;
+  }
+
+  .error-state__details {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .error-state {
+    padding: 24px 12px;
+  }
+
+  .error-state__icon {
+    font-size: 40px;
+  }
+
+  .error-state__title {
+    font-size: 16px;
+  }
+
+  .error-state__code {
+    font-size: 11px;
+  }
+}
