@@ -1,14 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
-
-interface AgentRow {
-  department: string;
-  criticality: 'critical' | 'high' | 'medium' | 'low';
-}
+import { useAgents } from '../../lib/useAgents';
 
 const RISK_COLORS = {
   critical: '#ef4444',
@@ -41,30 +35,7 @@ function HeatmapTooltip({ active, payload, label }: { active?: boolean; payload?
 }
 
 export function Heatmap() {
-  const [agents, setAgents] = useState<AgentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    fetch(`${base}/api/agents`, { headers: authHeader() })
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`Failed to load agents (${r.status})`)))
-      .then(data => {
-        if (Array.isArray(data)) {
-          setAgents(data.map(a => ({
-            ...a,
-            department: a.department || (a.owner && a.owner.department) || 'Unassigned',
-            criticality: resolveCriticality(a)
-          })));
-        } else {
-          setAgents([]);
-        }
-      })
-      // Distinguish "the fetch failed" from "there are genuinely no agents"
-      // -- both used to render the same empty chart.
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load agents'))
-      .finally(() => setLoading(false));
-  }, []);
+  const { agents, loading, error } = useAgents();
 
   const barData = useMemo(() => {
     const deps: Record<string, { name: string; critical: number; high: number; medium: number; low: number }> = {};

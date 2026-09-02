@@ -7,42 +7,22 @@ import { RiskBadge } from '../ui/RiskBadge';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import type { Agent, RiskLevel } from '../../types';
 import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
+import { useAgents } from '../../lib/useAgents';
 
 export function AgentTable() {
-  const [agents, setAgents] = useState<Agent[]>([]);
+  const { agents, loading: agentsLoading, error } = useAgents();
   const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [predictiveLoaded, setPredictiveLoaded] = useState(false);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r =>
-        r.ok ? r.json() : Promise.reject(new Error(`Failed to load agents (${r.status})`))
-      ),
-      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-    ])
-      .then(([data, predictiveData]) => {
-        setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
-        if (Array.isArray(data)) {
-          setAgents(data.map(a => ({
-            ...a,
-            department: a.department || (a.owner && a.owner.department) || 'Unassigned',
-            criticality: resolveCriticality(a),
-            owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner,
-            backup_owner: typeof a.backup_owner === 'object' && a.backup_owner ? a.backup_owner.name : a.backup_owner
-          })));
-        } else {
-          setAgents([]);
-        }
-      })
-      // A fetch failure is a different fact from a genuinely empty org --
-      // conflating them into the same "No agents found" message is how a
-      // database outage renders as a clean, empty-but-healthy directory.
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load agents'))
-      .finally(() => setLoading(false));
+    fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() })
+      .then(r => r.ok ? r.json() : [])
+      .then((predictiveData) => setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData)))
+      .finally(() => setPredictiveLoaded(true));
   }, []);
+
+  const loading = agentsLoading || !predictiveLoaded;
 
   const riskOf = (agent: Agent): RiskLevel => riskByAgentName.get(agent.name)?.threatLevel ?? 'low';
 

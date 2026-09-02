@@ -3,15 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, FileText, UserPlus, ShieldAlert, Scale } from 'lucide-react';
 import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
-
-interface AgentRow {
-  id: string;
-  name: string;
-  department?: string;
-  owner?: string | null;
-  criticality?: string;
-}
+import { useAgents } from '../../lib/useAgents';
 
 interface RecommendationItem {
   id: string;
@@ -50,36 +42,25 @@ const CATEGORY_ICON: Record<string, React.ReactNode> = {
 };
 
 export function RiskSplit() {
-  const [agents, setAgents] = useState<AgentRow[]>([]);
+  const { agents, loading: agentsLoading, error: agentsFetchError } = useAgents();
   const [recs, setRecs] = useState<RecommendationItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [agentsError, setAgentsError] = useState(false);
+  const [recsLoaded, setRecsLoaded] = useState(false);
   const [recsError, setRecsError] = useState(false);
+
+  const agentsError = Boolean(agentsFetchError);
+  const loading = agentsLoading || !recsLoaded;
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
-    Promise.all([
-      // "No critical agents — good standing" and "no priority actions —
-      // good standing" both used to be the SAME message a fetch failure
-      // produced, so a Supabase outage rendered as a clean bill of health.
-      // Track each source's failure separately so the two panels can say
-      // "couldn't load" instead of implying nothing needs attention.
-      fetch(`${base}/api/agents`, { headers: authHeader() })
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .catch(() => { setAgentsError(true); return []; }),
-      fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() })
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .catch(() => { setRecsError(true); return null; }),
-    ]).then(([agentData, m04]) => {
-      const agentList: AgentRow[] = Array.isArray(agentData) ? agentData.map(a => ({
-        ...a,
-        department: a.department || (a.owner && a.owner.department) || 'Unassigned',
-        criticality: resolveCriticality(a),
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner
-      })) : [];
-      setAgents(agentList);
-
+    // "No priority actions — good standing" used to be the same message a
+    // fetch failure produced, so a Supabase outage rendered as a clean bill
+    // of health. Track failure explicitly so the panel can say "couldn't
+    // load" instead of implying nothing needs attention.
+    fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .catch(() => { setRecsError(true); return null; })
+      .then((m04) => {
       const m04Recs: RawRecommendation[] = m04?.payload?.recommendations ?? [];
       const builtRecs: RecommendationItem[] = m04Recs.slice(0, 4).map((r) => ({
         id: r.id,
@@ -92,7 +73,7 @@ export function RiskSplit() {
       }));
 
       setRecs(builtRecs);
-    }).finally(() => setLoading(false));
+    }).finally(() => setRecsLoaded(true));
   }, []);
 
   const criticalAgents = agents.filter(a => a.criticality === 'critical').slice(0, 5);
