@@ -8,8 +8,8 @@ import { DependencyPipeline } from '../../components/ownership/DependencyPipelin
 import { HumanDependencyRisks } from '../../components/ownership/HumanDependencyRisks';
 import { OrgRelationshipMap } from '../../components/ownership/OrgRelationshipMap';
 import { AccountabilityChainTable } from '../../components/dashboard/AccountabilityChainTable';
-import { authHeader } from '../../lib/authFetch';
-import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
+import { request, predictiveApi } from '../../lib/api';
+import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../lib/normalize';
 import { AITool, Dataset } from '../../types';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { DependencyRiskProfile } from '../../components/ownership/HumanDependencyRisks';
@@ -34,40 +34,33 @@ export default function OwnershipPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     // agents/tools/workflows/ownership are this page's own dataset -- an
     // outage here must fail the page (the existing `error` branch below),
     // not render "Ownership Intelligence" with zero owners and zero agents.
     // predictive-risk is a supplementary overlay (risk tiers layered onto
     // agents already loaded), so it keeps its soft fallback.
-    const required = (path: string) =>
-      fetch(`${base}${path}`, { headers: authHeader() }).then(r =>
-        r.ok ? r.json() : Promise.reject(new Error(`Failed to load ${path} (${r.status})`))
-      );
-
     Promise.all([
-      required('/api/agents'),
-      required('/api/tools'),
-      required('/api/workflows'),
-      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      required('/api/ownership'),
+      request<RawAgent[]>('/api/agents'),
+      request<Record<string, unknown>[]>('/api/tools'),
+      request<RawWorkflow[]>('/api/workflows'),
+      predictiveApi.agents().catch(() => []),
+      request<{ owners: RawOwnerRow[] }>('/api/ownership'),
     ])
     .then(([agentsData, toolsData, wfsData, predictiveData, ownershipData]) => {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const ownerRows = Array.isArray(ownershipData.owners) ? ownershipData.owners : [];
-      setHumanSpofOwners(new Set(ownerRows.filter((o: RawOwnerRow) => o.isHumanSpof).map((o: RawOwnerRow) => o.name)));
+      setHumanSpofOwners(new Set(ownerRows.filter((o: RawOwnerRow) => o.isHumanSpof && o.name).map((o: RawOwnerRow) => o.name as string)));
       setDependencyRiskByName(new Map(
         ownerRows
           .filter((o: RawOwnerRow) => o.name && o.dependencyRiskScore != null)
-          .map((o: RawOwnerRow) => [o.name, {
+          .map((o: RawOwnerRow) => [o.name as string, {
             totalRiskScore: o.dependencyRiskScore,
             tier: o.dependencyRiskTier,
             ownedWorkflowCount: o.ownedWorkflowCount,
             criticalWorkflowCount: o.criticalWorkflowCount,
             ownedToolCount: o.ownedToolCount,
             unbackedToolCount: o.unbackedToolCount,
-          }])
+          } as DependencyRiskProfile])
       ));
       const agents = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 

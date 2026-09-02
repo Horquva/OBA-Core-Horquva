@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { mapRecommendationsResponse, RecommendationEngineOutput } from '../../lib/recommendations';
+import { mapRecommendationsResponse, RecommendationEngineOutput, RawRecommendationsPayload } from '../../lib/recommendations';
 import RecommendationHeader from '../../components/recommendations/RecommendationHeader';
 import Top5Urgent from '../../components/recommendations/Top5Urgent';
 import RecommendationList from '../../components/recommendations/RecommendationList';
 import DemoSummary from '../../components/recommendations/DemoSummary';
 import { DecisionSupportQueue } from '../../components/recommendations/DecisionSupportQueue';
 import { OpportunityBacklogTab } from '../../components/recommendations/OpportunityBacklogTab';
-import { authHeader } from '../../lib/authFetch';
+import { request, healthApi } from '../../lib/api';
 import { VerifiedAdvisorPanel } from '../../components/recommendations/VerifiedAdvisorPanel';
 
 export default function RecommendationsPage() {
@@ -18,23 +18,21 @@ export default function RecommendationsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     Promise.all([
       // D-62 -- brain module M04, expanded to all 7 rules.
-      fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() }).then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${r.statusText}`))),
+      request<{ payload?: RawRecommendationsPayload }>('/api/intelligence/recommendations'),
       // health index feeds the header's headline number and agent count
       // feeds the summary strip -- both are rendered facts about the org,
       // not decoration, so a failure here must fail the page too rather
       // than silently show "0% healthy" / "0 agents".
-      fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => r.ok ? r.json() : Promise.reject(new Error(`Failed to load health summary (${r.status})`))),
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : Promise.reject(new Error(`Failed to load agents (${r.status})`))),
+      healthApi.summary(),
+      request<unknown[]>('/api/agents'),
     ])
     .then(([recJson, healthData, agentsData]) => {
       setOutput(mapRecommendationsResponse(recJson, healthData.healthIndex ?? 0));
       setAgentCount(Array.isArray(agentsData) ? agentsData.length : 0);
     })
-    .catch((err) => setError(err.message))
+    .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load'))
     .finally(() => setLoading(false));
   }, []);
 

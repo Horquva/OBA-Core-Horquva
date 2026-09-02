@@ -5,7 +5,7 @@ import { DecisionIntelligenceReport } from '../../lib/decisionIntelligence';
 import { DecisionHeader } from '../../components/decision/DecisionHeader';
 import { CriticalDecisionsPanel } from '../../components/decision/CriticalDecisionsPanel';
 import { DecisionTrailTable } from '../../components/decision/DecisionTrailTable';
-import { authHeader } from '../../lib/authFetch';
+import { request, ApiError } from '../../lib/api';
 
 export default function DecisionPage() {
   const [report, setReport] = useState<DecisionIntelligenceReport | null>(null);
@@ -13,18 +13,12 @@ export default function DecisionPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     // Server-computed — the scoring engine now lives in
     // backend/routes/decisionIntelligence.js so there's one implementation,
     // not a client-side reimplementation next to it.
-    fetch(`${base}/api/decision-intelligence`, { headers: authHeader() })
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to load decision intelligence pipeline');
-        return r.json();
-      })
-      .then((data: DecisionIntelligenceReport) => setReport(data))
-      .catch(err => setError(err.message))
+    request<DecisionIntelligenceReport>('/api/decision-intelligence')
+      .then((data) => setReport(data))
+      .catch((err: unknown) => setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to load decision intelligence pipeline'))
       .finally(() => setLoading(false));
   }, []);
 

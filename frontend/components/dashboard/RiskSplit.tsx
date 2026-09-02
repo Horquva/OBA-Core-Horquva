@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AlertCircle, FileText, UserPlus, ShieldAlert, Scale } from 'lucide-react';
-import { authHeader } from '../../lib/authFetch';
+import { request, type IntelligenceResponse } from '../../lib/api';
 import { useAgents } from '../../lib/useAgents';
 
 interface RecommendationItem {
@@ -51,14 +51,11 @@ export function RiskSplit() {
   const loading = agentsLoading || !recsLoaded;
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     // "No priority actions — good standing" used to be the same message a
     // fetch failure produced, so a Supabase outage rendered as a clean bill
     // of health. Track failure explicitly so the panel can say "couldn't
     // load" instead of implying nothing needs attention.
-    fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() })
-      .then(r => r.ok ? r.json() : Promise.reject())
+    request<IntelligenceResponse<{ recommendations: RawRecommendation[] }>>('/api/intelligence/recommendations')
       .catch(() => { setRecsError(true); return null; })
       .then((m04) => {
       const m04Recs: RawRecommendation[] = m04?.payload?.recommendations ?? [];

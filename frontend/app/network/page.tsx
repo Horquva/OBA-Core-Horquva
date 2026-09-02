@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { NetworkReport } from '../../lib/networkRisk';
 import { CentralityGraph } from '../../components/network/CentralityGraph';
-import { authHeader } from '../../lib/authFetch';
+import { request, ApiError } from '../../lib/api';
 
 export default function NetworkPage() {
   const [report, setReport] = useState<NetworkReport | null>(null);
@@ -11,17 +11,11 @@ export default function NetworkPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     // Server-computed — the graph algorithm now lives in backend/routes/network.js
     // so there's one implementation, not a client-side reimplementation next to it.
-    fetch(`${base}/api/network/centrality`, { headers: authHeader() })
-      .then((r) => {
-        if (!r.ok) throw new Error('Failed to load network centrality data');
-        return r.json();
-      })
-      .then((data: NetworkReport) => setReport(data))
-      .catch((err) => setError(err.message))
+    request<NetworkReport>('/api/network/centrality')
+      .then((data) => setReport(data))
+      .catch((err: unknown) => setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to load network centrality data'))
       .finally(() => setLoading(false));
   }, []);
 

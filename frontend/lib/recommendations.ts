@@ -48,7 +48,7 @@ export interface RecommendationEngineOutput {
   undocumentedCriticalCount: number;
 }
 
-interface RawRecommendationsPayload {
+export interface RawRecommendationsPayload {
   recommendations?: unknown;
   criticalCount?: number;
   highCount?: number;

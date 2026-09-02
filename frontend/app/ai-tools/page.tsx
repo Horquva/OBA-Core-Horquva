@@ -8,8 +8,8 @@ import { CriticalToolPanel } from '../../components/ai-tools/CriticalToolPanel';
 import { ToolRiskTable } from '../../components/ai-tools/ToolRiskTable';
 import { OutageImpactPanel } from '../../components/ai-tools/OutageImpactPanel';
 import { DeptExposureTable } from '../../components/ai-tools/DeptExposureTable';
-import { authHeader } from '../../lib/authFetch';
-import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
+import { request } from '../../lib/api';
+import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../lib/normalize';
 import { ExternalEcosystemTab } from '../../components/ai-tools/ExternalEcosystemTab';
 
 interface RawTool {
@@ -48,20 +48,13 @@ export default function AIToolsPage() {
   const [error, setError]       = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     // Each of these is the page's own dataset, not a supplementary overlay —
     // an outage here must fail the page (the existing `error` branch below),
     // not render as zero tools / zero agents / zero workflows.
-    const required = (path: string) =>
-      fetch(`${base}${path}`, { headers: authHeader() }).then(r =>
-        r.ok ? r.json() : Promise.reject(new Error(`Failed to load ${path} (${r.status})`))
-      );
-
     Promise.all([
-      required('/api/tools'),
-      required('/api/agents'),
-      required('/api/workflows'),
+      request<RawTool[]>('/api/tools'),
+      request<RawAgent[]>('/api/agents'),
+      request<RawWorkflow[]>('/api/workflows'),
     ])
     .then(([toolsData, agentsData, wData]) => {
       const rawTools = Array.isArray(toolsData) ? toolsData : [];

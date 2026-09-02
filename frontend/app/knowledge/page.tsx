@@ -8,8 +8,8 @@ import { ConcentrationRiskPanel } from '../../components/knowledge/Concentration
 import { UndocumentedAssetsTable } from '../../components/knowledge/UndocumentedAssetsTable';
 import { DepartureSim } from '../../components/knowledge/DepartureSim';
 import { KnowledgeGapsPanel } from '../../components/knowledge/KnowledgeGapsPanel';
-import { authHeader } from '../../lib/authFetch';
-import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
+import { request } from '../../lib/api';
+import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../lib/normalize';
 import { KnowledgeConcentrationGauge } from '../../components/knowledge/KnowledgeConcentrationGauge';
 import { EntitySearchPanel } from '../../components/knowledge/EntitySearchPanel';
 
@@ -51,29 +51,22 @@ export default function KnowledgePage() {
   const [error, setError]       = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     // agents/workflows/tools are the page's own dataset -- an outage here
     // must fail the page (the existing `error` branch below), not render as
     // zero of everything. knowledge/intelligence is a genuine overlay on top
     // of that dataset (concentration scores), so it keeps its soft fallback:
     // losing it degrades scores to 0/LOW rather than blanking the page.
-    const required = (path: string) =>
-      fetch(`${base}${path}`, { headers: authHeader() }).then(r =>
-        r.ok ? r.json() : Promise.reject(new Error(`Failed to load ${path} (${r.status})`))
-      );
-
     Promise.all([
-      required('/api/agents'),
-      required('/api/workflows'),
-      required('/api/tools'),
-      fetch(`${base}/api/knowledge/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { concentration: [] }),
+      request<RawAgent[]>('/api/agents'),
+      request<RawWorkflow[]>('/api/workflows'),
+      request<RawTool[]>('/api/tools'),
+      request<{ concentration: RawConcentrationEntry[] }>('/api/knowledge/intelligence').catch(() => ({ concentration: [] })),
     ])
     .then(([agentsData, wData, toolsData, knowledgeIntel]) => {
       setConcentrationByName(new Map(
         (Array.isArray(knowledgeIntel.concentration) ? knowledgeIntel.concentration : [])
           .filter((p: RawConcentrationEntry) => p.name)
-          .map((p: RawConcentrationEntry) => [p.name, { concentrationScore: p.concentrationScore, tier: p.tier }])
+          .map((p: RawConcentrationEntry) => [p.name as string, { concentrationScore: p.concentrationScore, tier: p.tier } as ConcentrationEntry])
       ));
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
       const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);

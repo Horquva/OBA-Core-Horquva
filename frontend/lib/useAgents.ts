@@ -1,11 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { authHeader } from './authFetch';
+import { request, ApiError } from './api';
 import { resolveCriticality } from './criticality';
 import type { Agent } from '../types';
-
-const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
 interface RawAgentOwner {
   name: string;
@@ -60,9 +58,8 @@ let cached: Promise<Agent[]> | null = null;
 
 function fetchAgents(): Promise<Agent[]> {
   if (!cached) {
-    cached = fetch(`${BASE}/api/agents`, { headers: authHeader() })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Failed to load agents (${r.status})`))))
-      .then((data: unknown) => (Array.isArray(data) ? (data as RawAgent[]).map(normalize) : []))
+    cached = request<unknown>('/api/agents')
+      .then((data) => (Array.isArray(data) ? (data as RawAgent[]).map(normalize) : []))
       .catch((err) => {
         cached = null;
         throw err;
@@ -81,7 +78,7 @@ export function useAgents() {
     fetchAgents()
       .then((data) => { if (!cancelled) setAgents(data); })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load agents');
+        if (!cancelled) setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to load agents');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

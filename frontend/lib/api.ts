@@ -7,8 +7,17 @@ import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 const BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
-/** Minimal wrapper — throws on non-2xx so callers can catch uniformly. */
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * Minimal wrapper — throws on non-2xx so callers can catch uniformly.
+ *
+ * FE-2: exported so the ~19 files that used to hand-roll their own
+ * `const base = process.env.NEXT_PUBLIC_API_URL...` + raw `fetch` +
+ * `authHeader()` (one copy of this exact wrapper per file, and the direct
+ * cause of FE-1 -- those raw-fetch sites were exactly the ones with silent
+ * `r.ok ? r.json() : []` fallbacks, because this function throws and they
+ * didn't) can import the one implementation instead of redeclaring it.
+ */
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...authHeader(), ...init?.headers },
     ...init,

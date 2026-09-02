@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { RiskBadge } from '../ui/RiskBadge';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import type { Agent, RiskLevel } from '../../types';
-import { authHeader } from '../../lib/authFetch';
+import { predictiveApi } from '../../lib/api';
 import { useAgents } from '../../lib/useAgents';
 
 export function AgentTable() {
@@ -15,9 +15,8 @@ export function AgentTable() {
   const [predictiveLoaded, setPredictiveLoaded] = useState(false);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() })
-      .then(r => r.ok ? r.json() : [])
+    predictiveApi.agents()
+      .catch(() => [])
       .then((predictiveData) => setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData)))
       .finally(() => setPredictiveLoaded(true));
   }, []);

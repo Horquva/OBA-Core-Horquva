@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { Activity, Users, AlertTriangle, Link2 } from 'lucide-react';
-import { healthApi } from '../../lib/api';
-import { authHeader } from '../../lib/authFetch';
+import { healthApi, request } from '../../lib/api';
+
+interface RiskSummary {
+  total: number;
+  orphaned: number;
+  breakdown?: { critical?: number };
+}
 
 interface KpiData {
   riskScore: number;
@@ -23,15 +28,11 @@ export function KpiStrip() {
   const [healthFailed, setHealthFailed] = useState(false);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     Promise.all([
       // Same counts the rest of the app uses (agents.js risk-summary), instead
       // of re-deriving "orphaned"/"critical" client-side from the raw list —
       // one definition of those counts, not two that can quietly drift apart.
-      fetch(`${base}/api/agents/risk-summary`, { headers: authHeader() })
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .catch(() => { setRiskSummaryFailed(true); return null; }),
+      request<RiskSummary>('/api/agents/risk-summary').catch(() => { setRiskSummaryFailed(true); return null; }),
       healthApi.summary().catch(() => { setHealthFailed(true); return null; }),
     ]).then(([riskSummary, health]) => {
       const totalAgents    = riskSummary?.total ?? 0;
