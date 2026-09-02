@@ -1,21 +1,23 @@
 /*
- * OBA Core — Graph Wire-Up Route Test (2026-09-02: M02/M03/M07/M28/M29/M31/
- * M32/M34/M35/M49 wire-up).
+ * OBA Core — Graph Wire-Up Route Test (2026-09-02: M01/M02/M03/M07/M20/M28/
+ * M29/M31/M32/M34/M35/M49 wire-up).
  *
- * Covers the ten brain modules found to have genuinely missing live
+ * Covers the twelve brain modules found to have genuinely missing live
  * capability during the 2026-09-02 audit (see brain/modules/
  * implementations.js's header and brain/README.md's "Known gaps"): five
- * with no route at all (M28/M29/M31/M34/M35), and five more whose nearest
- * SQL analogue reads only one source table where the graph unifies several
- * (M02/M03/M07/M32/M49). Unlike graphRoutes.test.js, this boots the REAL
- * brain library against the shared test fixture (tests/fixtures/graph.js),
- * not a fake — the point of this test is that the real implementations are
- * actually reachable end-to-end over HTTP, not just that a router forwards
- * a stubbed response. brain.smoke.test.js and intelligence.verify.test.js
- * already prove those implementations are individually correct; this
- * proves the wiring on top of them, through both routers exactly as
- * index.js mounts them (reality.js for M02/M03/M07/M28/M29/M31/M34/M35,
- * prediction.js for M32/M49).
+ * with no route at all (M28/M29/M31/M34/M35), and seven more whose nearest
+ * SQL analogue reads only one source table, or a structurally different
+ * table, where the graph unifies several or answers a different shape of
+ * the same-sounding question (M01/M02/M03/M07/M20/M32/M49). Unlike
+ * graphRoutes.test.js, this boots the REAL brain library against the
+ * shared test fixture (tests/fixtures/graph.js), not a fake — the point of
+ * this test is that the real implementations are actually reachable
+ * end-to-end over HTTP, not just that a router forwards a stubbed response.
+ * brain.smoke.test.js and intelligence.verify.test.js already prove those
+ * implementations are individually correct; this proves the wiring on top
+ * of them, through both routers exactly as index.js mounts them
+ * (reality.js for M01/M02/M03/M07/M20/M28/M29/M31/M34/M35, prediction.js
+ * for M32/M49).
  *
  * backend/supabase.js is stubbed because domain/dataset.js requires it
  * unconditionally at module load time, even though this test never calls
@@ -79,6 +81,8 @@ async function main() {
 	brain.setGraph(buildTestGraph())
 
 	const cases = [
+		{ path: '/api/intelligence/ownership-map', code: 'M01', payloadKeys: ['totalAssets', 'ownedAssets', 'unownedAssets', 'ownershipCoverage', 'ownershipMap'] },
+		{ path: '/api/intelligence/reporting-chains', code: 'M20', payloadKeys: ['reportingChains', 'managementLinks', 'assetsWithoutAccountableOwner'] },
 		{ path: '/api/intelligence/dependency-fanin', code: 'M02', payloadKeys: ['dependencyCount', 'mostDependedUpon', 'criticalDependencies'] },
 		{ path: '/api/intelligence/organizational-risk', code: 'M03', payloadKeys: ['riskScore', 'riskLevel', 'singlePointsOfFailure', 'criticalDependencyCount'] },
 		{ path: '/api/intelligence/ai-agent-governance', code: 'M07', payloadKeys: ['aiAgentCount', 'agents', 'ungovernedAgents'] },

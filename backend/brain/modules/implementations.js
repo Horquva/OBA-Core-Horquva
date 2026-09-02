@@ -56,20 +56,28 @@
  * WIRED UP 2026-09-02: the retirement audit above also checked the other 23
  * modules for a live route, not just for SQL duplication. Five had neither —
  * M28, M29, M31, M34, M35 — and were exposed at
- * routes/intelligence/reality.js. A further five were found to compute real
- * content their nearest SQL analogue does not (each unifies MULTIPLE source
- * tables into one graph via graphLoader.js, where the SQL route reads only
- * one): M02 and M03's depends_on-derived rankings cover agent_platform/
- * workflow_tool_dependencies/system_dependencies/system_agent_usage, which
- * GET /api/dependencies and GET /api/risks (both single-table, agent-scoped)
- * do not; M07 exposes governedBy/dependsOn/supports detail per AI agent
- * (including automation agents, which GET /api/tool-intelligence never
- * covers — that route is ai_platforms/"tools" only); M32 ranks blast radius
- * across every entity type, not just agents (GET /api/dependencies/agent-
- * spofs's scope); M49 mirrors the full graph as one snapshot, which nothing
- * else returns in one call. M02/M03/M07 are in reality.js alongside
- * M28/M29/M31/M34/M35 (same owner/layer); M32/M49 are in prediction.js
- * (Tahir/prediction layer, alongside M37/M41-45).
+ * routes/intelligence/reality.js. A further seven were found to compute real
+ * content their nearest SQL analogue does not: five because they unify
+ * MULTIPLE source tables into one graph via graphLoader.js, where the SQL
+ * route reads only one (M02 and M03's depends_on-derived rankings cover
+ * agent_platform/workflow_tool_dependencies/system_dependencies/
+ * system_agent_usage, which GET /api/dependencies and GET /api/risks — both
+ * single-table, agent-scoped — do not; M07 exposes governedBy/dependsOn/
+ * supports detail per AI agent, including automation agents, which
+ * GET /api/tool-intelligence never covers, being ai_platforms/"tools" only;
+ * M32 ranks blast radius across every entity type, not just agents, unlike
+ * GET /api/dependencies/agent-spofs; M49 mirrors the full graph as one
+ * snapshot, which nothing else returns in one call), and two (M01, M20)
+ * because the nearest same-named SQL surface answers a structurally
+ * different question, not a narrower version of the same one: M01 is
+ * asset-first (every asset, owned or not) where GET /api/ownership is
+ * owner-first and agent-scoped, so it cannot surface a zero-owner asset;
+ * M20 is org-chart reporting structure (reports_to/manages) where
+ * GET /api/accountability/* is a RACI system (Responsible/Accountable/
+ * Consulted/Informed) — the same word, a different structure, the same
+ * distinction API-2 already drew for M39/M40. M01/M02/M03/M07/M20 are in
+ * reality.js alongside M28/M29/M31/M34/M35 (same owner/layer); M32/M49 are
+ * in prediction.js (Tahir/prediction layer, alongside M37/M41-45).
  */
 
 const A = require('./analytics')

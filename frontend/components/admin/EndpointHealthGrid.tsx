@@ -110,6 +110,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Autonomous Advisor',   path: '/api/intelligence/advisor',           pingPath: '/api/intelligence/advisor',            category: 'Constitutional', mounted: true },
   { name: 'Simulation Universe',  path: '/api/intelligence/simulation-universe', pingPath: '/api/intelligence/simulation-universe', category: 'Constitutional', mounted: true },
   // Wired up 2026-09-02 alongside the 27-module retirement — see backend/routes/intelligence/reality.js
+  { name: 'Ownership Map',        path: '/api/intelligence/ownership-map',      pingPath: '/api/intelligence/ownership-map',      category: 'Constitutional', module: 'M01', mounted: true },
+  { name: 'Reporting Chains',     path: '/api/intelligence/reporting-chains',   pingPath: '/api/intelligence/reporting-chains',   category: 'Constitutional', module: 'M20', mounted: true },
   { name: 'Dependency Fan-In',    path: '/api/intelligence/dependency-fanin',   pingPath: '/api/intelligence/dependency-fanin',   category: 'Constitutional', module: 'M02', mounted: true },
   { name: 'Organizational Risk',  path: '/api/intelligence/organizational-risk', pingPath: '/api/intelligence/organizational-risk', category: 'Constitutional', module: 'M03', mounted: true },
   { name: 'AI Agent Governance',  path: '/api/intelligence/ai-agent-governance', pingPath: '/api/intelligence/ai-agent-governance', category: 'Constitutional', module: 'M07', mounted: true },

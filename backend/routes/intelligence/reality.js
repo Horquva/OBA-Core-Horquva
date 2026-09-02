@@ -1,6 +1,6 @@
 /**
- * REALITY-LAYER GRAPH ENDPOINTS (Huzaifa) — M02, M03, M07, M28, M29, M31,
- * M34, M35
+ * REALITY-LAYER GRAPH ENDPOINTS (Huzaifa) — M01, M02, M03, M07, M20, M28,
+ * M29, M31, M34, M35
  * -------------------------------------------------------------------
  * M28/M29/M31/M34/M35 were wired up 2026-09-02, alongside the 27-module
  * retirement (see brain/README.md's "Known gaps"). These five were audited
@@ -26,7 +26,20 @@
  *     `ai_platforms` and never covers automation agents at all.
  * See modules/implementations.js's header for the full audit note.
  *
- * No frontend card consumes any of these eight yet — that is a separate,
+ * M01/M20 were added in a final completeness pass, checking the two
+ * remaining reality-layer modules that had no route yet:
+ *   - M01 (ownership) is asset-first — every owned/unowned asset across
+ *     every asset type. GET /api/ownership (routes/ownership.js) is
+ *     owner-first (loops over people, agents only for the primary listing)
+ *     and structurally cannot surface an asset with zero owners.
+ *   - M20 (accountability) is org-chart reporting structure (reports_to /
+ *     manages edges). GET /api/accountability/* (routes/accountability/
+ *     accountability.js) is a RACI system (accountability_links: who is
+ *     Responsible/Accountable/Consulted/Informed per entity) — the same
+ *     word, a genuinely different structure, same distinction API-2 already
+ *     drew for M39/M40.
+ *
+ * No frontend card consumes any of these ten yet — that is a separate,
  * later decision (a card needs a design, not just data). This file makes
  * the capability reachable over HTTP; nothing here shapes a UI.
  *
@@ -41,6 +54,19 @@
 const express = require('express')
 const router = express.Router()
 const { moduleEndpoint } = require('./_graphEndpoint')
+
+// GET /api/intelligence/ownership-map — M01 Ownership Intelligence.
+// Every asset across every asset type, with its owner(s) or lack thereof —
+// asset-first, unlike GET /api/ownership's owner-first (and agent-scoped)
+// view. Distinct name from GET /api/intelligence/ownership-coverage (M40,
+// a single ratio) so neither is mistaken for the other.
+router.get('/ownership-map', moduleEndpoint('ownership'))
+
+// GET /api/intelligence/reporting-chains — M20 Accountability Intelligence.
+// Org-chart structure: reports_to chains, manages links, assets with no
+// accountable owner. NOT the RACI system at GET /api/accountability/* —
+// see the header comment above.
+router.get('/reporting-chains', moduleEndpoint('accountability'))
 
 // GET /api/intelligence/dependency-fanin — M02 Dependency Intelligence.
 // Fan-in ranking and the critical-dependency list, over depends_on edges
@@ -99,6 +125,8 @@ router.get('/network-centrality', moduleEndpoint('organizational-network'))
 router.get('/reality', (req, res) => {
   res.json({
     endpoints: {
+      ownershipMap: '/api/intelligence/ownership-map',
+      reportingChains: '/api/intelligence/reporting-chains',
       dependencyFanIn: '/api/intelligence/dependency-fanin',
       organizationalRisk: '/api/intelligence/organizational-risk',
       aiAgentGovernance: '/api/intelligence/ai-agent-governance',

@@ -126,10 +126,24 @@ read — a genuine, not just presentational, difference in coverage: M02/M03
 `GET /api/risks`), M07 (vs. `GET /api/tool-intelligence`, which is
 `ai_platforms` only and never covers automation agents), M32 (vs. the
 agent-only `GET /api/dependencies/agent-spofs`), and M49 (a full graph
-snapshot; nothing else returns one). M02/M03/M07 joined M28/M29/M31/M34/M35
-in `reality.js`; M32/M49 are in `routes/intelligence/prediction.js`
-alongside the rest of the Tahir/Kamran layer. No frontend card consumes any
-of the ten yet — that is a separate, later decision.
+snapshot; nothing else returns one).
+
+**A final completeness pass checked the last two reality-layer modules —
+M01, M20 — and found the same-named SQL surface answers a structurally
+different question, not a narrower version of the same one.** M01
+(ownership) is asset-first: every asset, owned or not, across every asset
+type. `GET /api/ownership` is owner-first and agent-scoped for its primary
+listing, so it cannot surface a zero-owner asset by construction. M20
+(accountability) is org-chart reporting structure (`reports_to`/`manages`
+edges). `GET /api/accountability/*` is a RACI system (Responsible/
+Accountable/Consulted/Informed per entity, from `accountability_links`) —
+the same word, a genuinely different structure, the same distinction API-2
+already drew between M39/M40 and their SQL namesakes.
+
+M01/M02/M03/M07/M20 joined M28/M29/M31/M34/M35 in `reality.js`; M32/M49 are
+in `routes/intelligence/prediction.js` alongside the rest of the
+Tahir/Kamran layer. No frontend card consumes any of the twelve yet — that
+is a separate, later decision.
 
 All three retirement passes, and both wiring passes, are recoverable from git
 history.
