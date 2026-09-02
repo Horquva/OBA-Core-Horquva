@@ -705,6 +705,110 @@ export interface BenchmarkPayload {
   benchmarkScore: number;
 }
 
+// ─── Reality-layer graph endpoints (M01/M02/M03/M07/M20/M28/M29/M31/M32/M34/
+// M35/M49), wired 2026-09-02 — see backend/routes/intelligence/reality.js and
+// prediction.js. Each is named apart from its nearest same-sounding SQL
+// endpoint because it answers a broader or structurally different question —
+// see backend/brain/modules/implementations.js's header for the audit.
+
+export interface OwnershipMapPayload {
+  totalAssets: number;
+  ownedAssets: number;
+  unownedAssets: string[];
+  ownershipCoverage: number;
+  ownershipMap: Array<{ entity: string; id: string; type: string; owners: string[] }>;
+}
+
+export interface DependencyFanInPayload {
+  dependencyCount: number;
+  mostDependedUpon: Array<{ id: string; name: string; type: string; dependents: number }>;
+  criticalDependencies: Array<{ from: string; to: string; failureImpact?: string }>;
+}
+
+export interface OrganizationalRiskPayload {
+  riskScore: number;
+  riskLevel: 'low' | 'medium' | 'high';
+  singlePointsOfFailure: Array<{ id: string; name: string; type: string; dependents: number; owners: number }>;
+  criticalDependencyCount: number;
+}
+
+export interface AiAgentGovernancePayload {
+  aiAgentCount: number;
+  agents: Array<{
+    name: string;
+    id: string;
+    owners: string[];
+    dependsOn: string[];
+    governedBy: string[];
+    supports: string[];
+  }>;
+  ungovernedAgents: string[];
+}
+
+export interface ReportingChainsPayload {
+  reportingChains: Array<{ who: string; reportsTo: string }>;
+  managementLinks: Array<{ manager: string; manages: string }>;
+  assetsWithoutAccountableOwner: string[];
+}
+
+export interface DependencyGraphPayload {
+  nodes: number;
+  dependencyEdges: number;
+  cyclesDetected: string[][];
+  hasCycles: boolean;
+  longestDependencyChain: string[];
+  adjacency: Record<string, string[]>;
+}
+
+export interface RelationshipsPayload {
+  totalRelationships: number;
+  typeDistribution: Record<string, number>;
+  collaborationLinks: number;
+  isolatedEntities: string[];
+}
+
+export interface EcosystemPayload {
+  internalEntities: number;
+  externalEntities: number;
+  externalActors: Array<{ name: string; type: string }>;
+  composition: Record<string, number>;
+}
+
+export interface DependencyImpactPayload {
+  impactCount: number;
+  impacts: Array<{
+    entity: string;
+    directDependents: number;
+    cascadeImpact: number;
+    impactScore: number;
+    severity: 'critical' | 'high' | 'moderate';
+  }>;
+  highestImpact: { entity: string; cascadeImpact: number; impactScore: number; severity: string } | null;
+}
+
+export interface HiddenDependenciesPayload {
+  hiddenDependencyCount: number;
+  hiddenDependencies: Array<{ entity: string; hiddenDependency: string }>;
+}
+
+export interface NetworkCentralityPayload {
+  centralActors: Array<{ id: string; name: string; type: string; degree: number }>;
+  mostConnected: string | null;
+  averageDegree: number;
+}
+
+export interface DigitalTwinPayload {
+  digitalTwin: {
+    syncedAt: string;
+    entities: Array<{ id: string; type: string; name: string; status: string }>;
+    relationships: Array<{ from: string; type: string; to: string }>;
+    stats: Record<string, unknown>;
+    layers: { structure: number; systems: number; workflows: number; knowledge: number };
+  };
+  synchronized: boolean;
+  simulationReady: boolean;
+}
+
 export const orgScience = {
   pattern: () => request<IntelligenceResponse<PatternPayload>>('/api/intelligence/pattern'),
   capabilityInventory: () => request<IntelligenceResponse<CapabilityPayload>>('/api/intelligence/capability-inventory'),
@@ -716,6 +820,20 @@ export const orgScience = {
   benchmark: () => request<IntelligenceResponse<BenchmarkPayload>>('/api/intelligence/benchmark'),
   graphStatus: () => request<GraphStatus>('/api/intelligence/graph/status'),
   graphReload: () => request<GraphReloadResult>('/api/intelligence/graph/reload', { method: 'POST' }),
+
+  // Wired 2026-09-02:
+  ownershipMap: () => request<IntelligenceResponse<OwnershipMapPayload>>('/api/intelligence/ownership-map'),
+  dependencyFanIn: () => request<IntelligenceResponse<DependencyFanInPayload>>('/api/intelligence/dependency-fanin'),
+  organizationalRisk: () => request<IntelligenceResponse<OrganizationalRiskPayload>>('/api/intelligence/organizational-risk'),
+  aiAgentGovernance: () => request<IntelligenceResponse<AiAgentGovernancePayload>>('/api/intelligence/ai-agent-governance'),
+  reportingChains: () => request<IntelligenceResponse<ReportingChainsPayload>>('/api/intelligence/reporting-chains'),
+  dependencyGraph: () => request<IntelligenceResponse<DependencyGraphPayload>>('/api/intelligence/dependency-graph'),
+  relationships: () => request<IntelligenceResponse<RelationshipsPayload>>('/api/intelligence/relationships'),
+  ecosystem: () => request<IntelligenceResponse<EcosystemPayload>>('/api/intelligence/ecosystem'),
+  dependencyImpact: () => request<IntelligenceResponse<DependencyImpactPayload>>('/api/intelligence/dependency-impact'),
+  hiddenDependencies: () => request<IntelligenceResponse<HiddenDependenciesPayload>>('/api/intelligence/hidden-dependencies'),
+  networkCentrality: () => request<IntelligenceResponse<NetworkCentralityPayload>>('/api/intelligence/network-centrality'),
+  digitalTwin: () => request<IntelligenceResponse<DigitalTwinPayload>>('/api/intelligence/digital-twin'),
 };
 
 // ─── Orchestrator / M55  (/api/intelligence/orchestrator) ───────────────────
