@@ -53,7 +53,7 @@ OBA Core is a full-stack intelligence platform with three layers:
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| Intelligence Engine | Node.js · Knowledge Graph | 51 analyses over one organizational graph built from Supabase |
+| Intelligence Engine | Node.js · Knowledge Graph | 23 analyses over one organizational graph built from Supabase |
 | Backend API | Node.js · Express · Supabase | REST API serving all intelligence data |
 | Executive Dashboard | Next.js 16 · TypeScript · Tailwind · Recharts | Interactive visualization for leadership |
 
@@ -67,17 +67,24 @@ Read this section first. It explains the entire OBA Core system in plain languag
 
 Every modern organization runs on a hidden web of people, AI agents, tools, workflows, and knowledge. When one node fails — a key person leaves, an agent breaks, a tool goes offline — the damage cascades in ways nobody can see in advance. **OBA Core turns that invisible web into a living map and reasons on top of it**, so leadership can ask plain questions ("What are our biggest risks?", "What breaks if Robert leaves?") and get verified, prioritized answers in seconds.
 
-It does this with **51 constitutional analyses** that do not run as 51 disconnected scripts. They run over **one shared Organizational Knowledge Graph** in a common package format, in dependency order, fusing into a single executive answer. (The catalog is numbered M01–M55; four were retired — see the Organizational Brain section.)
+It does this with **23 constitutional analyses** that do not run as 23 disconnected scripts. They run over **one shared Organizational Knowledge Graph** in a common package format, in dependency order. (The catalog is numbered M01–M55; 32 codes have been retired across three passes — see the Organizational Brain section. The two "constitutional rules" once enforced across this catalog — Truth gates Advisor, Meta-Brain fuses last — were retired along with the three modules that carried them; each had a richer, already-live SQL/`domain/derived.js` answer to the same question instead.)
 
 ### How a single question flows through the system
 
 1. **A question enters** — from an executive, the dashboard, or an API call (e.g. *"What are our biggest organizational risks?"*).
 2. **The Knowledge Graph is the ground truth** — every person, system, AI agent, tool, and workflow exists exactly once, with all relationships mapped.
-3. **Capability discovery** — the runtime finds *which* modules can answer, instead of hard-wiring calls between them.
-4. **Dependency ordering** — modules are sorted into a constitutional execution order so each one runs after the intelligence it depends on.
-5. **Modules execute** — each returns a standard Intelligence Package: a result, a confidence score, supporting evidence, and recommended actions.
-6. **Truth gate** — the Truth module (M46) verifies findings; the Autonomous Advisor (M48) is *not allowed* to recommend on unverified truth.
-7. **The Meta-Brain fuses everything** — the Orchestrator (M55) always runs **last**, merging every module's intelligence into one prioritized executive answer with a single fused confidence.
+3. **A route calls one analysis by name** — `brain.run('ownership')` or `brain.run('M01')`; no capability-discovery step runs at request time.
+4. **Dependency ordering** — that analysis's declared prerequisites are resolved and run first (Kahn's algorithm), so composed analyses see real prior data.
+5. **The analysis executes** — it returns a standard Intelligence Package: a result, a confidence score, supporting evidence, and recommended actions.
+
+Steps 6–7 as originally designed — a Truth module (M46) gating an Autonomous
+Advisor (M48), fused last by a Meta-Brain Orchestrator (M55) — were retired
+2026-09-02 along with those three modules; each had a richer, already-live
+answer elsewhere. **Two independent fusion systems ship live today instead:**
+`GET /api/intelligence/orchestrator` (13 weighted signals over
+`domain/derived.js`) and `GET /api/intelligence/brain-core` (10 weighted
+signals, same root). Neither reads through the graph's dependency-ordering
+mechanism described above — they compute their own inputs directly.
 
 ```
             Executive question
@@ -87,34 +94,34 @@ It does this with **51 constitutional analyses** that do not run as 51 disconnec
         │   Knowledge Graph     │  entities + relationships (one shared truth)
         └───────────┬───────────┘
                    ▼
-        Capability discovery  →  which modules can answer?
+        brain.run('M01') (or any of 23)  →  which analysis was asked for?
                    │
                    ▼
-        Dependency ordering   →  constitutional run order
+        Dependency ordering   →  that analysis's prerequisites run first
                    │
                    ▼
-        51 analyses execute   →  result + confidence + evidence each
+        Analysis executes     →  result + confidence + evidence
                    │
                    ▼
-        Truth (M46) gate      →  advice withheld unless verified
-                   │
-                   ▼
-        Meta-Brain (M55)      →  fuses everything, runs LAST
-                   │
-                   ▼
-         Single executive answer  (fused confidence + recommendations)
+         One analysis's Intelligence Package
 ```
+Executive-level fusion across *all* signals happens outside this flow, in
+`orchestrator.js` / `brainCore.js` — see "By the numbers" below.
 
 ### The four intelligence layers — who builds what
 
-The 51 analyses are owned by four engineers, each responsible for one layer of the Brain:
+The 23 remaining analyses are owned by three engineers — Anusha's whole
+layer was retired 2026-09-02, each module redundant with a richer, already-
+live system (see [A further 27 analyses were retired](#a-further-27-analyses-were-retired-2026-09-02)),
+and Kamran's Knowledge Concentration module (M30) followed the same day for
+the same reason:
 
 | Layer | Lead engineer | Modules | What it delivers |
 |---|---|---|---|
-| **Knowledge Platform** | **Huzaifa** (13) | M01, M02, M03, M07, M08, M19, M20, M22, M28, M29, M31, M34, M35 | Discovery + memory: registries, entities, relationships, the Knowledge Graph and ontology — the shared truth every other module reads from |
-| **Core Reasoning & Meta-Brain** | **Kamran** (20) | M04, M05, M06, M09, M14, M18, M24, M25, M26, M27, M30, M36, M38, M39, M40, M46, M48, M50, M54, M55 | The engine that boots the Brain, routes every call, orders modules, enforces the constitutional rules, and fuses all intelligence via the Meta-Brain |
-| **Prediction & Org Science** | **Tahir** (11) | M11, M13, M32, M33, M37, M41, M42, M43, M44, M45, M49 | Looks forward and inward: predictive risk, forecasting, patterns, culture, maturity, benchmarks, continuous learning and the organizational digital twin |
-| **Executive Experience & Autonomous Ops** | **Anusha** (7) | M15, M16, M21, M23, M51, M52, M53 | The executive-facing surface + autonomy: verification, workflow orchestration, avatar & briefings, and self-healing / governance / continuity automation |
+| **Knowledge Platform** | **Huzaifa** (11) | M01, M02, M03, M07, M19, M20, M28, M29, M31, M34, M35 | Discovery + memory: registries, entities, relationships, the Knowledge Graph and ontology — the shared truth every other module reads from |
+| **Core Reasoning** | **Kamran** (4) | M04, M18, M39, M40 | Recommendations, continuity, capability and coverage over the graph |
+| **Prediction & Org Science** | **Tahir** (8) | M32, M37, M41, M42, M43, M44, M45, M49 | Looks forward and inward: dependency impact, patterns, DNA, culture, maturity, benchmarks and the organizational digital twin |
+| ~~Executive Experience & Autonomous Ops~~ | ~~Anusha~~ (0) | *(all 7 retired)* | Retired 2026-09-02 — see the Organizational Brain section for what replaced each one |
 
 ### Supporting teams
 
@@ -128,7 +135,7 @@ The 51 analyses are owned by four engineers, each responsible for one layer of t
 
 | Term | Meaning |
 |---|---|
-| **Analysis (M01–M55)** | A single unit of organizational intelligence. Four were retired 2026-08-24; the rest keep their codes |
+| **Analysis (M01–M55)** | A single unit of organizational intelligence. 32 codes have been retired across three passes (4 on 2026-08-24, 28 on 2026-09-02); the 23 that remain keep their codes |
 | **Capability** | The named service a module exposes (e.g. `m03.risk.intelligence`) so it can be *discovered* rather than hard-referenced |
 | **Knowledge Graph** | The Brain's long-term memory: every entity and every relationship, each stored exactly once |
 | **Entity / Relationship** | The nodes and edges of the graph. Relationships are first-class — no dangling edges allowed |
@@ -141,8 +148,8 @@ The 51 analyses are owned by four engineers, each responsible for one layer of t
 
 | Metric | Value |
 |---|---|
-| Constitutional analyses | **51** (M01–M55 catalog, four retired) |
-| Engineering owners | **4** — Huzaifa 13 · Kamran 21 · Tahir 14 · Anusha 7 |
+| Constitutional analyses | **23** (M01–M55 catalog, 32 retired across three passes) |
+| Engineering owners | **3 active** — Huzaifa 11 · Kamran 4 · Tahir 8 (Anusha's 7 all retired 2026-09-02) |
 | Runtime files (`backend/brain/`) | 21 JavaScript modules |
 | Live knowledge graph | 157 entities · 423 relationships, built from Supabase on every boot — the synthetic 16-entity/24-relationship seed graph was deleted with `graphSeeder.js` (see `knowledge/graphLoader.js`'s own header) |
 | Stub responses | **0** — every module computes real graph-derived intelligence |
@@ -155,6 +162,8 @@ The 51 analyses are owned by four engineers, each responsible for one layer of t
 
 ### Module 01 — Ownership Intelligence
 ![Module 01 Output](Images/agent_summary.png)
+
+**Live graph endpoint (wired 2026-09-02):** `GET /api/intelligence/ownership-map` — the Knowledge-Graph analysis: every asset across every asset type, owned or not, asset-first (unlike `GET /api/ownership`'s owner-first, agent-scoped view). The scoring formula and findings below are the original Phase 1 illustration against the retired demo dataset — see the callout at the top of this section.
 
 Analyzes every AI agent across the organization and scores ownership risk.
 
@@ -186,6 +195,8 @@ Analyzes every AI agent across the organization and scores ownership risk.
 ### Module 02 — Dependency Intelligence
 ![Module 02 Output](Images/dependency_map.png)
 
+**Live graph endpoint (wired 2026-09-02):** `GET /api/intelligence/dependency-fanin` — fan-in ranking and the critical-dependency list, over `depends_on` edges the graph unifies from the `dependencies` table plus `agent_platform`, `workflow_tool_dependencies`, `system_dependencies` and `system_agent_usage` — a broader edge set than `GET /api/dependencies` reads. The findings below are the original Phase 1 illustration against the retired demo dataset — see the callout at the top of this section.
+
 Builds a full dependency graph of all AI agents and maps cascade failure paths.
 
 **What it does:**
@@ -204,6 +215,8 @@ Builds a full dependency graph of all AI agents and maps cascade failure paths.
 
 ### Module 03 — Risk Intelligence
 ![Module 03 Output](Images/riskanalysis.png)
+
+**Live graph endpoint (wired 2026-09-02):** `GET /api/intelligence/organizational-risk` — a risk score from single-points-of-failure plus critical dependencies across every asset type (not just agents, the scope of `GET /api/risks`), over the graph's unified `depends_on` edges. The findings below are the original Phase 1 illustration against the retired demo dataset — see the callout at the top of this section.
 
 Fuses ownership risk and dependency data into a single composite risk score per agent, then computes the Organizational Health Score.
 
@@ -240,53 +253,22 @@ Generates specific, named, prioritized actions based on every risk finding — n
 
 ---
 
-### Module 05 — What-If Simulation Engine
-![Module 05 Output](Images/what_ifl.png)
+### Module 05 — What-If Simulation Engine — RETIRED 2026-09-02
 
-Simulates every possible disruption scenario and calculates its exact impact on organizational health before it happens.
-
-**What it does:**
-- Simulates every owner leaving the organization (one by one)
-- Simulates every CRITICAL/HIGH/SPOF agent failing
-- Recalculates the Organizational Health Score for each scenario in real time
-- Shows before → after risk level for every affected agent
-- Ranks all scenarios from most dangerous to least — so leadership knows exactly where fragility lives
-
-**Simulation logic:**
-- **Person Leaves** → their agents lose primary ownership (+35 risk each), Health Score recalculated
-- **Agent Fails** → failed agent reaches maximum risk (score 170), all cascade victims receive +30 risk penalty
-
-**Sunrise Care findings:**
-- **Worst scenario: Robert leaves → Health Score collapses from 56 → 49**
-- 5 agents become immediately unmanaged if Robert is unavailable
-- Worst agent scenario: Onboarding Agent failure drops Health Score to 47
-- Every scenario ranked so leadership can prioritize risk mitigation investment
+A crude single-target cascade estimate — no real health-delta calculation. Its question is answered live today by `domain/simulations.js` (`GET /api/simulations/rank`), which covers four real scenario types (employee leaves, agent fails, platform down, workflow disruption) with an actual before/after health score, not this module.
 
 ---
 
-### Module 06 — Human-Agent Dependency Map
-![Module 06 Output](Images/ai_human_mapping.png)
+### Module 06 — Human-Agent Dependency Map — RETIRED 2026-09-02
 
-Maps every person in the organization to the agents they control and scores human-level coverage risk.
-
-**What it does:**
-- Builds a complete ownership tree per person: which agents they own, at what risk level
-- Calculates a coverage score per person: what % of their agents have backup owners
-- Identifies Human SPOFs: individuals who own 3+ agents with no backup coverage anywhere
-- Lists every coverage gap across the organization with exact agent names
-
-![Human-Agent Map Summary](Images/Human_map_summary.png)
-
-**Sunrise Care findings:**
-- **Robert = Human SPOF** — 5 agents owned, 0% coverage, all CRITICAL or HIGH risk
-- Sarah = 100% coverage — all 3 of her agents have backup owners
-- 9 total coverage gaps identified across the organization
-- 7 agents have a primary owner but zero backup coverage
+A flat human↔agent/system relationship list. Its question is answered live today by `GET /api/human-agent-map`, a richer nested employee→agent→platform/workflow tree over the same relational data, not this module.
 
 ---
 
 ### Module 07 — AI Tool Intelligence
 ![Module 07 Output](Images/Module_07.png)
+
+**Live graph endpoint (wired 2026-09-02):** `GET /api/intelligence/ai-agent-governance` — per-entity owners/dependsOn/governedBy/supports for every graph `ai_agent` entity, automation agents *and* platforms both, plus which are ungoverned. `GET /api/tool-intelligence` covers `ai_platforms` ("tools") only and has no automation-agent governance view at all. The findings below are the original Phase 1 illustration against the retired demo dataset — see the callout at the top of this section.
 
 Audits every AI tool in use across the organization — usage, risk, dependencies, and financial exposure.
 
@@ -309,45 +291,15 @@ Audits every AI tool in use across the organization — usage, risk, dependencie
 
 ---
 
-### Module 08 — Workflow Intelligence
-![Module 08 Output](Images/Module_08.png)
+### Module 08 — Workflow Intelligence — RETIRED 2026-09-02
 
-Maps every business workflow step by step — Human → Tool → Agent → Outcome — and scores failure risk at each node.
-
-**What it does:**
-- Visualizes every workflow as a full sequential chain with named actors at each step
-- Scores each workflow for risk: ownership gaps, undocumented status, human SPOF dependency
-- Identifies single-node failure points — the one person or tool whose removal collapses the entire workflow
-- Surfaces workflows with no runbook, no backup owner, and no recovery path
-
-**Sunrise Care findings:**
-- 2 CRITICAL workflows: Lead Generation (Robert, no backup, undocumented) and IT Operations (David, no backup, undocumented)
-- All 7 workflows have exactly one human dependency — no workflow survives its owner leaving
-- 14 single-node failure points identified across all workflows
-- 3 workflows have zero documentation: Lead Generation, IT Operations, Analytics Reporting
+A structural workflow list — owners and dependencies, no risk scoring. Its question is answered live today by `GET /api/workflows/intelligence` (failure-weighted risk score) and `GET /api/workflows/spof` (multi-reason SPOF detection), not this module.
 
 ---
 
-### Module 09 — Knowledge Risk Intelligence
-![Module 09 Output](Images/Module_09.png)
+### Module 09 — Knowledge Risk Intelligence — RETIRED 2026-09-02
 
-Maps where critical organizational knowledge is stored — in people's heads — and calculates what disappears if they leave.
-
-**What it does:**
-
-![](Images/Module_09(1).png)
-
-- Calculates a Knowledge Concentration Score per person (0–100%)
-- Identifies sole knowledge holders: people who are the only ones who know how a critical asset works
-- Lists every undocumented agent, workflow, and AI tool across the organization
-- Maps exactly which assets are unrecoverable if a specific person leaves today
-- Surfaces knowledge gaps: assets with no documentation AND no backup owner
-
-**Sunrise Care findings:**
-- Robert = CRITICAL knowledge concentration (100%) — sole owner of 5 agents + 1 workflow, all undocumented
-- Mike and Lisa = HIGH concentration risk (64% and 54%)
-- 13 total undocumented assets across agents, workflows, and tools
-- If Robert leaves today: 6 assets are permanently unrecoverable with no documentation and no backup
+A bus-factor list over knowledge assets alone. Its question is answered live today by `GET /api/knowledge/intelligence` (per-employee knowledge risk + concentration), `/gaps` (undocumented assets) and `/impact/:employee` (what's lost if they leave), not this module.
 
 ---
 
@@ -357,20 +309,9 @@ Measured the software's own run history, not the organization — see [Four anal
 
 ---
 
-### Module 11 — Predictive Risk Intelligence
+### Module 11 — Predictive Risk Intelligence — RETIRED 2026-09-02
 
-Predicts which agents are *likely* to escalate to high/critical risk in the near future and surfaces emerging threats before they happen — an explainable, weighted ML-style risk model.
-
-**What it does:**
-- Scores every agent on a forward-looking risk model using current criticality, dependency exposure, owner/backup coverage, AI-tool (platform) health, and critical-workflow membership
-- Classifies each agent's predicted threat: `LOW / MEDIUM / HIGH / CRITICAL`
-- Flags emerging threats — agents not critical today but predicted to become critical
-- Gives a plain-English reason list per agent for full explainability
-
-**Sunrise Care findings:**
-- 4 agents predicted at CRITICAL threat, 2 at HIGH, 8 at MEDIUM
-- Heavy dependency exposure + missing backups are the top escalation drivers
-- Orphaned agents (Inventory, Data Backup) carry the highest predicted risk
+A cruder version of the codebase's own canonical predictive-risk formula. Its question is answered live today by `GET /api/predictive-risk/*`, backed by `domain/derived.js`'s `predictiveRisk()` — the definition the rest of the product (including the frontend, which explicitly refuses to re-band it locally) already treats as authoritative — not this module.
 
 ---
 
@@ -380,86 +321,27 @@ Measured the software's own run history, not the organization — see [Four anal
 
 ---
 
-### Module 13 — Human-AI Collaboration Intelligence
+### Module 13 — Human-AI Collaboration Intelligence — RETIRED 2026-09-02
 
-Analyzes the human side of the AI ecosystem — adoption, dependency concentration, and how effective human-agent pairing really is.
-
-**What it does:**
-- **AI Adoption Score** — how broadly the workforce engages with AI tools
-- **Human Dependency Score** — whether individuals are over-relied-upon (too many critical agents/workflows on one person)
-- **Collaboration Score** — effectiveness of human-agent pairing (documented + backed-up ownership)
-- Surfaces the people at highest dependency risk and departments with weak AI coverage
-
-**Sunrise Care findings:**
-- **AI Adoption: 100/100** — every named staff member uses at least one AI tool
-- **Human Dependency: 54/100** — dangerous concentration (Robert carries the most critical load)
-- **Collaboration: 40/100** — most agents still lack documentation or a backup owner
+A single edge-count ratio, no distinction between adoption/dependency/collaboration. Its question is answered live today by `GET /api/collaboration/*`, backed by `domain/derived.js`'s `collaboration()` — three distinct scores per employee and per department — not this module.
 
 ---
 
-### Module 14 — Decision Intelligence
+### Module 14 — Decision Intelligence — RETIRED 2026-09-02
 
-Reconstructs the key organizational decisions encoded in the data, builds a decision trail for each, and scores how sound each decision was — answering *why* a decision was made, *what influenced it*, and *was it the right call*.
-
-**What it does:**
-- Treats every ownership assignment, tool adoption, and workflow setup as an explicit **decision** and rebuilds its **decision trail** (the reasoning chain that led to it)
-- Surfaces the **influences** behind each decision: criticality, owner concentration, backup coverage, documentation, fallback availability
-- Scores **Decision Quality** per decision: `GOOD / ACCEPTABLE / POOR / HARMFUL`
-- Computes a single org-wide **Decision Quality Index (0–100)** so leadership can see whether the org's past decisions are sound, mixed, or weak
-- Generates a targeted fix for every poor or harmful decision
-
-**Decision Quality Scoring (start 100, penalties applied):**
-| Factor | Penalty |
-|--------|---------|
-| Asset left with no owner (orphaned) | −65 (ownership) / −50 (workflow) |
-| No backup owner chosen | −25 |
-| Deployed without documentation / runbook | −15 to −20 |
-| Owner already concentrates 5+ agents | −20 |
-| Critical asset/tool/workflow with no backup or fallback | −15 to −20 |
-| Critical tool adopted with no fallback selected | −30 |
-
-**Score → Quality Tier:** `80+ = GOOD` · `55–79 = ACCEPTABLE` · `30–54 = POOR` · `< 30 = HARMFUL`
-
-**Sunrise Care findings:**
-- 27 organizational decisions audited across ownership, tooling, and workflows
-- 3 HARMFUL decisions — all assigning a **critical agent to Robert with zero backup** (Lead Scoring, Lead Qualification, Billing)
-- 8 POOR decisions, including adopting **ChatGPT as a critical tool with no fallback** and leaving Inventory + Data Backup agents unassigned
-- **Decision Quality Index: 67/100 — MIXED**
+A generic readiness score (ownership coverage × risk), not a per-decision audit. Its question is answered live today by `GET /api/decisions/*` (`organizational_decisions`, the GOOD/ACCEPTABLE/POOR/HARMFUL quality tiers and decision trail described above) and `GET /api/decision-intelligence`, not this module.
 
 ---
 
-### Module 15 — Verification Intelligence
+### Module 15 — Verification Intelligence — RETIRED 2026-09-02
 
-Tracks and verifies every action taken across the organization — by humans, AI agents, or tools — and flags actions that violate ownership or policy rules.
-
-**What it does:**
-- Logs every action taken in every workflow with actor type, actor name, and outcome
-- Verifies whether each action is policy compliant and properly accountable
-- Flags actions performed by known single points of failure (e.g. unbacked owners)
-- Produces a full verification record with status: `COMPLETED / FLAGGED / FAILED / PENDING`
-
-**Sunrise Care findings:**
-- 36 total actions verified across 7 workflows
-- 2 actions flagged — both performed by Robert, due to zero backup coverage
-- 2 policy violations identified
-- 0 unverified actions
+A structural per-asset check (owner present, no broken dependency edges), not an action-level audit trail. Its question is answered live today by `GET /api/verification/*` (`verification_actions`, real per-action policy-compliance and flagging), not this module.
 
 ---
 
-### Module 16 — Workflow Orchestration Intelligence
+### Module 16 — Workflow Orchestration Intelligence — RETIRED 2026-09-02
 
-Determines the next step in every workflow, assigns it to the correct actor, and detects collisions where multiple workflows compete for the same human, agent, or tool.
-
-**What it does:**
-- Tracks current step and total steps for every active workflow
-- Identifies the next actor (human, agent, or tool) responsible for the next step
-- Detects collisions — cases where the same actor is required by 2+ workflows simultaneously
-- Flags workflows as `BLOCKED` when a collision risk is detected
-
-**Sunrise Care findings:**
-- 7 workflows orchestrated
-- 17 collisions detected — including ChatGPT shared across 3 workflows, Microsoft Copilot overloaded across 5 workflows, and Lisa required by 2 workflows simultaneously
-- All 7 workflows currently flagged `BLOCKED` due to unresolved collisions
+A dependency-count readiness ranking — no real actor-collision detection. Its question is answered live today by `GET /api/orchestration/*`, which detects genuine collisions (two workflows needing the same actor at the same step) and live blocking, not this module.
 
 ---
 
@@ -516,6 +398,8 @@ Scores how well every asset is governed — owner accountability, documentation,
 ---
 
 ### Module 20 — Accountability Intelligence
+
+**Live graph endpoint (wired 2026-09-02):** `GET /api/intelligence/reporting-chains` — org-chart structure from the graph's `reports_to`/`manages` edges: reporting chains, management links, assets with no accountable owner. This is **not** the RACI system below — that RACI model lives at `GET /api/accountability/*` (`accountability_links`: Responsible/Accountable/Consulted/Informed per entity), a genuinely different structure under the same word. The findings below are the original Phase 1 illustration against the retired demo dataset — see the callout at the top of this section.
 
 Builds RACI-style accountability links for every asset — who is Responsible, Accountable, Consulted, Informed — maps responsibility chains, and scores accountability coverage.
 
@@ -656,130 +540,51 @@ The layer that lets a Voice Agent understand *which* entity a person means (enti
 
 These modules extend the 20 core modules into executive-facing, network-science, and prediction territory. Every module is documented **in strict sequence** — 21 through 35 here, then 36 through 55 in the next section — so nothing is missing. They run on the extended organizational dataset (history, incidents, decisions, external entities, and knowledge areas) and are exposed through the backend API. Each module names its lead engineer.
 
-### Module 21 — Executive Avatar Intelligence
+### Module 21 — Executive Avatar Intelligence — RETIRED 2026-09-02
 
-A single executive-facing persona that answers leadership questions directly from the Organizational Brain, instead of making executives read 20 separate reports.
-
-**What it does:**
-- Accepts plain leadership questions ("What is my biggest risk?", "Who is overloaded?")
-- Pulls the answer live from ownership, risk, and continuity signals
-- Always names the specific entity and person behind each answer
-- Acts as the conversational front-door to every other module
-
-**Sunrise Care findings:**
-- Biggest risk surfaced: a critical agent with no backup owner
-- Most overloaded person: Robert (heaviest ownership concentration)
-- 4 executive questions answered directly from live data
+A canned per-executive persona generator (a greeting string, an ownership list) — no real interaction logic. Its question is answered live today by `GET/POST /api/avatar/*`, a real gate-check and escalation system (`checkGate`/`detectActorCollision`), not this module.
 
 ---
 
-### Module 22 — Voice Intelligence Engine
+### Module 22 — Voice Intelligence Engine — RETIRED 2026-09-02
 
-Turns spoken questions into answers by classifying intent and resolving the entity against the ontology.
-
-**What it does:**
-- Classifies each spoken question into an intent: `ownership / risk / status / general`
-- Resolves which entity the speaker means (e.g. "the Payroll Agent")
-- Returns a natural-language answer grounded in real data
-- Produces a short spoken daily summary for voice playback
-
-**Sunrise Care findings:**
-- 4 voice queries resolved across ownership, risk, and status intents
-- Example: *"Is the Payroll Agent a risk?"* → "Yes — owned by Lisa, no backup, undocumented."
+A single canned spoken-summary template. Its question is answered live today by `GET/POST /api/voice/*`, which handles dozens of real natural-language intents over the live dataset, not this module.
 
 ---
 
-### Module 23 — Executive Briefing Intelligence
+### Module 23 — Executive Briefing Intelligence — RETIRED 2026-09-02
 
-Auto-generates the daily "top things to know" by pulling the most important signal from across the whole Brain.
-
-**What it does:**
-- Surfaces the top unresolved single points of failure
-- Highlights the most overloaded owner
-- Reports the latest incident and its lesson
-- Tracks the documentation trend over time and flags pending decisions
-
-**Sunrise Care findings:**
-- 5-point executive briefing generated automatically
-- Documentation trend: 28% → 35% over 4 months (still below safe levels)
-- Flags critical no-backup agents as the #1 item every day
+A generic brief assembled from other modules' prior output. Its question is answered live today by `GET /api/briefing/today`, which computes the top SPOF, most-overloaded owner, latest incident, documentation trend and pending-decision count live, not this module.
 
 ---
 
-### Module 24 — Decision Support Intelligence
+### Module 24 — Decision Support Intelligence — RETIRED 2026-09-02
 
-Turns raw risk findings into a prioritized "what to do next" queue with a transparent scoring model, and reviews how past decisions turned out.
-
-**What it does:**
-- Converts every risk (single points of failure, active incidents, undocumented critical knowledge) into a concrete decision
-- Scores each decision 0–100 using **impact × urgency ÷ effort**, and boosts anything sitting on a dependency blast-radius
-- Groups the queue by driver so leadership sees *why* each action is on the list
-- Reviews the decision log for choices that went negative, mixed, or are still pending, and flags them for revisit
-- Gives leadership a ranked action list instead of a wall of risks
-
-**Sunrise Care findings:**
-- 25 prioritized decisions queued — 10 single-point-of-failure, 9 undocumented-knowledge, 6 active-incident
-- Top action: **assign a backup owner to the Lead Scoring Agent** (highest impact × urgency)
-- 3 past decisions flagged for revisit
+A generic "is this decision supported" check, gated on the now-also-retired Truth module. Its question is answered live today by `GET /api/decision-support/*` (`decision_queue`, a real per-decision impact×urgency÷effort priority score with a driver breakdown), not this module.
 
 ---
 
-### Module 25 — Organizational Health Intelligence
+### Module 25 — Organizational Health Intelligence — RETIRED 2026-09-02
 
-A single **weighted** composite health index across five resilience dimensions, broken down by department, with a trend direction from historical snapshots.
-
-**What it does:**
-- Scores five dimensions: Documentation (20%), Continuity/backups (25%), Ownership spread (15%), Critical safety (25%), Incident load (15%)
-- Combines them into one weighted Organizational Health Index (0–100)
-- Breaks health down **per department** so leadership sees exactly where the weakness lives
-- Uses the monthly history (risk-index time series) to determine whether things are improving or declining
-- Classifies overall state: `CRITICAL / WARNING / STABLE`
-
-**Sunrise Care findings:**
-- **Organizational Health Index: 28/100 — CRITICAL**
-- Trend: **improving** (risk index falling month over month)
-- Weakest dimension: **Critical safety (0/100)** — critical assets with no backup coverage
-- Weakest department: **Finance**
+A second, competing health formula. Its question is answered live today by `GET /api/health/*`, backed by `domain/derived.js`'s `orgHealth()` — the canonical five-dimension index this exact codebase already consolidated onto after finding multiple disagreeing formulas — not this module.
 
 ---
 
-### Module 26 — Executive Memory Intelligence
+### Module 26 — Executive Memory Intelligence — RETIRED 2026-09-02
 
-Remembers what leadership should not forget — recurring patterns, lessons from past incidents, and decisions that went wrong.
-
-**What it does:**
-- Detects recurring incident patterns (the same failure type happening again)
-- Flags repeat-offender entities that appear in multiple incidents (chronic weak points)
-- Surfaces the lesson attached to every critical/high incident
-- Flags decisions that turned out negative — especially irreversible ones
-- Identifies "hero dependency" — one person repeatedly resolving incidents
-- Ranks everything by relevance so the most important memory sits on top
-
-**Sunrise Care findings:**
-- 7 memory items surfaced from 6 recorded incidents (1 recurring pattern, 5 lessons, 1 bad decision)
-- Recurring outages flagged as a pattern, not one-offs
-- Hero-risk and chronic weak points surfaced for leadership follow-up
+A thin per-executive ownership footprint, not real organizational memory. Its question is answered live today by `GET /api/executive-memory/*`, backed by `domain/derived.js` (repeat offenders, lessons, hero risks and bad decisions derived from `workflow_failures`/`decision_history`), not this module.
 
 ---
 
-### Module 27 — Executive Context Intelligence
+### Module 27 — Executive Context Intelligence — RETIRED 2026-09-02
 
-Ranks "what matters right now" so leaders focus on the most urgent context first.
-
-**What it does:**
-- Pulls open incidents, critical SPOFs, pending decisions, dependency blast radius, and declining metrics into one feed
-- Scores each item by urgency: `CRITICAL / HIGH / MEDIUM / LOW`
-- Raises urgency for single points of failure that feed multiple downstream dependencies
-- Sorts the feed so the most pressing context is always on top
-- Gives the Executive Avatar its situational awareness
-
-**Sunrise Care findings:**
-- 19 context items ranked by urgency — 10 single-point-of-failure, 6 incidents, 2 weak metrics, 1 pending decision
-- Highest live urgency: **CRITICAL** — unbacked critical assets rank at the top of the "what matters now" feed
+A thin per-role scope assembler. Its question is answered live today by `GET /api/context/*` (`context_items`, the real "what matters right now" feed that also powers the dashboard), not this module.
 
 ---
 
 ### Module 28 — Universal Dependency Graph
+
+**Live at:** `GET /api/intelligence/dependency-graph` (wired 2026-09-02) — full dependency adjacency, cycle detection, longest dependency chain, over the graph's unified `depends_on` edges.
 
 Builds one dependency graph across the entire organization — agents, tools, workflows **and** people — not just agent-to-agent links.
 
@@ -798,6 +603,8 @@ Builds one dependency graph across the entire organization — agents, tools, wo
 
 ### Module 29 — Organizational Relationship Intelligence
 
+**Live at:** `GET /api/intelligence/relationships` (wired 2026-09-02) — relationship-type distribution, collaboration link count, and entities with no relationships at all, across the whole graph.
+
 Scores the *health* of every ownership/backup relationship, not just whether it exists.
 
 **What it does:**
@@ -812,27 +619,15 @@ Scores the *health* of every ownership/backup relationship, not just whether it 
 
 ---
 
-### Module 30 — Knowledge Concentration Intelligence
+### Module 30 — Knowledge Concentration Intelligence — RETIRED 2026-09-02
 
-Pinpoints where critical knowledge is dangerously concentrated in too few people, using both a **bus factor** and a **Herfindahl-Hirschman concentration index (HHI)**.
-
-**What it does:**
-- Measures how much critical knowledge each person holds (knowledge areas + owned critical assets)
-- Calculates the organization's **bus factor** (how few people hold 50% of critical knowledge)
-- Computes the **HHI concentration index (0–10000)** and classifies it `HEALTHY / MODERATE / HIGH / SEVERE`
-- Reports the share held by the single most critical person
-- Flags critical knowledge areas with only a single holder, plus undocumented critical areas
-- Breaks concentration down per person (critical items held + how many are undocumented)
-
-**Sunrise Care findings:**
-- **Concentration level: SEVERE** (HHI 2850/10000)
-- **Bus factor: 2** — losing 2 people removes half of critical knowledge
-- Top person holds 40% of all critical knowledge
-- 4 critical knowledge areas have a single holder: Lead Scoring Logic, Payroll Rules, CRM Integration, Backup & Recovery
+A flat asset count per owner (`ownershipConcentration()`), found redundant later the same day as the 27-module retirement below. Its question is answered live today by `GET /api/knowledge/intelligence`, backed by `domain/derived.js`'s `knowledgeConcentration()` — criticality-**weighted**, not a flat count — not this module. `analytics.js`'s `ownershipConcentration()` was deleted with it; nothing else called it.
 
 ---
 
 ### Module 31 — Organizational Ecosystem Intelligence
+
+**Live at:** `GET /api/intelligence/ecosystem` (wired 2026-09-02) — internal vs. external entity census across every ontology type. Vendors/customers are external; `externalActors` is empty until W2 wires `data/company.json` in — see `backend/brain/README.md`'s "Known gaps".
 
 Maps the full ecosystem — internal tools plus external vendors and platforms — and measures external dependency exposure.
 
@@ -849,7 +644,7 @@ Maps the full ecosystem — internal tools plus external vendors and platforms �
 ---
 
 ### Module 32 — Dependency Impact Intelligence
-**Engineer:** Tahir
+**Engineer:** Tahir · **Live at:** `GET /api/intelligence/dependency-impact` (wired 2026-09-02) — blast-radius ranking across every entity type, unlike the agent-only `GET /api/dependencies/agent-spofs`.
 
 Simulates a failure at any node and walks the dependency graph (breadth-first, with impact decay) to reveal the full cascade blast radius, then ranks the organization's true single points of failure.
 
@@ -861,20 +656,16 @@ Simulates a failure at any node and walks the dependency graph (breadth-first, w
 
 ---
 
-### Module 33 — Dependency Evolution Intelligence
+### Module 33 — Dependency Evolution Intelligence — RETIRED 2026-09-02
 **Engineer:** Tahir
 
-Diffs dependency snapshots over time to show how coupling is growing or shrinking, and tracks whether the organization is getting more or less fragile.
-
-**What it does:**
-- Compares two dependency snapshots and diffs added / removed edges
-- Tracks how each node's coupling has evolved between snapshots
-- Flags whether overall fragility is trending up or down
-- Gives leadership an early read on structural drift
+Computed a current-state snapshot and labelled it a "trend" — the graph has no time dimension to actually diff against (see the brain's own README, "Known gaps"). Recording real change over time is BUILD_SPEC W5; until that exists, no module can honestly answer this question, including this one.
 
 ---
 
 ### Module 34 — Hidden Dependency Intelligence
+
+**Live at:** `GET /api/intelligence/hidden-dependencies` (wired 2026-09-02) — transitive dependencies that are real but not directly declared; the "undocumented but real" question M28/M29 build on.
 
 Surfaces indirect couplings that no single module can see on its own.
 
@@ -892,6 +683,8 @@ Surfaces indirect couplings that no single module can see on its own.
 
 ### Module 35 — Organizational Network Intelligence
 
+**Live at:** `GET /api/intelligence/network-centrality` (wired 2026-09-02) — all-entity-type degree centrality over the full Knowledge Graph. **Not** the same computation as `GET /api/network/centrality` (`routes/network.js`), which is people-only, ownership-derived centrality read straight from Supabase — named apart on purpose.
+
 Applies network science to reveal who actually holds the organization together and where it bottlenecks.
 
 **What it does:**
@@ -907,18 +700,12 @@ Applies network science to reveal who actually holds the organization together a
 ---
 ## Constitutional Intelligence, Automation & Meta-Brain (Modules 36–55)
 
-From here the engine moves from analysis into **constitutional intelligence, deeper prediction, organizational science, and governed automation**. The sequence continues unbroken — 36 through 55, nothing skipped, though not all of it runs live: M47 was one of four modules retired on 2026-08-24 (see `backend/brain/data/constitutional-modules.js`) and M49 has no mounted endpoint. Of this range, M37 and M39–M45 are served live under `/api/intelligence/*` via the Node brain (`backend/brain/`). **Two constitutional rules are enforced here: Truth (M46) gates the Advisor (M48), and the Meta-Brain Orchestrator (M55) always runs last** — though neither runs from any endpoint today; see the system diagnostic for the brain's current reachability.
+From here the engine moves from analysis into **constitutional intelligence, deeper prediction, and organizational science**. The sequence continues unbroken — 36 through 55, nothing skipped in the numbering — but 10 codes in this range (M36, M38, M46, M48, M50, M51, M52, M53, M54, M55) were retired on 2026-09-02 (see `backend/brain/data/constitutional-modules.js`), on top of M47, retired 2026-08-24. Of this range, M37, M39–M45, and M49 (wired 2026-09-02) — 9 modules — are served live under `/api/intelligence/*` via the Node brain (`backend/brain/`). The two constitutional ordering rules this section used to describe — Truth (M46) gates the Advisor (M48), Meta-Brain (M55) runs last — were retired along with those three modules; see each module's entry below for what answers the same question live instead.
 
-### Module 36 — Signal Intelligence
-**Engineer:** Kamran · `GET /api/intelligence/signals`
+### Module 36 — Signal Intelligence — RETIRED 2026-09-02
+**Engineer:** Kamran
 
-An early-warning system that fuses ownership, dependency, incident, and metric signals into a single organizational stability score and surfaces the active warning signals leadership should act on before they escalate.
-
-**What it does:**
-- Collects weak signals from across every layer (ownership, dependency, incidents, declining metrics)
-- Computes an organizational stability score
-- Ranks active signals by how close they are to becoming a real problem
-- Feeds the constitutional layer with a verified early-warning feed
+A repackaging of M01's unowned-assets list and M03's SPOF list as a flat "signal feed" — no content beyond what those two already report. Its question is answered live today by `GET /api/context/feed`, a real curated priority feed (`context_items`), not this module.
 
 ### Module 37 — Pattern Intelligence
 **Engineer:** Tahir
@@ -931,16 +718,10 @@ Detects recurring patterns across incidents and behavior, and classifies how reg
 - Classifies every pattern as `REGULAR / PERIODIC / SPORADIC`
 - Flags the recurring patterns most likely to strike again so leadership can pre-empt them
 
-### Module 38 — Opportunity Intelligence
-**Engineer:** Kamran · `GET /api/intelligence/opportunities`
+### Module 38 — Opportunity Intelligence — RETIRED 2026-09-02
+**Engineer:** Kamran
 
-Turns risk findings inside-out into a prioritized opportunity backlog — the highest-leverage improvements and quick wins that raise organizational health the fastest.
-
-**What it does:**
-- Converts every open risk into a concrete improvement opportunity
-- Scores each opportunity by leverage (health gained vs. effort required)
-- Separates quick wins from strategic bets
-- Gives leadership a ranked "where to invest next" backlog
+A thin "zero dependents" check over systems/agents — one signal, no real leverage scoring. `GET /api/intelligence/opportunities` (still live) is `domain/analyses.js`'s dataset-derived `improvementOpportunities()`, a separate implementation that was never this module in the first place — see `backend/brain/README.md`'s note on the M36/M38/M39/M40/M46/M48/M54 code-collision this catalog already resolved once.
 
 ### Module 39 — Capability Intelligence
 **Engineer:** Kamran · `GET /api/intelligence/capability`
@@ -1019,35 +800,23 @@ Compares the organization's key metrics against industry baselines to show where
 - Turns internal scores into external context leadership can act on
 - Highlights the biggest gaps to close to reach industry-standard resilience
 
-### Module 46 — Truth Intelligence *(gates Module 48)*
-**Engineer:** Kamran · `GET /api/intelligence/truth`
+### Module 46 — Truth Intelligence *(formerly gated Module 48)* — RETIRED 2026-09-02
+**Engineer:** Kamran
 
-The constitutional truth layer: verifies every claimed fact against the underlying data, assigns a data-trust score, and only lets **verified truths** pass downstream. Enforces the core principle *"truth before recommendation"* — nothing reaches the Advisor until it is verified here.
-
-**What it does:**
-- Re-checks every downstream claim against the raw organizational data
-- Assigns a confidence / data-trust score to each fact
-- Blocks unverified or contradicted claims from moving forward
-- Acts as the gate that Module 48 must pass through
+Verified the graph's own structural integrity plus a bus-derived package count that was always empty — self-referential, not an organizational answer. `GET /api/intelligence/truth` (still live) was never this module in the first place: it has always been `routes/truth/truth.js`'s real claims-verification system over the `truth_claims` table. This module had no endpoint of its own even before retirement.
 
 ### Module 47 — Continuous Learning Intelligence — RETIRED 2026-08-24
 **Engineer:** Tahir
 
 Its own constitutional question was *"How does the Brain improve continuously?"* — but it measured the software's own run history, not the organization. See [Four analyses were retired](#four-analyses-were-retired-2026-08-24) for the full reasoning; nothing depended on it.
 
-### Module 48 — Autonomous Advisor
-**Engineer:** Kamran · `GET /api/intelligence/advisor`
+### Module 48 — Autonomous Advisor — RETIRED 2026-09-02
+**Engineer:** Kamran
 
-Generates leadership recommendations **only from truths verified by Module 46** — never from raw or unverified signals — so every recommendation is defensible and evidence-backed.
-
-**What it does:**
-- Reads only the verified truths passed through Module 46 (never raw or unverified signals)
-- Generates specific, evidence-backed leadership recommendations
-- Attaches the supporting truth and its confidence to every recommendation so it is defensible
-- Refuses to recommend anything that Truth Intelligence has not verified
+Deduplicated other modules' `recommendations` arrays into a generic advice list, gated on the now-also-retired M46. `GET /api/intelligence/advisor` (still live) is `domain/analyses.js`'s dataset-derived `playbookAdvice()`, a separate implementation. The real, comprehensive recommendation engine is Module 04 above (`GET /api/intelligence/recommendations`), which this module never added to.
 
 ### Module 49 — Digital Twin Intelligence
-**Engineer:** Tahir
+**Engineer:** Tahir · **Live at:** `GET /api/intelligence/digital-twin` (wired 2026-09-02) — a full graph snapshot (every entity and relationship, plus stats); nothing else returns the whole graph in one call.
 
 Builds a live digital-twin snapshot of the organization, computes a twin health index, simulates scenarios against the twin, and checks that the twin stays synchronized with reality.
 
@@ -1057,80 +826,44 @@ Builds a live digital-twin snapshot of the organization, computes a twin health 
 - Runs scenarios against the twin without touching production reality
 - Continuously checks that the twin stays synchronized with the real organization
 
-### Module 50 — Organizational Brain Core Logic
-**Engineer:** Kamran · `GET /api/intelligence/brain-core`
+### Module 50 — Organizational Brain Core Logic — RETIRED 2026-09-02
+**Engineer:** Kamran
 
-The reasoning core that fuses every verified signal into one brain index and an operating posture — the organization's current "state of mind" (stable, strained, or critical).
+A mechanical listing of what ran and one finding per prior module — not weighted, not scored. `GET /api/intelligence/brain-core` (still live) was never this module in the first place: it has always been `routes/intelligence/brainCore.js`'s own 10-signal weighted fusion over `domain/derived.js`.
 
-**What it does:**
-- Fuses every verified signal from across the Brain into one unified brain index
-- Determines the organization's current operating posture: `STABLE / STRAINED / CRITICAL`
-- Explains the posture with the top contributing signals, not just a bare number
-- Acts as the reasoning core the Orchestrator (M55) reads before its final verdict
+### Module 51 — Self-Healing Intelligence — RETIRED 2026-09-02
+**Engineer:** Anusha
 
-### Module 51 — Self-Healing Intelligence
-**Engineer:** Anusha · `GET /api/self-healing`
+A generic issue list (unowned assets, SPOFs, isolated entities) with a canned action per issue type. `GET /api/self-healing/*` (still live) is a richer, `domain/derived.js`-backed system (real hero risks, workflow failures, tools without a configured backup), a separate implementation this module never fed.
 
-Continuously scans for blocked workflows, actor collisions, single points of failure, policy breaks, and escalation conditions, then emits healing intents (pause / unblock / reassign) to Module 16 for governed execution. It never acts on its own — it detects and emits an intent, governed by the current execution mode (`advisory` by default).
+### Module 52 — Governance Automation Intelligence — RETIRED 2026-09-02
+**Engineer:** Anusha
 
-**What it does:**
-- Continuously scans for blocked workflows, actor collisions, single points of failure, policy breaks, and escalation conditions
-- Emits healing intents (pause / unblock / reassign) to Module 16 for governed execution
-- Never acts on its own — it only detects and proposes, governed by the active execution mode (`advisory` by default)
-- Turns detected fragility into a safe, reviewable recovery action
+Recomputed the same governance-coverage question Module 19 already answers — internal duplication within the catalog itself, not just overlap with SQL. `GET/POST /api/automation/governance` (still live) is a separate system (the `pending_decisions` approval queue), never this module.
 
-### Module 52 — Governance Automation Intelligence
-**Engineer:** Anusha · `GET/POST /api/automation/governance`
+### Module 53 — Continuity Automation Intelligence — RETIRED 2026-09-02
+**Engineer:** Anusha
 
-Runs five governance rules over live activity, detects policy violations, and emits enforcement intents to Module 16 — turning Module 19's governance findings into governed action.
+Read Module 18's own continuity score and added a generic "failover + backup owner" action per SPOF — near-total overlap with M18, not new analysis. `GET/POST /api/automation/continuity` (still live) is a separate system (tool backup-coverage counts), never this module.
 
-**What it does:**
-- Runs five governance rules over live organizational activity
-- Detects policy violations as they happen (missing owner, no backup, undocumented critical asset, stale policy, unaccountable action)
-- Emits enforcement intents to Module 16 instead of acting directly
-- Turns Module 19's governance findings into governed, auditable action
+### Module 54 — Simulation Universe — RETIRED 2026-09-02
+**Engineer:** Kamran
 
-### Module 53 — Continuity Automation Intelligence
-**Engineer:** Anusha · `GET/POST /api/automation/continuity`
+Picked the top 5 highest-fan-in entities and computed a raw cascade count — no real health-delta. Its question is answered live today by `GET /api/simulations/rank`, `domain/simulations.js`'s `rankAllScenarios()` (every employee, every high/critical agent and platform, ranked by real health-delta), not this module.
 
-Detects five classes of continuity risk (owner loss, undocumented critical assets, single points of failure, and more) and emits recovery intents to Module 16 so the organization can respond before a disruption becomes an outage.
+### Module 55 — Organizational Intelligence Orchestrator (Meta-Brain) — RETIRED 2026-09-02
+**Engineer:** Kamran
 
-**What it does:**
-- Detects five classes of continuity risk (owner loss, undocumented critical assets, single points of failure, missing backups, fragile workflows)
-- Emits recovery intents to Module 16 before a risk becomes an outage
-- Operates under the active governance mode so nothing auto-executes without authorization
-- Turns Module 18's continuity findings into pre-emptive recovery action
+Fused prior modules' confidence and recommendations into one summary — a third fusion system alongside two that already exist and already ship. `GET /api/intelligence/orchestrator` (still live) is `routes/intelligence/orchestrator.js`'s own 13-module weighted fusion; `GET /api/intelligence/brain-core` is a second, independent one. Neither is this module.
 
-### Module 54 — Simulation Universe
-**Engineer:** Kamran · `GET /api/intelligence/simulation-universe`
-
-Runs a whole universe of what-if scenarios (people leaving, agents failing, tools going offline, cascading combinations) and ranks them by survivability so leadership sees exactly where the organization would break first.
-
-**What it does:**
-- Runs a whole universe of what-if scenarios — people leaving, agents failing, tools going offline, and cascading combinations
-- Recalculates organizational survivability for every scenario
-- Ranks all scenarios so leadership sees exactly where the organization breaks first
-- Turns single what-if checks into a full stress-test of the entire organization
-
-### Module 55 — Organizational Intelligence Orchestrator (Meta-Brain)
-**Engineer:** Kamran · `GET /api/intelligence/orchestrator`
-
-The Meta-Brain. **Runs last.** It fuses every module's output into one Organizational Intelligence Score and a final verdict, enforcing the constitutional rule that the orchestrator only speaks after all verified intelligence is in.
-
-**What it does:**
-- Runs last — only after every other module's verified output is in
-- Fuses all module outputs into one Organizational Intelligence Score and a final verdict
-- Enforces the constitutional rule that the Meta-Brain speaks only on verified intelligence
-- Delivers leadership the single top-level answer: how intelligent and resilient the organization really is
-
-> **Constitutional layer (Kamran):** Modules 36, 38, 39, 40, 46, 48, 50, 54, 55 form Phase 6 — served under `/api/intelligence/*`. **Truth (46) gates Advisor (48); Orchestrator (55) runs last.**
+> **What remains live from this range:** Module 37 (Tahir), 39 and 40 (Kamran), and 49 (Tahir, wired 2026-09-02) — served under `/api/intelligence/*`. Modules 36, 38, 46, 48, 50, 54, 55 were retired 2026-09-02; each had a richer, already-live answer elsewhere (see each entry above).
 >
-> **Automation layer (Anusha):** Modules 51, 52, 53 each *detect → emit intent → Module 16 executes* under the active governance mode. *Automation follows intelligence — never automate an action that was not first verified.* Modules 15, 16, 21, and 23 (also Anusha) are documented in sequence above.
+> **Automation layer (Anusha):** all three modules (51, 52, 53) were retired 2026-09-02 — 52 and 53 duplicated already-live brain modules (M19, M18), and 51 duplicated an already-live SQL system. The *detect → emit intent → Module 16 executes* pattern they described is not implemented by any live code today; `/api/automation/*` and `/api/self-healing/*` are read-only advisory views, not an intent/execution pipeline. Modules 15, 16, 21, and 23 (also Anusha) were retired for the same reason — see their entries above.
 
 ---
 ## Organizational Brain — analysis library (`backend/brain/`)
 
-The analyses (M01–M55, minus four retired — see below) run over one shared
+The analyses (M01–M55, 23 remaining after three retirement passes — see below) run over one shared
 organizational Knowledge Graph built from Supabase. **It is a library, not a
 service:** nothing is mounted, there is no `/api/brain`, and routes call it
 directly.
@@ -1176,53 +909,84 @@ M47 Continuous Learning all measured the **software**, not the organization —
 they read a log of Brain runs. M47's own constitutional question was *"How does
 the Brain improve continuously?"*. Every question they claimed is already
 answered from real tables by `/api/learning` (`/failures`, `/decisions`),
-`/api/forecast` and `/api/memory`. Nothing depended on them. **51 remain.**
+`/api/forecast` and `/api/memory`. Nothing depended on them. **51 remained.**
 
-### Prediction, Learning & Organizational Science — *Tahir* (`backend/brain/modules/implementations.js`)
-The forward-looking and inward-looking intelligence. Every module below consumes the shared Knowledge Graph and returns a real Intelligence Package (prediction/insight + confidence + evidence + recommended action) — no stubs.
+### A further 27 analyses were retired (2026-09-02)
 
-| Module | Name | What it computes at runtime |
-|---|---|---|
-| M11 | Predictive Risk | Projects each entity's future risk from dependency-cascade depth + ownership gaps; flags imminent, high-likelihood threats before they fail |
-| M13 | Human-AI Collaboration | AI-adoption vs. human-dependency balance and the collaboration orientation |
-| M32 | Dependency Impact | Impact score & severity for every dependency; surfaces the highest-impact links |
-| M33 | Dependency Evolution | Criticality distribution, dependency cycles and directional trend |
-| M37 | Pattern | Structural anomalies — isolated nodes and over-connected hubs |
-| M41 | Organizational DNA | Human vs. automation share and the org's structural orientation |
-| M42 | Culture | Collaboration vs. silo signals, including siloed people and transitional signals |
-| M43 | Organizational Maturity | Maturity dimensions, current level and the gap to the next level |
-| M44 | Organizational Behavior | Dominant operating behavior and orientation |
-| M45 | Benchmark | Four internal benchmarks fused into a single benchmark score |
-| M49 | Digital Twin | A live twin snapshot of the organization across all intelligence layers |
+M05, M06, M08, M09, M11, M13, M14, M15, M16, M21, M22, M23, M24, M25, M26,
+M27, M33, M36, M38, M46, M48, M50, M51, M52, M53, M54, M55 — audited against
+the live SQL / `domain/derived.js` system already answering the same-sounding
+question and found redundant with something richer and already shipping.
+**24 remained.** See each module's entry above for what replaced it, and
+`backend/brain/data/constitutional-modules.js`'s header for the full audit
+notes (including that M52/M53 duplicated *other brain modules*, not just SQL).
 
-### Executive Experience & Autonomous Operations — *Anusha* (`backend/brain/modules/implementations.js`)
-The executive-facing surface and the autonomy layer. Automation always *follows* intelligence — nothing is auto-executed that was not first verified.
+### One more was retired later the same day (2026-09-02)
 
-| Module | Name | What it computes at runtime |
-|---|---|---|
-| M15 | Verification | Per-asset verification rate from owners + intact dependencies; lists integrity errors |
-| M16 | Workflow Orchestration | Topological run order with owners, readiness and bottlenecks |
-| M21 | Executive Avatar | Role-aware executive persona and how each briefing opens |
-| M23 | Executive Briefing | Fuses health (M25), risk (M03), advisor (M48) and prediction (M11) into a role-aware briefing with prioritized recommendations |
-| M51 | Self-Healing | Detects issues, marks the auto-healable ones and emits the healing workflow |
-| M52 | Governance Automation | Compliance rate + the governance actions to auto-enforce |
-| M53 | Continuity Automation | Continuity score, resilience and a prioritized recovery plan |
+M30 Knowledge Concentration was found while auditing the 24 survivors for
+*live wiring*, not just SQL duplication (see the next section). Its
+`ownershipConcentration()` (a flat asset count per owner) is a strictly
+weaker duplicate of `domain/derived.js`'s `knowledgeConcentration()`
+(criticality-**weighted**), already live at `GET /api/knowledge/intelligence`
+— the exact question M30 asks, answered richer. **23 remain.**
+
+### Twelve modules were wired up to real new endpoints (2026-09-02)
+
+The same audit that found M30 also checked the other 23 survivors for a live
+route, not just for SQL duplication. Five had no route calling them at all —
+M28, M29, M31, M34, M35 — now live at `GET /api/intelligence/{dependency-
+graph,relationships,ecosystem,hidden-dependencies,network-centrality}`. A
+further seven had a same-named or nearest-analogue SQL route that turned out
+to answer a narrower or structurally different question: M01, M02, M03, M07,
+M20 (see each module's entry above), M32
+(`GET /api/intelligence/dependency-impact`) and M49
+(`GET /api/intelligence/digital-twin`). Every one of these ten new routes is
+covered by `backend/tests/realityRoutes.test.js` and verified live against
+the real Supabase-backed graph. No frontend card consumes any of them yet.
+
+### Prediction & Organizational Science — *Tahir* (`backend/brain/modules/implementations.js`)
+The forward-looking and inward-looking intelligence that remains. Every module below consumes the shared Knowledge Graph and returns a real Intelligence Package (prediction/insight + confidence + evidence + recommended action) — no stubs.
+
+| Module | Name | What it computes at runtime | Endpoint |
+|---|---|---|---|
+| M32 | Dependency Impact | Impact score & severity for every dependency; surfaces the highest-impact links | `/api/intelligence/dependency-impact` (2026-09-02) |
+| M37 | Pattern | Structural anomalies — isolated nodes and over-connected hubs | `/api/intelligence/pattern` |
+| M41 | Organizational DNA | Human vs. automation share and the org's structural orientation | `/api/intelligence/dna` |
+| M42 | Culture | Collaboration vs. silo signals, including siloed people and transitional signals | `/api/intelligence/culture` |
+| M43 | Organizational Maturity | Maturity dimensions, current level and the gap to the next level | `/api/intelligence/maturity` |
+| M44 | Organizational Behavior | Dominant operating behavior and orientation | `/api/intelligence/behavior` |
+| M45 | Benchmark | Four internal benchmarks fused into a single benchmark score | `/api/intelligence/benchmark` |
+| M49 | Digital Twin | A live twin snapshot of the organization across all intelligence layers | `/api/intelligence/digital-twin` (2026-09-02) |
+
+### Executive Experience & Autonomous Operations — *Anusha*
+
+All seven of Anusha's modules (M15, M16, M21, M23, M51, M52, M53) were retired
+2026-09-02 — each was redundant with a richer, already-live system (real
+verification actions, real workflow-orchestration collision detection, a real
+avatar gate-check/escalation system, a real daily briefing, and for the three
+"automation" modules, two of them duplicated already-live brain modules M18
+and M19 outright). The *detect → emit intent → execute* automation pattern
+they described is not implemented by any live code today — `/api/automation/*`
+and `/api/self-healing/*` are read-only advisory views. See each module's
+entry above.
 
 ### Real logic — no stubs
 
-Every one of the 51 analyses has a **real implementation** in
+Every one of the 23 remaining analyses has a **real implementation** in
 `backend/brain/modules/implementations.js` that computes genuine intelligence
 from the knowledge graph (ownership coverage, single points of failure,
-dependency cascades, ownership concentration, governance gaps, health index,
-truth verification, autonomous advice, meta-fusion). Two constitutional rules
-are enforced by `resolveOrder()`:
+dependency cascades, governance gaps, cycle detection, network centrality,
+ecosystem composition). The two constitutional ordering rules this file used
+to describe — Truth (M46) gates the Advisor (M48), Meta-Brain (M55) runs last
+— were retired along with those three modules; see the retirement note above
+for what answers each of those questions live instead.
 
-- **Truth (M46) gates the Autonomous Advisor (M48)** — advice is withheld unless truth is verified.
-- **Meta-Brain Orchestrator (M55) always runs last** and fuses all intelligence into one executive answer.
-
-Six analyses (M11, M23, M24, M48, M50, M55) read prior analyses' output and
-return different answers without it, which is why dependency ordering survived
-the runtime's removal.
+Dependency ordering itself survived the runtime's removal and is still
+exercised by `resolveOrder()`: `dependsOn` expresses real prerequisite
+structure among the 23 modules that remain (e.g. M49 Digital Twin needs
+M28+M29+M31, which resolve further down to M01/M02/M34). None of the 23
+currently read `context.priorIntel` themselves — the six that did (M11, M23,
+M24, M48, M50, M55) were retired along with it.
 
 ### Run & test
 
@@ -1242,11 +1006,12 @@ endpoints answer `503` — **nothing is ever served from stand-in data.**
 
 ### Verify
 
-`npm test` is the proof. `brain.smoke.test.js` asserts all 51 analyses exist,
-run without error, and order correctly (every dependency before its dependent,
-Truth before Advisor, Meta-Brain last), against a fixture graph with no database.
-`intelligence.verify.test.js` runs five end-to-end scenarios and checks each
-one's declared dependencies actually ran first.
+`npm test` is the proof. `brain.smoke.test.js` asserts all 23 analyses exist,
+run without error, and order correctly (every dependency before its dependent),
+against a fixture graph with no database. `intelligence.verify.test.js` runs
+five end-to-end scenarios and checks each one's declared dependencies
+actually ran first. `realityRoutes.test.js` boots the real routers and
+verifies the twelve 2026-09-02 wire-ups end-to-end over HTTP.
 
 Full details: see [`backend/brain/README.md`](backend/brain/README.md).
 
@@ -1421,6 +1186,27 @@ cd backend && npm test
 | `GET /api/intelligence/simulation-universe` | 54 | Ranked what-if scenarios + survivability |
 | `GET /api/intelligence/orchestrator` | 55 | Organizational Intelligence Score + verdict |
 
+#### Organizational Brain — graph endpoints (wired 2026-09-02)
+
+Twelve modules found to have genuinely missing live capability during the 2026-09-02 audit, now exposed directly from the Knowledge Graph (`routes/intelligence/reality.js` and `routes/intelligence/prediction.js`) rather than from SQL. Each is named apart from its nearest same-sounding SQL endpoint above because it answers a broader or structurally different question — see each module's entry earlier in this document for why.
+
+| Endpoint | Module | Description |
+|----------|--------|-------------|
+| `GET /api/intelligence/ownership-map` | 01 | Every asset across every asset type, owned or not — asset-first, unlike `GET /api/ownership` |
+| `GET /api/intelligence/dependency-fanin` | 02 | Fan-in ranking + critical-dependency list over the graph's unified `depends_on` edges |
+| `GET /api/intelligence/organizational-risk` | 03 | SPOF + critical-dependency risk score across every asset type, not just agents |
+| `GET /api/intelligence/ai-agent-governance` | 07 | Per-agent owners/dependsOn/governedBy/supports, automation agents and platforms both |
+| `GET /api/intelligence/reporting-chains` | 20 | Org-chart reporting structure (`reports_to`/`manages`) — not the RACI model at `/api/accountability/*` |
+| `GET /api/intelligence/dependency-graph` | 28 | Full dependency adjacency, cycle detection, longest dependency chain |
+| `GET /api/intelligence/relationships` | 29 | Relationship-type distribution, collaboration links, isolated entities |
+| `GET /api/intelligence/ecosystem` | 31 | Internal vs. external entity census across every ontology type |
+| `GET /api/intelligence/dependency-impact` | 32 | Blast-radius ranking across every entity type, not just agents |
+| `GET /api/intelligence/hidden-dependencies` | 34 | Transitive dependencies that are real but not directly declared |
+| `GET /api/intelligence/network-centrality` | 35 | All-entity-type degree centrality — not `GET /api/network/centrality` (people-only) |
+| `GET /api/intelligence/digital-twin` | 49 | A full graph snapshot: every entity and relationship, plus stats |
+
+No frontend card consumes any of these twelve yet — see `backend/tests/realityRoutes.test.js` for end-to-end verification, and each module's entry above for the audit reasoning.
+
 #### Environment Setup
 
 ```bash
@@ -1497,7 +1283,7 @@ OBA-Core-Horquva/
 │   │   ├── index.js                           # loadGraph() / run() / runMany() — the whole public API
 │   │   ├── README.md                          # Library documentation
 │   │   ├── data/
-│   │   │   ├── constitutional-modules.js      # Analysis catalog — 51 entries (code, name, owner, layer, dependsOn)
+│   │   │   ├── constitutional-modules.js      # Analysis catalog — 23 entries (code, name, owner, layer, dependsOn)
 │   │   │   └── ontology.js                    # Entity + relationship types (shared organizational meaning)
 │   │   ├── knowledge/
 │   │   │   ├── graphLoader.js                 # Supabase → graph. The one place organizational data enters.
@@ -1507,7 +1293,7 @@ OBA-Core-Horquva/
 │   │   │   └── intelligenceExchange.js        # Intelligence Package format + confidence fusion
 │   │   └── modules/
 │   │       ├── analytics.js                   # Shared graph algorithms (SPOF, centrality, cycles)
-│   │       └── implementations.js             # All 51 analyses
+│   │       └── implementations.js             # All 23 analyses
 │   └── routes/
 │       ├── agents.js                          # /api/agents
 │       ├── ownership.js                       # /api/ownership
@@ -1576,7 +1362,12 @@ OBA-Core-Horquva/
 │       │   ├── stt.js                         # Speech-to-text transcription
 │       │   └── intentParser.js                # Transcript → structured intent
 │       └── intelligence/
-│           └── constitutional.js              # /api/intelligence/* — Phase 6 endpoints (M36–M55)
+│           ├── constitutional.js              # /api/intelligence/{signals,opportunities,capability,alignment,advisor,simulation-universe} (dataset-derived)
+│           ├── prediction.js                  # /api/intelligence/{pattern,dna,culture,maturity,behavior,benchmark,ownership-coverage,capability-inventory,continuity,governance,recommendations,dependency-impact,digital-twin,graph/*} (graph-derived)
+│           ├── reality.js                     # /api/intelligence/{ownership-map,reporting-chains,dependency-fanin,organizational-risk,ai-agent-governance,dependency-graph,relationships,ecosystem,hidden-dependencies,network-centrality} — wired 2026-09-02
+│           ├── _graphEndpoint.js               # Shared GET-one-analysis handler used by prediction.js + reality.js
+│           ├── brainCore.js                   # /api/intelligence/brain-core — 10-signal weighted fusion
+│           └── orchestrator.js                 # /api/intelligence/orchestrator — 13-signal weighted fusion
 │
 ├── frontend/
 │   ├── app/
@@ -1729,7 +1520,7 @@ OBA-Core-Horquva/
 | Module 54 | Simulation Universe | Kamran |
 | Module 55 | Organizational Intelligence Orchestrator (Meta-Brain) | Kamran |
 
-> **Implementation (`backend/brain/`).** All 51 analyses run over one shared Knowledge Graph, documented in the **Organizational Brain — analysis library** section. Every one has a **real, graph-derived implementation** in `backend/brain/modules/implementations.js` — there are **no stub responses**. Ownership spans all four engineers: **Huzaifa** — Knowledge layer (`backend/brain/knowledge/`); **Kamran** — core reasoning & Meta-Brain; **Tahir** — Prediction & Organizational Science (M11, M13, M32, M33, M37, M41–M45, M49); **Anusha** — Executive Experience & Autonomous Operations (M15, M16, M21, M23, M51, M52, M53).
+> **Implementation (`backend/brain/`).** The table above is the original constitutional design (all 55 codes, as assigned); it is a historical registry, not a current-status list. **23 analyses run live today** over one shared Knowledge Graph, documented in the **Organizational Brain — analysis library** section — every one has a **real, graph-derived implementation** in `backend/brain/modules/implementations.js`, with **no stub responses**. 32 codes were retired across three passes (2026-08-24, then two passes on 2026-09-02) because a richer, already-live SQL/`domain/derived.js` system already answered the same question — see each module's entry above. Active ownership: **Huzaifa** — Knowledge layer, 11 modules (`backend/brain/knowledge/`); **Kamran** — core reasoning, 4 modules (M04, M18, M39, M40); **Tahir** — Prediction & Organizational Science, 8 modules (M32, M37, M41–M45, M49); **Anusha's** entire layer (M15, M16, M21, M23, M51, M52, M53) was retired 2026-09-02.
 
 ---
 
@@ -1738,6 +1529,8 @@ OBA-Core-Horquva/
 > The **Master Module Registry (M01–M55)** is the **single source of truth** for OBA Core. Module definitions are locked — no renaming, merging, or duplication.
 
 Phase 6 completes Kamran's constitutional modules. These build on the truth-before-recommendation principle: **M46 (Truth) verifies before M48 (Advisor) recommends**, and **M55 (Orchestrator)** fuses everything and is run **last**.
+
+> **M46, M48 and M55 were retired 2026-09-02** — each had a richer, already-live answer elsewhere (`truth.js`'s real claims-verification system, M04's recommendation engine, and two existing fusion systems, `orchestrator.js` and `brainCore.js`). The paragraph above describes the original Phase 6 constitutional design, not current runtime behavior — see each module's entry earlier in this document and `backend/brain/README.md`'s "Known gaps" for what replaced each one.
 
 ### New modules (Kamran)
 
@@ -1753,28 +1546,30 @@ Phase 6 completes Kamran's constitutional modules. These build on the truth-befo
 | Module 54 | Simulation Universe | Simulation | Kamran |
 | Module 55 | Organizational Intelligence Orchestrator (Meta-Brain) | Meta-Brain | Kamran |
 
-### Assignment summary (M01–M55 catalog, 51 active)
+### Assignment summary (M01–M55 catalog, original design — 51 total below)
 
-| Engineer | Modules | Count |
-|----------|---------|-------|
-| Muhammad Huzaifa | M01, M02, M03, M07, M08, M19, M20, M22, M28, M29, M31, M34, M35 | 13 |
-| Kamran | M04, M05, M06, M09, M14, M18, M24, M25, M26, M27, M30, M36, M38, M39, M40, M46, M48, M50, M54, M55 | 20 |
-| Muhammad Tahir | M11, M13, M32, M33, M37, M41, M42, M43, M44, M45, M49 | 11 |
-| Anusha | M15, M16, M21, M23, M51, M52, M53 | 7 |
+This is the original full-catalog assignment as first designed, kept as a historical record (module definitions are locked; retiring a code doesn't reassign it). For which of these 51 are actually **active** today, see the "four intelligence layers" table near the top of this document, or the numbers in parentheses here:
+
+| Engineer | Modules (original assignment) | Total | Active today |
+|----------|---------|-------|-------|
+| Muhammad Huzaifa | M01, M02, M03, M07, M08, M19, M20, M22, M28, M29, M31, M34, M35 | 13 | 11 |
+| Kamran | M04, M05, M06, M09, M14, M18, M24, M25, M26, M27, M30, M36, M38, M39, M40, M46, M48, M50, M54, M55 | 20 | 4 |
+| Muhammad Tahir | M11, M13, M32, M33, M37, M41, M42, M43, M44, M45, M49 | 11 | 8 |
+| Anusha | M15, M16, M21, M23, M51, M52, M53 | 7 | 0 |
 
 ### Running the Phase 6 modules
 
-All 51 analyses run inside the Node backend — see **How to Run** above. There is no separate CLI.
+23 analyses run live inside the Node backend today (M36, M38, M46, M48, M50, M54, M55 of the original Phase 6 set were retired 2026-09-02 — see above) — see **How to Run** above. There is no separate CLI.
 
 ### Phase 6 backend endpoints
 
-Every Phase 6 endpoint (M36, M38, M39, M40, M46, M48, M50, M54, M55, plus the `GET /api/intelligence` index) is listed with full descriptions in the **All API Endpoints** table above, and verification steps are in **`backend/readme.md`** and **`HOWTO_RUN_AND_CHECK.md`**.
+Of the original Phase 6 modules, M39 and M40 remain live under `/api/intelligence/*` (see the **All API Endpoints** table above); M36, M38, M46, M48, M50, M54, M55 were retired 2026-09-02, each replaced by a richer, already-live system named at each module's entry earlier in this document — the `GET /api/intelligence/signals`/`/opportunities`/`/truth`/`/advisor`/`/brain-core`/`/simulation-universe`/`/orchestrator` endpoints in the table above are those replacements, not those modules' own logic. Verification steps are in **`backend/brain/README.md`** and **`HOWTO_RUN_AND_CHECK.md`**.
 
 ---
 
 ### Contribution & Review Process
-All development on the OBA Core platform follows a centralized review workflow. Every team member's work — across the AI, Backend, and Frontend teams — is first submitted to Kamran Ai Engineer(Technical Lead) for review. Each member's files and modules are reviewed, validated, and integrated by Kamran to ensure constitutional consistency, code quality, and architectural alignment across all 51 analyses. Only after this review are the changes pushed to the GitHub main branch. This process guarantees that every contribution meets the project's engineering standards and preserves a single, unified source of truth.
+All development on the OBA Core platform follows a centralized review workflow. Every team member's work — across the AI, Backend, and Frontend teams — is first submitted to Kamran Ai Engineer(Technical Lead) for review. Each member's files and modules are reviewed, validated, and integrated by Kamran to ensure constitutional consistency, code quality, and architectural alignment across all 23 active analyses. Only after this review are the changes pushed to the GitHub main branch. This process guarantees that every contribution meets the project's engineering standards and preserves a single, unified source of truth.
 
 ---
 ### Release
-**This repository represents the MVP release of Horquva Organizational Brain Analysis (OBA) Core, delivering the 51-analysis constitutional engine, integrated backend APIs, and the executive frontend dashboard.**
+**This repository represents the MVP release of Horquva Organizational Brain Analysis (OBA) Core, delivering the 23-analysis constitutional engine, integrated backend APIs, and the executive frontend dashboard.**
