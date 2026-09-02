@@ -16,7 +16,7 @@ class SignalsRepository {
   /// server response; each map is parsed with [Signal.fromJson].
   Future<List<Signal>> fetchSignals() async {
     // Pretend we are calling a server.
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
 
     // This imitates the JSON a server (or database) would return. Replace this
     // block with a real HTTP/database call that returns the same shape.
