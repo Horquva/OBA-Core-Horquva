@@ -7,9 +7,9 @@ info:
     This spec covers the surface relevant to AI Security (agent identity, M2M client-credentials,
     authorization checks, health). Owner: Areeb Ahmad.
 
-    Signing: tokens are currently HS256, verified server-side. RS256 + JWKS
-    (GET /.well-known/jwks.json) for local verification by consumer services is the committed
-    pre-merge rollout (see AI_SECURITY_INTEGRATION_RESPONSE.md, Follow-up F2).
+    Signing: HS256 by default (dev); set IDENTITY_JWT_ALG=RS256 to sign asymmetrically and
+    publish public keys at GET /api/v1/.well-known/jwks.json for local verification by consumer
+    services (delivered — AI_SECURITY_INTEGRATION_RESPONSE.md, F2).
 
     Fail-closed contract: any condition that is not an explicit 2xx / decision:"allow" — including
     timeouts, 5xx, and 503 not_ready — MUST be treated by the client as DENY/HALT. The platform
@@ -273,11 +273,74 @@ paths:
                 items: { $ref: "#/components/schemas/Agent" }
         "403": { description: Missing identity:read permission, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
-  # ── Planned (Follow-up F1) — services exist; HTTP routes pending ──
-  # POST /identity/agents/{id}/transition   { to: "active"|"suspended"|"revoked"|"disabled"|"archived" }
-  # POST /identity/agents/{id}/rotate-secret  → { clientSecret }  (invalidates predecessor)
-  # ── Planned (Follow-up F2) — RS256 rollout ──
-  # GET  /.well-known/jwks.json  → JSON Web Key Set for local token verification
+  /identity/agents/{id}/transition:
+    post:
+      tags: [identity]
+      summary: Transition an AI agent's lifecycle (activate / suspend / disable / REVOKE / archive)
+      description: Requires identity:manage. `revoked` is a terminal, cryptographic revocation (distinct from `suspended`) and cascades session revocation.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransitionRequest" }
+      responses:
+        "200": { description: Updated agent, content: { application/json: { schema: { $ref: "#/components/schemas/Agent" } } } }
+        "403": { description: Missing identity:manage, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: Agent not found / cross-tenant, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+  /identity/agents/{id}/rotate-secret:
+    post:
+      tags: [identity]
+      summary: Rotate an AI agent's client secret (predecessor invalidated immediately)
+      description: Requires identity:manage. New secret returned ONCE.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: New secret, content: { application/json: { schema: { $ref: "#/components/schemas/SecretRotated" } } } }
+        "403": { description: Missing identity:manage, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: Agent not found, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /identity/machines/{id}/transition:
+    post:
+      tags: [identity]
+      summary: Transition a machine identity's lifecycle (mirror of the agent route)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransitionRequest" }
+      responses:
+        "200": { description: Updated machine, content: { application/json: { schema: { $ref: "#/components/schemas/Agent" } } } }
+        "403": { description: Missing identity:manage, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+  /identity/machines/{id}/rotate-secret:
+    post:
+      tags: [identity]
+      summary: Rotate a machine identity's client secret (predecessor invalidated)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: New secret, content: { application/json: { schema: { $ref: "#/components/schemas/SecretRotated" } } } }
+        "403": { description: Missing identity:manage, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /.well-known/jwks.json:
+    get:
+      tags: [auth]
+      summary: JSON Web Key Set — RS256 public keys for local token verification
+      description: >
+        Public keys for verifying token signatures without a round-trip. Full path:
+        /api/v1/.well-known/jwks.json. Returns { "keys": [] } while the platform runs
+        HS256-only (dev) — in that mode, verify by calling the platform. Symmetric
+        (HS256) secrets are never published.
+      security: []
+      responses:
+        "200":
+          description: Key set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Jwks" }
 
 components:
   securitySchemes:
@@ -338,6 +401,34 @@ components:
           properties:
             clientId: { type: string, description: Also present at top level for convenience }
             clientSecret: { type: string, description: Returned ONCE — store securely, never retrievable again }
+    TransitionRequest:
+      type: object
+      required: [to]
+      properties:
+        to:
+          type: string
+          enum: [active, suspended, disabled, revoked, archived]
+          description: Target lifecycle state. Invalid transitions return 400.
+    SecretRotated:
+      type: object
+      properties:
+        clientId: { type: string }
+        clientSecret: { type: string, description: New secret — returned ONCE; predecessor is invalid immediately }
+    Jwks:
+      type: object
+      properties:
+        keys:
+          type: array
+          description: RS256 public keys (empty in HS256-only mode)
+          items:
+            type: object
+            properties:
+              kty: { type: string, example: RSA }
+              kid: { type: string, example: rsa-prod-1 }
+              use: { type: string, example: sig }
+              alg: { type: string, example: RS256 }
+              n: { type: string }
+              e: { type: string, example: AQAB }
     Error:
       type: object
       properties:

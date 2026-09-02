@@ -27,10 +27,35 @@ function hmac(input, secret) {
 
 const nowSec = () => Math.floor(Date.now() / 1000)
 
+// Produce a signature for `input` under `key`, per the key's algorithm.
+function signWith(key, input) {
+  if (key.alg === 'HS256') return hmac(input, key.secret)
+  if (key.alg === 'RS256') return b64url(crypto.sign('sha256', Buffer.from(input), key.privateKey))
+  throw new TokenError('unsupported signing algorithm')
+}
+
+// Verify `sigB64` over `input` under `key`, per the key's algorithm. Constant-time for HS256.
+function verifyWith(key, input, sigB64) {
+  if (key.alg === 'HS256') {
+    const a = Buffer.from(sigB64)
+    const b = Buffer.from(hmac(input, key.secret))
+    return a.length === b.length && crypto.timingSafeEqual(a, b)
+  }
+  if (key.alg === 'RS256') {
+    if (!key.publicKey) return false
+    try {
+      return crypto.verify('sha256', Buffer.from(input), key.publicKey, fromB64url(sigB64))
+    } catch (_) {
+      return false
+    }
+  }
+  return false
+}
+
 /** Low-level sign. `claims.ttlSec` sets exp; pass a keyring to sign under a chosen key. */
 function sign(claims, { keyring = defaultKeyring, ttlSec } = {}) {
   const key = keyring.active()
-  const header = { alg: 'HS256', typ: 'JWT', kid: key.kid }
+  const header = { alg: key.alg, typ: 'JWT', kid: key.kid }
   const iat = nowSec()
   const body = {
     iss: config.jwt.issuer,
@@ -42,7 +67,7 @@ function sign(claims, { keyring = defaultKeyring, ttlSec } = {}) {
     ...claims,
   }
   const signingInput = `${b64urlJson(header)}.${b64urlJson(body)}`
-  return `${signingInput}.${hmac(signingInput, key.secret)}`
+  return `${signingInput}.${signWith(key, signingInput)}`
 }
 
 /** Verify signature + standard claims. Options: { keyring, expectedType }. */
@@ -62,10 +87,11 @@ function verify(token, { keyring = defaultKeyring, expectedType } = {}) {
   const key = header.kid ? keyring.get(header.kid) : keyring.active()
   if (!key) throw new TokenError('unknown signing key')
 
-  const expected = hmac(`${h}.${p}`, key.secret)
-  const a = Buffer.from(sig)
-  const b = Buffer.from(expected)
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new TokenError('bad signature')
+  // Anti-confusion: the header's declared algorithm MUST match the key's configured
+  // algorithm. This rejects alg:none and any HS/RS substitution attack outright.
+  if (header.alg !== key.alg) throw new TokenError('unexpected algorithm')
+
+  if (!verifyWith(key, `${h}.${p}`, sig)) throw new TokenError('bad signature')
 
   const t = nowSec()
   if (claims.nbf && t < claims.nbf) throw new TokenError('token not yet valid')

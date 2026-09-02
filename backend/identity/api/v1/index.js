@@ -13,6 +13,11 @@ const express = require('express')
 const router = express.Router()
 
 const { errorHandler } = require('./deps')
+const { jwks } = require('../../services/jwks')
+
+// Public JWKS for local token-signature verification by consumer services (RS256).
+// Empty `keys` while running HS256-only (dev) — verify by calling the platform instead.
+router.get('/.well-known/jwks.json', (req, res) => res.json(jwks()))
 
 router.get('/', (req, res) => {
   res.json({

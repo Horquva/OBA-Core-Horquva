@@ -31,8 +31,8 @@ decision before merge are listed explicitly in §"Follow-ups" — nothing here i
 | 1. Agent registration + metadata | `POST /api/v1/identity/agents` (perm `agent:create`) | returns `clientId` + `clientSecret` **once** |
 | 2. Credential issuance / secret gen | same call | secret shown once, stored only as a scrypt hash |
 | 3. Real-time credential verification | `POST /api/v1/auth/token` (client-credentials → JWT), then `POST /api/v1/authz/check` | see Inquiry 3 for verification model |
-| 4. Rotation + predecessor invalidation | **Follow-up F1** (service exists; HTTP route pending) | refresh tokens already rotate + replay-revoke |
-| 5. Cryptographic revocation (≠ suspension) | lifecycle state **`revoked`** (distinct from `suspended`); **Follow-up F1** for the agent HTTP route | revoke **cascades session revocation** immediately |
+| 4. Rotation + predecessor invalidation | ✅ `POST /api/v1/identity/agents/{id}/rotate-secret` (new secret once; predecessor invalid immediately) | refresh tokens also rotate + replay-revoke |
+| 5. Cryptographic revocation (≠ suspension) | ✅ `POST /api/v1/identity/agents/{id}/transition` `{ to: "revoked" }` — state **`revoked`** is distinct from `suspended` | revoke **cascades session revocation** immediately |
 | 6. Dynamic trust level querying/scoring | **Not a numeric score.** Trust is policy-based (RBAC + ABAC + trust policies → allow/deny) via `POST /api/v1/authz/check` | if you need a scalar score, that is a design discussion, not currently in scope |
 
 Request/response JSON samples are in `openapi.v1.yaml` and `INTEGRATION.md`.
@@ -41,9 +41,9 @@ Request/response JSON samples are in `openapi.v1.yaml` and `INTEGRATION.md`.
 
 - **Enforced mechanism:** ✅ **OAuth 2.0 Client-Credentials Grant with signed JWT** — your option 2. Not mTLS, not pre-shared HMAC.
   `POST /api/v1/auth/token` `{ clientId, clientSecret }` → `{ accessToken (JWT), refreshToken, tokenType:"Bearer", expiresIn:900 }`.
-- **Token verification model (committed):** we will roll out **RS256 + JWKS** — the platform will publish `GET /.well-known/jwks.json` so `agent_identity_service` verifies signatures **locally** (no per-call hop on the inference path), then confirms revocation. This is the agreed pre-merge deliverable (**Follow-up F2**; already the documented path in `DECISIONS.md`).
-  - **Today (dev):** tokens are **HS256**, verified server-side — so in dev, verify by calling the platform (`/authz/check` or `/auth/me`). Switch to local JWKS verification lands with F2 before integration merge.
-- **Service-identity renewal/rotation:** the AI Security subsystem gets its own machine/agent client credential; access tokens are short-lived (**15 min**), refresh tokens rotate on every use with replay→revoke-all. Client-secret rotation endpoint is **Follow-up F1**.
+- **Token verification model (✅ delivered):** **RS256 + JWKS** is implemented. Set `IDENTITY_JWT_ALG=RS256` (with a signing keypair) and the platform publishes `GET /api/v1/.well-known/jwks.json` so `agent_identity_service` verifies signatures **locally** (no per-call hop on the inference path), then confirms revocation. Proven: a consumer reconstructs the public key from the JWKS and verifies a live token (`tests/rs256_jwks.test.js` + live smoke). Algorithm-confusion and `alg:none` are rejected (header algorithm must match the key's configured algorithm); symmetric secrets are never published.
+  - **Dev default is still HS256** (JWKS returns `{ "keys": [] }`); in that mode verify by calling the platform (`/authz/check` or `/auth/me`). Production enables RS256 via config — no code change.
+- **Service-identity renewal/rotation:** the AI Security subsystem gets its own machine/agent client credential; access tokens are short-lived (**15 min**), refresh tokens rotate on every use with replay→revoke-all. Client-secret rotation endpoint: ✅ `POST /api/v1/identity/agents/{id}/rotate-secret`.
 
 ## Inquiry 4 — Multi-tenant architecture & authoritative agent binding
 
@@ -85,16 +85,16 @@ This directly resolves your `context_memory_isolation_service` impersonation ris
 
 ## Follow-ups (tracked; owners/timing)
 
-| ID | Item | For | Owner | Priority |
-|---|---|---|---|---|
-| **F1** | Wire agent/machine **transition** (activate/suspend/**revoke**) + **client-secret rotation** HTTP routes (services already exist; only users have the transition route today) | Inq 2/5/7 destructive tests | Areeb | P0-before-merge |
-| **F2** | **RS256 + JWKS** rollout — publish `/.well-known/jwks.json` for local token verification | Inq 3 | Areeb | P1-before-merge |
-| **F3** | Provision **dev/staging** deployment + M2M service credential | Inq 1/7 | DevSecOps (Ali) + Areeb | P0 |
-| **F4** | Granular machine-readable **error codes** (`AGENT_REVOKED`, `TENANT_MISMATCH`, …) mapped to current states | Inq 5 | Joint (Areeb + Taimour) | P1 |
-| **F5** | **Latency SLA** (p95/p99) via load testing; publish client timeout guidance | Inq 6 | Areeb + DevSecOps | P1 |
-| **F6** | **Synthetic-agent CI fixture** script | Inq 7 | Areeb | P1 |
+| ID | Item | For | Owner | Priority | Status |
+|---|---|---|---|---|---|
+| **F1** | Agent/machine **transition** (activate/suspend/**revoke**) + **client-secret rotation** HTTP routes | Inq 2/5/7 | Areeb | P0 | ✅ **DELIVERED** (routes live; `tests/f1_agent_lifecycle.test.js`) |
+| **F2** | **RS256 + JWKS** — publish `/api/v1/.well-known/jwks.json` for local token verification | Inq 3 | Areeb | P1 | ✅ **DELIVERED** (`tests/rs256_jwks.test.js` + live) |
+| **F3** | Provision **dev/staging** deployment + M2M service credential | Inq 1/7 | **DevSecOps (Ali)** + Areeb | P0 | ⏳ open — owned by Ali |
+| **F4** | Granular machine-readable **error codes** (`AGENT_REVOKED`, `TENANT_MISMATCH`, …) mapped to current states | Inq 5 | Joint (Areeb + Taimour) | P1 | ⏳ open |
+| **F5** | **Latency SLA** (p95/p99) via load testing; publish client timeout guidance | Inq 6 | Areeb + DevSecOps | P1 | ⏳ open |
+| **F6** | **Synthetic-agent CI fixture** script | Inq 7 | Areeb | P1 | ⏳ open |
 
 ## What is signed-off now (P0 gate)
-Inquiries **1, 3, 4** and the **fail-closed contract (6)** are answered and demonstrable today. Inquiry **2** ships with `openapi.v1.yaml`. **5 and 7** are answered with the follow-ups above. I propose we treat **F1 + F3** as the blockers to your Part-2 integration merge, and **F2/F4/F5/F6** as the joint pre-merge track — matching the sequencing in your own §3.
+Inquiries **1, 3, 4** and the **fail-closed contract (6)** are answered and demonstrable today. Inquiry **2** ships with `openapi.v1.yaml`. **F1** (agent lifecycle/revocation + secret rotation) and **F2** (RS256 + JWKS) are now **delivered and tested** — so the only remaining P0 blocker to your Part-2 integration merge is **F3** (dev/staging deployment + M2M credential), owned by DevSecOps (Ali). **F4/F5/F6** remain the joint pre-merge track — matching the sequencing in your own §3.
 
 **Constitutional confirmation:** `agent_identity_service` must consume these contracts and **must not** create a second identity system, JWT verifier, or tenancy store. The platform is the single authoritative source for agent identity, authentication, tenant binding, and authorization.

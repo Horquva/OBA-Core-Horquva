@@ -11,6 +11,7 @@ const svc = require('../../services/identity.service')
 const rbacSvc = require('../../services/rbac.service')
 const authz = require('../../services/authz.service')
 const life = require('../../services/lifecycle.service')
+const credential = require('../../services/credential.service')
 const secrets = require('../../services/secrets')
 const repos = require('../../repositories')
 const { publicSubject: sanitize } = require('../../services/auth.service')
@@ -57,6 +58,14 @@ router.post('/agents', requirePermission('agent', 'create'), asyncHandler(async 
 router.get('/agents', requirePermission('identity', 'read'), asyncHandler(async (req, res) => {
   res.json((await repos.agents.list(pool, orgOf(req))).map(sanitize))
 }))
+// Lifecycle transition (activate / suspend / disable / REVOKE / archive). Revoke cascades session revocation.
+router.post('/agents/:id/transition', requirePermission('identity', 'manage'), asyncHandler(async (req, res) => {
+  res.json(sanitize(await life.transitionIdentity(pool, { kind: 'ai_agent', id: req.params.id, orgId: orgOf(req), to: (req.body || {}).to })))
+}))
+// Rotate the client secret (predecessor invalidated). New secret returned ONCE.
+router.post('/agents/:id/rotate-secret', requirePermission('identity', 'manage'), asyncHandler(async (req, res) => {
+  res.json(await credential.rotateClientSecret(pool, { organizationId: orgOf(req), kind: 'ai_agent', id: req.params.id }))
+}))
 
 // ── Machines ── (client secret returned ONCE)
 router.post('/machines', requirePermission('machine', 'create'), asyncHandler(async (req, res) => {
@@ -65,6 +74,15 @@ router.post('/machines', requirePermission('machine', 'create'), asyncHandler(as
   const secret = secrets.generateClientSecret()
   const machine = await svc.createMachine(pool, { organizationId: orgOf(req), name, clientId: cid, clientSecretHash: secrets.hash(secret), createdBy: req.identity.principalId })
   res.status(201).json({ ...sanitize(machine), clientId: cid, clientSecret: secret })
+}))
+router.get('/machines', requirePermission('identity', 'read'), asyncHandler(async (req, res) => {
+  res.json((await repos.machines.list(pool, orgOf(req))).map(sanitize))
+}))
+router.post('/machines/:id/transition', requirePermission('identity', 'manage'), asyncHandler(async (req, res) => {
+  res.json(sanitize(await life.transitionIdentity(pool, { kind: 'machine', id: req.params.id, orgId: orgOf(req), to: (req.body || {}).to })))
+}))
+router.post('/machines/:id/rotate-secret', requirePermission('identity', 'manage'), asyncHandler(async (req, res) => {
+  res.json(await credential.rotateClientSecret(pool, { organizationId: orgOf(req), kind: 'machine', id: req.params.id }))
 }))
 
 // ── Roles & permissions ──

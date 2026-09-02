@@ -17,6 +17,19 @@ function parsePrevKeys(s) {
   })
 }
 
+// Normalize a PEM supplied via env (single-line with escaped "\n" is common).
+const pem = (v) => (v ? v.replace(/\\n/g, '\n') : null)
+
+// Retired RS256 PUBLIC keys still accepted for verification (RS256 rotation overlap).
+// Format: "kid:base64(PEM),kid2:base64(PEM)" — base64 avoids newline/comma issues in env.
+function parsePrevPublicKeys(s) {
+  if (!s) return []
+  return s.split(',').map((x) => x.trim()).filter(Boolean).map((pair) => {
+    const i = pair.indexOf(':')
+    return { kid: pair.slice(0, i), publicKey: Buffer.from(pair.slice(i + 1), 'base64').toString('utf8') }
+  })
+}
+
 // Single data-encryption key for the Secrets-Service boundary (reversible secrets:
 // TOTP seeds, provider secrets). Provide a real 64-hex-char key via
 // IDENTITY_SECRETS_ENC_KEY; dev derives one deterministically.
@@ -43,10 +56,17 @@ const config = {
   jwt: {
     // Phase 1 uses HS256 (symmetric). Token engineering (Phase 6) adds key rotation
     // and an RS256 + JWKS path for cross-platform verification. See DECISIONS.md.
+    // HS256 (symmetric) is the dev default. Set IDENTITY_JWT_ALG=RS256 with
+    // IDENTITY_JWT_PRIVATE_KEY / IDENTITY_JWT_PUBLIC_KEY (PEM) to sign asymmetrically
+    // and publish public keys via /api/v1/.well-known/jwks.json for local verification
+    // by consumer services (e.g. AI Security). See DECISIONS.md.
     algorithm: process.env.IDENTITY_JWT_ALG || 'HS256',
     secret: process.env.IDENTITY_JWT_SECRET || 'dev-insecure-identity-secret-change-me',
     kid: process.env.IDENTITY_JWT_KID || 'k1',
-    previousKeys: parsePrevKeys(process.env.IDENTITY_JWT_PREV_KEYS), // retired keys still accepted for verify
+    privateKey: pem(process.env.IDENTITY_JWT_PRIVATE_KEY), // RS256 signing key (PEM)
+    publicKey: pem(process.env.IDENTITY_JWT_PUBLIC_KEY), // RS256 verify/JWKS key (PEM)
+    previousKeys: parsePrevKeys(process.env.IDENTITY_JWT_PREV_KEYS), // retired HS256 keys still accepted for verify
+    previousPublicKeys: parsePrevPublicKeys(process.env.IDENTITY_JWT_PREV_PUBLIC_KEYS), // retired RS256 public keys
     issuer: process.env.IDENTITY_JWT_ISSUER || 'sentinel-identity',
     audience: process.env.IDENTITY_JWT_AUDIENCE || 'horquva-platforms',
     accessTtlSec: num('IDENTITY_ACCESS_TTL', 900), // 15 minutes
