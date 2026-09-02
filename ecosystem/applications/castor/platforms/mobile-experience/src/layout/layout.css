@@ -1,0 +1,121 @@
+/**
+ * Layout primitive styles for Container / Grid.
+ * Ref: specs/01-responsive-layout-infrastructure.md
+ *
+ * NOTE: Colors/typography here use CSS variables that should resolve to the
+ * canonical Castor Design System tokens once integrated (Part C.3) — do not
+ * hard-code hex values here.
+ */
+
+:root {
+  /* Spacing scale (4px base) — fallback values, override from Design System */
+  --cx-space-1: 4px;
+  --cx-space-2: 8px;
+  --cx-space-3: 12px;
+  --cx-space-4: 16px;
+  --cx-space-6: 24px;
+  --cx-space-8: 32px;
+  --cx-space-12: 48px;
+  --cx-space-16: 64px;
+
+  /* Fluid typography — clamp(min, preferred, max) */
+  --cx-font-size-body: clamp(0.875rem, 0.8rem + 0.3vw, 1rem);
+  --cx-font-size-heading: clamp(1.25rem, 1rem + 1.2vw, 2rem);
+}
+
+.cx-container {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: var(--cx-space-4);
+  box-sizing: border-box;
+}
+
+.cx-container--fluid {
+  max-width: none;
+}
+
+@media (min-width: 768px) {
+  .cx-container {
+    padding-inline: var(--cx-space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  .cx-container {
+    padding-inline: var(--cx-space-8);
+  }
+}
+
+.cx-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cx-grid-cols-xs, 1), minmax(0, 1fr));
+  gap: var(--cx-grid-gap, var(--cx-space-4));
+  width: 100%;
+}
+
+@media (min-width: 360px) {
+  .cx-grid {
+    grid-template-columns: repeat(var(--cx-grid-cols-sm, var(--cx-grid-cols-xs, 1)), minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .cx-grid {
+    grid-template-columns: repeat(var(--cx-grid-cols-md, 2), minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .cx-grid {
+    grid-template-columns: repeat(var(--cx-grid-cols-lg, 3), minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1440px) {
+  .cx-grid {
+    grid-template-columns: repeat(var(--cx-grid-cols-xl, var(--cx-grid-cols-lg, 3)), minmax(0, 1fr));
+  }
+}
+
+/* Prevent horizontal overflow at any breakpoint (Spec 01 §5) */
+.cx-container,
+.cx-grid {
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+/* AsyncState — Part C.4 state styling */
+.async-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3, 12px);
+  padding: var(--space-6, 32px) var(--space-4, 16px);
+  text-align: center;
+  color: var(--color-text-secondary, #666);
+}
+
+.async-state--error {
+  color: var(--color-error, #b00020);
+}
+
+.async-state__spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: async-state-spin 0.7s linear infinite;
+}
+
+@keyframes async-state-spin {
+  to { transform: rotate(360deg); }
+}
+
+.async-state__retry {
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+}

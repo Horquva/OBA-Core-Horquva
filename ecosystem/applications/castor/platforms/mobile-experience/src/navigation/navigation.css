@@ -1,0 +1,190 @@
+/**
+ * Navigation component styles: BottomNav, SideDrawer, ModalSheet.
+ * Ref: specs/02-adaptive-navigation-spec.md, specs/03-touch-device-performance-spec.md
+ *
+ * Colors use CSS variables that should resolve to Design System tokens once
+ * integrated (Part C.3) — placeholders provided so this is runnable standalone.
+ */
+
+:root {
+  --cx-color-surface: #ffffff;
+  --cx-color-surface-scrim: rgba(0, 0, 0, 0.4);
+  --cx-color-border: #e2e2e2;
+  --cx-color-text: #1a1a1a;
+  --cx-color-text-muted: #6b6b6b;
+  --cx-color-accent: #2f6fed;
+}
+
+/* ---------- BottomNav (mobile) ---------- */
+
+.cx-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  background: var(--cx-color-surface);
+  border-top: 1px solid var(--cx-color-border);
+  z-index: 40;
+}
+
+.cx-bottom-nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 44px;
+  min-height: 44px; /* Spec 03 §2 touch target minimum */
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  color: var(--cx-color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: opacity 100ms ease, transform 100ms ease; /* compositor-only, Spec 03 §6 */
+}
+
+.cx-bottom-nav__item:active {
+  opacity: 0.6;
+  transform: scale(0.96);
+}
+
+.cx-bottom-nav__item--active {
+  color: var(--cx-color-accent);
+  font-weight: 600;
+}
+
+/* Hide bottom nav at tablet+ per Spec 02 §2 (n/a at md/lg) */
+@media (min-width: 768px) {
+  .cx-bottom-nav {
+    display: none;
+  }
+}
+
+.cx-bottom-nav__more-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-bottom-nav__more-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px; /* Spec 03 §2 touch target minimum */
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--cx-color-border);
+  color: var(--cx-color-text);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cx-bottom-nav__more-item--active {
+  color: var(--cx-color-accent);
+  font-weight: 600;
+}
+
+/* ---------- SideDrawer (tablet/desktop) ---------- */
+
+.cx-drawer__scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--cx-color-surface-scrim);
+  z-index: 50;
+}
+
+.cx-drawer {
+  background: var(--cx-color-surface);
+  border-right: 1px solid var(--cx-color-border);
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cx-drawer--overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(80vw, 320px);
+  z-index: 51;
+}
+
+.cx-drawer--persistent {
+  position: relative;
+  width: 260px;
+  flex-shrink: 0;
+  transition: width 150ms ease;
+}
+
+.cx-drawer--persistent.cx-drawer--collapsed {
+  width: 72px;
+}
+
+/* Below tablet, persistent drawer is not used (Spec 02 §2: md/lg only) */
+@media (max-width: 767px) {
+  .cx-drawer--persistent {
+    display: none;
+  }
+}
+
+/* ---------- ModalSheet (adaptive) ---------- */
+
+.cx-sheet {
+  position: fixed;
+  z-index: 51;
+  background: var(--cx-color-surface);
+  box-sizing: border-box;
+  outline: none;
+}
+
+.cx-sheet--bottom {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 85vh;
+  border-radius: 16px 16px 0 0;
+  padding: 8px 16px 16px;
+  overscroll-behavior: contain;
+  overflow-y: auto;
+}
+
+.cx-sheet__drag-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--cx-color-border);
+  margin: 8px auto 12px;
+}
+
+.cx-sheet--centered {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(90vw, 480px);
+  max-height: 85vh;
+  border-radius: 12px;
+  padding: 24px;
+  overflow-y: auto;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+}
+
+.cx-sheet__title {
+  font-size: var(--cx-font-size-heading, 1.25rem);
+  margin: 0 0 12px;
+  color: var(--cx-color-text);
+}
+
+.cx-sheet__content {
+  color: var(--cx-color-text);
+}
