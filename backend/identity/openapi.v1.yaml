@@ -1,0 +1,353 @@
+openapi: 3.0.3
+info:
+  title: Sentinel Identity & Trust Platform — /api/v1
+  version: "1.0.0"
+  description: >
+    Authoritative identity, authentication, authorization and trust API for Horquva/Sentinel.
+    This spec covers the surface relevant to AI Security (agent identity, M2M client-credentials,
+    authorization checks, health). Owner: Areeb Ahmad.
+
+    Signing: tokens are currently HS256, verified server-side. RS256 + JWKS
+    (GET /.well-known/jwks.json) for local verification by consumer services is the committed
+    pre-merge rollout (see AI_SECURITY_INTEGRATION_RESPONSE.md, Follow-up F2).
+
+    Fail-closed contract: any condition that is not an explicit 2xx / decision:"allow" — including
+    timeouts, 5xx, and 503 not_ready — MUST be treated by the client as DENY/HALT. The platform
+    never fails open.
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development (seeded org slug "horquva")
+  # - url: https://identity.staging.horquva.internal/api/v1   # DevSecOps — Follow-up F3 (not yet provisioned)
+
+tags:
+  - name: auth
+    description: Authentication (human login, MFA, M2M client-credentials, sessions)
+  - name: authz
+    description: Authorization decisions (RBAC + ABAC + trust policy; deny-override; fail-closed)
+  - name: identity
+    description: Identity administration (organizations, users, AI agents, machines) — permission-guarded
+  - name: health
+    description: Liveness & readiness
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness
+      security: []
+      responses:
+        "200":
+          description: Process is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: sentinel-identity }
+                  ts: { type: string, format: date-time }
+  /health/ready:
+    get:
+      tags: [health]
+      summary: Readiness (DB reachable). 503 when not ready — treat as DENY.
+      security: []
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ready }
+                  database: { type: boolean, example: true }
+        "503":
+          description: Not ready (fail closed)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: not_ready }
+                  database: { type: boolean, example: false }
+
+  /auth/token:
+    post:
+      tags: [auth]
+      summary: OAuth2 client-credentials grant (machine / AI-agent) → JWT
+      description: >
+        M2M authentication for agent_identity_service and other services. The agent/machine must be
+        in lifecycle state "active". Returns a short-lived access token (JWT) and a rotating refresh token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId, clientSecret]
+              properties:
+                clientId: { type: string, example: agt_1a2b3c4d5e6f7g8h }
+                clientSecret: { type: string, format: password }
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenGrant" }
+        "401":
+          description: Invalid client credentials or non-active identity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Rotate refresh token → new token pair
+      description: Refresh tokens rotate on every use; reusing a rotated/revoked token revokes ALL of that principal's sessions.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: New token pair
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "401":
+          description: Invalid/replayed refresh token (all sessions revoked on replay)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Resolve caller identity + effective permissions (revocation-aware)
+      responses:
+        "200":
+          description: Caller identity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  principalId: { type: string, format: uuid }
+                  organizationId: { type: string, format: uuid, description: Authoritative tenant claim }
+                  kind: { type: string, enum: [user, ai_agent, machine] }
+                  permissions:
+                    type: array
+                    items: { type: string, example: "agent:invoke" }
+        "401":
+          description: Missing/invalid/revoked token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the caller's session (tokens stop working immediately)
+      responses:
+        "200":
+          description: Revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ok: { type: boolean, example: true } }
+        "401":
+          description: Missing/invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /authz/check:
+    post:
+      tags: [authz]
+      summary: Authorization decision (allow only if decision == "allow")
+      description: >
+        Evaluates RBAC + ABAC + trust policy with deny-override and fail-closed semantics for the
+        caller (tenant taken from the token). Pass principalId only to check another principal, which
+        requires the policy:evaluate permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource, action]
+              properties:
+                resource: { type: string, example: "tool:web_search" }
+                action: { type: string, example: "invoke" }
+                context:
+                  type: object
+                  additionalProperties: true
+                  description: Optional ABAC context (subject/resource/env attributes)
+                principalId:
+                  type: string
+                  format: uuid
+                  description: Check another principal (needs policy:evaluate)
+      responses:
+        "200":
+          description: Decision (this includes deny — inspect the field)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthzDecision" }
+        "401":
+          description: Missing/invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: Not permitted to evaluate another principal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /authz/permissions:
+    get:
+      tags: [authz]
+      summary: Caller's effective permission keys
+      responses:
+        "200":
+          description: Permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permissions:
+                    type: array
+                    items: { type: string }
+
+  /identity/agents:
+    post:
+      tags: [identity]
+      summary: Register an AI agent (client secret returned ONCE)
+      description: >
+        Requires permission agent:create. The new agent is created in lifecycle state "provisioned"
+        and must be transitioned to "active" before it can authenticate (transition HTTP route is
+        Follow-up F1). clientSecret is returned once and stored only as a scrypt hash.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, example: "research-bot" }
+                guardrailProfile: { type: string, nullable: true, example: "restricted-tools-v1" }
+                allowedTools:
+                  type: array
+                  items: { type: string }
+                  example: ["web_search", "code_read"]
+      responses:
+        "201":
+          description: Agent created (secret shown once)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentCreated" }
+        "401": { description: Missing/invalid token, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "403": { description: Missing agent:create permission, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    get:
+      tags: [identity]
+      summary: List AI agents in the caller's organization
+      description: Requires permission identity:read. Secrets are never returned.
+      responses:
+        "200":
+          description: Agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Agent" }
+        "403": { description: Missing identity:read permission, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  # ── Planned (Follow-up F1) — services exist; HTTP routes pending ──
+  # POST /identity/agents/{id}/transition   { to: "active"|"suspended"|"revoked"|"disabled"|"archived" }
+  # POST /identity/agents/{id}/rotate-secret  → { clientSecret }  (invalidates predecessor)
+  # ── Planned (Follow-up F2) — RS256 rollout ──
+  # GET  /.well-known/jwks.json  → JSON Web Key Set for local token verification
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Access token from /auth/token or /auth/login. Send as: Authorization: Bearer <token>"
+  schemas:
+    TokenPair:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        tokenType: { type: string, example: Bearer }
+        expiresIn: { type: integer, example: 900, description: Access-token TTL in seconds }
+    TokenGrant:
+      allOf:
+        - $ref: "#/components/schemas/TokenPair"
+        - type: object
+          properties:
+            status: { type: string, example: authenticated }
+            kind: { type: string, enum: [ai_agent, machine] }
+            organizationId: { type: string, format: uuid }
+            sessionId: { type: string, format: uuid }
+    AuthzDecision:
+      type: object
+      properties:
+        decision: { type: string, enum: [allow, deny], description: Grant ONLY when "allow" }
+        reason:
+          type: string
+          example: rbac_grant
+          description: e.g. rbac_grant, superuser, rbac+policy_allow, no_permission, explicit_deny_policy, identity_not_active, unknown_principal, evaluation_error
+        matched:
+          type: object
+          properties:
+            rbac: { type: boolean }
+            abac: { type: boolean }
+            policy: { type: string, example: none }
+    Agent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        principal_id: { type: string, format: uuid }
+        organization_id: { type: string, format: uuid }
+        name: { type: string }
+        client_id: { type: string }
+        guardrail_profile: { type: string, nullable: true }
+        allowed_tools: { type: array, items: { type: string } }
+        owner_user_id: { type: string, format: uuid, nullable: true }
+        status: { type: string, enum: [provisioned, active, suspended, disabled, revoked, archived] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    AgentCreated:
+      allOf:
+        - $ref: "#/components/schemas/Agent"
+        - type: object
+          properties:
+            clientId: { type: string, description: Also present at top level for convenience }
+            clientSecret: { type: string, description: Returned ONCE — store securely, never retrievable again }
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: >
+            Machine-readable code: authentication_required, invalid_token, forbidden,
+            validation_error, not_found, internal_error
+        message: { type: string }
+        reason: { type: string, description: "For 403 forbidden: no_permission | explicit_deny_policy | identity_not_active" }
+
+security:
+  - bearerAuth: []
