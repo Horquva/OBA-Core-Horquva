@@ -40,10 +40,13 @@ abstract final class AppIcons {
 
   // ─── App bar action icons (named per screen so it's clear which is which) ─
   static const IconData signalsFilter = LucideIcons.filter; // Signals screen
-  static const IconData decisionsFilter = LucideIcons.filter; // Decisions screen
+  static const IconData decisionsFilter =
+      LucideIcons.filter; // Decisions screen
   static const IconData signalDetailShare = LucideIcons.share2; // Signal Detail
-  static const IconData decisionDetailShare = LucideIcons.share2; // Decision Detail
-  static const IconData briefingShare = LucideIcons.share2; // Executive Briefing
+  static const IconData decisionDetailShare =
+      LucideIcons.share2; // Decision Detail
+  static const IconData briefingShare =
+      LucideIcons.share2; // Executive Briefing
   static const IconData askHistory = LucideIcons.history; // Ask Castor screen
 
   // ─── Severity (leading icon on signal cards) ───────────────────────────
@@ -60,5 +63,6 @@ abstract final class AppIcons {
   static const IconData sparkle = LucideIcons.sparkles;
   static const IconData attention = LucideIcons.target;
   static const IconData document = LucideIcons.fileText;
-  static const IconData shieldAlert = LucideIcons.shieldAlert; // alert card logo
+  static const IconData shieldAlert =
+      LucideIcons.shieldAlert; // alert card logo
 }

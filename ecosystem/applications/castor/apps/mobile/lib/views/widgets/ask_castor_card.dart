@@ -55,7 +55,8 @@ class AskCastorCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppColors.border),
         boxShadow: const [
-          BoxShadow(color: AppColors.shadow, blurRadius: 12, offset: Offset(0, 4)),
+          BoxShadow(
+              color: AppColors.shadow, blurRadius: 12, offset: Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -69,7 +70,8 @@ class AskCastorCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.xs),
               Text(
                 label,
-                style: AppTypography.overline.copyWith(color: AppColors.primary),
+                style:
+                    AppTypography.overline.copyWith(color: AppColors.primary),
               ),
             ],
           ),
@@ -113,7 +115,8 @@ class AskCastorCard extends StatelessWidget {
           color: AppColors.primary,
           shape: BoxShape.circle,
         ),
-        child: const Icon(AppIcons.castor, color: AppColors.onPrimary, size: 24),
+        child:
+            const Icon(AppIcons.castor, color: AppColors.onPrimary, size: 24),
       ),
     );
   }

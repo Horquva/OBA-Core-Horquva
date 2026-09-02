@@ -58,7 +58,8 @@ class PerformanceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(heading, style: AppTypography.label.copyWith(color: faded)),
+                Text(heading,
+                    style: AppTypography.label.copyWith(color: faded)),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   value,

@@ -82,35 +82,35 @@ class SegmentedTabs extends StatelessWidget {
             // Stretch makes the bar match the text width.
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            // The active tab also gets a subtle rounded pill behind the text.
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: active ? AppColors.surfaceMuted : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Text(
-                text,
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyMedium.copyWith(
-                  color: textColor,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              // The active tab also gets a subtle rounded pill behind the text.
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: active ? AppColors.surfaceMuted : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: textColor,
+                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
               ),
-            ),
-            // A small gap so the bar sits just below the pill, not attached.
-            const SizedBox(height: AppSpacing.xs),
-            // The short rounded bar under the active pill.
-            Container(
-              height: 3,
-              decoration: BoxDecoration(
-                color: active ? AppColors.textPrimary : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.pill),
+              // A small gap so the bar sits just below the pill, not attached.
+              const SizedBox(height: AppSpacing.xs),
+              // The short rounded bar under the active pill.
+              Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: active ? AppColors.textPrimary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
               ),
-            ),
             ],
           ),
         ),

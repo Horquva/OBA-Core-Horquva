@@ -153,8 +153,8 @@ class _DecisionDetailView extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: AppTypography.bodyLarge
-                  .copyWith(fontWeight: FontWeight.w600),
+              style:
+                  AppTypography.bodyLarge.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],

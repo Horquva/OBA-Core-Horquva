@@ -99,8 +99,8 @@ class BriefingCard extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       title,
-                      style: AppTypography.displayMedium
-                          .copyWith(color: _onDark),
+                      style:
+                          AppTypography.displayMedium.copyWith(color: _onDark),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
@@ -179,7 +179,8 @@ class BriefingCard extends StatelessWidget {
           children: [
             const Icon(AppIcons.document, color: _onDark, size: 20),
             const SizedBox(width: AppSpacing.sm),
-            Expanded(child: _twoLines(summaryTitle, summarySubtitle, dark: false)),
+            Expanded(
+                child: _twoLines(summaryTitle, summarySubtitle, dark: false)),
           ],
         ),
       ),
@@ -252,9 +253,12 @@ class _WavePainter extends CustomPainter {
     final Path path = Path()
       ..moveTo(0, size.height * 0.72)
       ..cubicTo(
-        size.width * 0.35, size.height * 0.30,
-        size.width * 0.55, size.height * 0.95,
-        size.width * 0.85, size.height * 0.45,
+        size.width * 0.35,
+        size.height * 0.30,
+        size.width * 0.55,
+        size.height * 0.95,
+        size.width * 0.85,
+        size.height * 0.45,
       );
     canvas.drawPath(path, line);
 

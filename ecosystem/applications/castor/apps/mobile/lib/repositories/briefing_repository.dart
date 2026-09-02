@@ -26,7 +26,8 @@ class BriefingRepository {
         },
         {
           'kind': 'performance',
-          'text': 'Business performance is trending positive across all regions.',
+          'text':
+              'Business performance is trending positive across all regions.',
         },
       ],
       'focusTitle': 'Vendor dependency risk',
