@@ -1,13 +1,14 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSimulationStream } from '../../hooks/useSimulationStream';
 import { apiClient, experimentApi } from '../../lib/api-client';
 import Link from 'next/link';
 
-export default function RuntimePage() {
+function RuntimeContent() {
   const searchParams = useSearchParams();
   const initialId = searchParams.get('experimentId') || searchParams.get('id') || '';
+
   const [experiments, setExperiments] = useState<any[]>([]);
   const [experimentId, setExperimentId] = useState<string>(initialId);
   const [durationTicks, setDurationTicks] = useState<number>(50);
@@ -203,5 +204,13 @@ export default function RuntimePage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function RuntimePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-400">Loading Runtime Environment...</div>}>
+      <RuntimeContent />
+    </Suspense>
   );
 }

@@ -118,3 +118,11 @@ CREATE TABLE IF NOT EXISTS intelligence_insights (
 );
 
 CREATE INDEX IF NOT EXISTS idx_intelligence_insights_run ON intelligence_insights(run_id);
+
+-- 10. Intelligence Assessments cache (post-simulation Gemini output — one per run_id)
+-- Prevents repeated Gemini calls for the same completed run (quota protection).
+CREATE TABLE IF NOT EXISTS intelligence_assessments (
+    run_id TEXT PRIMARY KEY REFERENCES simulation_runs(run_id) ON DELETE CASCADE,
+    assessment_json TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
