@@ -1,0 +1,10 @@
+{
+  "local": {
+    "baseUrl": "http://localhost:3000",
+    "description": "Local development environment. Requires the Castor application running locally."
+  },
+  "staging": {
+    "baseUrl": "PLACEHOLDER_STAGING_URL",
+    "description": "Staging environment placeholder. Replace once provisioned."
+  }
+}

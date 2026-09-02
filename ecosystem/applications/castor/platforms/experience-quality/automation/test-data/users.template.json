@@ -1,0 +1,13 @@
+{
+  "_comment": "Template only. Do NOT put real credentials in this repository. Populate a local, gitignored test-data/users.local.json (or environment variables) with real seeded test-account values when the application's auth flow is confirmed.",
+  "standardUser": {
+    "username": "PLACEHOLDER_USERNAME",
+    "password": "PLACEHOLDER_PASSWORD",
+    "role": "standard"
+  },
+  "adminUser": {
+    "username": "PLACEHOLDER_USERNAME",
+    "password": "PLACEHOLDER_PASSWORD",
+    "role": "admin"
+  }
+}
