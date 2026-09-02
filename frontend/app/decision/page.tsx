@@ -5,6 +5,7 @@ import { DecisionIntelligenceReport } from '../../lib/decisionIntelligence';
 import { DecisionHeader } from '../../components/decision/DecisionHeader';
 import { CriticalDecisionsPanel } from '../../components/decision/CriticalDecisionsPanel';
 import { DecisionTrailTable } from '../../components/decision/DecisionTrailTable';
+import { DecisionSupportQueue } from '../../components/decision/DecisionSupportQueue';
 import { request, ApiError } from '../../lib/api';
 
 export default function DecisionPage() {
@@ -50,6 +51,9 @@ export default function DecisionPage() {
 
       {/* Full decision trail audit table */}
       <DecisionTrailTable decisions={report.decisions} />
+
+      {/* Decision Support queue -- what needs deciding now (API-1) */}
+      <DecisionSupportQueue />
     </div>
   );
 }

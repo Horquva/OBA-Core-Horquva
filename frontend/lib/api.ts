@@ -1144,6 +1144,65 @@ export const agentsApi = {
     }),
 };
 
+// ─── Decision Support  (/api/decision-support)  — API-1 ─────────────────────
+// The prioritized "what needs deciding now" queue (decision_queue), a
+// genuinely different question from GET /api/decision-intelligence's
+// quality AUDIT of decisions already made (organizational_decisions) —
+// two real tables, not two views of one. Only summary/queue/drivers are
+// wired here; /top-actions is queue's own top 5 (redundant with sorting
+// queue client-side) and /review + /revisit read decision_history, a third,
+// less central table -- left for a later pass rather than risking a third
+// "decisions" list on the same page.
+
+export interface DecisionSupportSummary {
+  totalDecisions: number;
+  pending: number;
+  inProgress: number;
+  resolved: number;
+  decisionsToRevisit: number;
+  topPriorityDecision: {
+    title: string;
+    priorityScore: number;
+    driver: string;
+    entityName: string | null;
+    responsiblePerson: string | null;
+  } | null;
+  byDriver: Array<{ driver: string; count: number }>;
+}
+
+export interface DecisionQueueItem {
+  title: string;
+  description: string;
+  driver: string;
+  priorityScore: number;
+  impactScore: number;
+  urgencyScore: number;
+  effortScore: number;
+  blastRadius: number;
+  entityName: string | null;
+  responsiblePerson: string | null;
+  status: string;
+}
+
+export interface DecisionQueueResponse {
+  totalPending: number;
+  decisions: DecisionQueueItem[];
+}
+
+export interface DecisionDriverGroup {
+  driver: string;
+  driverKey: string;
+  count: number;
+  avgPriorityScore: number;
+  topDecision: { title: string; priorityScore: number } | null;
+}
+
+export const decisionSupportApi = {
+  summary: () => request<DecisionSupportSummary>('/api/decision-support/summary'),
+  queue: () => request<DecisionQueueResponse>('/api/decision-support/queue'),
+  drivers: () => request<DecisionDriverGroup[]>('/api/decision-support/drivers'),
+};
+
 // ─── Health Check Utility ────────────────────────────────────────────────────
 
 export const API_BASE = BASE;
