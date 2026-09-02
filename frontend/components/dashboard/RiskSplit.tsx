@@ -53,13 +53,24 @@ export function RiskSplit() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [recs, setRecs] = useState<RecommendationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [agentsError, setAgentsError] = useState(false);
+  const [recsError, setRecsError] = useState(false);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.json()).catch(() => []),
-      fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() }).then(r => r.ok ? r.json() : null).catch(() => null),
+      // "No critical agents — good standing" and "no priority actions —
+      // good standing" both used to be the SAME message a fetch failure
+      // produced, so a Supabase outage rendered as a clean bill of health.
+      // Track each source's failure separately so the two panels can say
+      // "couldn't load" instead of implying nothing needs attention.
+      fetch(`${base}/api/agents`, { headers: authHeader() })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .catch(() => { setAgentsError(true); return []; }),
+      fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .catch(() => { setRecsError(true); return null; }),
     ]).then(([agentData, m04]) => {
       const agentList: AgentRow[] = Array.isArray(agentData) ? agentData.map(a => ({
         ...a,
@@ -104,7 +115,11 @@ export function RiskSplit() {
           </div>
         )}
 
-        {!loading && criticalAgents.length === 0 && (
+        {!loading && agentsError && (
+          <p className="text-xs text-red-400 py-4">Could not load agent risk data — try refreshing.</p>
+        )}
+
+        {!loading && !agentsError && criticalAgents.length === 0 && (
           <p className="text-xs text-[color:var(--text-tertiary)] py-4">No critical agents found — good standing ✓</p>
         )}
 
@@ -147,7 +162,11 @@ export function RiskSplit() {
           </div>
         )}
 
-        {!loading && recs.length === 0 && (
+        {!loading && recsError && (
+          <p className="text-xs text-red-400 py-4">Could not load recommendations — try refreshing.</p>
+        )}
+
+        {!loading && !recsError && recs.length === 0 && (
           <p className="text-xs text-[color:var(--text-tertiary)] py-4">No priority actions — good standing ✓</p>
         )}
 

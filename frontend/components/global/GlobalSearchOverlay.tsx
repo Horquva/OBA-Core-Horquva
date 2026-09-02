@@ -92,7 +92,7 @@ function iconFor(t: CommandTarget) {
 export default function GlobalSearchOverlay() {
   const { isSearchOpen, toggleSearch, closeAllPanels } = useGlobalPanels();
   const { user } = useAuth();
-  const { index } = useSearchIndex();
+  const { index } = useSearchIndex(isSearchOpen);
   const router = useRouter();
   const pathname = usePathname();
 

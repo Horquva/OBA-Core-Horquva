@@ -8,7 +8,7 @@ import clsx from "clsx";
 
 export default function GlobalNotificationPanel() {
   const { isNotificationPanelOpen, toggleNotificationPanel } = useGlobalPanels();
-  const { notifications } = useLiveNotifications();
+  const { notifications } = useLiveNotifications(isNotificationPanelOpen);
 
   return (
     <>

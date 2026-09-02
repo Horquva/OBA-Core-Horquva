@@ -43,11 +43,12 @@ function HeatmapTooltip({ active, payload, label }: { active?: boolean; payload?
 export function Heatmap() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
     fetch(`${base}/api/agents`, { headers: authHeader() })
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`Failed to load agents (${r.status})`)))
       .then(data => {
         if (Array.isArray(data)) {
           setAgents(data.map(a => ({
@@ -59,7 +60,9 @@ export function Heatmap() {
           setAgents([]);
         }
       })
-      .catch(() => setAgents([]))
+      // Distinguish "the fetch failed" from "there are genuinely no agents"
+      // -- both used to render the same empty chart.
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load agents'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -94,13 +97,19 @@ export function Heatmap() {
         </div>
       )}
 
-      {!loading && barData.length === 0 && (
+      {!loading && error && (
+        <div className="w-full h-[300px] flex items-center justify-center text-xs text-red-400">
+          Could not load agent data — {error}
+        </div>
+      )}
+
+      {!loading && !error && barData.length === 0 && (
         <div className="w-full h-[300px] flex items-center justify-center text-xs text-[color:var(--text-tertiary)]">
           No agent data available
         </div>
       )}
 
-      {!loading && barData.length > 0 && (
+      {!loading && !error && barData.length > 0 && (
         <div className="w-full h-[300px] min-h-0 min-w-0">
           <ResponsiveContainer width="100%" height={300} minHeight={0}>
             <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} maxBarSize={60}>

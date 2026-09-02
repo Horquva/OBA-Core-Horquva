@@ -53,10 +53,20 @@ export default function KnowledgePage() {
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
+    // agents/workflows/tools are the page's own dataset -- an outage here
+    // must fail the page (the existing `error` branch below), not render as
+    // zero of everything. knowledge/intelligence is a genuine overlay on top
+    // of that dataset (concentration scores), so it keeps its soft fallback:
+    // losing it degrades scores to 0/LOW rather than blanking the page.
+    const required = (path: string) =>
+      fetch(`${base}${path}`, { headers: authHeader() }).then(r =>
+        r.ok ? r.json() : Promise.reject(new Error(`Failed to load ${path} (${r.status})`))
+      );
+
     Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      required('/api/agents'),
+      required('/api/workflows'),
+      required('/api/tools'),
       fetch(`${base}/api/knowledge/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { concentration: [] }),
     ])
     .then(([agentsData, wData, toolsData, knowledgeIntel]) => {

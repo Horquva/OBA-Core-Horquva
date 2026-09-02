@@ -13,11 +13,14 @@ export function AgentTable() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
     Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.json()),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r =>
+        r.ok ? r.json() : Promise.reject(new Error(`Failed to load agents (${r.status})`))
+      ),
       fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
       .then(([data, predictiveData]) => {
@@ -34,7 +37,10 @@ export function AgentTable() {
           setAgents([]);
         }
       })
-      .catch(() => setAgents([]))
+      // A fetch failure is a different fact from a genuinely empty org --
+      // conflating them into the same "No agents found" message is how a
+      // database outage renders as a clean, empty-but-healthy directory.
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load agents'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -62,13 +68,19 @@ export function AgentTable() {
         </div>
       )}
 
-      {!loading && agents.length === 0 && (
-        <div className="p-8 text-center text-xs text-[color:var(--text-tertiary)]">
-          No agents found — check /api/agents
+      {!loading && error && (
+        <div className="p-8 text-center text-xs text-red-400">
+          Could not load the agent directory — {error}
         </div>
       )}
 
-      {!loading && agents.length > 0 && (
+      {!loading && !error && agents.length === 0 && (
+        <div className="p-8 text-center text-xs text-[color:var(--text-tertiary)]">
+          No agents recorded.
+        </div>
+      )}
+
+      {!loading && !error && agents.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>

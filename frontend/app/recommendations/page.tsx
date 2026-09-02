@@ -23,8 +23,12 @@ export default function RecommendationsPage() {
     Promise.all([
       // D-62 -- brain module M04, expanded to all 7 rules.
       fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() }).then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${r.statusText}`))),
-      fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => r.ok ? r.json() : { healthIndex: 0 }),
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      // health index feeds the header's headline number and agent count
+      // feeds the summary strip -- both are rendered facts about the org,
+      // not decoration, so a failure here must fail the page too rather
+      // than silently show "0% healthy" / "0 agents".
+      fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => r.ok ? r.json() : Promise.reject(new Error(`Failed to load health summary (${r.status})`))),
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : Promise.reject(new Error(`Failed to load agents (${r.status})`))),
     ])
     .then(([recJson, healthData, agentsData]) => {
       setOutput(mapRecommendationsResponse(recJson, healthData.healthIndex ?? 0));

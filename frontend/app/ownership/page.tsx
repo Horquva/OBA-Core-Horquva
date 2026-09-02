@@ -36,12 +36,22 @@ export default function OwnershipPage() {
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
+    // agents/tools/workflows/ownership are this page's own dataset -- an
+    // outage here must fail the page (the existing `error` branch below),
+    // not render "Ownership Intelligence" with zero owners and zero agents.
+    // predictive-risk is a supplementary overlay (risk tiers layered onto
+    // agents already loaded), so it keeps its soft fallback.
+    const required = (path: string) =>
+      fetch(`${base}${path}`, { headers: authHeader() }).then(r =>
+        r.ok ? r.json() : Promise.reject(new Error(`Failed to load ${path} (${r.status})`))
+      );
+
     Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      required('/api/agents'),
+      required('/api/tools'),
+      required('/api/workflows'),
       fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/ownership`, { headers: authHeader() }).then(r => r.ok ? r.json() : { owners: [] })
+      required('/api/ownership'),
     ])
     .then(([agentsData, toolsData, wfsData, predictiveData, ownershipData]) => {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));

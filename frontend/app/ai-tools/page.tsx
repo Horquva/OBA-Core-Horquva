@@ -50,10 +50,18 @@ export default function AIToolsPage() {
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
+    // Each of these is the page's own dataset, not a supplementary overlay —
+    // an outage here must fail the page (the existing `error` branch below),
+    // not render as zero tools / zero agents / zero workflows.
+    const required = (path: string) =>
+      fetch(`${base}${path}`, { headers: authHeader() }).then(r =>
+        r.ok ? r.json() : Promise.reject(new Error(`Failed to load ${path} (${r.status})`))
+      );
+
     Promise.all([
-      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      required('/api/tools'),
+      required('/api/agents'),
+      required('/api/workflows'),
     ])
     .then(([toolsData, agentsData, wData]) => {
       const rawTools = Array.isArray(toolsData) ? toolsData : [];

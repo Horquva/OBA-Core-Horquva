@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { authHeader } from './authFetch';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
@@ -80,18 +80,30 @@ export async function fetchSearchIndex(): Promise<SearchEntry[]> {
   return entries;
 }
 
-/** Client hook — fetches once on mount, cached for the component's lifetime. */
-export function useSearchIndex() {
+/**
+ * Client hook, cached for the component's lifetime. `enabled` defaults to
+ * true for any caller that always wants the index; `GlobalSearchOverlay`
+ * passes `isSearchOpen` instead, so the four index fetches (agents/
+ * workflows/employees/tools) only happen the first time a user actually
+ * opens the command palette, not on every page's initial mount.
+ * `fetchedRef` is read and written only inside the effect (never during
+ * render), so closing and reopening the palette re-runs the effect but does
+ * not re-fetch.
+ */
+export function useSearchIndex(enabled: boolean = true) {
   const [index, setIndex] = useState<SearchEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
+    if (!enabled || fetchedRef.current) return;
+    fetchedRef.current = true;
     let cancelled = false;
     fetchSearchIndex()
       .then((entries) => { if (!cancelled) setIndex(entries); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [enabled]);
 
   return { index, loading };
 }
