@@ -907,7 +907,7 @@ Applies network science to reveal who actually holds the organization together a
 ---
 ## Constitutional Intelligence, Automation & Meta-Brain (Modules 36–55)
 
-From here the engine moves from analysis into **constitutional intelligence, deeper prediction, organizational science, and governed automation**. The sequence continues unbroken — 36 through 55, nothing skipped. All of these run inside the Node brain (`backend/brain/`) and are reached through the backend API; M37, M39–M45, M47 and M49 are served under `/api/intelligence/*`. **Two constitutional rules are enforced here: Truth (M46) gates the Advisor (M48), and the Meta-Brain Orchestrator (M55) always runs last.**
+From here the engine moves from analysis into **constitutional intelligence, deeper prediction, organizational science, and governed automation**. The sequence continues unbroken — 36 through 55, nothing skipped, though not all of it runs live: M47 was one of four modules retired on 2026-08-24 (see `backend/brain/data/constitutional-modules.js`) and M49 has no mounted endpoint. Of this range, M37 and M39–M45 are served live under `/api/intelligence/*` via the Node brain (`backend/brain/`). **Two constitutional rules are enforced here: Truth (M46) gates the Advisor (M48), and the Meta-Brain Orchestrator (M55) always runs last** — though neither runs from any endpoint today; see the system diagnostic for the brain's current reachability.
 
 ### Module 36 — Signal Intelligence
 **Engineer:** Kamran · `GET /api/intelligence/signals`
@@ -1426,9 +1426,6 @@ cd backend && npm test
 ```bash
 # 1. Copy the template
 cp backend/.env.example backend/.env
-
-# 2. Create the database tables (run once) — paste backend/schema.sql
-#    into the Supabase SQL editor and run it
 ```
 
 Fill in your Supabase credentials in `backend/.env`:
@@ -1440,6 +1437,24 @@ PORT=3000
 ```
 
 > `.env` is git-ignored and must never be committed to version control.
+
+```bash
+# 2. Create the database schema and load the seed data (run once, against
+#    a brand-new empty database) — also needs DATABASE_URL in backend/.env,
+#    see backend/DB_SETUP.md for the full walkthrough
+cd backend
+node run_migrations.js --dry-run   # preview — changes nothing
+node run_migrations.js             # applies schema.sql, then every file in sql/, in order
+```
+
+Do **not** paste `schema.sql` or anything in `sql/` into the Supabase SQL
+editor by hand — `run_migrations.js` is the only supported way to apply
+them. It's the one path that records each file in a `schema_migrations`
+ledger, which is what makes re-running it safe; hand-running
+`01_schema_migration.sql` directly re-triggers its `DROP TABLE` across 42
+tables with no ledger to stop it. See `backend/DB_SETUP.md` for the full
+setup and its warnings before pointing this at anything that isn't an
+empty database.
 
 ---
 
@@ -1472,7 +1487,9 @@ OBA-Core-Horquva/
 ├── backend/
 │   ├── index.js                               # Express server — all routes registered here
 │   ├── supabase.js                            # Supabase client — loads backend/.env by absolute path (works from any working directory)
-│   ├── schema.sql                             # Supabase tables — run once before starting the server
+│   ├── schema.sql                             # Applied by run_migrations.js — see backend/DB_SETUP.md, never by hand
+│   ├── run_migrations.js                      # The only supported way to apply schema.sql + sql/*.sql
+│   ├── DB_SETUP.md                            # Full database setup walkthrough
 │   ├── API_REFERENCE.md                       # Full endpoint reference for the frontend team
 │   ├── package.json                           # Node.js dependencies
 │   ├── .env.example                           # Environment variable template
