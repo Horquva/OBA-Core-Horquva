@@ -17,6 +17,13 @@
 -- Constraint names follow Postgres' default <table>_<column>_fkey because
 -- PostgREST uses the constraint name to disambiguate when two columns of the
 -- same table reference the same target (dependencies, tool_backups).
+--
+-- Not declared here: collaboration_scores, predictive_risk_scores,
+-- governance_gaps and continuity_plans (and their parent tables
+-- governance_assessments/continuity_assessments) all get dropped by
+-- 13_drop_frozen_aggregates.sql -- a constraint declared here just to be
+-- dropped with its table eight files later described a relationship that
+-- stopped existing before this schema was ever fully applied.
 
 do $$
 declare
@@ -28,8 +35,6 @@ begin
       ('agents',                     'owner_id',        'employees'),
       ('owners',                     'employee_id',     'employees'),
       ('knowledge_assets',           'owner_id',        'employees'),
-      ('collaboration_scores',       'employee_id',     'employees'),
-      ('predictive_risk_scores',     'agent_id',        'agents'),
 
       -- dependencies: two columns to the same table, names matter
       ('dependencies',               'agent_source',    'agents'),
@@ -40,7 +45,6 @@ begin
       ('tool_users',                 'employee_id',     'employees'),
       ('tool_ownership',             'platform_id',     'ai_platforms'),
       ('tool_ownership',             'employee_id',     'employees'),
-      ('tool_spend',                 'platform_id',     'ai_platforms'),
       ('tool_policies',              'platform_id',     'ai_platforms'),
       ('tool_backups',               'primary_platform','ai_platforms'),
       ('tool_backups',               'backup_platform', 'ai_platforms'),
@@ -62,10 +66,7 @@ begin
 
       -- intelligence modules
       ('accountability_links',       'entity_id',       'accountability_entities'),
-      ('accountability_scores',      'entity_id',       'accountability_entities'),
-      ('truth_claims',               'entity_id',       'truth_entities'),
-      ('governance_gaps',            'assessment_id',   'governance_assessments'),
-      ('continuity_plans',           'assessment_id',   'continuity_assessments')
+      ('truth_claims',               'entity_id',       'truth_entities')
     ) as t(child, col, parent)
   loop
     if not exists (
