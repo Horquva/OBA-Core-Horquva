@@ -8,9 +8,9 @@ import { DependencyPipeline } from '../../components/ownership/DependencyPipelin
 import { HumanDependencyRisks } from '../../components/ownership/HumanDependencyRisks';
 import { OrgRelationshipMap } from '../../components/ownership/OrgRelationshipMap';
 import { AccountabilityChainTable } from '../../components/dashboard/AccountabilityChainTable';
-import { request, predictiveApi } from '../../lib/api';
+import { request, predictiveApi, agentsApi } from '../../lib/api';
 import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../lib/normalize';
-import { AITool, Dataset } from '../../types';
+import { AITool, Dataset, Employee } from '../../types';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { DependencyRiskProfile } from '../../components/ownership/HumanDependencyRisks';
 
@@ -30,23 +30,30 @@ export default function OwnershipPage() {
   const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
   const [humanSpofOwners, setHumanSpofOwners] = useState<Set<string>>(new Set());
   const [dependencyRiskByName, setDependencyRiskByName] = useState<Map<string, DependencyRiskProfile>>(new Map());
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Pulled out of the mount effect so a successful ownership assignment can
+  // re-run exactly the same load instead of a full page reload.
+  function loadOwnershipData() {
     // agents/tools/workflows/ownership are this page's own dataset -- an
     // outage here must fail the page (the existing `error` branch below),
     // not render "Ownership Intelligence" with zero owners and zero agents.
     // predictive-risk is a supplementary overlay (risk tiers layered onto
-    // agents already loaded), so it keeps its soft fallback.
-    Promise.all([
+    // agents already loaded), so it keeps its soft fallback. employees
+    // (needed only for the assign-owner dropdown) is the same tier as
+    // predictive-risk -- its absence disables assignment, it doesn't blank
+    // the page.
+    return Promise.all([
       request<RawAgent[]>('/api/agents'),
       request<Record<string, unknown>[]>('/api/tools'),
       request<RawWorkflow[]>('/api/workflows'),
       predictiveApi.agents().catch(() => []),
       request<{ owners: RawOwnerRow[] }>('/api/ownership'),
+      request<Employee[]>('/api/employees').catch(() => []),
     ])
-    .then(([agentsData, toolsData, wfsData, predictiveData, ownershipData]) => {
+    .then(([agentsData, toolsData, wfsData, predictiveData, ownershipData, employeesData]) => {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const ownerRows = Array.isArray(ownershipData.owners) ? ownershipData.owners : [];
       setHumanSpofOwners(new Set(ownerRows.filter((o: RawOwnerRow) => o.isHumanSpof && o.name).map((o: RawOwnerRow) => o.name as string)));
@@ -63,6 +70,7 @@ export default function OwnershipPage() {
           } as DependencyRiskProfile])
       ));
       const agents = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
+      setEmployees(Array.isArray(employeesData) ? employeesData : []);
 
       const ai_tools = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
         ...t,
@@ -81,14 +89,27 @@ export default function OwnershipPage() {
         ai_tools,
         workflows,
       });
-    })
-    .catch((err) => {
-      setError(err.message);
-    })
-    .finally(() => {
-      setLoading(false);
     });
+  }
+
+  useEffect(() => {
+    loadOwnershipData()
+      .catch((err) => {
+        setError(err.message);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
+
+  // DATA-1's first write path: assign an owner, then reload the page's own
+  // dataset so every derived view (coverage score, human-SPOF set, dependency
+  // risk) reflects the change immediately instead of only the one row that
+  // changed.
+  async function handleAssignOwner(agentId: string, ownerId: number) {
+    await agentsApi.assignOwner(Number(agentId), ownerId);
+    await loadOwnershipData();
+  }
 
   if (loading) {
     return (
@@ -131,7 +152,13 @@ export default function OwnershipPage() {
       <DependencyPipeline dataset={dataset} riskByAgentName={riskByAgentName} humanSpofOwners={humanSpofOwners} />
       <HumanDependencyRisks dataset={dataset} riskByAgentName={riskByAgentName} dependencyRiskByName={dependencyRiskByName} />
       <OrgRelationshipMap dataset={dataset} />
-      <OwnershipList agents={dataset.agents} riskByAgentName={riskByAgentName} humanSpofOwners={humanSpofOwners} />
+      <OwnershipList
+        agents={dataset.agents}
+        riskByAgentName={riskByAgentName}
+        humanSpofOwners={humanSpofOwners}
+        employees={employees}
+        onAssignOwner={handleAssignOwner}
+      />
     </div>
   );
 }

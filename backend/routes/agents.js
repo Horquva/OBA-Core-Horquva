@@ -59,6 +59,52 @@ router.get('/', async (req, res) => {
   }
 })
 
+// PATCH /api/agents/:id/owner — assign, change, or clear an agent's owner.
+//
+// DATA-1's first slice: the app has always been able to DETECT an unowned or
+// under-covered agent (orphaned list, human-SPOF checks, dependency risk) but
+// had no path to actually fix one — every recommendation it generates was
+// read-only advice with nowhere to go. This is that one write path: it does
+// not attempt the rest of the write loop (backup designation, documentation
+// flags, recommendation resolution, decision approval, automation mode —
+// each is its own decision about validation and UI, deliberately left for
+// its own pass rather than bundled in here).
+//
+// Body: { ownerId: number | null }. `null` clears ownership — a genuine
+// action (e.g. the owner left and there is no replacement yet), not an
+// error, so it is accepted, not rejected.
+router.patch('/:id/owner', async (req, res) => {
+  const agentId = Number(req.params.id)
+  if (!Number.isInteger(agentId)) {
+    return res.status(400).json({ error: 'Invalid agent id' })
+  }
+
+  const { ownerId } = req.body ?? {}
+  if (ownerId !== null && !Number.isInteger(ownerId)) {
+    return res.status(400).json({ error: 'ownerId must be an integer employee id, or null to clear ownership' })
+  }
+
+  const { data, error } = await supabase
+    .from('agents')
+    .update({ owner_id: ownerId })
+    .eq('id', agentId)
+    .select('id, name, owner_id')
+    .maybeSingle()
+
+  if (error) {
+    // Postgres foreign-key violation (agents.owner_id -> employees(id),
+    // declared in sql/05_foreign_keys.sql) — a real, expected outcome for a
+    // bad id, not a server fault.
+    if (error.code === '23503') {
+      return res.status(400).json({ error: `No employee with id ${ownerId}` })
+    }
+    return res.status(500).json({ error: error.message })
+  }
+  if (!data) return res.status(404).json({ error: `No agent with id ${agentId}` })
+
+  res.json({ ok: true, agent: data })
+})
+
 // GET /api/agents/orphaned — agents with no owner
 router.get('/orphaned', async (req, res) => {
   const { data, error } = await supabase

@@ -24,6 +24,7 @@ const tests = [
 	'routeEvidence.unit.test.js', // pure; asserts evidence gating in routes outside derived.js
 	'authRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline
 	'graphRoutes.test.js', // HTTP-level; stubs brain, so it runs offline
+	'agentsRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (DATA-1's first write path)
 	'realityRoutes.test.js', // HTTP-level; real brain + fixture graph, so it runs offline (M02/M03/M07/M28/M29/M31/M32/M34/M35/M49 wire-up)
 	'simulationRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-I)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline

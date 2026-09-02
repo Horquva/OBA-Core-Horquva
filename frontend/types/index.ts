@@ -10,6 +10,14 @@ export interface Agent {
   documented: boolean;
 }
 
+/** GET /api/employees row — used for the assign-owner dropdown (DATA-1). */
+export interface Employee {
+  id: number;
+  name: string;
+  role?: string;
+  department?: string;
+}
+
 export interface Dependency {
   from: string;
   to: string;

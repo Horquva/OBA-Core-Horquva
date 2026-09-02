@@ -1124,6 +1124,26 @@ export const authApi = {
     }),
 };
 
+export interface AssignOwnerResponse {
+  ok: boolean;
+  agent: { id: number; name: string; owner_id: number | null };
+}
+
+export const agentsApi = {
+  /**
+   * DATA-1's first write path. Assign, change, or clear (ownerId: null) an
+   * agent's owner. Every other write the app could plausibly need (backup
+   * designation, documentation flags, recommendation resolution, decision
+   * approval, automation mode) is deliberately not built here — this is one
+   * narrow, complete slice, not the start of a bigger form.
+   */
+  assignOwner: (agentId: number, ownerId: number | null) =>
+    request<AssignOwnerResponse>(`/api/agents/${agentId}/owner`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ownerId }),
+    }),
+};
+
 // ─── Health Check Utility ────────────────────────────────────────────────────
 
 export const API_BASE = BASE;
