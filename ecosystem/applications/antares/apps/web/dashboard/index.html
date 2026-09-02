@@ -223,6 +223,7 @@ body{
       <div class="nav-label">System</div>
       <button class="nav-item" data-tab="platforms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Platforms<span class="nqty" id="nq-platforms"></span></button>
       <button class="nav-item" data-tab="capabilities"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>Capabilities<span class="nqty" id="nq-caps"></span></button>
+      <button class="nav-item" data-tab="knowledge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>Knowledge<span class="nqty" id="nq-knowledge"></span></button>
       <button class="nav-item" data-tab="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Activity</button>
     </div>
 
@@ -348,6 +349,12 @@ body{
       <div class="full-list" id="capabilities-list"></div>
     </section>
 
+    <section class="tab-panel" id="tab-knowledge">
+      <h2 class="section-title">Knowledge</h2>
+      <p class="section-sub">Operationalized knowledge objects — versioned, provenance-tracked records ready for machine consumption (Ammara Nasir's platform).</p>
+      <div class="full-list" id="knowledge-list"></div>
+    </section>
+
     <!-- ACTIVITY -->
     <section class="tab-panel" id="tab-activity">
       <h2 class="section-title">Activity</h2>
@@ -400,6 +407,7 @@ const d = {
     research_signals: (raw.overview && raw.overview.research_signals) || 0,
     research_patterns: (raw.overview && raw.overview.research_patterns) || 0,
     governance_decisions: (raw.overview && raw.overview.governance_decisions) || 0,
+    knowledge_objects: (raw.overview && raw.overview.knowledge_objects) || 0,
   },
   platforms: Array.isArray(raw.platforms) ? raw.platforms : [],
   jobs: Array.isArray(raw.jobs) ? raw.jobs : [],
@@ -420,6 +428,25 @@ const d = {
     reason: g.reason || '',
     evidence_id: g.evidence_id || '—',
   })),
+  knowledge_objects: (Array.isArray(raw.knowledge_objects) ? raw.knowledge_objects : []).map(k => ({
+    object_identity: {
+      id: (k.object_identity && k.object_identity.id) || 'unknown',
+      title: (k.object_identity && k.object_identity.title) || 'Untitled knowledge object',
+      description: (k.object_identity && k.object_identity.description) || '',
+      category: (k.object_identity && k.object_identity.category) || 'uncategorized',
+    },
+    lifecycle_and_versioning: {
+      version: (k.lifecycle_and_versioning && k.lifecycle_and_versioning.version) || 1,
+      lifecycle_state: (k.lifecycle_and_versioning && k.lifecycle_and_versioning.lifecycle_state) || 'UNKNOWN',
+    },
+    provenance_and_source: {
+      source_platform: (k.provenance_and_source && k.provenance_and_source.source_platform) || 'unknown',
+    },
+    validation_and_constitutional_state: {
+      validated_by: (k.validation_and_constitutional_state && k.validation_and_constitutional_state.validated_by) || 'unknown',
+      confidence_score: (k.validation_and_constitutional_state && k.validation_and_constitutional_state.confidence_score) ?? 0,
+    },
+  })),
   sources: raw.sources || {},
 };
 
@@ -428,6 +455,7 @@ document.getElementById('nq-signals').textContent = d.signals.length;
 document.getElementById('nq-evidence').textContent = d.governance_decisions.length;
 document.getElementById('nq-platforms').textContent = d.platforms.length;
 document.getElementById('nq-caps').textContent = d.capabilities.length;
+document.getElementById('nq-knowledge').textContent = (d.knowledge_objects || []).length;
 
 // ---- Overview: insight row (real, derived from actual data) ----
 document.getElementById('insight-row').innerHTML = `
@@ -456,6 +484,7 @@ document.getElementById('stat-grid').innerHTML = `
   <div class="stat-card"><div class="label">Research Signals</div><div class="value">${d.overview.research_signals}</div></div>
   <div class="stat-card"><div class="label">Patterns Identified</div><div class="value">${d.overview.research_patterns}</div></div>
   <div class="stat-card"><div class="label">Governance Decisions</div><div class="value">${d.governance_decisions.length}</div></div>
+  <div class="stat-card"><div class="label">Knowledge Objects</div><div class="value">${d.knowledge_objects.length}</div></div>
 `;
 
 document.getElementById('ov-platform-count').textContent = `${d.platforms.length} total`;
@@ -504,6 +533,19 @@ document.getElementById('capabilities-list').innerHTML = d.capabilities.map(c =>
   <div class="row"><span class="title">${c.name}</span><span class="pill ${c.state.includes('Ready') ? 'ready' : 'pending'}">${c.state}</span></div>
 `).join('') || '<div class="row"><span class="who">No capabilities registered yet</span></div>';
 
+// ---- Knowledge tab (Ammara's operationalized objects) ----
+document.getElementById('knowledge-list').innerHTML = (d.knowledge_objects || []).map(k => `
+  <div class="evidence-card">
+    <div class="evidence-top">
+      <span class="evidence-actor">${k.object_identity.title}</span>
+      <span class="pill ready">${k.lifecycle_and_versioning.lifecycle_state}</span>
+    </div>
+    <div class="sub">${k.object_identity.category} · v${k.lifecycle_and_versioning.version} · source: ${k.provenance_and_source.source_platform}</div>
+    <p class="evidence-reason">${k.object_identity.description}</p>
+    <div class="evidence-id mono">${k.object_identity.id} · validated by ${k.validation_and_constitutional_state.validated_by} (confidence ${k.validation_and_constitutional_state.confidence_score})</div>
+  </div>
+`).join('') || '<div class="row"><span class="who">No knowledge objects yet</span></div>';
+
 // ---- Activity tab (combined feed) ----
 const allActivity = [
   ...d.signals.map(s => ({t: s.title, sub: 'Signal detected · ' + (s.orgs || []).join(', '), pill: s.state.replace(/_/g,' '), cls:'pattern'})),
@@ -519,7 +561,7 @@ const titles = {
   overview: "Emerging & Decentralized Organizational Intelligence", signals: "Signals", evidence: "Evidence",
   governance: "Governance", organizations: "Organizations", technology: "Technology", identity: "Identity",
   ecosystems: "Ecosystems", insights: "Insights", watchlist: "Watchlist", platforms: "Platforms",
-  capabilities: "Capabilities", activity: "Activity"
+  capabilities: "Capabilities", activity: "Activity", knowledge: "Knowledge"
 };
 
 // ---- Platform Status panel (every tracked service, real status, no fake numbers) ----

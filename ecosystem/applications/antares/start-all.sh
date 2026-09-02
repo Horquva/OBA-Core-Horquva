@@ -16,6 +16,7 @@ echo "Installing dependencies (first run only — safe to skip if already done).
 (cd services/capability-service && pip install -r requirements.txt --break-system-packages -q)
 (cd services/validation-service && pip install -r requirements.txt --break-system-packages -q)
 (cd services/research-service && pip install -r requirements.txt --break-system-packages -q)
+(cd services/operationalization-service && pip install -r requirements.txt --break-system-packages -q)
 
 echo ""
 echo "Starting services..."
@@ -38,6 +39,9 @@ echo "Starting services..."
 (cd services/research-service && python -m uvicorn server:app --port 4006 < /dev/null > ../../.run/research.log 2>&1 &
  echo $! > ../../.run/research.pid)
 
+(cd services/operationalization-service && python -m uvicorn server:app --port 4007 < /dev/null > ../../.run/operationalization.log 2>&1 &
+ echo $! > ../../.run/operationalization.pid)
+
 sleep 3
 
 node gateway.js < /dev/null > .run/gateway.log 2>&1 &
@@ -47,7 +51,7 @@ sleep 2
 
 echo ""
 echo "Checking health..."
-for svc in lifecycle:4001 integration:4002 governance:4003 capability:4004 validation:4005 research:4006; do
+for svc in lifecycle:4001 integration:4002 governance:4003 capability:4004 validation:4005 research:4006 operationalization:4007; do
   name="${svc%%:*}"; port="${svc##*:}"
   if curl -s -m 2 "http://localhost:$port/health" > /dev/null; then
     echo "  ✓ $name (port $port)"

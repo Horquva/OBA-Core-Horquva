@@ -29,6 +29,7 @@ const HOSTS = {
   capability: process.env.CAPABILITY_HOST || '127.0.0.1:4004',
   validation: process.env.VALIDATION_HOST || '127.0.0.1:4005',
   research: process.env.RESEARCH_HOST || '127.0.0.1:4006',
+  operationalization: process.env.OPERATIONALIZATION_HOST || '127.0.0.1:4007',
 };
 
 const SERVICES = {
@@ -38,6 +39,7 @@ const SERVICES = {
   capability: `http://${HOSTS.capability}/api/summary`,
   validation: `http://${HOSTS.validation}/health`,
   research: `http://${HOSTS.research}/api/signals`,
+  operationalization: `http://${HOSTS.operationalization}/api/summary`,
 };
 
 // Platforms with a folder in services/ but no server/code behind them yet
@@ -47,8 +49,7 @@ const SERVICES = {
 // a real service that's merely unreachable). Engineering Ops does not build
 // their logic — only reports that it doesn't exist yet.
 const NOT_IMPLEMENTED_PLATFORMS = {
-  'intelligence-service': 'no code — README-only scaffold',
-  'operationalization-service': 'no code — README-only scaffold',
+  'intelligence-service': 'no code — README-only scaffold; no owner assigned in the team mapping (the real AI/ML and Technology Intelligence work already lives in capability-service and research-service)',
 };
 
 async function safeFetch(url) {
@@ -64,13 +65,14 @@ async function safeFetch(url) {
 }
 
 async function aggregate() {
-  const [lifecycle, integration, governance, capability, validation, research] = await Promise.all([
+  const [lifecycle, integration, governance, capability, validation, research, operationalization] = await Promise.all([
     safeFetch(SERVICES.lifecycle),
     safeFetch(SERVICES.integration),
     safeFetch(SERVICES.governance),
     safeFetch(SERVICES.capability),
     safeFetch(SERVICES.validation),
     safeFetch(SERVICES.research),
+    safeFetch(SERVICES.operationalization),
   ]);
 
   const platforms = lifecycle.available ? lifecycle.data.platforms : [];
@@ -80,6 +82,7 @@ async function aggregate() {
   const signals = research.available ? research.data.signals : [];
   const researchCounts = research.available ? research.data.counts : {};
   const orgSummary = capability.available ? capability.data : null;
+  const knowledgeObjects = operationalization.available ? operationalization.data.objects : [];
 
   return {
     generated_at: new Date().toISOString(),
@@ -90,6 +93,7 @@ async function aggregate() {
       capability: capability.available ? 'live' : `down (${capability.error})`,
       validation: validation.available ? 'live' : `down (${validation.error})`,
       research: research.available ? 'live' : `down (${research.error})`,
+      operationalization: operationalization.available ? 'live' : `down (${operationalization.error})`,
       ...Object.fromEntries(
         Object.entries(NOT_IMPLEMENTED_PLATFORMS).map(([name, reason]) => [
           name,
@@ -104,6 +108,7 @@ async function aggregate() {
       research_signals: researchCounts.signals ?? signals.length,
       research_patterns: researchCounts.patterns ?? 0,
       governance_decisions: governanceDecisions.length,
+      knowledge_objects: knowledgeObjects.length,
     },
     platforms,
     jobs,
@@ -111,6 +116,7 @@ async function aggregate() {
     signals,
     governance_decisions: governanceDecisions,
     organization_summary: orgSummary,
+    knowledge_objects: knowledgeObjects,
   };
 }
 
