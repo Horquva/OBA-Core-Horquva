@@ -3,6 +3,7 @@ const router = express.Router()
 const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { spofVerdict } = require('../domain/definitions')
+const { dependencyIndex, cascadeReach } = require('../domain/derived')
 
 // GET /api/dependencies — full dependency graph with analysis
 router.get('/', async (req, res) => {
@@ -70,12 +71,24 @@ router.get('/', async (req, res) => {
  * just because no dependent happens to be recorded yet). victimsCount is
  * still reported per agent, as informational blast-radius context, not as
  * part of the SPOF gate.
+ *
+ * victimsCount/maxCascadeRisk now come from derived.js's dependencyIndex() +
+ * cascadeReach() rather than a local adjacency walk. The local version built
+ * adj[source] = [targets] and walked FORWARD from each agent — that returns
+ * what the agent itself depends on (its own prerequisites), not who is
+ * affected when it fails. "Max Cascade Depth / Largest downstream failure
+ * chain" (the label this number renders under on the Dependency Map) was
+ * therefore reporting each agent's upstream dependency count, backwards.
+ * dependencyIndex()/cascadeReach() walk the correct direction — from a
+ * failing node to the sources pointing AT it — and are already the shared,
+ * tested definition three other consumers (predictiveRisk, orgHealth,
+ * domain/simulations.js's scenario cascades) use for the same question.
  */
 router.get('/agent-spofs', async (req, res) => {
   try {
     const [agentsRes, depsRes, backupByEmployee] = await Promise.all([
       supabase.from('agents').select('id, name, risk, owner_id'),
-      supabase.from('dependencies').select('source_id, target_id').eq('source_type', 'agent').eq('target_type', 'agent'),
+      supabase.from('dependencies').select('source_id, target_id, source_type, target_type').eq('source_type', 'agent').eq('target_type', 'agent'),
       // "backup coverage" belongs to the agent's owner, not the agent — see
       // ownership.js's header comment. Same derivation as agents.js.
       loadOwnerBackupByEmployee(),
@@ -87,35 +100,14 @@ router.get('/agent-spofs', async (req, res) => {
       ...a,
       backup_owner: a.owner_id != null ? (backupByEmployee[a.owner_id] ?? null) : null,
     }))
-    const deps = depsRes.data || []
-
-    const adj = {}
-    for (const d of deps) {
-      if (!adj[d.source_id]) adj[d.source_id] = []
-      adj[d.source_id].push(d.target_id)
-    }
-
-    function getDownstream(startId) {
-      const visited = new Set()
-      const queue = [startId]
-      while (queue.length > 0) {
-        const curr = queue.shift()
-        for (const neighbor of adj[curr] || []) {
-          if (!visited.has(neighbor)) {
-            visited.add(neighbor)
-            queue.push(neighbor)
-          }
-        }
-      }
-      return visited
-    }
+    const index = dependencyIndex({ dependencies: depsRes.data || [] })
 
     const spofs = []
     let maxCascadeRisk = 0
 
     for (const agent of agents) {
-      const victims = getDownstream(agent.id)
-      if (victims.size > maxCascadeRisk) maxCascadeRisk = victims.size
+      const victimsCount = cascadeReach('agent', agent.id, index)
+      if (victimsCount > maxCascadeRisk) maxCascadeRisk = victimsCount
 
       const verdict = spofVerdict({
         criticality: agent.risk,
@@ -123,7 +115,7 @@ router.get('/agent-spofs', async (req, res) => {
         hasBackup: Boolean(agent.backup_owner),
       })
       if (verdict.status === 'spof') {
-        spofs.push({ agentId: agent.id, name: agent.name, victimsCount: victims.size })
+        spofs.push({ agentId: agent.id, name: agent.name, victimsCount })
       }
     }
 
