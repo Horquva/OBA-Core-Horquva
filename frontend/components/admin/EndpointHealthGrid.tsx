@@ -71,7 +71,6 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   // ── Interaction + Intelligence ─────────────────────────────
   { name: 'Verification',    path: '/api/verification',    pingPath: '/api/verification/summary',  category: 'Interaction', mounted: true },
   { name: 'Orchestration',   path: '/api/orchestration',   pingPath: '/api/orchestration/summary', category: 'Interaction', mounted: true },
-  { name: 'Decisions',       path: '/api/decisions',       pingPath: '/api/decisions/all',         category: 'Interaction', mounted: true },
   { name: 'Decision Intelligence', path: '/api/decision-intelligence', pingPath: '/api/decision-intelligence', category: 'Interaction', mounted: true },
   { name: 'Learning',        path: '/api/learning',        pingPath: '/api/learning/summary',      category: 'Interaction', mounted: true },
   { name: 'Collaboration',   path: '/api/collaboration',   pingPath: '/api/collaboration/score',    category: 'Interaction', mounted: true },
@@ -95,7 +94,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Continuity Intel',     path: '/api/intelligence/continuity',         pingPath: '/api/intelligence/continuity',         category: 'Constitutional', module: 'M18', mounted: true },
   { name: 'Governance Intel',     path: '/api/intelligence/governance',         pingPath: '/api/intelligence/governance',         category: 'Constitutional', module: 'M19', mounted: true },
   { name: 'Brain Core',           path: '/api/intelligence/brain-core',         pingPath: '/api/intelligence/brain-core',         category: 'Constitutional', mounted: true },
-  { name: 'Intel Orchestrator',   path: '/api/intelligence/orchestrator',       pingPath: '/api/intelligence/orchestrator',       category: 'Constitutional', mounted: true },
+  { name: 'Intel Orchestrator',   path: '/api/intelligence/orchestrator',       pingPath: '/api/intelligence/orchestrator/summary', category: 'Constitutional', mounted: true },
   { name: 'Signal Intelligence',  path: '/api/intelligence/signals',           pingPath: '/api/intelligence/signals',            category: 'Constitutional', mounted: true },
   { name: 'Pattern Regularity',   path: '/api/intelligence/pattern',           pingPath: '/api/intelligence/pattern',            category: 'Constitutional', module: 'M37', mounted: true },
   { name: 'Opportunity Intel',    path: '/api/intelligence/opportunities',     pingPath: '/api/intelligence/opportunities',      category: 'Constitutional', mounted: true },

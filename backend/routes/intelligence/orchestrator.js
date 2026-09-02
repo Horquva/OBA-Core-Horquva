@@ -425,31 +425,6 @@ async function getOrComputeOrchestration() {
 }
 
 // ─────────────────────────────────────────────
-// GET /api/intelligence/orchestrator
-// ─────────────────────────────────────────────
-
-router.get('/', async (req, res) => {
-  try {
-    const snap = await getOrComputeOrchestration()
-
-    res.json({
-      organizationalIntelligenceScore: snap.organizational_intelligence_score,
-      rating: snap.rating,
-      finalVerdict: snap.final_verdict,
-      brainPosture: snap.brain_posture,
-      trustScore: snap.trust_score,
-      generatedAt: snap.computed_at ?? new Date().toISOString(),
-      fromCache: snap.fromCache,
-      // Absent on a cache hit — a snapshot is only ever persisted when every
-      // module read cleanly, so there is no degradation to report.
-      dataIntegrity: snap.dataIntegrity ?? null
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
 // GET /api/intelligence/orchestrator/summary
 // ─────────────────────────────────────────────
 
@@ -469,25 +444,6 @@ router.get('/summary', async (req, res) => {
       generatedAt: snap.computed_at ?? new Date().toISOString(),
       dataIntegrity: snap.dataIntegrity ?? null,
       evidence: snap.evidence ?? null
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
-// GET /api/intelligence/orchestrator/verdict
-// ─────────────────────────────────────────────
-
-router.get('/verdict', async (req, res) => {
-  try {
-    const snap = await getOrComputeOrchestration()
-
-    res.json({
-      finalVerdict: snap.final_verdict,
-      rating: snap.rating,
-      brainPosture: snap.brain_posture,
-      dataIntegrity: snap.dataIntegrity ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -544,24 +500,6 @@ router.get('/modules', async (req, res) => {
         unavailable: m.unavailable,
         error: m.error
       }))
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
-// GET /api/intelligence/orchestrator/score
-// ─────────────────────────────────────────────
-
-router.get('/score', async (req, res) => {
-  try {
-    const snap = await getOrComputeOrchestration()
-
-    res.json({
-      organizationalIntelligenceScore: snap.organizational_intelligence_score,
-      rating: snap.rating,
-      dataIntegrity: snap.dataIntegrity ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

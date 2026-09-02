@@ -929,16 +929,8 @@ export interface ContextFeedResponse {
   feed: ContextFeedItem[];
 }
 
-export interface ContextSummary {
-  totalContextItems: number;
-  byType: Record<string, number>;
-  byUrgency: { CRITICAL: number; HIGH: number; MEDIUM: number; LOW: number };
-  topPriorityItem: ContextFeedItem | null;
-}
-
 export const contextApi = {
   feed: () => request<ContextFeedResponse>('/api/context/feed'),
-  summary: () => request<ContextSummary>('/api/context/summary'),
   avatar: () => request<Record<string, unknown>>('/api/context/avatar'),
 };
 

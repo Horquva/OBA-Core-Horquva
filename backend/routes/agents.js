@@ -105,17 +105,6 @@ router.patch('/:id/owner', async (req, res) => {
   res.json({ ok: true, agent: data })
 })
 
-// GET /api/agents/orphaned — agents with no owner
-router.get('/orphaned', async (req, res) => {
-  const { data, error } = await supabase
-    .from('agents')
-    .select('id, name, type, status, risk')
-    .is('owner_id', null)
-
-  if (error) return res.status(500).json({ error: error.message })
-  res.json({ total: data.length, orphanedAgents: data })
-})
-
 // GET /api/agents/risk-summary — risk breakdown
 router.get('/risk-summary', async (req, res) => {
   const { data, error } = await supabase

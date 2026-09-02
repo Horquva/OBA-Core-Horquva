@@ -47,44 +47,6 @@ router.get('/escalations', async (req, res) => {
   res.json(data)
 })
 
-// GET /api/avatar/escalations/critical — only critical escalations
-router.get('/escalations/critical', async (req, res) => {
-  const { data, error } = await supabase
-    .from('escalation_logs')
-    .select('*')
-    .eq('severity', 'critical')
-    .order('created_at', { ascending: false })
-
-  if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
-})
-
-// GET /api/avatar/escalations/summary — counts by severity and status
-router.get('/escalations/summary', async (req, res) => {
-  const { data, error } = await supabase
-    .from('escalation_logs')
-    .select('*')
-
-  if (error) return res.status(500).json({ error: error.message })
-
-  const summary = {
-    total: data.length,
-    by_severity: {
-      critical: data.filter(r => r.severity === 'critical').length,
-      high: data.filter(r => r.severity === 'high').length,
-      medium: data.filter(r => r.severity === 'medium').length,
-      low: data.filter(r => r.severity === 'low').length,
-    },
-    by_status: {
-      open: data.filter(r => r.status === 'open').length,
-      acknowledged: data.filter(r => r.status === 'acknowledged').length,
-      resolved: data.filter(r => r.status === 'resolved').length,
-    }
-  }
-
-  res.json(summary)
-})
-
 // POST /api/avatar/check — gate check + auto-escalate if fails
 router.post('/check', async (req, res) => {
   try {
