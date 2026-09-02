@@ -4,8 +4,8 @@ import { useState, useCallback } from 'react';
 import { CollaborationScoreCard } from '../../components/org-science/CollaborationScoreCard';
 import { LearningMaturityCard } from '../../components/org-science/LearningMaturityCard';
 import { PatternRegularityCard } from '../../components/org-science/PatternRegularityCard';
-import { CapabilityByDeptCard } from '../../components/org-science/CapabilityByDeptCard';
-import { StrategicAlignmentCard } from '../../components/org-science/StrategicAlignmentCard';
+import { CapabilityInventoryCard } from '../../components/org-science/CapabilityInventoryCard';
+import { OwnershipCoverageCard } from '../../components/org-science/OwnershipCoverageCard';
 import { DNAFingerprintCard } from '../../components/org-science/DNAFingerprintCard';
 import { CultureHealthCard } from '../../components/org-science/CultureHealthCard';
 import { MaturityCurveCard } from '../../components/org-science/MaturityCurveCard';
@@ -36,8 +36,8 @@ export default function OrgSciencePage() {
         <CollaborationScoreCard />
         <LearningMaturityCard />
         <PatternRegularityCard />
-        <CapabilityByDeptCard />
-        <StrategicAlignmentCard />
+        <CapabilityInventoryCard />
+        <OwnershipCoverageCard />
         <DNAFingerprintCard />
         <CultureHealthCard />
         <MaturityCurveCard />

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { orgScience, ApiError, type IntelligenceResponse, type StrategicAlignmentPayload } from '../../lib/api';
-import { Target, AlertTriangle } from 'lucide-react';
+import { orgScience, ApiError, type IntelligenceResponse, type CapabilityPayload } from '../../lib/api';
+import { Building2, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
@@ -16,8 +16,8 @@ function MetricRow({ label, value, color }: { label: string; value: number | str
   );
 }
 
-export function StrategicAlignmentCard() {
-  const [res, setRes] = useState<IntelligenceResponse<StrategicAlignmentPayload> | null>(null);
+export function CapabilityInventoryCard() {
+  const [res, setRes] = useState<IntelligenceResponse<CapabilityPayload> | null>(null);
   const [state, setState] = useState<FetchState>('loading');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -25,7 +25,7 @@ export function StrategicAlignmentCard() {
     let cancelled = false;
     async function load() {
       try {
-        const response = await orgScience.strategicAlignment();
+        const response = await orgScience.capabilityInventory();
         if (cancelled) return;
         setRes(response);
         setState('success');
@@ -34,7 +34,7 @@ export function StrategicAlignmentCard() {
         setErrorMsg(
           err instanceof ApiError
             ? `${err.status} — ${err.message}`
-            : 'Failed to fetch alignment data',
+            : 'Failed to fetch capability data',
         );
         setState('error');
       }
@@ -49,18 +49,19 @@ export function StrategicAlignmentCard() {
     <div className="card border-[var(--border-subtle)] flex flex-col h-full min-h-[280px]">
       <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <Target className="w-4 h-4 text-emerald-400" />
-          <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Ownership Coverage</h3>
+          <Building2 className="w-4 h-4 text-emerald-400" />
+          {/* Org-wide counts, not a per-department breakdown -- named
+              "Capability Intel" (and the endpoint "capability-by-dept")
+              used to imply otherwise. */}
+          <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Capability Inventory</h3>
         </div>
-        {state === 'success' && data && (
-          <span className={clsx(
-            "px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border",
-            data.covered ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-            'bg-red-500/10 text-red-400 border-red-500/20'
-          )}>
-            {data.covered ? 'COVERED' : 'GAPS FOUND'}
-          </span>
-        )}
+        {/*
+          The badge here used to read STRONG/DEVELOPING off
+          brainConstitutionalCapabilities — the brain's own module count, always
+          55, so it always said STRONG. It measured the machinery rather than the
+          organization and was removed with the runtime. Nothing in this payload
+          currently supports a health verdict, so the card states counts only.
+        */}
       </div>
 
       <div className="p-6 flex-1 flex flex-col justify-center">
@@ -78,7 +79,7 @@ export function StrategicAlignmentCard() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm text-[color:var(--text-primary)] font-medium mb-1">Failed to load alignment</p>
+              <p className="text-sm text-[color:var(--text-primary)] font-medium mb-1">Failed to load capability data</p>
               <p className="text-xs text-[color:var(--text-tertiary)]">{errorMsg}</p>
             </div>
           </div>
@@ -86,8 +87,8 @@ export function StrategicAlignmentCard() {
 
         {state === 'empty' && (
           <div className="flex flex-col items-center text-center">
-            <Target className="w-8 h-8 text-[color:var(--text-tertiary)] mb-2" />
-            <p className="text-sm text-[color:var(--text-secondary)]">No alignment data available.</p>
+            <Building2 className="w-8 h-8 text-[color:var(--text-tertiary)] mb-2" />
+            <p className="text-sm text-[color:var(--text-secondary)]">No capability data available.</p>
           </div>
         )}
 
@@ -95,18 +96,29 @@ export function StrategicAlignmentCard() {
           <div className="space-y-5">
             <div className="text-center">
               <div className="text-4xl font-bold text-[color:var(--text-primary)] tabular-nums tracking-tight mb-1">
-                {Math.round(data.ownershipCoverageScore * 100)}%
+                {data.workflowCapabilities.length}
               </div>
               <p className="text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-widest font-medium">
-                Ownership Coverage
+                Workflow Capabilities
               </p>
             </div>
 
             <div>
-              <MetricRow 
-                label="Identified Gaps" 
-                value={data.gaps.length} 
-                color={data.gaps.length === 0 ? 'text-emerald-400' : 'text-yellow-400'} 
+              {/*
+                "Not modelled", not "none exist" — no Supabase table sources the
+                `system` entity type, so this is a gap in what we capture rather
+                than a fact about the organization. Shown in muted text so it
+                does not read as a measured zero.
+              */}
+              <MetricRow
+                label="System Capabilities"
+                value={data.systemCapabilities.length > 0 ? data.systemCapabilities.length : 'not modelled'}
+                color="text-[color:var(--text-tertiary)]"
+              />
+              <MetricRow
+                label="Workflows Mapped"
+                value={data.workflowCapabilities.length}
+                color="text-[color:var(--text-primary)]"
               />
             </div>
 

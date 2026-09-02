@@ -7,19 +7,27 @@
  * returns its intelligence payload.
  *
  * Card  -> Module mapping:
- *   PatternRegularityCard  -> M37 Pattern Intelligence
- *   DNAFingerprintCard     -> M41 Organizational DNA Intelligence
- *   CultureHealthCard      -> M42 Culture Intelligence
- *   MaturityCurveCard      -> M43 Organizational Maturity Intelligence
- *   BehavioralProfileCard  -> M44 Organizational Behavior Intelligence
- *   IndustryBenchmarkCard  -> M45 Benchmark Intelligence
- *   StrategicAlignmentCard -> M40 Strategic Alignment Intelligence
- *   CapabilityByDeptCard   -> M39 Capability Intelligence
- *   ContinuityTab          -> M18 Organizational Continuity Intelligence
- *   GovernanceTab          -> M19 Governance Intelligence
- *   RecommendationsPage    -> M04 Recommendation Engine (D-62)
+ *   PatternRegularityCard   -> M37 Pattern Intelligence
+ *   DNAFingerprintCard      -> M41 Organizational DNA Intelligence
+ *   CultureHealthCard       -> M42 Culture Intelligence
+ *   MaturityCurveCard       -> M43 Organizational Maturity Intelligence
+ *   BehavioralProfileCard   -> M44 Organizational Behavior Intelligence
+ *   IndustryBenchmarkCard   -> M45 Benchmark Intelligence
+ *   OwnershipCoverageCard   -> M40 Strategic Alignment Intelligence
+ *   CapabilityInventoryCard -> M39 Capability Intelligence
+ *   ContinuityTab           -> M18 Organizational Continuity Intelligence
+ *   GovernanceTab           -> M19 Governance Intelligence
+ *   RecommendationsPage     -> M04 Recommendation Engine (D-62)
  *
  * Mounted at /api/intelligence (see backend/index.js).
+ *
+ * The URL paths below are named for what each endpoint actually returns,
+ * not for the M-catalog name it happens to implement (M40 "Strategic
+ * Alignment Intelligence" computes ownership coverage; M39 "Capability
+ * Intelligence" returns org-wide counts with no department breakdown at
+ * all). The catalog names themselves are locked (constitutional-modules.js)
+ * and unchanged — only the public route names and the frontend card/type
+ * names that were making the same false claim are renamed here.
  */
 
 const express = require('express')
@@ -82,8 +90,15 @@ router.get('/culture', moduleEndpoint('culture')) // CultureHealthCard
 router.get('/maturity', moduleEndpoint('organizational-maturity')) // MaturityCurveCard
 router.get('/behavior', moduleEndpoint('organizational-behavior')) // BehavioralProfileCard
 router.get('/benchmark', moduleEndpoint('benchmark')) // IndustryBenchmarkCard
-router.get('/strategic-alignment', moduleEndpoint('strategic-alignment')) // StrategicAlignmentCard
-router.get('/capability-by-dept', moduleEndpoint('capability')) // CapabilityByDeptCard
+// API-2: renamed from /strategic-alignment -- the module slug passed to
+// moduleEndpoint() stays 'strategic-alignment' (derived from M40's locked
+// catalog name), only the public URL changes to match what the payload
+// actually is: ownershipCoverageScore + gaps, not an alignment-to-strategy
+// measure.
+router.get('/ownership-coverage', moduleEndpoint('strategic-alignment')) // OwnershipCoverageCard
+// API-2: renamed from /capability-by-dept, which returned org-wide counts
+// with no department breakdown at all.
+router.get('/capability-inventory', moduleEndpoint('capability')) // CapabilityInventoryCard
 router.get('/continuity', moduleEndpoint('organizational-continuity')) // ContinuityTab (M18)
 router.get('/governance', moduleEndpoint('governance')) // GovernanceTab (M19)
 router.get('/recommendations', moduleEndpoint('recommendation-engine')) // RecommendationsPage (M04, D-62)
@@ -121,8 +136,8 @@ router.get('/prediction', (req, res) => {
       maturity: '/api/intelligence/maturity',
       behavior: '/api/intelligence/behavior',
       benchmark: '/api/intelligence/benchmark',
-      strategicAlignment: '/api/intelligence/strategic-alignment',
-      capabilityByDept: '/api/intelligence/capability-by-dept',
+      ownershipCoverage: '/api/intelligence/ownership-coverage',
+      capabilityInventory: '/api/intelligence/capability-inventory',
       continuity: '/api/intelligence/continuity',
       governance: '/api/intelligence/governance',
     },

@@ -561,7 +561,7 @@ export const selfHealing = {
 //
 // ⚠ These come from backend/domain/analyses.js (the company dataset), NOT from the
 // brain. `capability` and `alignment` here are different analyses from
-// orgScience.capabilityByDept and orgScience.strategicAlignment below, which
+// orgScience.capabilityInventory and orgScience.ownershipCoverage below, which
 // compute different things from the Knowledge Graph despite sharing the module
 // numbers M39 and M40. See docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
 //
@@ -651,7 +651,10 @@ export interface CapabilityPayload {
   workflowCapabilities: string[];
 }
 
-export interface StrategicAlignmentPayload {
+// API-2: renamed from StrategicAlignmentPayload -- this is M40's payload
+// verbatim, and the payload itself was always ownership coverage, never a
+// strategy-alignment measure. See prediction.js's route comment.
+export interface OwnershipCoveragePayload {
   ownershipCoverageScore: number;
   covered: boolean;
   gaps: string[];
@@ -704,8 +707,8 @@ export interface BenchmarkPayload {
 
 export const orgScience = {
   pattern: () => request<IntelligenceResponse<PatternPayload>>('/api/intelligence/pattern'),
-  capabilityByDept: () => request<IntelligenceResponse<CapabilityPayload>>('/api/intelligence/capability-by-dept'),
-  strategicAlignment: () => request<IntelligenceResponse<StrategicAlignmentPayload>>('/api/intelligence/strategic-alignment'),
+  capabilityInventory: () => request<IntelligenceResponse<CapabilityPayload>>('/api/intelligence/capability-inventory'),
+  ownershipCoverage: () => request<IntelligenceResponse<OwnershipCoveragePayload>>('/api/intelligence/ownership-coverage'),
   dna: () => request<IntelligenceResponse<DNAPayload>>('/api/intelligence/dna'),
   culture: () => request<IntelligenceResponse<CulturePayload>>('/api/intelligence/culture'),
   maturity: () => request<IntelligenceResponse<MaturityPayload>>('/api/intelligence/maturity'),
