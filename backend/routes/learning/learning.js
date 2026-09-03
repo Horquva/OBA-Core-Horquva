@@ -1,13 +1,14 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const domain = require('../../domain')
 
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
 
 function formatLevel(level) {
-  return level.replace('_', ' ')
+  return level ? level.replace('_', ' ') : 'unknown'
 }
 
 async function fetchLatestSnapshot() {
@@ -22,24 +23,40 @@ async function fetchLatestSnapshot() {
   return data
 }
 
+// Was failure_patterns — a frozen table derived.js's own top-of-file comment
+// already names as forbidden input (alongside governance_assessments etc).
+// executiveMemory()'s repeat_offender/lesson items answer the same question
+// live, from workflow_failures; reshaped here to failure_patterns' original
+// field names so this route's response contract is unchanged (F-L).
 async function fetchFailurePatterns() {
-  const { data, error } = await supabase
-    .from('failure_patterns')
-    .select('*')
-    .order('failure_severity', { ascending: false })
-
-  if (error) throw new Error(error.message)
-  return data
+  const intel = await domain.intelligence.all()
+  return intel.executiveMemory.items
+    .filter((i) => i.memoryType === 'repeat_offender' || i.memoryType === 'lesson')
+    .map((i) => ({
+      asset_name: i.entityName,
+      asset_type: i.memoryType === 'repeat_offender' ? 'workflow' : 'failure_type',
+      appearance_count: i.evidence.failureCount ?? i.evidence.workflowCount ?? 0,
+      failure_severity: i.severity,
+      is_repeat_offender: i.memoryType === 'repeat_offender',
+      reasons: [i.description],
+    }))
 }
 
+// Was department_exposure — frozen, uncatalogued in the decision log until
+// this workstream traced it. Computed live now (D-21) from the same root
+// tables orgHealthByDepartment uses, but a different formula answering a
+// different question — see domain/derived.js's departmentExposure().
 async function fetchDepartmentExposure() {
-  const { data, error } = await supabase
-    .from('department_exposure')
-    .select('*')
-    .order('incident_exposure_score', { ascending: false })
-
-  if (error) throw new Error(error.message)
-  return data
+  const intel = await domain.intelligence.all()
+  return [...intel.departmentExposure.departments]
+    .sort((a, b) => b.incidentExposureScore - a.incidentExposureScore)
+    .map((d) => ({
+      department: d.department,
+      documentation_coverage: d.documentationCoverage,
+      backup_coverage: d.backupCoverage,
+      incident_exposure_score: d.incidentExposureScore,
+      incident_risk_level: d.incidentRiskLevel,
+    }))
 }
 
 // ─────────────────────────────────────────────
@@ -65,7 +82,10 @@ router.get('/summary', async (req, res) => {
       repeatOffenderCount: repeatOffenders.length,
       highestExposureDepartment: highestExposureDept
         ? { department: highestExposureDept.department, exposureScore: highestExposureDept.incident_exposure_score }
-        : null
+        : null,
+      // learning_snapshots is a genuine, never-rewritten time series (D-09
+      // KEEP list) — snapshot.* above can never be recomputed.
+      provenance: { source: 'historical', table: 'learning_snapshots' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -113,7 +133,8 @@ router.get('/decisions', async (req, res) => {
       mitigationPercentage: snapshot.mitigation_percentage,
       interpretation: snapshot.mitigation_percentage < 50
         ? 'Less than half of known organizational risks have been addressed.'
-        : 'Majority of known organizational risks have been addressed.'
+        : 'Majority of known organizational risks have been addressed.',
+      provenance: { source: 'historical', table: 'learning_snapshots' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

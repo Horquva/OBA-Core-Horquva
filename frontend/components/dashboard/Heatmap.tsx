@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 
 interface AgentRow {
   department: string;
@@ -15,20 +17,43 @@ const RISK_COLORS = {
   low: '#22c55e'
 };
 
+interface HeatmapTooltipPayloadEntry {
+  color: string;
+  dataKey: string;
+  value: number;
+}
+
+function HeatmapTooltip({ active, payload, label }: { active?: boolean; payload?: HeatmapTooltipPayloadEntry[]; label?: string }) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] p-3 rounded-lg shadow-xl text-sm min-w-[150px]">
+        <p className="font-medium text-[color:var(--text-primary)] mb-2">{label} Department</p>
+        {payload.map((entry, index) => (
+          <div key={index} className="flex justify-between items-center space-x-4 mb-1">
+            <span style={{ color: entry.color }} className="capitalize">{entry.dataKey} Risk</span>
+            <span className="font-semibold text-[color:var(--text-primary)]">{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
+
 export function Heatmap() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    fetch(`${base}/api/agents`)
+    fetch(`${base}/api/agents`, { headers: authHeader() })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {
           setAgents(data.map(a => ({
             ...a,
             department: a.department || (a.owner && a.owner.department) || 'Unassigned',
-            criticality: a.risk || a.criticality || 'low'
+            criticality: resolveCriticality(a)
           })));
         } else {
           setAgents([]);
@@ -53,23 +78,6 @@ export function Heatmap() {
       (a.critical * 4 + a.high * 3 + a.medium * 2 + a.low)
     );
   }, [agents]);
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] p-3 rounded-lg shadow-xl text-sm min-w-[150px]">
-          <p className="font-medium text-[color:var(--text-primary)] mb-2">{label} Department</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex justify-between items-center space-x-4 mb-1">
-              <span style={{ color: entry.color }} className="capitalize">{entry.dataKey} Risk</span>
-              <span className="font-semibold text-[color:var(--text-primary)]">{entry.value}</span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="card p-6 flex flex-col w-full animate-fade-up delay-300">
@@ -99,7 +107,7 @@ export function Heatmap() {
               <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--border-subtle)" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8b8b9e', fontSize: 12 }} dy={10} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8b8b9e', fontSize: 12 }} allowDecimals={false} />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)' }} />
+              <Tooltip content={<HeatmapTooltip />} cursor={{ fill: 'var(--bg-hover)' }} />
               <Bar dataKey="critical" name="Critical" stackId="a" fill={RISK_COLORS.critical} radius={[0, 0, 0, 0]} />
               <Bar dataKey="high" name="High" stackId="a" fill={RISK_COLORS.high} radius={[0, 0, 0, 0]} />
               <Bar dataKey="medium" name="Medium" stackId="a" fill={RISK_COLORS.medium} radius={[0, 0, 0, 0]} />

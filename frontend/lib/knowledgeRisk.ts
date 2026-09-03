@@ -44,11 +44,13 @@ export interface KnowledgeRiskReport {
   lowPersons: PersonProfile[];
 }
 
-function tier(score: number): PersonProfile['riskTier'] {
-  if (score >= 90) return 'CRITICAL';
-  if (score >= 55) return 'HIGH';
-  if (score >= 30) return 'MEDIUM';
-  return 'LOW';
+/** GET /api/knowledge/intelligence's `concentration` array, keyed by owner
+ *  name -- domain/derived.js's knowledgeConcentration(), the real
+ *  criticality-weighted share of org-wide assets this person holds.
+ *  Replaces this file's own previously client-computed concentrationScore. */
+export interface ConcentrationEntry {
+  concentrationScore: number;
+  tier: PersonProfile['riskTier'];
 }
 
 export function computeKnowledgeRisk(
@@ -64,7 +66,8 @@ export function computeKnowledgeRisk(
     id: string; name: string; access_owner: string | null; backup_tool: string | null;
     criticality: string; documented: boolean;
     users: string[]; departments: string[];
-  }[]
+  }[],
+  concentrationByName: Map<string, ConcentrationEntry> = new Map()
 ): KnowledgeRiskReport {
   // --- Build flat asset list ---
   const allAgents: AssetItem[] = agents.map(a => ({
@@ -92,11 +95,6 @@ export function computeKnowledgeRisk(
   allAssets.forEach(a => { if (a.owner) ownerSet.add(a.owner); });
   const owners = Array.from(ownerSet).sort();
 
-  // --- Criticality weight for concentration score ---
-  const critWeight: Record<string, number> = { critical: 4, high: 2, medium: 1, low: 0.5 };
-
-  const totalWeightedAssets = allAssets.reduce((s, a) => s + (critWeight[a.criticality] ?? 1), 0);
-
   // --- Build person profiles ---
   const profiles: PersonProfile[] = owners.map(name => {
     const owned = allAssets.filter(a => a.owner === name);
@@ -109,11 +107,10 @@ export function computeKnowledgeRisk(
     const isSoleHolder = noBackup.length > 0;
     const unrecoverable = owned.filter(a => !a.documented && !a.backup_owner);
 
-    // Concentration score = weighted share of all assets this person owns
-    const personWeight = owned.reduce((s, a) => s + (critWeight[a.criticality] ?? 1), 0);
-    const concentrationScore = totalWeightedAssets > 0
-      ? Math.round((personWeight / totalWeightedAssets) * 100)
-      : 0;
+    // Real backend score (domain/derived.js's knowledgeConcentration()) --
+    // replaces this file's own previously client-computed weighted share.
+    const concentration = concentrationByName.get(name);
+    const concentrationScore = concentration?.concentrationScore ?? 0;
 
     return {
       name,
@@ -124,7 +121,7 @@ export function computeKnowledgeRisk(
       undocumentedOwned: undocumented.length,
       noBackupOwned: noBackup.length,
       concentrationScore,
-      riskTier: tier(concentrationScore),
+      riskTier: concentration?.tier ?? 'LOW',
       isSoleHolder,
       unrecoverableIfLeaves: unrecoverable,
     };

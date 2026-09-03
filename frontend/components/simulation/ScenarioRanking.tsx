@@ -1,7 +1,8 @@
 'use client';
 
 import { ScenarioResult, ScenarioType } from '../../lib/simulation';
-import { UserMinus, ShieldOff, Cpu, AlertTriangle, Flame } from 'lucide-react';
+import { RiskLevel } from '../../types';
+import { UserMinus, ShieldOff, Cpu, AlertTriangle } from 'lucide-react';
 
 interface Props {
   scenarios: ScenarioResult[];
@@ -15,12 +16,17 @@ const typeConfig: Record<ScenarioType, { icon: React.ElementType; label: string;
   TOOL_UNAVAILABLE: { icon: Cpu,       label: 'Tool Down',       color: 'var(--risk-medium-text)'   },
 };
 
-function dropSeverity(drop: number): { label: string; color: string; bg: string } {
-  if (drop >= 7)  return { label: 'CRITICAL IMPACT', color: 'var(--risk-critical-text)', bg: 'rgba(220,38,38,0.08)' };
-  if (drop >= 3)  return { label: 'HIGH IMPACT',     color: 'var(--risk-high-text)',     bg: 'rgba(234,88,12,0.08)' };
-  if (drop >= 1)  return { label: 'MEDIUM IMPACT',   color: 'var(--risk-medium-text)',   bg: 'rgba(202,138,4,0.08)' };
-  return             { label: 'LOW IMPACT',      color: 'var(--risk-low-text)',      bg: 'rgba(22,163,74,0.08)'  };
-}
+// Was dropSeverity(drop): its own health-score-drop-magnitude banding
+// (>=7/3/1), duplicated verbatim in ImpactSummary.tsx and less meaningful
+// than what the backend already computes -- domain/simulations.js's
+// severityFor() looks at the real criticality of the entities impacted, not
+// just how many health points moved. Now a lookup on the real value.
+const SEVERITY_COLOR: Record<RiskLevel, string> = {
+  critical: 'var(--risk-critical-text)',
+  high:     'var(--risk-high-text)',
+  medium:   'var(--risk-medium-text)',
+  low:      'var(--risk-low-text)',
+};
 
 // Group scenarios by type for the section headers
 type GroupKey = 'PERSON_LEAVES' | 'AGENT_FAILS' | 'TOOL_UNAVAILABLE';
@@ -32,7 +38,7 @@ const GROUP_LABELS: Record<GroupKey, string> = {
 };
 
 export function ScenarioRanking({ scenarios, activeScenarioId, onSelectScenario }: Props) {
-  // Already sorted by worst impact from rankScenarios()
+  // Already sorted by worst impact (backend /api/simulations/rank returns worst-first)
   const worstId = scenarios[0]?.id;
 
   const byGroup: Record<GroupKey, ScenarioResult[]> = {
@@ -91,7 +97,7 @@ export function ScenarioRanking({ scenarios, activeScenarioId, onSelectScenario 
                   const isActive = scenario.id === activeScenarioId;
                   const isWorst = scenario.id === worstId;
                   const drop = scenario.baselineHealthScore - scenario.simulatedHealthScore;
-                  const sev = dropSeverity(drop);
+                  const sevColor = SEVERITY_COLOR[scenario.severity];
 
                   return (
                     <button
@@ -149,7 +155,7 @@ export function ScenarioRanking({ scenarios, activeScenarioId, onSelectScenario 
                           {scenario.impactedAgents.length} agent{scenario.impactedAgents.length !== 1 ? 's' : ''} affected
                         </span>
                         {drop > 0 ? (
-                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: sev.color }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: sevColor }}>
                             −{drop} pts
                           </span>
                         ) : (

@@ -1,15 +1,12 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Agent, Dependency, AITool } from '../../types';
-import { rankScenarios, ScenarioResult, ScenarioType } from '../../lib/simulation';
+import { ScenarioResult, ScenarioType } from '../../lib/simulation';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { Globe, UserMinus, ShieldOff, Cpu, ChevronUp, ChevronDown, ArrowRight } from 'lucide-react';
 
 interface Props {
-  agents: Agent[];
-  dependencies: Dependency[];
-  tools: AITool[];
+  scenarios: ScenarioResult[];
 }
 
 type SortKey = 'survivability' | 'delta' | 'cascades' | 'name' | 'type';
@@ -34,24 +31,25 @@ function survivabilityLabel(score: number): { label: string; color: string } {
   return               { label: 'Catastrophic', color: 'text-red-500' };
 }
 
-export function SimulationUniverseRanking({ agents, dependencies, tools }: Props) {
+function SortIcon({ col, sortKey, sortAsc }: { col: SortKey; sortKey: SortKey; sortAsc: boolean }) {
+  if (sortKey !== col) return <ChevronUp className="w-3 h-3 opacity-30" />;
+  return sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
+}
+
+export function SimulationUniverseRanking({ scenarios }: Props) {
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [sortKey, setSortKey] = useState<SortKey>('survivability');
   const [sortAsc, setSortAsc] = useState(true);
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const universe = useMemo(
-    // Use the existing rankScenarios engine — it already covers people, agents, tools
-    () => rankScenarios(agents, dependencies, tools),
-    [agents, dependencies, tools]
-  );
+  const universe = scenarios;
 
   const filtered = useMemo(() => {
     const base = filter === 'ALL' ? universe : universe.filter(s => s.type === filter);
     return [...base].sort((a, b) => {
       let diff = 0;
       if (sortKey === 'survivability') diff = survivabilityScore(a) - survivabilityScore(b);
-      else if (sortKey === 'delta')    diff = a.healthScoreDelta - b.healthScoreDelta;
+      else if (sortKey === 'delta')    diff = a.healthDelta - b.healthDelta;
       else if (sortKey === 'cascades') diff = a.impactedAgents.length - b.impactedAgents.length;
       else if (sortKey === 'name')     diff = a.targetName.localeCompare(b.targetName);
       else if (sortKey === 'type')     diff = a.type.localeCompare(b.type);
@@ -62,11 +60,6 @@ export function SimulationUniverseRanking({ agents, dependencies, tools }: Props
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortAsc(a => !a);
     else { setSortKey(key); setSortAsc(true); }
-  }
-
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col) return <ChevronUp className="w-3 h-3 opacity-30" />;
-    return sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
   }
 
   const counts = {
@@ -91,7 +84,7 @@ export function SimulationUniverseRanking({ agents, dependencies, tools }: Props
             Every entity ranked by org survivability — sorted by what breaks the most
           </p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={universe.length > 0} />
       </div>
 
       {/* Filter tabs */}
@@ -123,23 +116,23 @@ export function SimulationUniverseRanking({ agents, dependencies, tools }: Props
               <th className="p-3 w-8 text-center text-[color:var(--text-tertiary)] text-xs font-medium">#</th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('name')}>
-                <div className="flex items-center gap-1">Entity <SortIcon col="name" /></div>
+                <div className="flex items-center gap-1">Entity <SortIcon col="name" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('type')}>
-                <div className="flex items-center gap-1">Type <SortIcon col="type" /></div>
+                <div className="flex items-center gap-1">Type <SortIcon col="type" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('survivability')}>
-                <div className="flex items-center gap-1">Survivability <SortIcon col="survivability" /></div>
+                <div className="flex items-center gap-1">Survivability <SortIcon col="survivability" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('delta')}>
-                <div className="flex items-center gap-1">Health Δ <SortIcon col="delta" /></div>
+                <div className="flex items-center gap-1">Health Δ <SortIcon col="delta" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 cursor-pointer select-none hover:text-[color:var(--text-primary)] text-[color:var(--text-tertiary)] font-medium" onClick={() => toggleSort('cascades')}>
-                <div className="flex items-center gap-1">Cascades <SortIcon col="cascades" /></div>
+                <div className="flex items-center gap-1">Cascades <SortIcon col="cascades" sortKey={sortKey} sortAsc={sortAsc} /></div>
               </th>
 
               <th className="p-3 text-[color:var(--text-tertiary)] font-medium">Before <ArrowRight className="w-3 h-3 inline mx-1" /> After</th>
@@ -175,7 +168,7 @@ export function SimulationUniverseRanking({ agents, dependencies, tools }: Props
                   <td className="p-3">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border ${meta.color}`}>
                       <Icon className="w-3 h-3" />
-                      {s.typeLabel}
+                      {meta.label}
                     </span>
                   </td>
 
@@ -202,8 +195,8 @@ export function SimulationUniverseRanking({ agents, dependencies, tools }: Props
 
                   {/* Delta */}
                   <td className="p-3">
-                    <span className={`text-sm font-bold ${s.healthScoreDelta < -10 ? 'text-red-400' : s.healthScoreDelta < -5 ? 'text-amber-400' : 'text-[color:var(--text-secondary)]'}`}>
-                      {s.healthScoreDelta > 0 ? '+' : ''}{s.healthScoreDelta}
+                    <span className={`text-sm font-bold ${s.healthDelta > 10 ? 'text-red-400' : s.healthDelta > 5 ? 'text-amber-400' : 'text-[color:var(--text-secondary)]'}`}>
+                      {s.healthDelta > 0 ? '-' : s.healthDelta < 0 ? '+' : ''}{Math.abs(s.healthDelta)}
                     </span>
                   </td>
 

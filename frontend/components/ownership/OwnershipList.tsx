@@ -1,11 +1,16 @@
 import { Agent } from '../../types';
-import { deriveRisk } from '../../lib/risk';
+import { PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { RiskBadge } from '../ui/RiskBadge';
 import { AlertCircle, CheckCircle2, ShieldAlert, XCircle, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 
 interface OwnershipListProps {
   agents: Agent[];
+  riskByAgentName: Map<string, PredictiveRiskEntry>;
+  /** Owner names flagged by the backend's isHumanSpof (>=3 unbacked agents,
+   *  GET /api/ownership) -- replaces this component's own independently-coded
+   *  `coverageScore === 0 && totalAgents >= 3` check. */
+  humanSpofOwners: Set<string>;
 }
 
 type OwnerGroup = {
@@ -17,7 +22,7 @@ type OwnerGroup = {
   coverageScore: number;
 };
 
-export function OwnershipList({ agents }: OwnershipListProps) {
+export function OwnershipList({ agents, riskByAgentName, humanSpofOwners }: OwnershipListProps) {
   // Group agents by owner
   const groupsRecord: Record<string, OwnerGroup> = {};
 
@@ -86,7 +91,7 @@ export function OwnershipList({ agents }: OwnershipListProps) {
               <div>
                 <h3 className="text-xl font-semibold text-[color:var(--text-primary)] flex items-center">
                   {group.ownerName}
-                  {!group.isOrphaned && group.coverageScore === 0 && group.totalAgents >= 3 && (
+                  {!group.isOrphaned && humanSpofOwners.has(group.ownerName) && (
                     <span className="ml-4 flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 uppercase tracking-widest shadow-[0_0_10px_rgba(239,68,68,0.2)]">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 animate-pulse"></span>
                       Human SPOF
@@ -149,7 +154,7 @@ export function OwnershipList({ agents }: OwnershipListProps) {
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {group.agents.map((agent) => {
-                  const risk = deriveRisk(agent);
+                  const risk = riskByAgentName.get(agent.name)?.threatLevel ?? 'low';
                   return (
                     <tr key={agent.id} className="hover:bg-[var(--bg-hover)] transition-colors group/row">
                       <td className="px-6 py-4">

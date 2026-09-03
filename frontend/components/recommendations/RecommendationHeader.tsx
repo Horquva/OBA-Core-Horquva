@@ -1,7 +1,7 @@
 'use client';
 
 import { RecommendationEngineOutput } from '../../lib/recommendations';
-import { AlertTriangle, CheckCircle2, Flame, ShieldAlert, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Flame, ShieldAlert, TrendingUp } from 'lucide-react';
 
 interface Props {
   output: RecommendationEngineOutput;

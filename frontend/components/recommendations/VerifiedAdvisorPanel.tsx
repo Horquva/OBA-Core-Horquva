@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Recommendation } from '../../lib/recommendations';
@@ -10,24 +10,25 @@ interface Props {
 }
 
 export function VerifiedAdvisorPanel({ recommendations }: Props) {
-  // Map standard recommendations into verified recs
-  // In a real system, "verified" might be an explicit flag on Truth nodes
-  const verifiedItems = recommendations
-    .filter(r => r.priority === 'CRITICAL' || r.priority === 'HIGH') // Only show top tier as truth-verified urgency
-    .map((r, i) => {
-      // Procedurally generate a confidence score 85-99
-      const confidence = 99 - i - (r.effort === 'Strategic' ? 10 : 0);
-      return {
-        id: r.id,
-        title: r.title,
-        rationale: r.description,
-        dataSource: r.targetType === 'agent' ? 'Ownership Registry + Dep Graph' : 'Tool Intelligence Report',
-        confidenceScore: Math.max(confidence, 85),
-        verified: true,
-        action: r.action,
-        urgency: (r.priority === 'CRITICAL' ? 'IMMEDIATE' : r.effort === 'Quick' ? 'THIS_WEEK' : 'THIS_MONTH') as 'IMMEDIATE' | 'THIS_WEEK' | 'THIS_MONTH'
-      };
-    })
+  // Was previously procedurally generating a fake "confidence score" (99 - i,
+  // decreasing per index with no relationship to anything real) and marking
+  // every item verified: true unconditionally, under a header claiming
+  // "sourced only from Truth-verified data" -- none of which was true. There
+  // is no per-recommendation Truth-layer verdict to show. What's real: these
+  // are the CRITICAL/HIGH-priority items from brain module M04 (D-62),
+  // which is itself now driven by the backend's canonical predictiveRisk()
+  // tier (see lib/recommendations.ts), not a local heuristic -- so the
+  // ranking is real, the fabricated per-item confidence number was not.
+  const topItems = recommendations
+    .filter(r => r.priority === 'CRITICAL' || r.priority === 'HIGH')
+    .map(r => ({
+      id: r.id,
+      title: r.title,
+      rationale: r.description,
+      dataSource: r.targetType === 'agent' ? 'Ownership Registry + Dep Graph' : 'Tool Intelligence Report',
+      action: r.action,
+      urgency: (r.priority === 'CRITICAL' ? 'IMMEDIATE' : r.effort === 'Quick' ? 'THIS_WEEK' : 'THIS_MONTH') as 'IMMEDIATE' | 'THIS_WEEK' | 'THIS_MONTH'
+    }))
     .slice(0, 4); // Limit to top 4
 
   const URGENCY_META = {
@@ -44,15 +45,15 @@ export function VerifiedAdvisorPanel({ recommendations }: Props) {
         <div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Verified Advisor Panel</h2>
+            <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Priority Advisor Panel</h2>
           </div>
-          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Recommendations sourced only from Truth-verified data</p>
+          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Top CRITICAL/HIGH recommendations, ranked from live risk and ownership data</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={topItems.length > 0} />
       </div>
 
       <div className="space-y-4 z-10">
-        {verifiedItems.map((rec) => {
+        {topItems.map((rec) => {
           const urgMeta = URGENCY_META[rec.urgency];
           return (
             <div key={rec.id} className="flex flex-col gap-3 p-4 rounded-lg bg-[color:var(--bg-card)] border border-[color:var(--border-subtle)] hover:border-emerald-500/20 transition-colors">
@@ -70,7 +71,6 @@ export function VerifiedAdvisorPanel({ recommendations }: Props) {
 
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <span className={`text-[10px] font-semibold px-2 py-1 rounded border ${urgMeta.color}`}>{urgMeta.label}</span>
-                  <span className="text-xs text-[color:var(--text-tertiary)]">Confidence: <strong className="text-emerald-400">{rec.confidenceScore}%</strong></span>
                 </div>
               </div>
 
@@ -84,9 +84,9 @@ export function VerifiedAdvisorPanel({ recommendations }: Props) {
             </div>
           );
         })}
-        {verifiedItems.length === 0 && (
+        {topItems.length === 0 && (
             <div className="p-8 text-center text-[var(--text-tertiary)] border border-dashed border-[var(--border-subtle)] rounded-lg text-sm bg-[var(--bg-card)]">
-                No high-confidence verified scenarios currently flagged.
+                No CRITICAL or HIGH priority recommendations currently flagged.
             </div>
         )}
       </div>

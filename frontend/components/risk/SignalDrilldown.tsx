@@ -11,33 +11,30 @@ interface Props {
 export function SignalDrilldown({ entityName }: Props) {
   const [data, setData] = useState<SignalDrilldownResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    Promise.resolve().then(() => {
+      setLoading(true);
+      setError(false);
+    });
     signalApi.drilldown(entityName)
       .then(setData)
-      .catch(() => {
-        // Fallback robust dummy data for typical Sunrise Care emerging threats
-        const isCritical = entityName.includes('Inventory') || entityName.includes('Backup');
-        
-        setData({
-          entityName,
-          trendDirection: 'UP',
-          reasons: isCritical 
-            ? [
-                { id: 'rsn1', factor: 'Ownership Gap', description: 'Agent is completely orphaned with no primary or backup owner assigned.', impactWeight: 'HIGH' },
-                { id: 'rsn2', factor: 'Cascade Risk', description: 'Failure of this agent breaks 4+ downstream workflows.', impactWeight: 'HIGH' },
-              ]
-            : [
-                { id: 'rsn3', factor: 'Documentation Risk', description: 'Agent operations are entirely undocumented and exist only as tacit knowledge.', impactWeight: 'MEDIUM' },
-                { id: 'rsn4', factor: 'Tool Dependency', description: 'Heavy reliance on ChatGPT (tool_001) which currently lacks a formalized backup standard.', impactWeight: 'MEDIUM' },
-              ]
-        });
-      })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [entityName]);
 
   if (loading) {
     return <div className="h-12 w-full rounded-md bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)] animate-pulse" />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-[color:var(--text-tertiary)] p-2">
+        <AlertTriangle className="w-4 h-4" />
+        Signal reasoning is unavailable right now — could not reach the drilldown data.
+      </div>
+    );
   }
 
   if (!data || data.reasons.length === 0) {

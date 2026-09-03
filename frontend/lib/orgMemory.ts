@@ -1,13 +1,30 @@
 // lib/orgMemory.ts
 // Module 10 — Organizational Memory Intelligence
+//
+// D-60: PRESERVED/AT_RISK/VULNERABLE/LOST status, per-carrier profiles, and
+// the Institutional Memory Health Score used to be computed here, client-side,
+// over the raw /api/agents, /api/workflows, /api/tools lists. That formula is
+// now domain/derived.js's orgMemory(), served from GET /api/memory/map -- see
+// that function's header comment for the full decision (owner picked this
+// file's own backup_owner + documentation formula as canonical over the
+// separate, unused formula routes/memory/memory.js had). This file now only
+// types and lightly guards the fetched JSON; it computes nothing.
 
-import { AssetItem } from './knowledgeRisk';
+import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Memory Status ────────────────────────────────────────────────────────────
 
 export type MemoryStatus = 'PRESERVED' | 'AT_RISK' | 'VULNERABLE' | 'LOST';
 
-export interface MemoryAsset extends AssetItem {
+export interface MemoryAsset {
+  id: string | number;
+  name: string;
+  type: 'agent' | 'workflow' | 'tool';
+  owner: string | null;
+  backup_owner: string | null;
+  criticality: string;
+  department: string;
+  documented: boolean;
   memoryStatus: MemoryStatus;
 }
 
@@ -40,158 +57,31 @@ export interface OrgMemoryReport {
   carriers: MemoryCarrierProfile[];
   criticalCarriers: MemoryCarrierProfile[];
   highCarriers: MemoryCarrierProfile[];
-  /** Institutional Memory Health Score 0–100 */
-  imhs: number;
-  imhsVerdict: 'HEALTHY' | 'AT_RISK' | 'CRITICAL';
+  /** Institutional Memory Health Score 0–100, or null when evidence is insufficient */
+  imhs: number | null;
+  imhsVerdict: 'HEALTHY' | 'AT_RISK' | 'CRITICAL' | null;
+  evidence: EvidenceInfo & { sufficient: boolean };
   totalAssets: number;
 }
 
-// ─── Status Assignment ────────────────────────────────────────────────────────
-
-function assignStatus(asset: AssetItem): MemoryStatus {
-  const hasOwner = asset.owner !== null;
-  const hasBackup = asset.backup_owner !== null;
-  const isDocumented = asset.documented;
-
-  // LOST: no owner and no documentation — truly abandoned
-  if (!hasOwner && !isDocumented) return 'LOST';
-
-  // PRESERVED: documented AND has backup owner
-  if (isDocumented && hasBackup) return 'PRESERVED';
-
-  // AT RISK: not documented BUT has a backup owner
-  if (!isDocumented && hasBackup) return 'AT_RISK';
-
-  // VULNERABLE: documented BUT no backup owner
-  return 'VULNERABLE';
-}
-
-// ─── Carrier Tier ─────────────────────────────────────────────────────────────
-
-function carrierTier(profile: Omit<MemoryCarrierProfile, 'tier' | 'isCriticalCarrier'>): CarrierTier {
-  const { totalOwned, undocumentedCount, noBackupCount } = profile;
-  // Weight: how much undocumented + sole-holder risk does this person carry?
-  const riskWeight = undocumentedCount * 2 + noBackupCount;
-  if (riskWeight >= 10 || (undocumentedCount >= 5 && noBackupCount >= 5)) return 'CRITICAL';
-  if (riskWeight >= 5  || (undocumentedCount >= 3 && noBackupCount >= 3)) return 'HIGH';
-  if (riskWeight >= 2  || undocumentedCount >= 2) return 'MEDIUM';
-  return 'LOW';
-}
-
-// ─── IMHS Calculation ─────────────────────────────────────────────────────────
-// PRESERVED×1.0 + VULNERABLE×0.5 + AT_RISK×0.25 + LOST×0.0 / total × 100
-
-function calcIMHS(
-  preserved: number,
-  vulnerable: number,
-  atRisk: number,
-  total: number
-): number {
-  if (total === 0) return 100;
-  return Math.round(((preserved * 1.0 + vulnerable * 0.5 + atRisk * 0.25) / total) * 100);
-}
-
-// ─── Main Computation ─────────────────────────────────────────────────────────
-
-export function computeOrgMemory(
-  agents: {
-    id: string; name: string; owner: string | null; backup_owner: string | null;
-    criticality: string; department: string; documented: boolean;
-  }[],
-  workflows: {
-    id: string; name: string; owner: string | null; backup_owner: string | null;
-    department: string; criticality: string; documented: boolean;
-  }[],
-  tools: {
-    id: string; name: string; access_owner: string | null; backup_tool: string | null;
-    criticality: string; documented: boolean;
-    users: string[]; departments: string[];
-  }[]
-): OrgMemoryReport {
-  // ── Flatten to AssetItem list ──
-  const allAgents: AssetItem[] = agents.map(a => ({
-    id: a.id, name: a.name, type: 'agent' as const,
-    owner: a.owner, backup_owner: a.backup_owner,
-    criticality: a.criticality, department: a.department, documented: a.documented,
-  }));
-  const allWorkflows: AssetItem[] = workflows.map(w => ({
-    id: w.id, name: w.name, type: 'workflow' as const,
-    owner: w.owner, backup_owner: w.backup_owner,
-    criticality: w.criticality, department: w.department, documented: w.documented,
-  }));
-  const allTools: AssetItem[] = tools.map(t => ({
-    id: t.id, name: t.name, type: 'tool' as const,
-    owner: t.access_owner,
-    backup_owner: t.backup_tool,
-    criticality: t.criticality,
-    department: t.departments?.[0] ?? 'General',
-    documented: t.documented,
-  }));
-
-  const allAssets: AssetItem[] = [...allAgents, ...allWorkflows, ...allTools];
-
-  // ── Assign memory status ──
-  const memoryAssets: MemoryAsset[] = allAssets.map(a => ({
-    ...a,
-    memoryStatus: assignStatus(a),
-  }));
-
-  const preserved  = memoryAssets.filter(a => a.memoryStatus === 'PRESERVED');
-  const atRisk     = memoryAssets.filter(a => a.memoryStatus === 'AT_RISK');
-  const vulnerable = memoryAssets.filter(a => a.memoryStatus === 'VULNERABLE');
-  const lost       = memoryAssets.filter(a => a.memoryStatus === 'LOST');
-
-  // ── IMHS ──
-  const imhs = calcIMHS(preserved.length, vulnerable.length, atRisk.length, memoryAssets.length);
-  const imhsVerdict: OrgMemoryReport['imhsVerdict'] =
-    imhs >= 75 ? 'HEALTHY' : imhs >= 45 ? 'AT_RISK' : 'CRITICAL';
-
-  // ── Build carrier profiles (only assets that have an owner) ──
-  const ownerSet = new Set<string>();
-  memoryAssets.forEach(a => { if (a.owner) ownerSet.add(a.owner); });
-
-  const carriers: MemoryCarrierProfile[] = Array.from(ownerSet).sort().map(name => {
-    const owned = memoryAssets.filter(a => a.owner === name);
-    const undocumented = owned.filter(a => !a.documented);
-    const noBackup     = owned.filter(a => !a.backup_owner);
-
-    const base = {
-      name,
-      totalOwned:       owned.length,
-      preservedCount:   owned.filter(a => a.memoryStatus === 'PRESERVED').length,
-      vulnerableCount:  owned.filter(a => a.memoryStatus === 'VULNERABLE').length,
-      atRiskCount:      owned.filter(a => a.memoryStatus === 'AT_RISK').length,
-      lostCount:        owned.filter(a => a.memoryStatus === 'LOST').length,
-      undocumentedCount: undocumented.length,
-      noBackupCount:    noBackup.length,
-      assets:           owned,
-    };
-
-    const tier = carrierTier(base);
-    const isCriticalCarrier = undocumented.some(a => !a.backup_owner);
-
-    return { ...base, tier, isCriticalCarrier };
-  });
-
-  // Sort: CRITICAL → HIGH → MEDIUM → LOW, then by undocumented count desc
-  const tierOrder: Record<CarrierTier, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-  carriers.sort((a, b) =>
-    tierOrder[a.tier] !== tierOrder[b.tier]
-      ? tierOrder[a.tier] - tierOrder[b.tier]
-      : b.undocumentedCount - a.undocumentedCount
-  );
+/** Shapes GET /api/memory/map's JSON into OrgMemoryReport, defaulting any
+ *  missing array field to empty rather than letting a malformed response
+ *  crash every component that maps over it. */
+export function mapOrgMemoryResponse(json: Partial<OrgMemoryReport> | null | undefined): OrgMemoryReport {
+  const arr = <T,>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : []);
 
   return {
-    assets:           memoryAssets,
-    preserved,
-    atRisk,
-    vulnerable,
-    lost,
-    carriers,
-    criticalCarriers: carriers.filter(c => c.tier === 'CRITICAL'),
-    highCarriers:     carriers.filter(c => c.tier === 'HIGH'),
-    imhs,
-    imhsVerdict,
-    totalAssets: memoryAssets.length,
+    assets: arr(json?.assets),
+    preserved: arr(json?.preserved),
+    atRisk: arr(json?.atRisk),
+    vulnerable: arr(json?.vulnerable),
+    lost: arr(json?.lost),
+    carriers: arr(json?.carriers),
+    criticalCarriers: arr(json?.criticalCarriers),
+    highCarriers: arr(json?.highCarriers),
+    imhs: json?.imhs ?? null,
+    imhsVerdict: json?.imhsVerdict ?? null,
+    evidence: json?.evidence ?? { status: 'insufficient_evidence', coverage: 0, covered: 0, total: 0, sufficient: false },
+    totalAssets: json?.totalAssets ?? 0,
   };
 }

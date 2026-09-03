@@ -5,9 +5,26 @@
 --
 -- Run this ONCE in the Supabase SQL editor before starting the backend.
 -- All tables are safe to re-run (IF NOT EXISTS).
+--
+-- ⚠ Not every table below is actually live. run_migrations.js applies this
+-- file first, then sql/*.sql in filename order — and 01_schema_migration.sql
+-- DROP TABLE ... CASCADE's four of these table names (continuity_assessments,
+-- continuity_plans, governance_assessments, governance_gaps) and recreates
+-- them with a DIFFERENT column set moments later in the same run. This
+-- file's definitions of those four are dead on arrival; see the note above
+-- each one below. verification_logs, orchestration_state and
+-- execution_intents are not superseded by anything, but nothing in the
+-- current codebase reads or writes them either (grep confirms zero
+-- references outside this file and one historical comment in
+-- routes/avatar/gateCheck.js) — they are simply unused. Only escalation_logs
+-- and execution_mode, defined further down, are both created here AND
+-- actually read/written by the running app.
 -- =============================================================================
 
 -- ---- M15: Verification logs -------------------------------------------------
+-- ⚠ UNUSED: no route in this codebase reads or writes this table. The live
+-- verification data routes actually read is verification_actions
+-- (01_schema_migration.sql), via routes/verification/intelligence.js.
 create table if not exists verification_logs (
   id                bigserial primary key,
   action_id         text,
@@ -25,6 +42,9 @@ create index if not exists idx_verification_workflow on verification_logs(workfl
 create index if not exists idx_verification_status   on verification_logs(status);
 
 -- ---- M16: Orchestration state ----------------------------------------------
+-- ⚠ UNUSED: no route in this codebase reads or writes this table. The live
+-- orchestration data routes actually read is workflow_orchestration
+-- (01_schema_migration.sql), via routes/orchestration/orchestration.js.
 create table if not exists orchestration_state (
   id                 bigserial primary key,
   workflow_id        text        not null,
@@ -43,6 +63,7 @@ create index if not exists idx_orch_workflow on orchestration_state(workflow_id)
 create index if not exists idx_orch_status   on orchestration_state(status);
 
 -- ---- M16: Execution intents (emitted by M51/M52/M53 -> received by M16) -----
+-- ⚠ UNUSED: no route in this codebase reads or writes this table.
 create table if not exists execution_intents (
   id             bigserial primary key,
   intent_id      text        not null unique,
@@ -84,6 +105,15 @@ create index if not exists idx_escalation_severity on escalation_logs(severity);
 -- ---- M18 / M19: Continuity + Governance intelligence read tables ------------
 -- Kamran's read-only APIs (/api/continuity/*, /api/governance/*) read these.
 -- Populate them from the Python engine output (M18 / M19) or a sync job.
+--
+-- ⚠ DEAD ON ARRIVAL: 01_schema_migration.sql DROP TABLE ... CASCADE's all
+-- four of continuity_assessments/continuity_plans/governance_assessments/
+-- governance_gaps and recreates them with different columns (asset_name
+-- instead of asset, owner_name instead of nothing, continuity_status /
+-- governance_status instead of status, SERIAL id instead of bigserial) —
+-- since that file runs immediately after this one. The routes actually read
+-- the 01_schema_migration.sql shape. The definitions below never describe
+-- what is really in the database; do not hand-run this file expecting them to.
 create table if not exists continuity_assessments (
   id             bigserial primary key,
   asset          text,

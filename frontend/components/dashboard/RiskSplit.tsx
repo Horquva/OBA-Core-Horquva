@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, FileText, UserPlus, ShieldAlert } from 'lucide-react';
-import { briefingApi } from '../../lib/api';
+import { AlertCircle, FileText, UserPlus, ShieldAlert, Scale } from 'lucide-react';
+import { authHeader } from '../../lib/authFetch';
+import { resolveCriticality } from '../../lib/criticality';
 
 interface AgentRow {
   id: string;
@@ -22,6 +23,32 @@ interface RecommendationItem {
   href: string;
 }
 
+interface RawRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  category?: string;
+  priority?: string;
+}
+
+// D-66: this panel used to build its list from GET /api/briefing/recommendations,
+// which reads the `recommendations` SQL table -- seeded once, zero writers
+// anywhere in the codebase, i.e. permanently frozen at whatever the seed said.
+// When that call was empty (e.g. pre-login, or the table drained by status
+// filtering), it fell back to a THIRD, hand-authored implementation (a static
+// "Review Single-Point Dependencies" card plus a bare `!owner && criticality
+// === 'critical'` check) -- neither path was real intelligence, and neither
+// used brain module M04 (D-62), which is the actual, comprehensive, 7-rule
+// recommendation engine this app already has. Both are gone; this now reads
+// M04 directly, the same source app/recommendations/page.tsx uses.
+const CATEGORY_ICON: Record<string, React.ReactNode> = {
+  OWNERSHIP: <UserPlus className="w-4 h-4 text-amber-400" />,
+  DOCUMENTATION: <FileText className="w-4 h-4 text-blue-400" />,
+  CONCENTRATION: <ShieldAlert className="w-4 h-4 text-indigo-400" />,
+  TOOL_GOVERNANCE: <ShieldAlert className="w-4 h-4 text-indigo-400" />,
+  DEPENDENCY: <Scale className="w-4 h-4 text-orange-400" />,
+};
+
 export function RiskSplit() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [recs, setRecs] = useState<RecommendationItem[]>([]);
@@ -31,58 +58,27 @@ export function RiskSplit() {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     Promise.all([
-      fetch(`${base}/api/agents`).then(r => r.json()).catch(() => []),
-      briefingApi.recommendations().catch(() => [] as { type: string; message: string }[]),
-    ]).then(([agentData, briefingRecs]) => {
+      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.json()).catch(() => []),
+      fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([agentData, m04]) => {
       const agentList: AgentRow[] = Array.isArray(agentData) ? agentData.map(a => ({
         ...a,
         department: a.department || (a.owner && a.owner.department) || 'Unassigned',
-        criticality: a.risk || a.criticality || 'low',
+        criticality: resolveCriticality(a),
         owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner
       })) : [];
       setAgents(agentList);
 
-      // Build recommendations from live briefing data
-      const builtRecs: RecommendationItem[] = [];
-
-      if (Array.isArray(briefingRecs) && briefingRecs.length > 0) {
-        briefingRecs.slice(0, 4).forEach((r, i) => {
-          builtRecs.push({
-            id: `briefing-${i}`,
-            title: r.type === 'Action' ? 'Priority Action' : 'Intelligence Note',
-            description: r.message,
-            icon: r.type === 'Action'
-              ? <ShieldAlert className="w-4 h-4 text-indigo-400" />
-              : <FileText className="w-4 h-4 text-blue-400" />,
-            type: r.type.toLowerCase(),
-            action: r.type === 'Action' ? 'Review' : 'View',
-            href: '/recommendations',
-          });
-        });
-      } else {
-        // Derive from agent data if no briefing recs
-        const orphaned = agentList.filter(a => !a.owner && a.criticality === 'critical');
-        if (orphaned.length > 0) {
-          builtRecs.push({
-            id: 'rec-orphan',
-            title: 'Assign Owners to Critical Agents',
-            description: `${orphaned.length} critical agent(s) operating without ownership oversight.`,
-            icon: <UserPlus className="w-4 h-4 text-amber-400" />,
-            type: 'urgent',
-            action: 'Assign Now',
-            href: '/ownership',
-          });
-        }
-        builtRecs.push({
-          id: 'rec-general',
-          title: 'Review Single-Point Dependencies',
-          description: 'Identify agents with no backup owner that are critical to operations.',
-          icon: <ShieldAlert className="w-4 h-4 text-indigo-400" />,
-          type: 'proactive',
-          action: 'Analyze Map',
-          href: '/risk',
-        });
-      }
+      const m04Recs: RawRecommendation[] = m04?.payload?.recommendations ?? [];
+      const builtRecs: RecommendationItem[] = m04Recs.slice(0, 4).map((r) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        icon: CATEGORY_ICON[r.category ?? ''] ?? <ShieldAlert className="w-4 h-4 text-indigo-400" />,
+        type: r.priority?.toLowerCase() ?? 'medium',
+        action: 'Review',
+        href: '/recommendations',
+      }));
 
       setRecs(builtRecs);
     }).finally(() => setLoading(false));
@@ -149,6 +145,10 @@ export function RiskSplit() {
           <div className="space-y-4 animate-pulse">
             {[1,2,3].map(i => <div key={i} className="h-20 rounded-lg bg-[var(--border-subtle)]" />)}
           </div>
+        )}
+
+        {!loading && recs.length === 0 && (
+          <p className="text-xs text-[color:var(--text-tertiary)] py-4">No priority actions — good standing ✓</p>
         )}
 
         <div className="flex-grow flex flex-col space-y-4">

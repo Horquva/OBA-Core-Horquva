@@ -9,8 +9,27 @@ const path = require('path')
 
 const tests = [
 	'brain.smoke.test.js',
+	'graph.unit.test.js',
+	'culture.unit.test.js',
+	'recommendationEngine.unit.test.js', // pure; asserts M04's 7 rule classes (W-K D-62)
+	'orgAnalyses.unit.test.js',
+	'dataset.unit.test.js', // pure/offline; stubs Supabase + brain, exercises the incidents mapping (W-J)
+	'graphLoader.live.test.js', // self-skips when SUPABASE_URL is unset
 	'intelligence.verify.test.js',
 	'auth.unit.test.js',
+	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
+	'simulations.unit.test.js', // pure; asserts cascade/severity/health-delta (W-I)
+	'tools.unit.test.js', // pure; asserts tool-risk composite score/tier (W-K D-58)
+	'agentRegistry.unit.test.js',
+	'agentConstitution.unit.test.js',
+	'definitions.unit.test.js', // pure; asserts the canonical criticality/SPOF definitions
+	'routeEvidence.unit.test.js', // pure; asserts evidence gating in routes outside derived.js
+	'authRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline
+	'graphRoutes.test.js', // HTTP-level; stubs brain, so it runs offline
+	'simulationRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-I)
+	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
+	'provider.unit.test.js',   // pure/stubbed; asserts adapter normalisation, error classes, abort (W-L 10.7)
+	'agentLoop.unit.test.js', // stubbed; six loop scenarios including cap, retry, abort and timeout (W-L 11.5)
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
 if (process.env.BASE_URL) tests.push('api.smoke.test.js')

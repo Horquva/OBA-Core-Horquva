@@ -13,7 +13,9 @@ export interface Agent {
 export interface Dependency {
   from: string;
   to: string;
-  type: 'sequential' | 'triggers' | 'feeds' | 'monitors' | 'backs_up';
+  // company.json labels dependencies by severity rather than by relationship
+  // kind (the old sunrise_care.json's 'sequential'/'triggers'/'feeds' vocabulary).
+  type: 'critical' | 'high' | 'normal' | 'low';
 }
 
 export interface AITool {

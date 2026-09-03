@@ -63,7 +63,7 @@ export function UndocumentedAssetsTable({ assets }: Props) {
           {assets.length} asset{assets.length !== 1 ? 's' : ''}
         </span>
         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-          — knowledge exists only in someone's head
+          — knowledge exists only in someone&apos;s head
         </span>
       </div>
 

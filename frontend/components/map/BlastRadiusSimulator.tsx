@@ -1,32 +1,42 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Agent, Dependency } from '../../types';
-import { getDownstream } from '../../lib/graph';
+import { Agent, Dependency, RiskLevel } from '../../types';
 import { TruthBadge } from '../dashboard/TruthBadge';
+import { PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { Zap, ChevronDown } from 'lucide-react';
 
 interface Props {
   agents: Agent[];
   dependencies: Dependency[];
+  riskByAgentName: Map<string, PredictiveRiskEntry>;
 }
 
-const DECAY = 0.65; // Impact multiplier per hop
-
+/**
+ * BFS with hop tracking only -- graph traversal, not a judgment (same class
+ * as lib/graph.ts's getDownstream/getUpstream). A Dependency edge means
+ * `from` depends_on `to`, so what breaks when `startId` fails is whatever
+ * points AT it -- walk backward (dependentsOf), same direction fix as
+ * getDownstream(). Impact severity previously came from a decay formula
+ * (0.65^hop * 100) with no real basis -- "impact fades with distance" is a
+ * narrative assumption, not a measured fact. It's now the real predictedScore
+ * (domain/derived.js's predictiveRisk(), the same score shown everywhere
+ * else in the app) for whichever agent is actually hit at each hop, not a
+ * distance-derived guess.
+ */
 function computeBlastRadius(
   startId: string,
   agents: Agent[],
   dependencies: Dependency[],
   maxHops: number
 ) {
-  // BFS with hop tracking
-  const adj: Record<string, string[]> = {};
+  const dependentsOf: Record<string, string[]> = {};
   dependencies.forEach(d => {
-    if (!adj[d.from]) adj[d.from] = [];
-    adj[d.from].push(d.to);
+    if (!dependentsOf[d.to]) dependentsOf[d.to] = [];
+    dependentsOf[d.to].push(d.from);
   });
 
-  const result: { agentId: string; agentName: string; hop: number; impact: number }[] = [];
+  const result: { agentId: string; agentName: string; hop: number }[] = [];
   const visited = new Set<string>();
   const q: { id: string; hop: number }[] = [{ id: startId, hop: 0 }];
 
@@ -35,18 +45,13 @@ function computeBlastRadius(
     if (hop >= maxHops || visited.has(curr)) continue;
     visited.add(curr);
 
-    const neighbors = adj[curr] || [];
+    const neighbors = dependentsOf[curr] || [];
     neighbors.forEach(neighborId => {
       if (!visited.has(neighborId)) {
         const hopNum = hop + 1;
         const agent = agents.find(a => a.id === neighborId);
         if (agent) {
-          result.push({
-            agentId: neighborId,
-            agentName: agent.name,
-            hop: hopNum,
-            impact: Math.round((Math.pow(DECAY, hopNum)) * 100),
-          });
+          result.push({ agentId: neighborId, agentName: agent.name, hop: hopNum });
         }
         q.push({ id: neighborId, hop: hopNum });
       }
@@ -56,18 +61,19 @@ function computeBlastRadius(
   return result;
 }
 
-export function BlastRadiusSimulator({ agents, dependencies }: Props) {
+const RISK_COLOR: Record<RiskLevel, string> = {
+  critical: 'text-red-400 bg-red-500/10 border-red-500/20',
+  high:     'text-orange-400 bg-orange-500/10 border-orange-500/20',
+  medium:   'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  low:      'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+};
+
+export function BlastRadiusSimulator({ agents, dependencies, riskByAgentName }: Props) {
   const [selectedId, setSelectedId] = useState<string>('');
   const [maxHops, setMaxHops] = useState(3);
 
   const selected = selectedId ? agents.find(a => a.id === selectedId) : null;
   const cascade = selectedId ? computeBlastRadius(selectedId, agents, dependencies, maxHops) : [];
-
-  const impactColor = (impact: number) => {
-    if (impact > 60) return 'text-red-400 bg-red-500/10 border-red-500/20';
-    if (impact > 30) return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-    return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-  };
 
   return (
     <div className="flex flex-col rounded-xl bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)] p-6 relative overflow-hidden">
@@ -79,9 +85,9 @@ export function BlastRadiusSimulator({ agents, dependencies }: Props) {
             <Zap className="w-5 h-5 text-orange-400" />
             <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Blast Radius Simulator</h2>
           </div>
-          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Select any agent to see impact-decayed cascade across dependencies</p>
+          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Select any agent to see its dependency cascade, ranked by each victim&apos;s real risk score</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={agents.length > 0 && dependencies.length > 0} />
       </div>
 
       {/* Controls */}
@@ -139,21 +145,25 @@ export function BlastRadiusSimulator({ agents, dependencies }: Props) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {cascade.map((node, i) => (
-              <div
-                key={i}
-                className={`flex items-center justify-between p-3 rounded-lg border ${impactColor(node.impact)}`}
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium text-sm text-[color:var(--text-primary)]">{node.agentName}</span>
-                  <span className="text-xs text-[color:var(--text-tertiary)] mt-0.5">Hop {node.hop}</span>
+            {cascade.map((node, i) => {
+              const risk = riskByAgentName.get(node.agentName);
+              const tier = risk?.threatLevel ?? 'low';
+              return (
+                <div
+                  key={i}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${RISK_COLOR[tier]}`}
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium text-sm text-[color:var(--text-primary)]">{node.agentName}</span>
+                    <span className="text-xs text-[color:var(--text-tertiary)] mt-0.5">Hop {node.hop}</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-lg font-bold">{risk?.predictedScore ?? 0}</span>
+                    <span className="text-[10px] uppercase tracking-wider opacity-70">risk score</span>
+                  </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-lg font-bold">{node.impact}%</span>
-                  <span className="text-[10px] uppercase tracking-wider opacity-70">impact</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

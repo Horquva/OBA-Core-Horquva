@@ -3,28 +3,24 @@
 import { RiskIntelligenceReport } from '../../lib/riskIntelligence';
 import { ShieldAlert, AlertTriangle, Activity, Users } from 'lucide-react';
 import clsx from 'clsx';
+import { EvidenceBadge } from '../ui/EvidenceBadge';
 
 interface RiskHeaderProps {
   report: RiskIntelligenceReport;
 }
 
 export function RiskHeader({ report }: RiskHeaderProps) {
-  const { organizationalHealthScore: ohs, healthStatus, criticalAgents, highAgents, totalAgents, orphanedCount, spofCount } = report;
+  const { organizationalHealthScore: ohs, healthStatus, criticalAgents, highAgents, totalAgents, orphanedCount } = report;
 
   const ohsColor =
-    ohs >= 75 ? { text: 'text-emerald-400', ring: 'stroke-emerald-400', glow: 'rgba(52,211,153,0.3)' } :
-    ohs >= 50 ? { text: 'text-yellow-400',  ring: 'stroke-yellow-400',  glow: 'rgba(250,204,21,0.3)' } :
+    (ohs ?? 0) >= 75 ? { text: 'text-emerald-400', ring: 'stroke-emerald-400', glow: 'rgba(52,211,153,0.3)' } :
+    (ohs ?? 0) >= 50 ? { text: 'text-yellow-400',  ring: 'stroke-yellow-400',  glow: 'rgba(250,204,21,0.3)' } :
                 { text: 'text-red-400',     ring: 'stroke-red-400',     glow: 'rgba(248,113,113,0.3)' };
-
-  const statusLabel =
-    healthStatus === 'HEALTHY'  ? { label: 'HEALTHY',   bg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' } :
-    healthStatus === 'AT_RISK'  ? { label: 'AT RISK',   bg: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' } :
-                                  { label: 'CRITICAL',  bg: 'bg-red-500/10 text-red-400 border-red-500/20' };
 
   // SVG gauge
   const radius = 44;
   const circ = 2 * Math.PI * radius;
-  const filled = circ * (ohs / 100);
+  const filled = circ * ((ohs ?? 0) / 100);
   const gap = circ - filled;
 
   const stats = [
@@ -85,41 +81,47 @@ export function RiskHeader({ report }: RiskHeaderProps) {
             Org Health Score
           </p>
 
-          {/* SVG Gauge */}
-          <div className="relative flex items-center justify-center mb-4">
-            <svg width={110} height={110} viewBox="0 0 110 110">
-              {/* Track */}
-              <circle
-                cx={55} cy={55} r={radius}
-                fill="none"
-                stroke="var(--border-subtle)"
-                strokeWidth={8}
-              />
-              {/* Filled arc */}
-              <circle
-                cx={55} cy={55} r={radius}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={8}
-                strokeDasharray={`${filled} ${gap}`}
-                strokeLinecap="round"
-                transform="rotate(-90 55 55)"
-                className={clsx(ohsColor.text, 'transition-all duration-1000')}
-                style={{ filter: `drop-shadow(0 0 6px ${ohsColor.glow})` }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={clsx('text-3xl font-bold tracking-tight animate-count-up', ohsColor.text)}>
-                {ohs}
-              </span>
-              <span className="text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-wider">/ 100</span>
-            </div>
-          </div>
+          {report.evidence.status === 'insufficient_evidence' ? (
+            <EvidenceBadge evidence={report.evidence} />
+          ) : (
+            <>
+              {/* SVG Gauge */}
+              <div className="relative flex items-center justify-center mb-4">
+                <svg width={110} height={110} viewBox="0 0 110 110">
+                  {/* Track */}
+                  <circle
+                    cx={55} cy={55} r={radius}
+                    fill="none"
+                    stroke="var(--border-subtle)"
+                    strokeWidth={8}
+                  />
+                  {/* Filled arc */}
+                  <circle
+                    cx={55} cy={55} r={radius}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={8}
+                    strokeDasharray={`${filled} ${gap}`}
+                    strokeLinecap="round"
+                    transform="rotate(-90 55 55)"
+                    className={clsx(ohsColor.text, 'transition-all duration-1000')}
+                    style={{ filter: `drop-shadow(0 0 6px ${ohsColor.glow})` }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className={clsx('text-3xl font-bold tracking-tight animate-count-up', ohsColor.text)}>
+                    {ohs}
+                  </span>
+                  <span className="text-[10px] text-[color:var(--text-tertiary)] uppercase tracking-wider">/ 100</span>
+                </div>
+              </div>
 
-          <p className={clsx('text-xs font-semibold uppercase tracking-widest', ohsColor.text)}>
-            {healthStatus === 'HEALTHY' ? 'Healthy' : healthStatus === 'AT_RISK' ? 'At Risk' : 'Critical State'}
-          </p>
-          <p className="text-[10px] text-[color:var(--text-tertiary)] mt-1 text-center">Lower = more dangerous</p>
+              <p className={clsx('text-xs font-semibold uppercase tracking-widest', ohsColor.text)}>
+                {healthStatus === 'HEALTHY' ? 'Healthy' : healthStatus === 'AT_RISK' ? 'At Risk' : 'Critical State'}
+              </p>
+              <p className="text-[10px] text-[color:var(--text-tertiary)] mt-1 text-center">Lower = more dangerous</p>
+            </>
+          )}
         </div>
 
         {/* Stats — 2×2 grid */}

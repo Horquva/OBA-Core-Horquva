@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { PersonProfile, AssetItem, KnowledgeRiskReport } from '../../lib/knowledgeRisk';
 import { TruthBadge } from '../dashboard/TruthBadge';
-import { Search, Server, GitFork, BookOpen, Key, Users } from 'lucide-react';
+import { Search, Server, GitFork, Key, Users } from 'lucide-react';
 
 interface Props {
   report: KnowledgeRiskReport;
@@ -33,12 +33,12 @@ export function EntitySearchPanel({ report }: Props) {
       a.name.toLowerCase().includes(q) || 
       (a.owner && a.owner.toLowerCase().includes(q)) ||
       a.department.toLowerCase().includes(q)
-    ).map(a => ({ type: a.type, obj: a as any }));
+    ).map(a => ({ type: a.type, obj: a as AssetItem }));
 
     // Search people
     const peopleMatches = report.profiles.filter(p =>
       p.name.toLowerCase().includes(q)
-    ).map(p => ({ type: 'person', obj: p as any }));
+    ).map(p => ({ type: 'person' as const, obj: p as PersonProfile }));
 
     const combined = [...assetMatches, ...peopleMatches];
     
@@ -59,7 +59,7 @@ export function EntitySearchPanel({ report }: Props) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)] mt-1">Searchable ontology browser (Agents, Workflows, Tools, People)</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={allAssets.length > 0} />
       </div>
 
       <div className="relative z-10 mb-4">
@@ -97,7 +97,7 @@ export function EntitySearchPanel({ report }: Props) {
            </div>
         ) : searchResults.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center">
-             <p className="text-sm text-[color:var(--text-secondary)]">No matches found for "{query}"</p>
+             <p className="text-sm text-[color:var(--text-secondary)]">No matches found for &quot;{query}&quot;</p>
            </div>
         ) : (
           <div className="divide-y divide-[color:var(--border-subtle)]">

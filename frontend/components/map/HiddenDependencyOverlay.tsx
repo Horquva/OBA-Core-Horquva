@@ -10,7 +10,7 @@ interface Props {
   dependencies: Dependency[];
 }
 
-type OverlayMode = 'none' | 'transitive' | 'shared-resource' | 'shared-owner';
+type OverlayMode = 'none' | 'transitive' | 'same-department' | 'shared-owner';
 
 interface HiddenEdge {
   from: string;
@@ -76,8 +76,14 @@ function computeSharedOwnerEdges(agents: Agent[]): HiddenEdge[] {
   return edges.slice(0, 8);
 }
 
-function computeSharedResourceEdges(agents: Agent[]): HiddenEdge[] {
-  // Agents in same department share a virtual resource pool
+// Same department is a real, verifiable grouping fact -- unlike the "virtual
+// resource pool" this used to invent and label as a discovered dependency
+// (nothing in the data model represents a shared resource pool; it was a
+// department grouping wearing a dependency's clothes on a page whose stated
+// purpose is uncovering dependencies you didn't know about). Same
+// visualization -- a connecting line between agents that share something
+// real, exactly like computeSharedOwnerEdges below -- honest label.
+function computeSameDepartmentEdges(agents: Agent[]): HiddenEdge[] {
   const deptMap: Record<string, string[]> = {};
   agents.forEach(a => {
     if (!deptMap[a.department]) deptMap[a.department] = [];
@@ -90,8 +96,8 @@ function computeSharedResourceEdges(agents: Agent[]): HiddenEdge[] {
         edges.push({
           from: agentNames[i],
           to: agentNames[i + 1],
-          type: 'shared-resource',
-          label: `Shared resource pool: ${dept}`,
+          type: 'same-department',
+          label: `Same department: ${dept}`,
         });
       }
     }
@@ -100,10 +106,10 @@ function computeSharedResourceEdges(agents: Agent[]): HiddenEdge[] {
 }
 
 const OVERLAY_META = {
-  none:             { label: 'None', color: 'text-[color:var(--text-tertiary)]' },
-  transitive:       { label: 'Transitive Edges', color: 'text-violet-400' },
-  'shared-resource':{ label: 'Shared Resource Edges', color: 'text-cyan-400' },
-  'shared-owner':   { label: 'Shared Owner Edges', color: 'text-amber-400' },
+  none:              { label: 'None', color: 'text-[color:var(--text-tertiary)]' },
+  transitive:        { label: 'Transitive Edges', color: 'text-violet-400' },
+  'same-department': { label: 'Same Department', color: 'text-cyan-400' },
+  'shared-owner':    { label: 'Shared Owner Edges', color: 'text-amber-400' },
 };
 
 export function HiddenDependencyOverlay({ agents, dependencies }: Props) {
@@ -114,7 +120,7 @@ export function HiddenDependencyOverlay({ agents, dependencies }: Props) {
     if (!visible || mode === 'none') return [];
     if (mode === 'transitive') return computeTransitiveEdges(agents, dependencies);
     if (mode === 'shared-owner') return computeSharedOwnerEdges(agents);
-    if (mode === 'shared-resource') return computeSharedResourceEdges(agents);
+    if (mode === 'same-department') return computeSameDepartmentEdges(agents);
     return [];
   }, [mode, visible, agents, dependencies]);
 
@@ -132,9 +138,9 @@ export function HiddenDependencyOverlay({ agents, dependencies }: Props) {
             <Share2 className="w-5 h-5 text-cyan-400" />
             <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Hidden Dependency Overlay</h2>
           </div>
-          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Reveal transitive, shared-resource, or shared-owner edges not visible in the main graph</p>
+          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Reveal transitive dependencies, or group agents that share a department or an owner, not visible in the main graph</p>
         </div>
-        <TruthBadge verified />
+        <TruthBadge verified={agents.length > 0 && dependencies.length > 0} />
       </div>
 
       {/* Mode selector + toggle */}

@@ -1,21 +1,31 @@
 /*
  * OBA Core — Authentication & organization-context middleware.
- * Apply these ONLY to routes that must be protected. Keep demo/read endpoints public.
+ *
+ * requireAuth is applied GLOBALLY in index.js as `app.use('/api', requireAuth)`,
+ * so every /api route is protected by default. The old advice here — "apply
+ * these ONLY to routes that must be protected, keep demo/read endpoints public"
+ * — described a split that no longer exists: those "public" reads served
+ * authenticated org data to any caller. Do not reintroduce it.
+ *
+ * Routers mounted ABOVE that global gate (currently only /api/auth) must still
+ * name requireAuth per-route — see routes/auth/auth.js.
  *
  * Usage:
- *   const { requireAuth, requireRole, optionalAuth } = require('../../middleware/auth')
+ *   const { requireAuth, optionalAuth } = require('../../middleware/auth')
  *   router.post('/secure', requireAuth, handler)
- *   router.delete('/x', requireAuth, requireRole('admin'), handler)
  */
 
 const { verify } = require('../lib/jwt')
+const { isRevoked } = require('../lib/tokenBlocklist')
+const SECRET = require('../lib/authSecret')
 
-const SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
-
+// Authorization header ONLY. A `?token=` query fallback used to be accepted
+// here; it was removed because query strings land in access logs, proxy logs
+// and Referer headers, which turns every logged request into a credential
+// leak. Nothing in the frontend ever used it.
 function extractToken(req) {
 	const h = req.headers.authorization || ''
 	if (h.startsWith('Bearer ')) return h.slice(7)
-	if (req.query && req.query.token) return String(req.query.token)
 	return null
 }
 
@@ -25,8 +35,10 @@ function orgContext(req, _res, next) {
 	if (token) {
 		try {
 			const user = verify(token, SECRET)
-			req.user = user
-			req.org = user.org || null
+			if (!isRevoked(user.jti)) {
+				req.user = user
+				req.org = user.org || null
+			}
 		} catch (_) {
 			/* invalid token — ignore, request stays anonymous */
 		}
@@ -43,6 +55,7 @@ function requireAuth(req, res, next) {
 	if (!token) return res.status(401).json({ error: 'Authentication required' })
 	try {
 		const user = verify(token, SECRET)
+		if (isRevoked(user.jti)) return res.status(401).json({ error: 'Token has been revoked (logged out)' })
 		req.user = user
 		req.org = user.org || null
 		next()
@@ -51,12 +64,4 @@ function requireAuth(req, res, next) {
 	}
 }
 
-function requireRole(...roles) {
-	return (req, res, next) => {
-		if (!req.user) return res.status(401).json({ error: 'Authentication required' })
-		if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'Forbidden — insufficient role' })
-		next()
-	}
-}
-
-module.exports = { requireAuth, optionalAuth, requireRole, orgContext, extractToken }
+module.exports = { requireAuth, optionalAuth, orgContext, extractToken }
