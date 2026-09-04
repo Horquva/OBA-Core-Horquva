@@ -1,0 +1,156 @@
+/* FilterPanel Styling */
+
+.filter-panel {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  position: sticky;
+  top: 20px;
+  height: fit-content;
+}
+
+.filter-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 8px;
+}
+
+.filter-panel__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.filter-panel__clear {
+  background-color: transparent;
+  border: none;
+  color: #3b82f6;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.filter-panel__clear:hover {
+  background-color: #dbeafe;
+}
+
+.filter-panel__clear:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Filter Group */
+.filter-panel__group {
+  border: none;
+  margin: 0;
+  padding: 0;
+  margin-bottom: 12px;
+}
+
+.filter-panel__group:last-child {
+  margin-bottom: 0;
+}
+
+.filter-panel__toggle {
+  width: 100%;
+  background-color: transparent;
+  border: none;
+  padding: 10px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  transition: color 0.2s;
+}
+
+.filter-panel__toggle:hover {
+  color: #3b82f6;
+}
+
+.filter-panel__toggle:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.filter-panel__toggle-icon {
+  font-size: 18px;
+  font-weight: bold;
+  color: #6b7280;
+}
+
+/* Filter Options */
+.filter-panel__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.filter-panel__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.filter-panel__checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.filter-panel__checkbox:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.filter-panel__label {
+  font-size: 14px;
+  color: #374151;
+  user-select: none;
+}
+
+.filter-panel__option:hover .filter-panel__label {
+  color: #1f2937;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .filter-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .filter-panel {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .filter-panel__title {
+    font-size: 14px;
+  }
+
+  .filter-panel__toggle {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .filter-panel__label {
+    font-size: 13px;
+  }
+}
