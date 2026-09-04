@@ -57,7 +57,7 @@ export function WhatMattersNowFeed() {
         </div>
         <div className="flex items-center gap-2">
           {total > 0 && <span className="text-xs text-[color:var(--text-tertiary)]">{total} items</span>}
-          <TruthBadge verified />
+          <TruthBadge verified={!error && items.length > 0} />
         </div>
       </div>
 

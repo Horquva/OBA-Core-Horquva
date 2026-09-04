@@ -4,32 +4,50 @@ import React from 'react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { ShieldCheck, Scale, FileWarning } from 'lucide-react';
 import { ContinuityReport } from '../../lib/continuityRisk';
+import { ModuleResult } from '../../lib/moduleResult';
+
+export interface GovernancePayload {
+  governanceCoverage: number; // 0-1
+  governedEntities: string[];
+  ungovernedAssets: string[];
+}
 
 interface Props {
   report: ContinuityReport;
+  /** Real M19 (Governance Intelligence) output -- null while loading or if
+   *  the graph isn't ready. The KPI below is the only thing on this tab
+   *  actually sourced from a verified backend module; everything else
+   *  (heatmap, worst-offenders list) is continuityRisk.ts's local per-asset
+   *  heuristic and is labeled as such, not claimed as verified. */
+  module: ModuleResult<GovernancePayload> | null;
 }
 
-export function GovernanceTab({ report }: Props) {
+export function GovernanceTab({ report, module }: Props) {
   const healthy = report.assets.filter(a => a.governanceScore >= 80).length;
   const atRisk = report.assets.filter(a => a.governanceScore < 60).length;
+  const m19Coverage = module ? Math.round(module.payload.governanceCoverage * 100) : null;
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
-      
+
       {/* KPI row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="md:col-span-2 flex flex-col p-6 rounded-xl bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-sky-500/10 rounded-full blur-3xl pointer-events-none translate-x-1/2 -translate-y-1/2" />
           <div className="flex items-center justify-between z-10 mb-2">
-            <span className="text-xs text-[color:var(--text-tertiary)] uppercase tracking-wider">Org Governance Score</span>
-            <TruthBadge verified />
+            <span className="text-xs text-[color:var(--text-tertiary)] uppercase tracking-wider">Governance Coverage (M19)</span>
+            <TruthBadge confidence={module ? module.confidence * 100 : null} />
           </div>
-          <div className="flex items-end gap-3 z-10">
-            <span className={`text-4xl font-bold ${report.orgGovernanceScore >= 80 ? 'text-sky-400' : report.orgGovernanceScore >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
-              {report.orgGovernanceScore}
-            </span>
-            <span className="text-sm text-[color:var(--text-tertiary)] mb-1">/ 100</span>
-          </div>
+          {m19Coverage != null ? (
+            <div className="flex items-end gap-3 z-10">
+              <span className={`text-4xl font-bold ${m19Coverage >= 80 ? 'text-sky-400' : m19Coverage >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                {m19Coverage}
+              </span>
+              <span className="text-sm text-[color:var(--text-tertiary)] mb-1">% of assets under policy</span>
+            </div>
+          ) : (
+            <span className="text-sm text-[color:var(--text-tertiary)] z-10">Unavailable — brain graph not ready</span>
+          )}
         </div>
 
         <div className="flex flex-col p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
@@ -48,7 +66,8 @@ export function GovernanceTab({ report }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Governance Heatmap */}
         <div className="flex flex-col rounded-xl bg-[color:var(--bg-card)] border border-[color:var(--border-subtle)] p-6">
-          <h3 className="text-sm font-semibold text-[color:var(--text-primary)] mb-4">Governance Heatmap</h3>
+          <h3 className="text-sm font-semibold text-[color:var(--text-primary)] mb-1">Governance Heatmap</h3>
+          <p className="text-[10px] text-[color:var(--text-tertiary)] mb-4 uppercase tracking-wide">Estimated — per-asset governance heuristic, not M19</p>
           <div className="flex flex-col gap-3">
             {Object.entries(report.deptGovernance).sort((a,b) => a[1].score - b[1].score).map(([dept, stats]) => (
               <div key={dept} className="flex flex-col gap-1.5 p-3 rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--bg-base)]">

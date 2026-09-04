@@ -24,16 +24,23 @@ const typeConfig: Record<ScenarioType, { icon: React.ElementType; verb: string; 
   TOOL_UNAVAILABLE: { icon: Cpu,       verb: 'goes offline', color: 'var(--risk-medium-text)'   },
 };
 
+// Was a health-score-drop-magnitude banding (>=7/3/1) duplicated verbatim in
+// ScenarioRanking.tsx, and less meaningful than what the backend already
+// computes -- domain/simulations.js's severityFor() looks at the real
+// criticality of the entities impacted, not just how many health points
+// moved. Now a lookup on the real scenario.severity value.
+const SEVERITY_META: Record<RiskLevel, { label: string; color: string; bg: string; border: string }> = {
+  critical: { label: 'CRITICAL IMPACT', color: 'var(--risk-critical-text)', bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.22)' },
+  high:     { label: 'HIGH IMPACT',     color: 'var(--risk-high-text)',     bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.22)' },
+  medium:   { label: 'MEDIUM IMPACT',   color: 'var(--risk-medium-text)',   bg: 'rgba(202,138,4,0.08)', border: 'rgba(202,138,4,0.22)' },
+  low:      { label: 'LOW IMPACT',      color: 'var(--risk-low-text)',      bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.22)' },
+};
+
 export function ImpactSummary({ scenario }: Props) {
   const drop = scenario.baselineHealthScore - scenario.simulatedHealthScore;
   const tc = typeConfig[scenario.type];
-  const Icon = tc.icon;
 
-  const severity =
-    drop >= 7 ? { label: 'CRITICAL IMPACT', color: 'var(--risk-critical-text)', bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.22)' } :
-    drop >= 3 ? { label: 'HIGH IMPACT',     color: 'var(--risk-high-text)',     bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.22)' } :
-    drop >= 1 ? { label: 'MEDIUM IMPACT',   color: 'var(--risk-medium-text)',   bg: 'rgba(202,138,4,0.08)', border: 'rgba(202,138,4,0.22)' } :
-                { label: 'LOW IMPACT',      color: 'var(--risk-low-text)',      bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.22)' };
+  const severity = SEVERITY_META[scenario.severity];
 
   const afterScore = scenario.simulatedHealthScore;
   const afterColor =
@@ -199,27 +206,17 @@ export function ImpactSummary({ scenario }: Props) {
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>
-                    {impact.agentName}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
-                    {impact.reason}
+                    {impact.name}
                   </div>
                 </div>
 
-                {/* Before → After risk */}
+                {/* Risk badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
                   <span
-                    className={riskBadgeClass[impact.beforeRisk]}
+                    className={riskBadgeClass[impact.risk]}
                     style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', padding: '2px 7px', borderRadius: '4px' }}
                   >
-                    {impact.beforeRisk.toUpperCase()}
-                  </span>
-                  <ArrowRight size={12} style={{ color: 'var(--text-tertiary)' }} />
-                  <span
-                    className={riskBadgeClass[impact.afterRisk]}
-                    style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', padding: '2px 7px', borderRadius: '4px' }}
-                  >
-                    {impact.afterRisk.toUpperCase()}
+                    {impact.risk.toUpperCase()}
                   </span>
                 </div>
               </div>
@@ -228,8 +225,8 @@ export function ImpactSummary({ scenario }: Props) {
         )}
       </div>
 
-      {/* ── Workflow impact (Tool scenarios only) ──────────────── */}
-      {scenario.type === 'TOOL_UNAVAILABLE' && scenario.impactedWorkflowNames && scenario.impactedWorkflowNames.length > 0 && (
+      {/* ── Workflow impact ─────────────────────────────────────── */}
+      {scenario.impactedWorkflowNames.length > 0 && (
         <div className="card" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
             <GitBranch size={15} style={{ color: 'var(--accent)' }} />

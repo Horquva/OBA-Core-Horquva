@@ -54,7 +54,7 @@ export function KnowledgeHeader({ report }: Props) {
           Knowledge Risk Intelligence
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '4px 0 0', maxWidth: '680px' }}>
-          Maps where critical organizational knowledge lives — in people's heads — and calculates exactly what disappears if they leave today.
+          Maps where critical organizational knowledge lives — in people&apos;s heads — and calculates exactly what disappears if they leave today.
         </p>
       </div>
 

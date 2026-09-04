@@ -2,17 +2,12 @@
 
 import { OrgMemoryReport } from '../../lib/orgMemory';
 import { ShieldCheck, AlertTriangle, ShieldOff, Skull } from 'lucide-react';
+import { EvidenceBadge } from '../ui/EvidenceBadge';
 
 interface Props {
   report: OrgMemoryReport;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  PRESERVED:  'var(--risk-low-text)',
-  VULNERABLE: 'var(--risk-high-text)',
-  AT_RISK:    'var(--risk-medium-text)',
-  LOST:       'var(--risk-critical-text)',
-};
 const STATUS_BG: Record<string, string> = {
   PRESERVED:  'var(--risk-low-bg)',
   VULNERABLE: 'var(--risk-high-bg)',
@@ -180,7 +175,11 @@ export function MemoryHeader({ report }: Props) {
           }}>
             Institutional Memory Health
           </p>
-          <IMHSArc score={report.imhs} verdict={report.imhsVerdict} />
+          {report.evidence.status === 'insufficient_evidence' ? (
+            <EvidenceBadge evidence={report.evidence} />
+          ) : (
+            <IMHSArc score={report.imhs as number} verdict={report.imhsVerdict as string} />
+          )}
         </div>
 
         {/* KPI cards */}

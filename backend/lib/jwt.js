@@ -28,12 +28,15 @@ function signature(data, secret) {
 		.replace(/\//g, '_')
 }
 
-/** Sign a payload. expiresInSec default 1 hour. */
+/** Sign a payload. expiresInSec default 1 hour. Every token gets a unique
+ *  `jti` so a single session can be revoked (logout) without invalidating
+ *  every other token issued to the same user. */
 function sign(payload, secret, expiresInSec = 3600) {
 	if (!secret) throw new Error('JWT secret missing')
 	const header = { alg: 'HS256', typ: 'JWT' }
 	const now = Math.floor(Date.now() / 1000)
-	const body = Object.assign({ iat: now, exp: now + expiresInSec }, payload)
+	const jti = crypto.randomBytes(12).toString('hex')
+	const body = Object.assign({ iat: now, exp: now + expiresInSec, jti }, payload)
 	const data = b64urlJson(header) + '.' + b64urlJson(body)
 	return data + '.' + signature(data, secret)
 }

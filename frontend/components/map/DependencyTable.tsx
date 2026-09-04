@@ -1,22 +1,19 @@
 import React, { useMemo } from 'react';
 import { Agent, Dependency } from '../../types';
-import { getDownstream, getSPOFs } from '../../lib/graph';
-import { ShieldAlert, ArrowDownRight, ArrowUpRight, Activity } from 'lucide-react';
+import { getDownstream } from '../../lib/graph';
+import { ShieldAlert, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import clsx from 'clsx';
 
 interface DependencyTableProps {
   agents: Agent[];
   dependencies: Dependency[];
+  /** Server-computed SPOF agent ids (backend/routes/dependencies.js
+   *  GET /agent-spofs) — one definition of "SPOF", not reimplemented here. */
+  spofIds: Set<string>;
 }
 
-export function DependencyTable({ agents, dependencies }: DependencyTableProps) {
+export function DependencyTable({ agents, dependencies, spofIds }: DependencyTableProps) {
   const agentMap = new Map(agents.map(a => [a.id, a]));
-  
-  const spofs = useMemo(() => {
-    const spofSet = new Set<string>();
-    getSPOFs(agents, dependencies).forEach(s => spofSet.add(s.agentId));
-    return spofSet;
-  }, [agents, dependencies]);
 
   // Pre-calculate immediate edges
   const immediateUpstream = useMemo(() => {
@@ -59,7 +56,7 @@ export function DependencyTable({ agents, dependencies }: DependencyTableProps) 
           </thead>
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {agents.map((agent) => {
-              const isSpof = spofs.has(agent.id);
+              const isSpof = spofIds.has(agent.id);
               const upstreams = immediateUpstream.get(agent.id) || [];
               const downstreams = immediateDownstream.get(agent.id) || [];
               const cascadeVictims = getDownstream(agent.id, dependencies).size;

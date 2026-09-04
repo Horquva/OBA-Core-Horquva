@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Network, AlertTriangle } from 'lucide-react';
 import { TruthBadge } from './TruthBadge';
+import { authHeader } from '../../lib/authFetch';
 
 interface Pillar {
   label: string;
@@ -12,19 +13,30 @@ interface Pillar {
   href: string;
 }
 
+// Labels match domain/derived.js's canonical pillar definitions (MI =
+// Management Intelligence: accountability + backup + ownership coverage;
+// DI = Data Intelligence: documentation + verification + contradiction
+// penalty) rather than the "Memory"/"Domain" names this radar used to show,
+// which didn't match any backend definition and sent MI's link to /memory —
+// a page about institutional memory, not what MI actually measures. hrefs now
+// point at the pages that actually surface each pillar's inputs: /ownership
+// for MI's accountability/backup/ownership data, /knowledge for DI's
+// documentation/verification data.
+//
+// OCI (Org Continuity Intelligence) is deliberately not a spoke here: it read
+// orgHealth.continuityScore, which is already one of the five inputs
+// orgHealth.healthIndex (OI's own spoke) is a mean of — two spokes partly
+// restating the same figure. Four spokes now, each measuring something
+// genuinely distinct.
 const PILLAR_META: Record<string, { label: string; fullLabel: string; href: string }> = {
-  DI:  { label: 'Domain',      fullLabel: 'Domain Intelligence',                   href: '/ownership' },
-  MI:  { label: 'Memory',      fullLabel: 'Memory Intelligence',                   href: '/memory' },
-  OI:  { label: 'Operations',  fullLabel: 'Operational Intelligence',              href: '/workflows' },
-  OCI: { label: 'Continuity',  fullLabel: 'Org Continuity Intelligence',            href: '/risk' },
-  GI:  { label: 'Governance',  fullLabel: 'Governance Intelligence',               href: '/org-science' },
+  DI:  { label: 'Data',        fullLabel: 'Data Intelligence',        href: '/knowledge' },
+  MI:  { label: 'Management',  fullLabel: 'Management Intelligence',  href: '/ownership' },
+  OI:  { label: 'Operations',  fullLabel: 'Operational Intelligence', href: '/workflows' },
+  GI:  { label: 'Governance',  fullLabel: 'Governance Intelligence',  href: '/org-science' },
 };
 
 const DRAGGING_PAIRS = [
-  { from: 'MI',  to: 'OCI', label: 'Weak Memory is dragging Continuity down' },
-  { from: 'OI',  to: 'OCI', label: 'Weak Operations is constraining Continuity' },
-  { from: 'GI',  to: 'DI',  label: 'Governance gaps are weakening Domain coverage' },
-  { from: 'GI',  to: 'OCI', label: 'Governance gaps are limiting Continuity recovery' },
+  { from: 'GI', to: 'DI', label: 'Governance gaps are weakening Data coverage' },
 ];
 
 function ratingColor(score: number) {
@@ -39,10 +51,15 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="px-3 py-2 rounded-lg text-xs"
+    <div className="px-3 py-2 rounded-lg text-xs max-w-[220px]"
       style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
       <p className="font-semibold text-[color:var(--text-primary)]">{d.fullLabel}</p>
       <p style={{ color: ratingColor(d.score) }}>{d.score}/100</p>
+      {d.label === 'Governance' && (
+        <p className="text-[10px] text-[color:var(--text-tertiary)] mt-1">
+          A weighted composite (runbooks + policy + violations) — different from /continuity&apos;s raw &quot;Governance Coverage (M19)&quot; ratio.
+        </p>
+      )}
     </div>
   );
 }
@@ -55,17 +72,21 @@ export function FivePillarsRadar() {
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
-    // Try orchestrator modules first (have reliable per-pillar scores), then truth
-    const fetchModules = fetch(`${base}/api/intelligence/orchestrator/modules`)
+    // Orchestrator modules have reliable per-pillar scores. A /api/intelligence/truth
+    // fallback used to sit here for when this call failed, but truth's actual
+    // response shape ({ totalClaims, verdictBreakdown, trustScore, entitiesChecked,
+    // report }) has neither a `pillars` nor a `results` array, so the fallback's
+    // `if (!built.length) throw` fired on every single use — it was unreachable
+    // dead code that only ever produced the same error the primary fetch already had.
+    fetch(`${base}/api/intelligence/orchestrator/modules`, { headers: authHeader() })
       .then(r => r.json())
       .then((data: { modules?: { key: string; score: number }[] }) => {
         if (!data.modules?.length) throw new Error('no modules');
-        
+
         const API_KEY_MAP: Record<string, string> = {
           domainInt: 'DI',
           memory: 'MI',
           orgHealth: 'OI',
-          continuity: 'OCI',
           governance: 'GI'
         };
 
@@ -81,55 +102,12 @@ export function FivePillarsRadar() {
             });
           }
         });
-        
+
         if (!built.length) throw new Error('no pillar modules');
         return built;
-      });
-
-    // Build the truth fallback as a lazy thunk — only called if modules fail
-    const fetchTruth = () => fetch(`${base}/api/intelligence/truth`)
-      .then(r => r.json())
-      .then((data: Record<string, unknown>) => {
-        let built: Pillar[] = [];
-
-        if (Array.isArray((data as { pillars?: unknown[] }).pillars)) {
-          built = ((data as { pillars: { key: string; score: number }[] }).pillars)
-            .filter(p => PILLAR_META[p.key])
-            .map(p => ({
-              label: PILLAR_META[p.key].label,
-              fullLabel: PILLAR_META[p.key].fullLabel,
-              href: PILLAR_META[p.key].href,
-              score: p.score,
-            }));
-        }
-
-        if (!built.length && Array.isArray((data as { results?: unknown[] }).results)) {
-          const results = (data as { results: { result_key: string; score: number }[] }).results;
-          Object.keys(PILLAR_META).forEach(key => {
-            const match = results.find(r => r.result_key === key);
-            if (match) {
-              built.push({
-                label: PILLAR_META[key].label,
-                fullLabel: PILLAR_META[key].fullLabel,
-                href: PILLAR_META[key].href,
-                score: match.score,
-              });
-            }
-          });
-        }
-
-        if (!built.length) throw new Error('no pillar data in truth response');
-        return built;
-      });
-
-    // Try modules first; fall back to truth only if modules fail
-    fetchModules
+      })
       .then(setPillars)
-      .catch(() =>
-        fetchTruth()
-          .then(setPillars)
-          .catch((e) => setError(e?.message ?? 'Pillar data unavailable'))
-      )
+      .catch((e) => setError(e?.message ?? 'Pillar data unavailable'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -186,8 +164,9 @@ export function FivePillarsRadar() {
           <PolarGrid stroke="var(--border-default)" />
           <PolarAngleAxis
             dataKey="label"
-            tick={(props: any) => {
+            tick={(props: { x?: string | number; y?: string | number; payload?: { value: string } }) => {
               const { x, y, payload } = props;
+              if (!payload) return <g />;
               const pillar = pillars.find(p => p.label === payload.value);
               const href = Object.values(PILLAR_META).find(m => m.label === payload.value)?.href ?? '/';
               return (

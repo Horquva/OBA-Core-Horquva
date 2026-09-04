@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { learning, ApiError, type LearningSummary } from '../../lib/api';
-import { BookOpen, AlertTriangle, TrendingUp, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { BookOpen, AlertTriangle, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import clsx from 'clsx';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';

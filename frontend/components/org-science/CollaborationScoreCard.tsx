@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { collaboration, ApiError, type CollaborationScoreResponse } from '../../lib/api';
-import { Users, AlertTriangle, CheckCircle2, TrendingUp, XCircle } from 'lucide-react';
+import { Users, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
-import { RiskBadge } from '../ui/RiskBadge';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
 

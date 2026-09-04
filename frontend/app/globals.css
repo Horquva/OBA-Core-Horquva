@@ -6,6 +6,7 @@
   --bg-base:      #0c0c0f;   /* near-black canvas        */
   --bg-surface:   #111116;   /* sidebar / panels         */
   --bg-elevated:  #16161c;   /* cards, inputs            */
+  --bg-card:      #16161c;   /* card panels (alias of elevated) */
   --bg-hover:     #1c1c24;   /* hover states             */
 
   /* Borders */
@@ -50,6 +51,7 @@
   --bg-base:      #E5E7EB;
   --bg-surface:   #F3F4F6;
   --bg-elevated:  #F3F4F6;
+  --bg-card:      #F3F4F6;
   --bg-hover:     #D1D5DB;
 
   /* Borders */
@@ -320,4 +322,24 @@ body {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ─────────────────────────────────────────────
+   COMMAND BAR — focus flash
+   Applied by lib/focusTarget.ts to the card the executive was routed to,
+   so it is obvious where a jump landed on a long page.
+   ───────────────────────────────────────────── */
+@keyframes oba-focus-flash {
+  0%   { box-shadow: 0 0 0 0 var(--accent-dim);   border-color: var(--accent); }
+  35%  { box-shadow: 0 0 0 6px var(--accent-dim); border-color: var(--accent); }
+  100% { box-shadow: 0 0 0 0 rgba(0,0,0,0);       border-color: var(--border-subtle); }
+}
+
+.oba-focus-flash {
+  animation: oba-focus-flash 2.2s ease-out 1;
+  scroll-margin-top: 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oba-focus-flash { animation: none; outline: 2px solid var(--accent); }
 }

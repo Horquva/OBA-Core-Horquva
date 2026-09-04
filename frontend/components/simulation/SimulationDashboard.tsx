@@ -1,36 +1,21 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Agent, Dependency, AITool } from '../../types';
-import { rankScenarios, ScenarioResult, ScenarioType } from '../../lib/simulation';
-import { calculateHealthScore } from '../../lib/risk';
+import { ScenarioResult } from '../../lib/simulation';
 import { ScenarioRanking } from './ScenarioRanking';
 import { ImpactSummary } from './ImpactSummary';
 import {
-  Activity, Beaker, UserMinus, ShieldOff, Cpu, Flame, TrendingDown,
+  Activity, Beaker, UserMinus, ShieldOff, Cpu, Flame,
 } from 'lucide-react';
 
 interface Props {
-  agents: Agent[];
-  dependencies: Dependency[];
-  tools: AITool[];
+  scenarios: ScenarioResult[];
 }
 
-const typeConfig: Record<ScenarioType, { icon: React.ElementType; label: string; color: string }> = {
-  PERSON_LEAVES:    { icon: UserMinus, label: 'Employee leaves',  color: 'var(--risk-critical-text)' },
-  AGENT_FAILS:      { icon: ShieldOff, label: 'Agent failure',    color: 'var(--risk-high-text)'     },
-  TOOL_UNAVAILABLE: { icon: Cpu,       label: 'Tool unavailable', color: 'var(--risk-medium-text)'   },
-};
-
-export function SimulationDashboard({ agents, dependencies, tools }: Props) {
+export function SimulationDashboard({ scenarios }: Props) {
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
 
-  const baselineHealthScore = useMemo(() => calculateHealthScore(agents), [agents]);
-
-  const scenarios = useMemo(
-    () => rankScenarios(agents, dependencies, tools),
-    [agents, dependencies, tools]
-  );
+  const baselineHealthScore = scenarios[0]?.baselineHealthScore ?? 0;
 
   const worstScenario = scenarios[0] ?? null;
 
@@ -103,8 +88,6 @@ export function SimulationDashboard({ agents, dependencies, tools }: Props) {
       {/* ── Most dangerous scenario callout ─────────────────── */}
       {worstScenario && (() => {
         const drop = worstScenario.baselineHealthScore - worstScenario.simulatedHealthScore;
-        const tc = typeConfig[worstScenario.type];
-        const WIcon = tc.icon;
         return (
           <div style={{
             flexShrink: 0,

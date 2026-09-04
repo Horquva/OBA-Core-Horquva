@@ -1,7 +1,6 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Bell } from 'lucide-react';
 
 const routeMeta: Record<string, { label: string; badge?: string }> = {
   '/':                { label: 'Dashboard' },
