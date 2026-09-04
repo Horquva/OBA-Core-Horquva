@@ -1,61 +1,32 @@
 # Altair — Workflow Automation Platform
 
-Altair is a feature-based React workflow automation console backed by a Node.js API, asynchronous workflow worker, scheduler, authentication/RBAC layer, and operational management features.
+Altair is a feature-based React workflow console backed by a small Node API and asynchronous workflow worker.
 
-The platform is designed around:
+## Engineering progression
 
 **UNDERSTAND → ESTABLISH → BUILD → INTEGRATE → OPERATE → HARDEN**
 
-The original frontend structure and working views have been preserved while the platform has been extended with real API-backed execution, scheduling, integrations, governance, operational tooling, and functional management actions.
+The original frontend structure and working views were preserved. The browser-side timer simulator was replaced by an API/queue/worker integration seam.
 
----
+## Run locally
 
-## Engineering Progression
+Prerequisite: Node.js 20+.
 
-Altair follows the engineering progression:
-
-1. **Understand** — architecture, requirements, workflow concepts
-2. **Establish** — authentication, RBAC, API and persistence
-3. **Build** — workflow creation, versioning and execution
-4. **Integrate** — adapters, webhooks, events and external services
-5. **Operate** — schedules, incidents, runbooks, service health and monitoring
-6. **Harden** — security, auditability, reliability and production readiness
-
----
-
-# Run Locally
-
-### Prerequisite
-
-* Node.js 20+
-* npm
-
-Install dependencies:
+Install dependencies once:
 
 ```bash
 npm install
 ```
 
-### Recommended: Start Everything
+### Recommended: start everything with one command
 
 ```bash
 npm run dev:all
 ```
 
-This starts:
+This starts both the Node API/worker and the Vite frontend. Open `http://localhost:5173`.
 
-* Node.js API
-* Workflow worker
-* Scheduler
-* Vite frontend
-
-Open:
-
-```text
-http://localhost:5173
-```
-
-### Alternative: Two Terminals
+### Alternative: two terminals
 
 Terminal 1:
 
@@ -69,31 +40,19 @@ Terminal 2:
 npm run dev
 ```
 
-The server automatically creates:
+The server automatically creates `server/data/store.json` on first start, so no database file is required in the ZIP.
 
-```text
-server/data/store.json
-```
+## Development login
 
-on first start.
-
-No database file needs to be manually created.
-
----
-
-# Development Login
-
-Default development account:
+Default demo account:
 
 ```text
 Email: admin@altair.local
-Password: AltairDemo123!
+Password: see all files 
 Role: admin
 ```
 
-These credentials are for local development only.
-
-Configure them with:
+These are development defaults only. Configure them with:
 
 ```bash
 ALTAIR_DEMO_EMAIL=...
@@ -101,29 +60,19 @@ ALTAIR_DEMO_PASSWORD=...
 ALTAIR_DEMO_ROLE=admin
 ```
 
-See:
-
-```text
-.env.example
-```
+See `.env.example`.
 
 Production startup refuses to use the default demo credentials.
 
----
+## Authentication and RBAC
 
-# Authentication and RBAC
-
-Altair uses server-side authentication and permission-based authorization.
-
-Authentication includes:
-
-* Salted PBKDF2-SHA256 password hashes
-* Opaque random session tokens
-* HttpOnly cookies
-* SameSite cookie protection
-* Server-side session expiration
-* Logout invalidation
-* Permission-based API authorization
+Authentication uses:
+- salted PBKDF2-SHA256 password hashes
+- opaque random session tokens
+- HttpOnly, SameSite cookies
+- server-side session expiration
+- logout invalidation
+- permission-based API authorization
 
 Permissions include:
 
@@ -140,525 +89,123 @@ notification:manage
 governance:manage
 ```
 
-The frontend hides actions that the current user cannot perform.
+The frontend hides actions the current user cannot perform, and the backend independently rejects unauthorized requests.
 
-The backend independently verifies every protected operation.
+## Real execution runtime
 
----
-
-# Workflow Runtime
-
-Workflow executions are persisted as queued jobs.
-
-A background worker consumes and processes the jobs asynchronously.
+New executions are persisted as queued jobs. A worker consumes jobs asynchronously.
 
 The runtime supports:
+- processing and execution steps
+- approval gates
+- retries with backoff
+- step timeouts
+- cancellation requests
+- idempotency keys
+- failure recovery
+- structured execution/audit events
 
-* Processing steps
-* Execution steps
-* Approval gates
-* Retries with backoff
-* Step timeouts
-* Cancellation requests
-* Idempotency keys
-* Failure recovery
-* Execution events
-* Audit events
-* Workflow versioning
-* Scheduled execution
-* Webhook triggers
-* Event triggers
+There is no workflow progression timer in the frontend.
 
-There is no workflow progression timer controlling the application.
+## Triggers
 
----
+Supported runtime trigger interfaces:
+- manual/self-service through the authenticated API
+- webhook: `POST /api/webhooks/:workflowId`
+- event: `POST /api/events`
+- scheduled workflows through the scheduler loop
 
-# Workflow Builder
-
-The Workflow Builder allows users to create and publish workflow definitions.
-
-Current builder capabilities include:
-
-* Workflow name
-* Description
-* Category
-* Trigger type
-* Trigger source
-* Ordered workflow steps
-* Processing/execution phases
-* Approval requirements
-* Approval role
-* Workflow versioning
-
-### Functional Builder Actions
-
-The builder includes functional actions such as:
-
-* Add step
-* Remove step
-* Edit step
-* Change execution phase
-* Configure approval requirements
-* Publish workflow
-* Create workflow version
-
-Publishing creates a new immutable workflow version.
-
----
-
-# Workflow Triggers
-
-Altair supports multiple trigger interfaces.
-
-### Manual Execution
-
-Authenticated users can start workflows through the API or Operations Center.
-
-### Webhooks
-
-```text
-POST /api/webhooks/:workflowId
-```
-
-### Events
-
-```text
-POST /api/events
-```
-
-### Scheduled Workflows
-
-The scheduler automatically evaluates enabled schedules and queues matching workflows.
+Webhook requests can be protected with `ALTAIR_WEBHOOK_SECRET`.
 
 A workflow must explicitly declare the corresponding trigger type before its trigger endpoint is accepted.
 
-Webhook requests can be protected with:
+## Real-time updates
 
-```bash
-ALTAIR_WEBHOOK_SECRET
-```
+`GET /api/stream` exposes an authenticated Server-Sent Events stream.
 
----
+The frontend listens for:
+- `execution.updated`
+- `workflow.event`
+- workflow version events
 
-# Real-Time Updates
+and refreshes its read model when state changes.
 
-Altair provides a Server-Sent Events stream:
+## Integrations
 
-```text
-GET /api/stream
-```
-
-The frontend listens for events including:
-
-```text
-execution.updated
-workflow.event
-workflow.version.created
-workflow.version.published
-```
-
-The frontend refreshes its read model when relevant state changes.
-
----
-
-# Integrations
-
-Execution-phase side effects use the adapter registry:
+Execution-phase side effects use the adapter registry in:
 
 ```text
 server/adapters.js
 ```
 
-Supported integration concepts include:
+An unconfigured external adapter fails explicitly with `integration_not_configured`. Altair never pretends that an external action succeeded.
 
-* HTTP
-* Deployment systems
-* Repository systems
-* Issue trackers
-* Incident systems
-* Notification systems
-* Documentation systems
+The generic HTTP adapter is a development integration seam. Production systems should use dedicated approved adapters/services and secrets.
 
-An unconfigured external adapter fails explicitly with:
+## Workflow builder and versioning
 
-```text
-integration_not_configured
-```
+Workflow definitions retain their existing version field. The API stores immutable version records and the Workflow Builder publishes a new version.
 
-Altair does not falsely report an external action as successful.
+Current builder scope includes:
+- identity
+- category
+- trigger type/source
+- description
+- ordered steps
+- processing/execution phase
+- approval requirement and role
 
-### Demo Mode
+A production governance process should add formal draft/review/approval/publish controls before allowing unrestricted editing.
 
-The project starts in demo mode by default.
+## Operations
 
-Demo mode allows local development without requiring private external services.
+The existing UI screens remain:
+- Overview
+- Workflow Catalog
+- Workflow Builder
+- Approval Center
+- Operations Center
+- Execution History
+- Notifications
+- Audit Timeline
+- Execution Detail
 
-To require real external integrations:
+Their data now comes from the API rather than browser-local execution state.
 
-```bash
-ALTAIR_DEMO_MODE=false
-```
+## Observability
 
-Then configure the required adapter variables:
-
-```bash
-ALTAIR_ADAPTER_<ACTION>_URL
-```
-
-Production deployments should use approved adapters and secure secret management.
-
----
-
-# Operational Management
-
-Altair includes an extended operational console.
-
-The sidebar includes:
-
-* Overview
-* Workflow Builder
-* Workflow Catalog
-* Approval Center
-* Operations Center
-* Execution History
-* Notifications
-* Audit Timeline
-* Integrations
-* Schedules
-* System Health
-* Access Control
-* Settings
-* Incident Center
-* Change Calendar
-* Runbooks
-* Service Map
-* Reports & Insights
-
-These features are designed around workflow automation and operational management rather than being simple placeholder pages.
-
----
-
-# Functional Actions and Buttons
-
-Interactive actions are connected to application state and/or API operations.
-
-### Workflow Builder
-
-```text
-+ Add Step
-```
-
-Creates a real workflow step.
-
-### Approval Center
-
-```text
-Request Approval
-Approve
-Reject
-```
-
-These actions update approval state through the application/API.
-
-### Operations Center
-
-```text
-Run Workflow
-Cancel
-Retry
-```
-
-These actions interact with the workflow execution runtime.
-
-### Execution History
-
-```text
-Export History
-```
-
-Generates and downloads execution history as CSV.
-
-### Notifications
-
-```text
-Add Alert Rule
-Enable
-Disable
-Delete
-```
-
-Alert rules can be created and managed from the UI.
-
-### Audit Timeline
-
-```text
-Export Audit Log
-```
-
-Generates an audit-log CSV export.
-
----
-
-# Schedules
-
-The Schedules screen provides recurring workflow execution management.
-
-Supported operations include:
-
-* Create schedule
-* Enable schedule
-* Pause schedule
-* Run schedule immediately
-* Edit schedule
-* Delete schedule
-
-Schedules are evaluated by the scheduler loop and matching workflows are queued for execution.
-
----
-
-# Integrations Management
-
-The Integrations screen provides a connector registry.
-
-Supported management actions include:
-
-* Add integration
-* Configure integration
-* Test integration
-* Enable integration
-* Disable integration
-* Remove integration
-
-Demo-mode integrations can be tested locally without external credentials.
-
----
-
-# Incident Center
-
-The Incident Center provides operational incident management.
-
-Capabilities include:
-
-* Create incident
-* Assign severity
-* Assign owner
-* Track incident status
-* Resolve incident
-* Archive incident
-
-Typical severity levels:
-
-```text
-Critical
-High
-Medium
-Low
-```
-
----
-
-# Change Calendar
-
-The Change Calendar provides operational visibility into planned changes.
-
-Capabilities include:
-
-* Schedule a change
-* Define affected service
-* Set change window
-* Define risk
-* Review change
-* Remove change
-
-This provides a centralized view of planned operational activity.
-
----
-
-# Runbooks
-
-Runbooks provide reusable operational procedures.
-
-Examples include:
-
-* Deployment recovery
-* Failed workflow recovery
-* Webhook troubleshooting
-* Service restart procedure
-* Incident response
-* Integration recovery
-
-Runbook actions include:
-
-* Create runbook
-* Edit runbook
-* Run runbook
-* Duplicate runbook
-* Delete runbook
-
----
-
-# Service Map
-
-The Service Map provides a visual operational view of:
-
-* Services
-* Dependencies
-* Service health
-* Latency
-* Operational relationships
-
-This helps operators understand the potential impact of workflow and deployment operations.
-
----
-
-# System Health
-
-The System Health screen provides visibility into platform components:
-
-* API
-* Worker
-* Scheduler
-* Event stream
-* Datastore
-* Audit subsystem
-* Workflow runtime
-
-The health screen is intended for local operational monitoring and troubleshooting.
-
----
-
-# Access Control
-
-The Access Control screen manages users and roles.
-
-Supported actions include:
-
-* Add/invite user
-* View user
-* Manage role
-* Change permissions
-* Remove user
-
-The backend continues to enforce RBAC independently of the frontend.
-
----
-
-# Settings
-
-The Settings screen provides configuration for local and operational behavior.
-
-Settings include:
-
-* Demo mode
-* Approval behavior
-* Realtime updates
-* Timezone
-* Execution preferences
-* Safe local-demo configuration
-
----
-
-# Reports & Insights
-
-Reports provide operational metrics such as:
-
-* Workflow success rate
-* Failed execution count
-* Retry rate
-* Execution duration
-* Workflow activity
-* Operational trends
-
-Reports can be exported for further analysis.
-
----
-
-# Observability
-
-The API emits structured JSON startup and error logs.
-
-Basic metrics are available at:
+The API emits structured JSON startup/error logs and exposes basic operational metrics at:
 
 ```text
 GET /api/metrics
 ```
 
-Production deployments should connect these signals to the organization's centralized observability platform.
+Production should connect these signals to the organization's centralized observability stack and add distributed tracing.
 
-Recommended production additions include:
+## Tests
 
-* Distributed tracing
-* Centralized logging
-* Metrics collection
-* Alerting
-* Error tracking
-* Service-level objectives
+Run:
 
----
-
-# Execution History
-
-Execution History provides visibility into workflow runs.
-
-Execution records include information such as:
-
-* Workflow
-* Version
-* Status
-* Start time
-* Completion time
-* Duration
-* Trigger source
-* Failure information
-* Retry information
-
-Available actions include:
-
-```text
-Retry
-Cancel
-View Details
-Export History
+```bash
+npm test
 ```
 
----
+Current tests cover:
+- password hashing
+- password verification
+- RBAC permissions
+- login/session persistence
+- unauthenticated protected-route handling
 
-# Audit Timeline
+## Architecture documentation
 
-Altair records important platform events in the audit trail.
+See:
+- `docs/architecture.md` — Part 1, Understand
+- `docs/workflows.md` — Part 2, Establish
+- `docs/engineering.md` — hardening and production gaps
+- `docs/deployment.md` — deployment prerequisites
 
-Audit events can include:
-
-* Login/logout
-* Workflow creation
-* Workflow publication
-* Workflow execution
-* Approval decisions
-* Execution retries
-* Execution cancellation
-* Configuration changes
-* Access-control changes
-* Operational actions
-
-The audit log can be exported as CSV.
-
----
-
-# Notifications
-
-The Notifications system provides operational alerts.
-
-Notification functionality includes:
-
-* View notifications
-* Create alert rules
-* Enable/disable alert rules
-* Delete alert rules
-* Track operational events
-
----
-
-# Data Persistence
+## Important production dependency
 
 The current development persistence layer is:
 
@@ -666,232 +213,42 @@ The current development persistence layer is:
 server/data/store.json
 ```
 
-It is intentionally dependency-light and suitable for:
+It is intentionally dependency-light and suitable for local development/single-process use.
 
-* Local development
-* Demonstrations
-* Single-process environments
-* Testing
+It is **not** a production database.
 
-It is **not recommended as a production database**.
+Before production deployment, replace it with an approved transactional database such as PostgreSQL and replace the in-process queue with a shared durable queue/worker architecture. See `docs/engineering.md`.
 
-Before production deployment, replace it with an approved transactional database such as PostgreSQL.
+## External dependencies
 
-The in-process queue should also be replaced with a shared durable queue/worker architecture.
+Real workflow side effects depend on external systems such as:
+- deployment platforms
+- repositories
+- secret stores
+- incident/issue trackers
+- documentation/CDN systems
+- paging/chat systems
 
----
+No external service is falsely simulated. Configure an adapter explicitly or the execution will fail with a documented dependency error.
 
-# Production Hardening
+## GitHub
 
-Before production deployment, consider:
+GitHub is intentionally not part of the local setup instructions. The project can be developed and tested locally first.
 
-* PostgreSQL or another transactional database
-* Durable queue infrastructure
-* Multiple worker processes
-* Secure secret management
-* TLS/HTTPS
-* Centralized authentication
-* Rate limiting
-* CSRF protection where applicable
-* Distributed tracing
-* Centralized logs
-* Metrics and alerting
-* Backup and disaster recovery
-* Formal workflow governance
-* Draft/review/approval/publish lifecycle
-* External integration security reviews
+### Demo mode and external integrations
 
-See:
+The project starts in **demo mode** by default, so scheduled workflows and execution steps do not require private external services. Execution-phase adapter calls are simulated locally and are recorded as successful demo actions.
 
-```text
-docs/engineering.md
-docs/deployment.md
-```
+To require real integrations instead, set `ALTAIR_DEMO_MODE=false` and configure the corresponding `ALTAIR_ADAPTER_<ACTION>_URL` variables before starting the server.
 
----
+## Platform management screens
 
-# Tests
+The sidebar now includes additional operational screens designed for the Altair workflow platform:
 
-Run the backend test suite:
+- **Integrations** — connector registry, connection testing, and local demo-mode status.
+- **Schedules** — recurring workflow schedules with pause/enable and run controls.
+- **System Health** — API, worker, event stream, datastore, audit, and runtime checks.
+- **Access Control** — team members, roles, and protected-action policy.
+- **Settings** — execution, approvals, realtime updates, timezone, and safe local-demo configuration.
 
-```bash
-npm test
-```
-
-Current tests cover:
-
-* Password hashing
-* Password verification
-* RBAC permissions
-* Login/session persistence
-* Protected-route authorization
-* Unauthenticated access handling
-
----
-
-# Architecture Documentation
-
-Additional documentation is available under:
-
-```text
-docs/
-```
-
-### Architecture
-
-```text
-docs/architecture.md
-```
-
-Covers the Understand stage.
-
-### Workflows
-
-```text
-docs/workflows.md
-```
-
-Covers workflow establishment and execution concepts.
-
-### Engineering
-
-```text
-docs/engineering.md
-```
-
-Covers hardening and production gaps.
-
-### Deployment
-
-```text
-docs/deployment.md
-```
-
-Covers deployment prerequisites.
-
----
-
-# Project Architecture
-
-At a high level:
-
-```text
-React Frontend
-      │
-      ▼
-Node.js API
-      │
-      ├── Authentication / RBAC
-      ├── Workflow API
-      ├── Approval API
-      ├── Operations API
-      ├── Integration API
-      ├── Schedule API
-      ├── Audit API
-      └── Event Stream
-              │
-              ▼
-        Workflow Queue
-              │
-              ▼
-        Async Worker
-              │
-              ▼
-     External Integrations
-```
-
-The frontend does not independently simulate workflow progression.
-
-Workflow state is controlled by the backend runtime.
-
----
-
-# External Dependencies
-
-Real workflow side effects may depend on:
-
-* Deployment platforms
-* Source repositories
-* Secret stores
-* Issue trackers
-* Incident-management platforms
-* Documentation systems
-* CDN systems
-* Paging systems
-* Chat/notification platforms
-
-No external service should be represented as successfully completed unless the configured adapter confirms the operation.
-
----
-
-# Demo Mode
-
-For local development:
-
-```bash
-ALTAIR_DEMO_MODE=true
-```
-
-Demo mode provides a safe local environment for demonstrating:
-
-* Workflows
-* Scheduling
-* Integrations
-* Approvals
-* Incidents
-* Runbooks
-* Operations
-* Reports
-* Notifications
-
-No private external credentials are required for the local demo.
-
-For real integrations:
-
-```bash
-ALTAIR_DEMO_MODE=false
-```
-
-and configure the required adapter/environment variables.
-
----
-
-# GitHub
-
-GitHub is intentionally not required for the local setup.
-
-The project can be:
-
-1. Extracted from the ZIP
-2. Installed with `npm install`
-3. Started with `npm run dev:all`
-4. Tested locally
-5. Committed to Git
-6. Published to GitHub when ready
-
----
-
-# Quick Start
-
-```bash
-npm install
-npm run dev:all
-```
-
-Then open:
-
-```text
-http://localhost:5173
-```
-
-Development login:
-
-```text
-admin@altair.local
-```
-
-```text
-AltairDemo123!
-```
-
-Altair is intended to demonstrate a complete workflow automation platform architecture covering **workflow creation, execution, approvals, integrations, scheduling, operations, incidents, runbooks, observability, governance, and auditability**.
+These screens are self-contained UI features and do not require external credentials for the local demo.
