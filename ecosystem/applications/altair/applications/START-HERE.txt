@@ -1,3 +1,4 @@
+```text
 ALTAIR PLATFORM - START HERE
 ============================
 
@@ -12,10 +13,13 @@ ALTAIR PLATFORM - START HERE
 
 Demo login:
   Email: admin@altair.local
-  Password: AltairDemo123!
+  Password: configure locally with ALTAIR_DEMO_PASSWORD
 
 IMPORTANT:
 - This version uses demo execution mode by default, so external integrations do not need private credentials.
+- Keep the actual demo password in your local environment and do not commit it to GitHub.
 - The added feature actions are interactive: create forms add records, Run/Run now starts workflow actions when a matching workflow exists, Review/Resolve changes state, duplicate/delete mutate lists, and exports download CSV files.
 - Server/API tests can be run with:
      npm test
+```
+
