@@ -1,0 +1,41 @@
+# Sentinel Identity & Trust — CI gate (migrate + drift-validate + full test suite).
+# Runs the identity platform against a throwaway Postgres on every change under backend/identity.
+name: identity-ci
+
+on:
+  push:
+    paths: ["backend/identity/**", "backend/package.json", ".github/workflows/identity-ci.yml"]
+  pull_request:
+    paths: ["backend/identity/**", "backend/package.json", ".github/workflows/identity-ci.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: identity
+          POSTGRES_PASSWORD: identity
+          POSTGRES_DB: oba_identity
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U identity -d oba_identity"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      IDENTITY_DATABASE_URL: postgresql://identity:identity@127.0.0.1:5432/oba_identity
+      IDENTITY_JWT_SECRET: ci-only-secret-not-for-production
+      IDENTITY_SECRETS_ENC_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci || npm install
+      - run: npm run identity:migrate
+      - run: npm run identity:migrate:validate   # checksum drift gate
+      - run: npm run identity:seed
+      - run: npm run identity:test               # 74 tests

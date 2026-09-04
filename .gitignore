@@ -19,3 +19,8 @@ backend/.env
 
 # Internal planning docs
 FRONTEND_PLAN.md
+
+# Sentinel Identity deploy secrets (never commit)
+backend/identity/deploy/.env.identity
+backend/identity/deploy/secrets/
+*.env.identity

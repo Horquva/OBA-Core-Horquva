@@ -1,0 +1,59 @@
+# Sentinel Identity & Trust — turnkey deployment (identity service + Postgres).
+# Brings up a reachable identity service on :3000 that AI Security, Infra, and Flutter
+# can integrate against. Run from this directory:
+#   cp .env.identity.example .env.identity   # then fill secrets (see generate-secrets.js)
+#   docker compose --env-file .env.identity up -d --build
+#   node ../deploy/verify-deployment.js       # smoke-test (or BASE_URL=... from another host)
+#
+# For an external managed Postgres (e.g. Supabase), delete the `db` service and set
+# IDENTITY_DATABASE_URL in .env.identity to that connection string.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-identity}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-identity}
+      POSTGRES_DB: ${POSTGRES_DB:-oba_identity}
+    volumes:
+      - identity_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-identity} -d ${POSTGRES_DB:-oba_identity}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  identity:
+    build:
+      context: ../../          # backend/ (contains package.json + identity/)
+      dockerfile: identity/deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      # Point at the bundled db by default; override in .env.identity for managed Postgres.
+      IDENTITY_DATABASE_URL: ${IDENTITY_DATABASE_URL:-postgresql://identity:identity@db:5432/oba_identity}
+      IDENTITY_JWT_ALG: ${IDENTITY_JWT_ALG:-HS256}
+      IDENTITY_JWT_KID: ${IDENTITY_JWT_KID:-k1}
+      IDENTITY_JWT_SECRET: ${IDENTITY_JWT_SECRET:-}
+      IDENTITY_JWT_PRIVATE_KEY: ${IDENTITY_JWT_PRIVATE_KEY:-}
+      IDENTITY_JWT_PUBLIC_KEY: ${IDENTITY_JWT_PUBLIC_KEY:-}
+      IDENTITY_JWT_ISSUER: ${IDENTITY_JWT_ISSUER:-sentinel-identity}
+      IDENTITY_JWT_AUDIENCE: ${IDENTITY_JWT_AUDIENCE:-horquva-platforms}
+      IDENTITY_SECRETS_ENC_KEY: ${IDENTITY_SECRETS_ENC_KEY:-}
+      IDENTITY_ACCESS_TTL: ${IDENTITY_ACCESS_TTL:-900}
+      IDENTITY_REFRESH_TTL: ${IDENTITY_REFRESH_TTL:-604800}
+      # Bootstrap admin (seed). Change these for a real environment.
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@horquva.io}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe_Admin123}
+      SEED_ORG_SLUG: ${SEED_ORG_SLUG:-horquva}
+    ports:
+      - "${IDENTITY_PORT:-3000}:3000"
+    # Migrate + seed (idempotent), then run the service.
+    command: sh -c "node identity/db/migrate.js up && node identity/db/migrate.js validate && node identity/db/seed.js && node identity/server.js"
+
+volumes:
+  identity_pgdata:
