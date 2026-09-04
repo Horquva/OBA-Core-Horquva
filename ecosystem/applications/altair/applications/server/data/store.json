@@ -6,41 +6,8 @@
       "email": "admin@altair.local",
       "name": "Altair Admin",
       "role": "admin",
-      "passwordHash": "pbkdf2$210000$W-nI0Dbma0zYjW_lmDSKbA$sorwAGvXHNgdr8UES6u4TkJ4pb1Kr6JTBl7T_pelFqY",
       "active": true,
       "createdAt": "2026-08-20T17:38:13.689Z"
-    }
-  ],
-  "sessions": [
-    {
-      "token": "6nlGhzeUQuxr-0bYueHeC-hqw-PYejftFAtdZ4uSbFI",
-      "userId": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
-      "expiresAt": 1787276293792,
-      "createdAt": "2026-08-20T17:38:13.793Z"
-    },
-    {
-      "token": "oevjOeQZkfcRkmYVfVCP7KZHQ8DOKJpZpYArl8dRIKA",
-      "userId": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
-      "expiresAt": 1787276293856,
-      "createdAt": "2026-08-20T17:38:13.856Z"
-    },
-    {
-      "token": "a-N_YectWAccFMCMmfhJ_ZSQGCJkhUWTQqxO5aumML8",
-      "userId": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
-      "expiresAt": 1787278147272,
-      "createdAt": "2026-08-20T18:09:07.273Z"
-    },
-    {
-      "token": "wM1IqnvBjZb3BIqZYUVjgKGq48Z_g4Y8r--_7OANasA",
-      "userId": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
-      "expiresAt": 1787278147362,
-      "createdAt": "2026-08-20T18:09:07.363Z"
-    },
-    {
-      "token": "Rwb5OkpM_mB6FryG-99OTAIz173Y8J4w3JOyRuo8dek",
-      "userId": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
-      "expiresAt": 1787278612244,
-      "createdAt": "2026-08-20T18:16:52.248Z"
     }
   ],
   "workflows": [
