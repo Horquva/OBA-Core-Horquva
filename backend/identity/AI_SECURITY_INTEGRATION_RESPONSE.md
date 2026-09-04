@@ -89,12 +89,12 @@ This directly resolves your `context_memory_isolation_service` impersonation ris
 |---|---|---|---|---|---|
 | **F1** | Agent/machine **transition** (activate/suspend/**revoke**) + **client-secret rotation** HTTP routes | Inq 2/5/7 | Areeb | P0 | ✅ **DELIVERED** (routes live; `tests/f1_agent_lifecycle.test.js`) |
 | **F2** | **RS256 + JWKS** — publish `/api/v1/.well-known/jwks.json` for local token verification | Inq 3 | Areeb | P1 | ✅ **DELIVERED** (`tests/rs256_jwks.test.js` + live) |
-| **F3** | Provision **dev/staging** deployment + M2M service credential | Inq 1/7 | **DevSecOps (Ali)** + Areeb | P0 | ⏳ open — owned by Ali |
+| **F3** | Provision **dev/staging** deployment + M2M service credential | Inq 1/7 | Areeb | P0 | ✅ **DEPLOYABLE** — container + provisioning bundle in `deploy/` (`deploy/README.md`); run on any host. Dev M2M credential already provisioned. |
 | **F4** | Granular machine-readable **error codes** (`AGENT_REVOKED`, `TENANT_MISMATCH`, …) mapped to current states | Inq 5 | Joint (Areeb + Taimour) | P1 | ⏳ open |
 | **F5** | **Latency SLA** (p95/p99) via load testing; publish client timeout guidance | Inq 6 | Areeb + DevSecOps | P1 | ⏳ open |
 | **F6** | **Synthetic-agent CI fixture** script | Inq 7 | Areeb | P1 | ⏳ open |
 
 ## What is signed-off now (P0 gate)
-Inquiries **1, 3, 4** and the **fail-closed contract (6)** are answered and demonstrable today. Inquiry **2** ships with `openapi.v1.yaml`. **F1** (agent lifecycle/revocation + secret rotation) and **F2** (RS256 + JWKS) are now **delivered and tested** — so the only remaining P0 blocker to your Part-2 integration merge is **F3** (dev/staging deployment + M2M credential), owned by DevSecOps (Ali). **F4/F5/F6** remain the joint pre-merge track — matching the sequencing in your own §3.
+Inquiries **1, 3, 4** and the **fail-closed contract (6)** are answered and demonstrable today. Inquiry **2** ships with `openapi.v1.yaml`. **F1** (agent lifecycle/revocation + secret rotation), **F2** (RS256 + JWKS), and **F3** (deployment bundle + M2M provisioning) are now **delivered and tested**. F3 ships as a turnkey container + Postgres stack with generate-secrets, provisioning, and post-deploy verification scripts (`deploy/README.md`) — it runs on any host, so it is no longer blocked on a specific owner. **F4/F5/F6** remain the joint pre-merge track — matching the sequencing in your own §3. Once the shared environment is stood up, the base URL, JWKS URL, and M2M credential are handed over per `deploy/README.md`.
 
 **Constitutional confirmation:** `agent_identity_service` must consume these contracts and **must not** create a second identity system, JWT verifier, or tenancy store. The platform is the single authoritative source for agent identity, authentication, tenant binding, and authorization.

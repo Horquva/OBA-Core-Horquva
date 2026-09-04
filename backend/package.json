@@ -12,7 +12,10 @@
     "identity:migrate:validate": "node identity/db/migrate.js validate",
     "identity:migrate:create": "node identity/db/migrate.js create",
     "identity:seed": "node identity/db/seed.js",
-    "identity:test": "node identity/tests/run.js"
+    "identity:test": "node identity/tests/run.js",
+    "identity:serve": "node identity/server.js",
+    "identity:provision-client": "node identity/deploy/provision-ai-security-client.js",
+    "identity:verify-deploy": "node identity/deploy/verify-deployment.js"
   },
   "keywords": [],
   "author": "",
