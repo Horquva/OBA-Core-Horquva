@@ -7,7 +7,7 @@ export const config = {
   workerIntervalMs: Number(process.env.ALTAIR_WORKER_INTERVAL_MS || 250),
   stepTimeoutMs: Number(process.env.ALTAIR_STEP_TIMEOUT_MS || 30_000),
   demoEmail: process.env.ALTAIR_DEMO_EMAIL || "admin@altair.local",
-  demoPassword: process.env.ALTAIR_DEMO_PASSWORD || "AltairDemo123!",
+  demoPassword: process.env.ALTAIR_DEMO_PASSWORD || "",
   demoRole: process.env.ALTAIR_DEMO_ROLE || "admin",
   allowedOrigin: process.env.ALTAIR_ALLOWED_ORIGIN || "http://localhost:5173",
   webhookSecret: process.env.ALTAIR_WEBHOOK_SECRET || "",
