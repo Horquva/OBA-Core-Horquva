@@ -1,20 +1,3 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-
-const port = 3137;
-let child;
-
-async function waitForHealth() {
-  for (let i = 0; i < 40; i += 1) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}/api/health`);
-      if (response.ok) return;
-    } catch {}
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error("Server did not start");
-}
 
 test.before(async () => {
   child = spawn(process.execPath, ["server/index.js"], {
