@@ -29,7 +29,7 @@ Demo account:
 
 ```text
 Email: admin@altair.local
-Password: AltairDemo123!
+Password: see files 
 ```
 
 Override these with `ALTAIR_DEMO_EMAIL` and `ALTAIR_DEMO_PASSWORD`.
