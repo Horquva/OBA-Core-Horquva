@@ -12,3 +12,7 @@ Documentation Owner and coordinated by the Engineering Lead.
 
 Documentation changes require Team Lead review. Changes affecting architecture,
 governance, or shared standards also require Tech Lead approval.
+
+## Related Documents
+
+- [Quality Intelligence Engine — Part 3 Implementation Report](./quality-intelligence-engine.md)
