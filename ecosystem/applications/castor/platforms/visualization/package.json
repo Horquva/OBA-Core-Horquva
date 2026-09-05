@@ -25,14 +25,14 @@
     "react-dom": ">=18"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^7.0.0",
-    "@testing-library/react": "^16.3.2",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "jsdom": "^30.0.1",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^14.2.1",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "jsdom": "^24.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.2"
   }
 }

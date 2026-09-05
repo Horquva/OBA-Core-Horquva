@@ -10,6 +10,19 @@ import WorkspaceTabs from './components/shell/WorkspaceTabs';
 import { WorkspaceStateProvider } from './context/WorkspaceStateContext';
 import { LayoutDashboard, Brain, Settings, CheckCircle2 } from 'lucide-react';
 import { NavigationItem } from './types/workspace.types';
+import {
+  MetricWithTrend,
+  LineChart,
+  OrganizationalGraph,
+  MemoryTimeline,
+} from '../../visualization/src';
+import type {
+  MetricData,
+  ChartSeries,
+  GraphNode,
+  GraphEdge,
+  TimelineEvent,
+} from '../../visualization/src';
 
 const navigationItems: NavigationItem[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} />, path: '/overview' },
@@ -22,12 +35,60 @@ const intelligenceTabs = [
   { label: 'Insights', path: '/intelligence/insights' },
   { label: 'Reports', path: '/intelligence/reports' },
 ];
+
+const revenueMetric: MetricData = {
+  label: 'Sprint Completion Rate',
+  value: 94.2,
+  unit: '%',
+  trend: 8.4,
+  status: 'positive',
+};
+
+const activitySeries: ChartSeries[] = [
+  {
+    id: 'activity',
+    label: 'System Activity',
+    data: [
+      { x: 'Week 1', y: 120 },
+      { x: 'Week 2', y: 190 },
+      { x: 'Week 3', y: 280 },
+      { x: 'Week 4', y: 340 },
+    ],
+  },
+];
+
+const orgNodes: GraphNode[] = [
+  { id: '1', label: 'Castor Core', type: 'project' },
+  { id: '2', label: 'Executive Workspace', type: 'team' },
+  { id: '3', label: 'Visualization', type: 'team' },
+];
+
+const orgEdges: GraphEdge[] = [
+  { id: 'r1', source: '2', target: '1', label: 'part of' },
+  { id: 'r2', source: '3', target: '2', label: 'integrates into' },
+];
+
+const timelineEvents: TimelineEvent[] = [
+  {
+    id: 'ev-1',
+    timestamp: '2026-09-03T10:00:00Z',
+    title: 'Executive Workspace Shell Initialized',
+    description: 'Platform components connected to Visualization library.',
+    category: 'Deployment',
+    source: 'Git/OBA-Core',
+    confidence: 0.98,
+  },
+];
+
 const OverviewPage: React.FC = () => (
   <div>
     <WorkspaceSection title="Key Metrics" description="Live financial and operational snapshot">
       <WorkspaceGrid columns={4} gap="md">
-        <WidgetContainer id="revenue" title="Revenue" subtitle="This quarter">
-          <div className="text-2xl font-bold text-slate-800">$1.2M</div>
+        <WidgetContainer id="revenue" title="Quarterly Velocity" subtitle="Real-time KPI trajectory">
+          <MetricWithTrend
+            data={revenueMetric}
+            accessibleLabel="Sprint completion rate at 94.2%"
+          />
         </WidgetContainer>
 
         <WidgetContainer id="headcount" title="Headcount" isLoading>
@@ -42,10 +103,11 @@ const OverviewPage: React.FC = () => (
           <div />
         </WidgetContainer>
 
-        <WidgetContainer id="briefing" title="AI Briefing" subtitle="Daily summary">
-          <p className="text-sm text-slate-600">
-            All KPIs trending within expected range.
-          </p>
+        <WidgetContainer id="activity-trend" title="System Activity Trend" subtitle="Throughput over the last 30 days">
+          <LineChart
+            series={activitySeries}
+            accessibleLabel="System activity line chart"
+          />
         </WidgetContainer>
       </WorkspaceGrid>
     </WorkspaceSection>
@@ -100,9 +162,22 @@ const IntelligencePage: React.FC = () => (
 );
 
 const OperationsPage: React.FC = () => (
-  <WorkspaceGrid columns={3} gap="md">
-    <WidgetContainer id="ops-status" title="Operations Status">
-      <p className="text-sm text-slate-600">All systems operational.</p>
+  <WorkspaceGrid columns={2} gap="md">
+    <WidgetContainer id="graph-org" title="Organizational Intelligence" subtitle="Team nodes and operational links">
+      <OrganizationalGraph
+        nodes={orgNodes}
+        edges={orgEdges}
+        onNodeSelect={(node) => console.log('Selected node:', node)}
+        accessibleLabel="Interactive organizational graph"
+      />
+    </WidgetContainer>
+
+    <WidgetContainer id="timeline-memory" title="Operational Timeline" subtitle="Chronological audit & execution log">
+      <MemoryTimeline
+        events={timelineEvents}
+        onEventSelect={(event) => console.log('Timeline event selected:', event)}
+        accessibleLabel="Organizational memory timeline"
+      />
     </WidgetContainer>
   </WorkspaceGrid>
 );
