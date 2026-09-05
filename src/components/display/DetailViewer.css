@@ -1,0 +1,131 @@
+.detail-viewer {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.detail-viewer__container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.detail-viewer__header {
+  padding: 24px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.detail-viewer__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+  flex: 1;
+}
+
+.detail-viewer__status {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.detail-viewer__status--approved {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.detail-viewer__status--draft {
+  background-color: #fef3c7;
+  color: #78350f;
+}
+
+.detail-viewer__status--deprecated {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.detail-viewer__content-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 24px;
+  padding: 24px;
+}
+
+.detail-viewer__main {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.detail-viewer__body {
+  line-height: 1.7;
+  color: #374151;
+  font-size: 15px;
+}
+
+.detail-viewer__body h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  color: #1f2937;
+}
+
+.detail-viewer__body p {
+  margin: 0 0 12px 0;
+}
+
+.detail-viewer__body pre {
+  background-color: #f3f4f6;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.detail-viewer__related {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 24px;
+}
+
+.detail-viewer__related h2 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+
+.detail-viewer__sidebar {
+  position: sticky;
+  top: 24px;
+  height: fit-content;
+}
+
+@media (max-width: 1024px) {
+  .detail-viewer__content-wrapper {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-viewer__sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .detail-viewer__header {
+    padding: 16px;
+    flex-direction: column;
+  }
+
+  .detail-viewer__title {
+    font-size: 22px;
+  }
+
+  .detail-viewer__content-wrapper {
+    padding: 16px;
+  }
+}

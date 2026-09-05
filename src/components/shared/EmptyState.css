@@ -1,0 +1,17 @@
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background-color: #f9fafb;
+  border: 2px dashed #e5e7eb;
+  border-radius: 8px;
+}
+
+.empty-title {
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.empty-description {
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
