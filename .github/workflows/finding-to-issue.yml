@@ -1,0 +1,100 @@
+# Part J & K — Security Findings Lifecycle Automation
+# Converts SARIF results from the security gate into tracked GitHub Issues
+# automatically (Detect -> Normalize -> Classify -> Assign), so findings are
+# never only visible in a workflow log.
+
+name: Finding Ingestion (SARIF -> Tracked Issue)
+
+on:
+  workflow_run:
+    workflows: ["Reusable Security Gate"]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  security-events: read
+
+jobs:
+  ingest-findings:
+    name: Normalize & Create Issues for Critical/High Findings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download SARIF artifacts from the triggering run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          path: ./sarif-results
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalize findings and open issues for Critical/High
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            function walk(dir) {
+              let results = [];
+              for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, entry.name);
+                if (entry.isDirectory()) results = results.concat(walk(full));
+                else if (entry.name.endsWith('.sarif')) results.push(full);
+              }
+              return results;
+            }
+
+            const sarifFiles = fs.existsSync('./sarif-results') ? walk('./sarif-results') : [];
+            let opened = 0;
+
+            for (const file of sarifFiles) {
+              const sarif = JSON.parse(fs.readFileSync(file, 'utf8'));
+              for (const run of sarif.runs || []) {
+                for (const result of run.results || []) {
+                  const level = result.level || 'warning';
+                  // Map SARIF level to Sentinel severity — only Critical/High auto-open issues
+                  const severity = level === 'error' ? 'high' : (level === 'warning' ? 'medium' : 'low');
+                  if (severity !== 'high') continue;
+
+                  // Build a stable fingerprint from rule + exact location, NOT ruleId alone.
+                  // ruleId alone would treat every finding of the same rule (e.g. the same
+                  // SAST rule firing in 10 different files/lines) as "the same" finding,
+                  // silently suppressing all but the first. Location makes each occurrence unique.
+                  const loc = result.locations?.[0]?.physicalLocation;
+                  const filePath = loc?.artifactLocation?.uri || file;
+                  const startLine = loc?.region?.startLine ?? 0;
+                  const fingerprint = `${result.ruleId || 'unknown-rule'}@${filePath}:${startLine}`;
+
+                  const title = `[Security Finding][${severity.toUpperCase()}] ${result.ruleId || 'unknown-rule'} — ${filePath}:${startLine}`;
+                  const body = [
+                    `**Fingerprint:** \`${fingerprint}\``,
+                    `**Source file:** \`${filePath}\` (line ${startLine})`,
+                    `**Rule:** ${result.ruleId || 'n/a'}`,
+                    `**Message:** ${result.message?.text || 'n/a'}`,
+                    `**Severity:** ${severity}`,
+                    `**Commit:** ${context.sha}`,
+                    `**Pipeline run:** ${context.runId}`,
+                    ``,
+                    `_Automatically created by Part J Finding Ingestion. Assign an owner and update status per the finding lifecycle: detected -> classified -> assigned -> in_remediation -> remediated -> validated -> closed._`
+                  ].join('\n');
+
+                  // De-dup by fingerprint (rule + file + line), not by rule alone.
+                  const existing = await github.rest.search.issuesAndPullRequests({
+                    q: `repo:${context.repo.owner}/${context.repo.repo} is:issue in:body "${fingerprint}"`
+                  });
+                  if (existing.data.total_count > 0) continue;
+
+                  await github.rest.issues.create({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title,
+                    body,
+                    labels: ['security-finding', `severity:${severity}`, 'auto-generated']
+                  });
+                  opened++;
+                }
+              }
+            }
+            core.notice(`Finding ingestion complete — ${opened} new issue(s) opened.`);

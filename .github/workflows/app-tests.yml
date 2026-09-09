@@ -1,0 +1,66 @@
+# Application build/test gating for this repo's own code.
+#
+# Deliberately a separate file from ci.yml. That workflow is the Part C
+# DevSecOps pipeline (security gates, SBOM, provenance, evidence) and is owned
+# by that workstream; it calls a set of reusable workflows and shouldn't be
+# edited to accommodate the app's test layout. Splitting also removes the
+# add/add conflict every feature branch hits when merging main, since both
+# lineages created a ci.yml independently.
+#
+# Note: ci.yml's detect step looks for package.json at the repo root and then
+# in frontend/, so it never finds backend/ and the backend suite is not
+# currently gated by it. That's what this file covers.
+
+name: App tests
+
+on:
+  push:
+    branches: [ocos/develop]
+  pull_request:
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # The backend requires Node >= 22 (Express 5, native AbortSignal.any).
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      # No SUPABASE_URL/BASE_URL secrets are provided here on purpose: the two
+      # tests that need them (graphLoader.live.test.js, api.smoke.test.js)
+      # self-skip when those env vars are unset, so the offline-safe suite
+      # still runs on every push. The agent suites (provider.unit,
+      # agentLoop.unit, agentRegistry.unit, agentConstitution.unit) are pure
+      # and stubbed — no network, no model quota spent in CI.
+      - run: npm test
+
+  frontend-typecheck:
+    name: Frontend typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      # `npm run lint` is deliberately not run here: it currently reports
+      # pre-existing errors (mostly no-explicit-any) unrelated to any change
+      # this workflow is meant to gate. Wiring it in now would make CI red
+      # from day one for reasons nobody asked it to check. Add it back once
+      # that backlog is cleared, or narrowed to lint only changed files.

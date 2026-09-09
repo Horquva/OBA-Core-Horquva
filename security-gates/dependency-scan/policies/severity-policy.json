@@ -1,0 +1,48 @@
+{
+  "_description": "Sentinel Security Gate Severity & Waiver Policy — Part D. Shared by SAST, dependency, container, and IaC gates so severity handling stays consistent (One Source of Truth).",
+  "severity_thresholds": {
+    "critical": {
+      "blocking": true,
+      "waiver_allowed": false,
+      "response_sla_hours": 4,
+      "remediation_sla_hours": 48
+    },
+    "high": {
+      "blocking": true,
+      "waiver_allowed": false,
+      "response_sla_hours": 24,
+      "remediation_sla_days": 7
+    },
+    "medium": {
+      "blocking": true,
+      "waiver_allowed": true,
+      "waiver_approver": "engineering_team_lead",
+      "waiver_max_duration_days": 30,
+      "response_sla_days": 3,
+      "remediation_sla_days": 30
+    },
+    "low": {
+      "blocking": false,
+      "waiver_allowed": true,
+      "waiver_approver": "self",
+      "response_sla": "best_effort",
+      "remediation_sla": "next_planning_cycle"
+    }
+  },
+  "waiver_record_required_fields": [
+    "exception_id",
+    "finding_id",
+    "security_justification",
+    "risk_assessment",
+    "compensating_controls",
+    "approval_authority",
+    "expiration_date",
+    "review_schedule",
+    "audit_evidence_link"
+  ],
+  "escalation": {
+    "above_medium_requires": "security_quality_compliance_platform_signoff",
+    "recurring_waiver_threshold": 3,
+    "recurring_waiver_action": "trigger_gate_policy_review"
+  }
+}

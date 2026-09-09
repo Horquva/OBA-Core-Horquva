@@ -1,0 +1,9 @@
+{
+  "name": "sentinel-negative-test-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Part R negative test fixture — deliberately pins an old package version to verify the dependency scan gate actually blocks. Never installed in a real service.",
+  "dependencies": {
+    "lodash": "4.17.15"
+  }
+}

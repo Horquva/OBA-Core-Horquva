@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<!-- Part O — Security Operations Dashboard & Engineering Visibility
+     Static dashboard reading dashboard/metrics.json (produced by
+     .github/workflows/generate-metrics.yml). Serve via GitHub Pages or
+     any static host once real metrics exist. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sentinel DevSecOps — Security Operations Dashboard</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0d1117; color:#e6edf3; margin:0; padding:2rem; }
+  h1 { font-size:1.4rem; margin-bottom:0.25rem; }
+  .subtitle { color:#8b949e; margin-bottom:2rem; font-size:0.9rem; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:1rem; }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:1.25rem; }
+  .card .label { color:#8b949e; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .card .value { font-size:2rem; font-weight:600; margin-top:0.4rem; }
+  .critical { color:#f85149; }
+  .high { color:#db6d28; }
+  .ok { color:#3fb950; }
+  .stale { margin-top:2rem; color:#8b949e; font-size:0.85rem; }
+</style>
+</head>
+<body>
+  <h1>Sentinel — DevSecOps Security Operations Dashboard</h1>
+  <div class="subtitle">DevSecOps & Security Operations Platform · Owner: Muhammad Bilal Askari</div>
+
+  <div class="grid" id="grid">
+    <div class="card"><div class="label">Loading…</div></div>
+  </div>
+
+  <div class="stale" id="generated-at"></div>
+
+  <script>
+    fetch('./metrics.json')
+      .then(r => r.json())
+      .then(m => {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = `
+          <div class="card"><div class="label">Pipeline Success Rate</div><div class="value ok">${m.pipeline_success_rate ?? '—'}%</div></div>
+          <div class="card"><div class="label">Pipeline Runs Sampled</div><div class="value">${m.pipeline_runs_sampled ?? '—'}</div></div>
+          <div class="card"><div class="label">Open Critical Findings</div><div class="value critical">${m.critical_open ?? '—'}</div></div>
+          <div class="card"><div class="label">Open High Findings</div><div class="value high">${m.high_open ?? '—'}</div></div>
+          <div class="card"><div class="label">Total Open Findings</div><div class="value">${m.open_findings ?? '—'}</div></div>
+          <div class="card"><div class="label">Total Closed Findings</div><div class="value ok">${m.closed_findings ?? '—'}</div></div>
+        `;
+        document.getElementById('generated-at').textContent =
+          'Last updated: ' + (m.generated_at ? new Date(m.generated_at).toLocaleString() : 'unknown');
+      })
+      .catch(() => {
+        document.getElementById('grid').innerHTML =
+          '<div class="card"><div class="label">No metrics.json found yet</div><div class="value">Run the pipeline once to populate this dashboard.</div></div>';
+      });
+  </script>
+</body>
+</html>

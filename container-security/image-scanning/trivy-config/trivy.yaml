@@ -1,0 +1,23 @@
+# Part H — Container Security (Trivy configuration)
+# Referenced by: .github/workflows/security-gate.yml (container-scan job)
+
+severity:
+  - CRITICAL
+  - HIGH
+
+scan:
+  scanners:
+    - vuln       # known CVEs in OS packages and application dependencies
+    - secret     # defense-in-depth: catch secrets baked into image layers
+    - misconfig  # Dockerfile / image config hardening
+
+vulnerability:
+  type:
+    - os
+    - library
+
+exit-code: 1        # blocking — matches severity-policy.json (critical/high = blocking)
+ignore-unfixed: false
+
+format: sarif
+output: trivy-results.sarif

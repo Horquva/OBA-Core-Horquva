@@ -1,0 +1,8 @@
+# Part H — Container Security: Governed Trivy exceptions only.
+# Every CVE listed here MUST correspond to a logged waiver in the
+# security-gates/dependency-scan/policies/severity-policy.json process.
+#
+# Format: CVE-ID  # Exception ID | Justification | Review date
+#
+# Example (template — remove once real exceptions exist):
+# CVE-0000-00000  # EXC-2026-000 | False positive, not reachable in our runtime | Review: 2026-12-31

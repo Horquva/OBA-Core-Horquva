@@ -1,15 +1,15 @@
 // backend/tools/read-tools.js
 //
-// Task 11.2 ??? Read tools (resolve_entity, get_org_snapshot,
+// Task 11.2 — Read tools (resolve_entity, get_org_snapshot,
 // get_entity_profile, list_entities, get_intelligence,
 // run_brain_analysis, get_metric_definition).
 //
 // Each tool matches the registry contract from agent/registry.js:
 // { name, description, parameters, run(ctx, args) }. run() returns
-// { data, notes, evidence?, toolError? } ??? envelope() (in registry.js)
+// { data, notes, evidence?, toolError? } — envelope() (in registry.js)
 // wraps this, so tools never build the envelope themselves.
 //
-// Reuses Bisma's 10.3 matching logic (entity-matching.js) unchanged ???
+// Reuses Bisma's 10.3 matching logic (entity-matching.js) unchanged —
 // it already takes a flat array + query, so the fix here is building
 // that flat array correctly from ctx.roots, not touching 10.3's logic.
 
@@ -20,7 +20,7 @@ const VALID_DEPARTMENTS = new Set(['ENGINEERING', 'PRODUCT', 'DESIGN', 'MARKETIN
 const VALID_ENTITY_TYPES = new Set(['EMPLOYEE', 'AGENT', 'WORKFLOW', 'PLATFORM'])
 
 // Flattens ctx.roots' separate tables into one array entity-matching.js
-// can search, tagging each with its real source type and table id ???
+// can search, tagging each with its real source type and table id —
 // callers (get_entity_profile, list_entities) need both to look the
 // record back up in its real table.
 function flattenEntities(roots) {
@@ -53,14 +53,14 @@ const resolveEntityTool = {
     const results = matches.map((m) => ({ id: m.id, type: m.type, name: m.name }))
     return {
       data: results,
-      notes: results.length > 1 ? ['Multiple matches found ??? ask the user to clarify which one they mean.'] : [],
+      notes: results.length > 1 ? ['Multiple matches found — ask the user to clarify which one they mean.'] : [],
     }
   },
 }
 
 const getOrgSnapshotTool = {
   name: 'get_org_snapshot',
-  description: 'Call for a high-level count of the organization ??? how many employees, agents, workflows, platforms exist right now.',
+  description: 'Call for a high-level count of the organization — how many employees, agents, workflows, platforms exist right now.',
   parameters: { type: 'object', properties: {}, required: [] },
   run(ctx) {
     const r = ctx.roots
@@ -99,7 +99,7 @@ const getEntityProfileTool = {
 
 const listEntitiesTool = {
   name: 'list_entities',
-  description: 'Call to browse entities by type and/or department. Filters use fixed categories only ??? never pass free-text search here.',
+  description: 'Call to browse entities by type and/or department. Filters use fixed categories only — never pass free-text search here.',
   parameters: {
     type: 'object',
     properties: {
@@ -130,7 +130,7 @@ const getIntelligenceTool = {
   },
   run(ctx, args) {
     // Intentionally thin: intelligence itself is computed in domain/derived.js
-    // and domain/definitions.js ??? this tool's job is just to look the entity
+    // and domain/definitions.js — this tool's job is just to look the entity
     // up and hand back what's already been computed, not recompute anything.
     const flat = flattenEntities(ctx.roots)
     const found = flat.find((e) => e.id === args.entityId && e.type === args.entityType)
@@ -154,10 +154,10 @@ const runBrainAnalysisTool = {
   },
   run(ctx, args) {
     // Placeholder pending which domain/derived.js analysis this should
-    // dispatch to for each analysisType ??? flagged rather than guessed.
+    // dispatch to for each analysisType — flagged rather than guessed.
     return {
       data: null,
-      notes: [`run_brain_analysis is not yet wired to a domain/derived.js analysis for type "${args.analysisType}" ??? needs follow-up before this tool is usable.`],
+      notes: [`run_brain_analysis is not yet wired to a domain/derived.js analysis for type "${args.analysisType}" — needs follow-up before this tool is usable.`],
     }
   },
 }
@@ -188,4 +188,3 @@ module.exports = [
   runBrainAnalysisTool,
   getMetricDefinitionTool,
 ]
-

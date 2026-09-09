@@ -42,4 +42,3 @@ function resolveEntityMatches(query, entities = []) {
 module.exports = {
   resolveEntityMatches,
 };
-

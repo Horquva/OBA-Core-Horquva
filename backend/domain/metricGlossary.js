@@ -1,8 +1,8 @@
-﻿// backend/domain/metricGlossary.js
+// backend/domain/metricGlossary.js
 //
 // One entry per metric any tool can return. Every `definition` is
 // transcribed from the doc comment above the source function in
-// derived.js / definitions.js ΓÇö not paraphrased from memory.
+// derived.js / definitions.js — not paraphrased from memory.
 
 const metrics = [
   {
@@ -91,7 +91,7 @@ const metrics = [
     definition: 'Weighted composite of three pillars: Governance Intelligence (0.35), Management Intelligence (0.35), Data Intelligence (0.30). Data is weighted slightly lower because its inputs are currently the thinnest in the data set.',
     range: '0-100',
     authored: true,
-    authoredNote: 'Pillar weights are an explicit, changeable design choice ΓÇö the source comment names this as the one place to edit if the weights are wrong for the business.',
+    authoredNote: 'Pillar weights are an explicit, changeable design choice — the source comment names this as the one place to edit if the weights are wrong for the business.',
     computedIn: 'backend/domain/derived.js :: pillars()',
     decisions: [],
   },
@@ -118,7 +118,7 @@ const metrics = [
   {
     metric: 'DI',
     label: 'Data Intelligence (DI) Pillar',
-    definition: 'One of three pillars composing org_score (weight 0.30, deliberately lower than the other two because its inputs ΓÇö truth_claims ΓÇö are currently the thinnest in the data set).',
+    definition: 'One of three pillars composing org_score (weight 0.30, deliberately lower than the other two because its inputs — truth_claims — are currently the thinnest in the data set).',
     range: '0-100',
     authored: true,
     authoredNote: 'Pillar weight (0.30) is a chosen value, part of PILLAR_WEIGHTS.',
@@ -137,17 +137,17 @@ const metrics = [
   {
     metric: 'orgHealth',
     label: 'Organizational Health (current month)',
-    definition: "This month's org health snapshot, matching the org_health_snapshots time-series columns. Combines the accountability and predictive-risk results with an incident-load penalty (25 points per workflow failure). History cannot be recomputed, since the Knowledge Graph has no time dimension ΓÇö existing prior months remain seed data.",
+    definition: "This month's org health snapshot, matching the org_health_snapshots time-series columns. Combines the accountability and predictive-risk results with an incident-load penalty (25 points per workflow failure). History cannot be recomputed, since the Knowledge Graph has no time dimension — existing prior months remain seed data.",
     range: '0-100 per sub-score',
     authored: true,
     authoredNote: 'The incident-load penalty (25 points per failure) is a chosen constant, tuned so a healthy estate stays in the 80s and a struggling one lands near 50.',
     computedIn: 'backend/domain/derived.js :: orgHealth()',
-    decisions: ['D-21'], // referenced by assetContinuity's comment as orgHealth's own header decision ΓÇö verify against orgHealth's full header comment directly
+    decisions: ['D-21'], // referenced by assetContinuity's comment as orgHealth's own header decision — verify against orgHealth's full header comment directly
   },
   {
     metric: 'orgHealthByDepartment',
     label: 'Organizational Health by Department',
-    definition: "Runs orgHealth() once per department using a department-filtered copy of the data bundle. Has no separate formula of its own ΓÇö it reuses orgHealth's exact definition and weighting, scoped to one department at a time.",
+    definition: "Runs orgHealth() once per department using a department-filtered copy of the data bundle. Has no separate formula of its own — it reuses orgHealth's exact definition and weighting, scoped to one department at a time.",
     range: '0-100 per sub-score, per department',
     authored: true,
     authoredNote: 'Inherits orgHealth\'s authored weighting; introduces no new judgment of its own.',
@@ -157,17 +157,17 @@ const metrics = [
   {
     metric: 'departmentExposure',
     label: 'Department Exposure',
-    definition: "How exposed a department is to disruption ΓÇö a distinct question from orgHealthByDepartment's 'how healthy is it overall'. Equal thirds: documentation coverage, backup coverage, and an incident-free score scoped to that department's own workflow failures. incidentRiskLevel bands the inverse of the exposure score using the same 40/65/85 boundaries used everywhere else in the product.",
+    definition: "How exposed a department is to disruption — a distinct question from orgHealthByDepartment's 'how healthy is it overall'. Equal thirds: documentation coverage, backup coverage, and an incident-free score scoped to that department's own workflow failures. incidentRiskLevel bands the inverse of the exposure score using the same 40/65/85 boundaries used everywhere else in the product.",
     range: '0-100',
     authored: true,
-    authoredNote: "Explicitly marked AUTHORED in the source comment: not a recovery of an existing formula ΓÇö the frozen table's seed rows carry no derivation.",
+    authoredNote: "Explicitly marked AUTHORED in the source comment: not a recovery of an existing formula — the frozen table's seed rows carry no derivation.",
     computedIn: 'backend/domain/derived.js :: departmentExposure()',
     decisions: [],
   },
   {
     metric: 'entityCriticality',
     label: 'Entity Criticality',
-    definition: "Resolves an entity's criticality level. For agents and workflows, reads their own recorded risk column directly. Platforms carry no criticality column, so a platform's criticality is the highest criticality among the knowledge assets recorded about it ΓÇö one critical piece of knowledge about a tool makes the tool critical. A platform with no knowledge assets reports UNKNOWN rather than a default level.",
+    definition: "Resolves an entity's criticality level. For agents and workflows, reads their own recorded risk column directly. Platforms carry no criticality column, so a platform's criticality is the highest criticality among the knowledge assets recorded about it — one critical piece of knowledge about a tool makes the tool critical. A platform with no knowledge assets reports UNKNOWN rather than a default level.",
     range: "'critical' | 'high' | 'medium' | 'low' | 'unknown'",
     authored: true,
     authoredNote: 'Measured (a direct column read) for agents and workflows; a judgment-based derivation for platforms, since nothing in the source data defines a platform\'s criticality directly.',
@@ -186,7 +186,7 @@ const metrics = [
   {
     metric: 'spofVerdict',
     label: 'Single Point of Failure Verdict',
-    definition: "Classifies an asset into one of four outcomes: spof (sole owner, no backup, above the criticality threshold), orphaned (nobody owns it ΓÇö a worse finding than a sole owner, kept separate rather than folded into not_spof), not_evaluable (criticality unmeasured), or not_spof.",
+    definition: "Classifies an asset into one of four outcomes: spof (sole owner, no backup, above the criticality threshold), orphaned (nobody owns it — a worse finding than a sole owner, kept separate rather than folded into not_spof), not_evaluable (criticality unmeasured), or not_spof.",
     range: "'spof' | 'orphaned' | 'not_evaluable' | 'not_spof'",
     authored: true,
     authoredNote: 'The SPOF criticality threshold is a chosen cutoff, not a measured value.',

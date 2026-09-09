@@ -1,14 +1,14 @@
 // backend/tools/simulation-tools.js
 //
-// Task 11.3 ??? Simulation tools (run_simulation, rank_scenarios, compare_scenarios).
-// Thin wrappers around backend/domain/simulations.js ??? no simulation math
+// Task 11.3 — Simulation tools (run_simulation, rank_scenarios, compare_scenarios).
+// Thin wrappers around backend/domain/simulations.js — no simulation math
 // lives here, only dispatch, packaging into the tool envelope shape, and
 // (for compare_scenarios) the diff calculation Invariant I-3 requires the
 // model never do itself.
 //
 // NOTE: assumes ctx.roots holds the frozen per-turn data bundle (11.6).
 // Matches the naming convention used throughout derived.js/simulations.js
-// ("roots"), confirmed in the T10.1/T10.2 handoff doc ??4.1 and Quick Start
+// ("roots"), confirmed in the T10.1/T10.2 handoff doc §4.1 and Quick Start
 // Checklist. If 11.6 lands it under a different property name, update the
 // three `ctx.roots` references below.
 
@@ -36,7 +36,7 @@ function diffEntitySets(listA = [], listB = []) {
 
 const runSimulationTool = {
   name: 'run_simulation',
-  description: 'Call when the user asks a what-if question about ONE specific scenario ??? e.g. "what happens if X leaves/fails/goes down". Requires a resolved entity id (use resolve_entity first).',
+  description: 'Call when the user asks a what-if question about ONE specific scenario — e.g. "what happens if X leaves/fails/goes down". Requires a resolved entity id (use resolve_entity first).',
   parameters: {
     type: 'object',
     properties: {
@@ -72,7 +72,7 @@ const rankScenariosTool = {
 
 const compareScenariosTool = {
   name: 'compare_scenarios',
-  description: 'Call when the user wants two specific scenarios compared side by side ??? e.g. "what if X leaves vs if Y takes over instead". Never subtract the two results yourself; this tool does that.',
+  description: 'Call when the user wants two specific scenarios compared side by side — e.g. "what if X leaves vs if Y takes over instead". Never subtract the two results yourself; this tool does that.',
   parameters: {
     type: 'object',
     properties: {
@@ -118,10 +118,9 @@ const compareScenariosTool = {
 
     return {
       data: { scenarioA: resultA, scenarioB: resultB, healthDeltaDifference, agentsOverlap: agentsDiff, workflowsOverlap: workflowsDiff },
-      notes: bothHaveDelta ? [] : ['Health delta could not be compared for one or both scenarios ??? insufficient evidence.'],
+      notes: bothHaveDelta ? [] : ['Health delta could not be compared for one or both scenarios — insufficient evidence.'],
     }
   },
 }
 
 module.exports = [runSimulationTool, rankScenariosTool, compareScenariosTool]
-
