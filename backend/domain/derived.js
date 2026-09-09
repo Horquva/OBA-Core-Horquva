@@ -1732,9 +1732,7 @@ function departmentExposure(roots) {
  * Neither recomputes them, so MI and the health index cannot drift from the
  * accountability figure shown elsewhere in the same response.
  */
-async function computeAll(supabase) {
-  const roots = await loadRoots(supabase)
-
+function computeAllFromRoots(roots) {
   const accountabilityResult = accountability(roots)
   const collaborationResult = collaboration(roots)
   const predictiveRiskResult = predictiveRisk(roots)
@@ -1756,12 +1754,6 @@ async function computeAll(supabase) {
     orgHealth: orgHealthResult,
     orgHealthByDepartment: orgHealthByDepartment(roots),
     departmentExposure: departmentExposure(roots),
-    // Added so dashboard.js/ownership.js/continuity.js/knowledge/intelligence.js
-    // (and memory.js) can go through computeAllCached()'s 30-second memo
-    // instead of each calling loadRoots() + their own compute function
-    // directly -- a dashboard mounting several of these at once used to cost
-    // one full 18-query root read per component instead of one shared read.
-    // All four are pure functions of `roots` alone, same as everything above.
     humanDependencyRisk: humanDependencyRisk(roots),
     knowledgeConcentration: knowledgeConcentration(roots),
     orgMemory: orgMemory(roots),
@@ -1770,6 +1762,10 @@ async function computeAll(supabase) {
     source: 'live',
     rootCounts: roots._counts,
   }
+}
+
+async function computeAll(supabase) {
+  return computeAllFromRoots(await loadRoots(supabase))
 }
 
 // ─── Short-lived memo ────────────────────────────────────────────────────────
@@ -1825,6 +1821,7 @@ module.exports = {
   orgHealth,
   orgHealthByDepartment,
   departmentExposure,
+  computeAllFromRoots,
   computeAll,
   // Exported so tests can assert against the definitions rather than
   // hard-coding the same magic numbers a second time.

@@ -19,17 +19,15 @@ const tests = [
 	'auth.unit.test.js',
 	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
 	'simulations.unit.test.js', // pure; asserts cascade/severity/health-delta (W-I)
+	'simulationsReassign.unit.test.js', // pure; asserts the succession mutation policy (W-L 13.1, D-70)
 	'tools.unit.test.js', // pure; asserts tool-risk composite score/tier (W-K D-58)
 	'agentRegistry.unit.test.js',
 	'agentConstitution.unit.test.js',
-<<<<<<< HEAD
 	'agentEntityValidator.unit.test.js',
 	'agentNumericValidator.unit.test.js',
 	'metricGlossary.unit.test.js',
 	'simulation-tools.unit.test.js',
 	'readTools.unit.test.js',
-=======
->>>>>>> maaz/feature/ai-provider-agent-loop
 	'definitions.unit.test.js', // pure; asserts the canonical criticality/SPOF definitions
 	'routeEvidence.unit.test.js', // pure; asserts evidence gating in routes outside derived.js
 	'authRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline

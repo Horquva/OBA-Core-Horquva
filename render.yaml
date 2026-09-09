@@ -30,3 +30,19 @@ services:
         value: horquva
       - key: TOKEN_TTL
         value: 3600
+      - key: AGENT_ENABLED
+  	value: "false"
+      - key: AGENT_PROVIDER
+        value: gemini
+      - key: AGENT_MODEL
+        value: gemini-3.7-flash
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AGENT_MAX_ITERATIONS
+        value: "8"
+      - key: AGENT_TURN_TIMEOUT_MS
+        value: "120000"
+      - key: AGENT_DAILY_TURN_BUDGET
+        value: "40"
