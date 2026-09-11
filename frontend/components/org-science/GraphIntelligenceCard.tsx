@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { ApiError, type IntelligenceResponse } from '../../lib/api';
 import type { LucideIcon } from 'lucide-react';
 import { AlertTriangle } from 'lucide-react';
+import { AuthoredBadge } from '../ui/AuthoredBadge';
+import { DefinitionInfo } from '../ui/DefinitionInfo';
 import clsx from 'clsx';
 
 /**
@@ -99,16 +101,20 @@ export function GraphIntelligenceCard<T>({
         <div className="flex items-center gap-2.5">
           <Icon className={clsx('w-4 h-4', iconColor)} />
           <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">{title}</h3>
+          {state === 'success' && <DefinitionInfo definition={res?.definition} />}
         </div>
         {state === 'success' && view?.badge && (
-          <span
-            className={clsx(
-              'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border',
-              TONE_BADGE[view.badge.tone],
-            )}
-          >
-            {view.badge.text}
-          </span>
+          <div className="flex items-center gap-2">
+            <AuthoredBadge authored={res?.authored} />
+            <span
+              className={clsx(
+                'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border',
+                TONE_BADGE[view.badge.tone],
+              )}
+            >
+              {view.badge.text}
+            </span>
+          </div>
         )}
       </div>
 

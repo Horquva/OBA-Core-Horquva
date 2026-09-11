@@ -6,53 +6,53 @@ import { SimulationUniverseRanking } from '../../components/simulation/Simulatio
 import { TwinHealthIndex } from '../../components/simulation/TwinHealthIndex';
 import { TwinSyncStatus } from '../../components/simulation/TwinSyncStatus';
 import { ScenarioSandbox } from '../../components/simulation/ScenarioSandbox';
-import { Agent, Dependency, AITool } from '../../types';
+import { Agent, AITool } from '../../types';
 import { request, predictiveApi, healthApi, ApiError } from '../../lib/api';
 import { ScenarioResult, mapScenario, RawScenario } from '../../lib/simulation';
 import { normalizeAgent, RawAgent } from '../../lib/normalize';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
+import { UnavailableBanner } from '../../components/ui/UnavailableBanner';
 
-interface RawDependency {
-  source_type?: string;
-  target_type?: string;
-  source_id?: string | number;
-  target_id?: string | number;
-  dependency_type?: string;
+interface AgentSpofsResponse {
+  spofs: { agentId: number; name: string; victimsCount: number }[];
+  spofCount: number;
+  maxCascadeRisk: number;
 }
 
 export default function SimulationPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [tools, setTools] = useState<AITool[]>([]);
   const [scenarios, setScenarios] = useState<ScenarioResult[]>([]);
   const [healthIndex, setHealthIndex] = useState<number>(0);
   const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
+  const [spofIds, setSpofIds] = useState<Set<string>>(new Set());
+  const [predictiveRiskUnavailable, setPredictiveRiskUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
       request<RawAgent[]>('/api/agents'),
-      request<{ dependencies: RawDependency[] }>('/api/dependencies'),
+      // Server-computed — same SPOF definition (sole owner, no backup,
+      // criticality >= high) used everywhere else, not reimplemented here.
+      request<AgentSpofsResponse>('/api/dependencies/agent-spofs'),
       request<Record<string, unknown>[]>('/api/tools'),
       request<{ scenarios: RawScenario[] }>('/api/simulations/rank'),
       healthApi.summary(),
-      predictiveApi.agents().catch(() => []),
+      // Soft fallback: agents/spofs/tools/scenarios/health are this page's
+      // own dataset (an outage there fails the page, below), predictive
+      // risk is a supplementary overlay -- losing it means every agent's
+      // risk badge falls back to its own 'low' default (F-11) rather than
+      // blanking the page. predictiveRiskUnavailable makes that visible (F-12).
+      predictiveApi.agents().catch(() => {
+        setPredictiveRiskUnavailable(true);
+        return [];
+      }),
     ])
-    .then(([agentsData, depsData, toolsData, rankData, healthData, predictiveData]) => {
+    .then(([agentsData, spofsData, toolsData, rankData, healthData, predictiveData]) => {
       setHealthIndex(healthData.healthIndex ?? 0);
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
-
-      const mappedDeps: Dependency[] = Array.isArray(depsData.dependencies) 
-        ? depsData.dependencies
-          .filter((d: RawDependency) => d.source_type === 'agent' && d.target_type === 'agent')
-          .map((d: RawDependency) => ({
-            from: d.source_id?.toString() || '',
-            to: d.target_id?.toString() || '',
-            type: (d.dependency_type || 'normal') as Dependency['type'],
-          }))
-        : [];
 
       const mappedTools: AITool[] = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
         ...t,
@@ -62,8 +62,8 @@ export default function SimulationPage() {
       } as unknown as AITool)) : [];
 
       setAgents(mappedAgents);
-      setDependencies(mappedDeps);
       setTools(mappedTools);
+      setSpofIds(new Set((spofsData?.spofs ?? []).map(s => String(s.agentId))));
       setScenarios(Array.isArray(rankData.scenarios) ? rankData.scenarios.map(mapScenario) : []);
     })
     .catch((err: unknown) => {
@@ -104,11 +104,17 @@ export default function SimulationPage() {
         />
       </div>
 
+      {predictiveRiskUnavailable && (
+        <div className="px-6 md:px-10 max-w-7xl w-full mx-auto">
+          <UnavailableBanner label="Predictive risk scores" />
+        </div>
+      )}
+
       {/* Twin Controls */}
       <div className="px-6 md:px-10 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
         <TwinHealthIndex agents={agents} healthIndex={healthIndex} />
         <TwinSyncStatus agents={agents} tools={tools} />
-        <ScenarioSandbox agents={agents} dependencies={dependencies} tools={tools} riskByAgentName={riskByAgentName} />
+        <ScenarioSandbox agents={agents} tools={tools} riskByAgentName={riskByAgentName} spofIds={spofIds} />
       </div>
 
       {/* Full universe ranking — every entity ranked by survivability */}

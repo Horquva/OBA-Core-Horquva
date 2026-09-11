@@ -46,6 +46,21 @@ function createIntelligence({
   context = {},
   consumers = [],
   version = '1.0.0',
+  // F-9: mirrors derived.js's pillars().definitionsAreAuthored -- true only
+  // for a module whose headline number is built from invented weights or
+  // thresholds (e.g. M45's benchmark targets, M03/M18's severity weights)
+  // rather than a measured structural fact (M01's ownership coverage, M02's
+  // dependency count). Named loudly so nobody mistakes an authored metric
+  // for a measured one.
+  authored = false,
+  // Section 06: one sentence naming exactly what population and computation
+  // this module's headline number covers. Several catalog names collide
+  // with a same-named SQL surface that answers a structurally different
+  // question over a different population (M03's SPOF count is every asset
+  // type; GET /api/dependencies/agent-spofs is agents only -- both correctly
+  // called "SPOF", both real, disagreeing numbers). `definition` is how a
+  // reader tells which one they're looking at without reading source.
+  definition = '',
 }) {
   if (!/^M[0-9]{2}$/.test(sourceModule || '')) {
     throw new Error(`Intelligence contract violation: invalid sourceModule "${sourceModule}"`)
@@ -65,6 +80,8 @@ function createIntelligence({
     context,
     consumers,
     version,
+    authored: !!authored,
+    definition: String(definition || ''),
     timestamp: new Date().toISOString(),
   }
 }

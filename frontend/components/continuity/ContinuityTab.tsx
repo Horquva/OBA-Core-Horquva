@@ -5,6 +5,8 @@ import { TruthBadge } from '../dashboard/TruthBadge';
 import { ShieldCheck, ShieldAlert, HeartPulse, Activity } from 'lucide-react';
 import { ContinuityReport } from '../../lib/continuityRisk';
 import { ModuleResult } from '../../lib/moduleResult';
+import { AuthoredBadge } from '../ui/AuthoredBadge';
+import { DefinitionInfo } from '../ui/DefinitionInfo';
 
 export interface ContinuityPayload {
   continuityScore: number; // 0-1
@@ -42,8 +44,14 @@ export function ContinuityTab({ report, module }: Props) {
         <div className="md:col-span-2 flex flex-col p-6 rounded-xl bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none translate-x-1/2 -translate-y-1/2" />
           <div className="flex items-center justify-between z-10 mb-2">
-            <span className="text-xs text-[color:var(--text-tertiary)] uppercase tracking-wider">Org Continuity Score (M18)</span>
-            <TruthBadge confidence={module ? module.confidence * 100 : null} />
+            <span className="text-xs text-[color:var(--text-tertiary)] uppercase tracking-wider flex items-center gap-1.5">
+              Org Continuity Score (M18)
+              <DefinitionInfo definition={module?.definition} />
+            </span>
+            <div className="flex items-center gap-2">
+              <AuthoredBadge authored={module?.authored} />
+              <TruthBadge confidence={module ? module.confidence * 100 : null} />
+            </div>
           </div>
           {m18Score != null ? (
             <div className="flex items-end gap-3 z-10">

@@ -16,6 +16,7 @@ const riskBadgeClass: Record<RiskLevel, string> = {
   high:     'risk-high',
   medium:   'risk-medium',
   low:      'risk-low',
+  unknown:  'risk-unknown',
 };
 
 const typeConfig: Record<ScenarioType, { icon: React.ElementType; verb: string; color: string }> = {
@@ -34,6 +35,9 @@ const SEVERITY_META: Record<RiskLevel, { label: string; color: string; bg: strin
   high:     { label: 'HIGH IMPACT',     color: 'var(--risk-high-text)',     bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.22)' },
   medium:   { label: 'MEDIUM IMPACT',   color: 'var(--risk-medium-text)',   bg: 'rgba(202,138,4,0.08)', border: 'rgba(202,138,4,0.22)' },
   low:      { label: 'LOW IMPACT',      color: 'var(--risk-low-text)',      bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.22)' },
+  // F-11: the backend's severityFor() always returns a real value; this
+  // only fires if a response is missing the field entirely.
+  unknown:  { label: 'IMPACT UNKNOWN',  color: 'var(--risk-unknown-text)',  bg: 'rgba(139,139,158,0.08)', border: 'rgba(139,139,158,0.22)' },
 };
 
 export function ImpactSummary({ scenario }: Props) {

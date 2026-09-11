@@ -1,4 +1,4 @@
-import { Agent, Dependency } from '../types';
+import { Dependency } from '../types';
 
 /**
  * A `Dependency` edge means `from` depends_on `to` (same reading
@@ -9,8 +9,8 @@ import { Agent, Dependency } from '../types';
  * depends on -- its own prerequisites, not its victims) while getUpstream()
  * below had the correct backward walk under the wrong name. Every caller
  * (DependencyTable's "Cascade Impact" column, FlowCanvas's downstream count,
- * riskIntelligence.ts's downstreamCount, getSPOFs()'s victim count) was
- * silently reading the inverse of what it displayed.
+ * riskIntelligence.ts's downstreamCount) was silently reading the inverse of
+ * what it displayed.
  */
 export function getDownstream(startId: string, dependencies: Dependency[]): Set<string> {
   const dependentsOf: Record<string, string[]> = {};
@@ -63,29 +63,9 @@ export function getUpstream(startId: string, dependencies: Dependency[]): Set<st
   return visited;
 }
 
-export interface SPOFResult {
-  agentId: string;
-  victimsCount: number;
-}
-
-// SPOF Criteria: >= 3 victims AND no backup_owner AND (criticality === high or critical)
-// Wait, the data has Inventory Agent as SPOF, which has no owner either.
-export function getSPOFs(agents: Agent[], dependencies: Dependency[]): SPOFResult[] {
-  const spofs: SPOFResult[] = [];
-  
-  agents.forEach(agent => {
-    const victims = getDownstream(agent.id, dependencies);
-    if (
-      victims.size >= 3 && 
-      !agent.backup_owner && 
-      (agent.criticality === 'high' || agent.criticality === 'critical')
-    ) {
-      spofs.push({
-        agentId: agent.id,
-        victimsCount: victims.size,
-      });
-    }
-  });
-
-  return spofs;
-}
+// SPOF status is server-computed — GET /api/dependencies/agent-spofs, via
+// backend/domain/definitions.js's spofVerdict() (sole owner AND no backup
+// AND criticality >= high; dependents/victim count is informational only,
+// never part of the verdict). A local getSPOFs() with its own >=3-victims
+// rule used to live here and disagree with the canonical definition; see
+// that route's header comment for why the two are not compatible.

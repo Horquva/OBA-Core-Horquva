@@ -107,8 +107,10 @@ async function loadOrgDataset() {
   // documentation_trend and snapshots are both 6 rows for the same 6 months
   // in the same chronological order — zip by index. open_incidents/backup_pct
   // have no per-month source in this schema and are left absent rather than
-  // invented; consumers already treat a missing/flat trend as "no signal"
-  // so this degrades honestly, not silently wrong.
+  // invented; analyses.js's trendSignals() no longer checks either field's
+  // trend (there was nothing for it to ever find), rather than carrying a
+  // permanently-unreachable check that implied a signal this dataset cannot
+  // actually monitor.
   const history = (docTrend || []).map((dt, i) => ({
     documented_pct: dt.coverage_pct,
     risk_index: snapshots?.[i]?.risk_index,

@@ -2,6 +2,20 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
 
+/**
+ * `tool_spend` holds one row per platform per month (six months live —
+ * 2026-01 through 2026-06 — see sql/15_tool_spend.sql). "Monthly spend"
+ * means the latest month on record, not every month added together: summing
+ * all six used to inflate every platform's figure roughly 6x and label the
+ * total "monthly" when it was really six months of spend (F-1). `month` is
+ * 'YYYY-MM' text, so a plain string comparison sorts correctly.
+ */
+function latestMonthSpend(rows) {
+  if (!rows || !rows.length) return 0
+  const latest = rows.reduce((a, b) => (b.month > a.month ? b : a))
+  return Number(latest.amount_usd)
+}
+
 router.get('/', async (req, res) => {
   const { data: platforms, error } = await supabase
     .from('ai_platforms')
@@ -23,7 +37,7 @@ router.get('/', async (req, res) => {
   const criticalTools        = []
 
   const summaries = platforms.map(p => {
-    const spend       = p.tool_spend?.reduce((sum, s) => sum + Number(s.amount_usd), 0) ?? 0
+    const spend       = latestMonthSpend(p.tool_spend)
     const hasBackup   = (p.tool_backups_primary?.length ?? 0) > 0
     const hasPolicy   = (p.tool_policies?.length ?? 0) > 0
     const isCritical  = p.workflow_tool_dependencies?.some(w => w.is_critical) ?? false

@@ -26,6 +26,7 @@ const SEVERITY_COLOR: Record<RiskLevel, string> = {
   high:     'var(--risk-high-text)',
   medium:   'var(--risk-medium-text)',
   low:      'var(--risk-low-text)',
+  unknown:  'var(--risk-unknown-text)',
 };
 
 // Group scenarios by type for the section headers

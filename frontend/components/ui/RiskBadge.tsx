@@ -20,6 +20,9 @@ export function RiskBadge({ level, className, variant = 'square' }: RiskBadgePro
       // accepts either vocabulary, so it must style both, not just one.
       (level === 'medium' || level === 'normal') && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
       level === 'low'      && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      // F-11: neutral, not a color on the low->critical scale -- 'unknown'
+      // means nobody scored this, which is not the same claim as 'low'.
+      level === 'unknown'  && 'bg-[var(--border-subtle)] text-[color:var(--text-tertiary)] border-[var(--border-default)]',
       className
     )}>
       {level}

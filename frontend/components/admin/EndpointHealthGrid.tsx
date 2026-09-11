@@ -85,7 +85,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Decision Support', path: '/api/decision-support',  pingPath: '/api/decision-support/summary', category: 'Executive', mounted: true },
   { name: 'Health',           path: '/api/health',            pingPath: '/api/health/summary',    category: 'Executive', mounted: true },
   { name: 'Exec Memory',      path: '/api/executive-memory',  pingPath: '/api/executive-memory/summary', category: 'Executive', mounted: true },
-  { name: 'Context',          path: '/api/context',           pingPath: '/api/context/summary',   category: 'Executive', mounted: true },
+  { name: 'Context',          path: '/api/context',           pingPath: '/api/context/feed',      category: 'Executive', mounted: true },
 
   // ── Constitutional Intelligence ────────────────────────────
   { name: 'Truth Intelligence',   path: '/api/intelligence/truth',              pingPath: '/api/intelligence/truth',              category: 'Constitutional', mounted: true },

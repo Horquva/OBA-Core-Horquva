@@ -3,8 +3,6 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const domain = require('../../domain')
 
-const iso = (minsAgo) => new Date(Date.now() - minsAgo * 60000).toISOString()
-
 const FAILURE_TYPE_LABEL = {
   human_spof: 'Single Point of Failure',
   tool_failure: 'Tool Failure',
@@ -13,7 +11,15 @@ const FAILURE_TYPE_LABEL = {
 }
 
 // Build issues from Supabase, normalized to the frontend shape:
-// { id, type, severity, description, detectedAt }
+// { id, type, severity, description }
+//
+// No `detectedAt` field: detection happens at request time, computed fresh
+// from live tables (workflow_failures, executiveMemory's hero risks, backup
+// coverage) — there is no recorded moment any of these were first noticed,
+// so there is nothing honest to put in that field. It used to be synthesized
+// as `now - (loop index * 15 minutes)`, which produced a plausible-looking
+// timestamp that changed on every request and never corresponded to an
+// actual detection event.
 async function detectIssues() {
   // Hero dependencies used to come from a seeded table, so a resolved single
   // point of failure stayed on the self-healing issue list permanently.
@@ -42,7 +48,6 @@ async function detectIssues() {
       type: 'Single Point of Failure',
       severity: h.risk_level,
       description: h.description,
-      detectedAt: iso(n * 15),
     })
   })
 
@@ -53,7 +58,6 @@ async function detectIssues() {
       type: FAILURE_TYPE_LABEL[f.failure_type] || 'Workflow Issue',
       severity: f.severity,
       description: (f.workflows?.name ? f.workflows.name + ': ' : '') + f.description,
-      detectedAt: iso(n * 15),
     })
   })
 
@@ -68,7 +72,6 @@ async function detectIssues() {
         type: 'No Backup Tool',
         severity: 'medium',
         description: `Critical AI tool "${p.name}" has no configured backup. Define a fallback tool and document the switchover.`,
-        detectedAt: iso(n * 15),
       })
     })
 

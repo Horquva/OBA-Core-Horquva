@@ -165,6 +165,8 @@ async function invoke(code, context) {
     context: {},
     consumers: m.consumers || [],
     version: m.version,
+    authored: !!out.authored,
+    definition: out.definition || '',
   })
 }
 

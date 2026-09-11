@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { computeAIToolIntelligence, AIToolReport, ToolScoreInput } from '../../lib/aiToolIntelligence';
-import { AITool, Agent, Workflow, RiskLevel } from '../../types';
+import { AITool, Agent, Workflow } from '../../types';
+import { resolveCriticality } from '../../lib/criticality';
 import { AIToolHeader } from '../../components/ai-tools/AIToolHeader';
 import { CriticalToolPanel } from '../../components/ai-tools/CriticalToolPanel';
 import { ToolRiskTable } from '../../components/ai-tools/ToolRiskTable';
@@ -70,7 +71,7 @@ export default function AIToolsPage() {
         workflows: Array.isArray(t.workflows) ? t.workflows : [],
         agents_using: Array.isArray(t.agents_using) ? t.agents_using.map(String) : [],
         monthly_cost_usd: Number(t.monthly_cost_usd ?? t.monthly_cost ?? 0),
-        criticality: (t.criticality || t.risk || 'low') as RiskLevel,
+        criticality: resolveCriticality({ risk: t.risk, criticality: t.criticality }),
         documented: Boolean(t.documented ?? t.has_policy ?? false),
         backup_tool: t.backup_tool || t.fallback_tool || null,
         access_owner: t.access_owner || t.owner || 'Unassigned',

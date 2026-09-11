@@ -51,8 +51,11 @@ export function mapScenario(raw: RawScenario): ScenarioResult {
     baselineHealthScore: raw.baselineHealthScore ?? 0,
     simulatedHealthScore: raw.simulatedHealthScore ?? raw.baselineHealthScore ?? 0,
     healthDelta: raw.healthDelta ?? 0,
-    impactedAgents: (raw.impactedAgents ?? []).map((a) => ({ id: String(a.id), name: a.name ?? '', risk: a.risk ?? 'low' })),
+    // F-11: a missing risk/severity field means the response didn't say,
+    // not that it's genuinely low -- 'unknown' says so instead of guessing
+    // the safest-looking value.
+    impactedAgents: (raw.impactedAgents ?? []).map((a) => ({ id: String(a.id), name: a.name ?? '', risk: a.risk ?? 'unknown' })),
     impactedWorkflowNames: (raw.impactedWorkflows ?? []).map((w) => w.name ?? ''),
-    severity: (raw.severity ?? 'low') as RiskLevel,
+    severity: (raw.severity ?? 'unknown') as RiskLevel,
   };
 }

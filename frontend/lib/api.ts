@@ -1,11 +1,34 @@
 import type { RiskLevel } from '../types';
-import { authHeader } from './authFetch';
+import { authHeader, TOKEN_KEY, USER_KEY } from './authFetch';
 import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Base ────────────────────────────────────────────────────────────────────
 
 const BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
+
+/**
+ * F-10: a token that expired or was revoked (logout in another tab, a
+ * password change) used to leave the UI signed in — nothing anywhere checked
+ * for a 401, so every panel on the page independently rendered its own
+ * "Failed to load" state while AppShell kept trusting whatever localStorage
+ * said. This clears the stale session and sends the user back to /login the
+ * first time ANY request comes back unauthorized, rather than per-component.
+ *
+ * A page that mounts several panels at once can fire this from more than one
+ * failing request; the pathname guard makes the second call through here a
+ * no-op instead of stacking up redundant navigations.
+ */
+function handleUnauthorized() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  } catch {}
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+}
 
 /**
  * Minimal wrapper — throws on non-2xx so callers can catch uniformly.
@@ -22,6 +45,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...authHeader(), ...init?.headers },
     ...init,
   });
+
+  if (res.status === 401) handleUnauthorized();
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -539,7 +564,6 @@ export interface SelfHealingIssue {
   type: string;
   severity: RiskLevel;
   description: string;
-  detectedAt: string;
 }
 
 export interface SelfHealingIntent {
@@ -624,6 +648,14 @@ export interface IntelligenceResponse<T> {
   module: string;
   type: string;
   confidence: number;
+  /** F-9: true only for a module whose headline number is built from
+   *  invented weights/thresholds (M03, M18, M43, M45) rather than a
+   *  measured structural fact -- see backend/brain/knowledge/
+   *  intelligenceExchange.js's createIntelligence(). */
+  authored?: boolean;
+  /** Section 06: one sentence naming exactly what population/computation
+   *  this module's headline number covers -- render with DefinitionInfo. */
+  definition?: string;
   payload: T;
   recommendations: string[];
   generatedAt: string;
@@ -1102,7 +1134,25 @@ export interface ChangePasswordResponse {
   message: string;
 }
 
+/** The JWT payload backend/routes/auth/auth.js's GET /me echoes back —
+ *  sub/email/role/org plus the token's own iat/exp/jti, not the richer
+ *  {id,email,name,role,org} shape AuthContext stores as `user`. Used only to
+ *  confirm the stored token is still accepted server-side, never to rebuild
+ *  the stored user object (it has no `name` or `id` field to rebuild it from). */
+export interface AuthMeResponse {
+  user: { sub: string; email: string; role: string; org: string; iat: number; exp: number; jti: string };
+}
+
 export const authApi = {
+  /**
+   * F-10: AppShell used to trust whatever localStorage said forever, with
+   * nothing validating it against the server after login. AuthContext calls
+   * this once on mount; a token the server no longer accepts 401s here,
+   * which request()'s global handler turns into a clean sign-out instead of
+   * a page full of independently-failing panels.
+   */
+  me: () => request<AuthMeResponse>('/api/auth/me'),
+
   /**
    * Changes the signed-in user's own password. Takes no email: the account is
    * whichever one the bearer token identifies, so there is no way to aim this

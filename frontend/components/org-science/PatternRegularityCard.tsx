@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { orgScience, ApiError, type IntelligenceResponse, type PatternPayload } from '../../lib/api';
 import { Activity, AlertTriangle } from 'lucide-react';
+import { DefinitionInfo } from '../ui/DefinitionInfo';
 import clsx from 'clsx';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
@@ -51,6 +52,7 @@ export function PatternRegularityCard() {
         <div className="flex items-center gap-2.5">
           <Activity className="w-4 h-4 text-emerald-400" />
           <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Pattern Regularity</h3>
+          {state === 'success' && <DefinitionInfo definition={res?.definition} />}
         </div>
         {state === 'success' && data && (
           <span className={clsx(

@@ -7,14 +7,14 @@ import { RiskLevel, Dependency } from '../types';
  * that fetches /api/agents), each independently deciding to default missing
  * criticality to 'low' -- the same fabricate-a-safe-default anti-pattern the
  * backend's F-G' finding already fixed (an unmeasured asset must not be
- * presented as the safest-looking value). Not changed to an 'unknown'
- * sentinel here: RiskLevel has no such value, and every consumer of
- * `criticality` (badge colors, filters, sort order) assumes one of the 4 real
- * levels -- that's a larger, separate fix, deliberately left alone. This
- * function exists so that fix only has to happen in one place.
+ * presented as the safest-looking value). F-11: RiskLevel now carries an
+ * `unknown` sentinel (mirroring backend/domain/definitions.js's UNKNOWN)
+ * specifically so this function stops lying. This is the one place that
+ * fallback happens -- every consumer of `criticality` now has to handle
+ * `unknown` because this function can actually return it.
  */
 export function resolveCriticality(raw: { risk?: string; criticality?: string }): RiskLevel {
-  return (raw.risk || raw.criticality || 'low') as RiskLevel;
+  return (raw.risk || raw.criticality || 'unknown') as RiskLevel;
 }
 
 /**
@@ -35,6 +35,7 @@ export function resolveCriticality(raw: { risk?: string; criticality?: string })
  * un-aliased order array as a symptom.
  */
 export const RISK_RANK: Record<RiskLevel | Dependency['type'], number> = {
+  unknown: -1,
   low: 0,
   normal: 1,
   medium: 1,
@@ -42,7 +43,16 @@ export const RISK_RANK: Record<RiskLevel | Dependency['type'], number> = {
   critical: 3,
 };
 
-/** True when `level` is at least as severe as `threshold`, across either vocabulary. */
+/**
+ * True when `level` is at least as severe as `threshold`, across either
+ * vocabulary. `unknown` on either side always yields false -- mirrors
+ * backend/domain/definitions.js's atOrAbove() exactly: an unmeasured thing
+ * is never proven to meet a bar, and an unmeasured bar can never be met.
+ * (RISK_RANK still ranks `unknown` below `low` rather than omitting it, so
+ * a plain numeric sort by RISK_RANK sinks unscored items to the bottom
+ * without needing this function.)
+ */
 export function atOrAbove(level: RiskLevel | Dependency['type'], threshold: RiskLevel | Dependency['type']): boolean {
+  if (level === 'unknown' || threshold === 'unknown') return false;
   return RISK_RANK[level] >= RISK_RANK[threshold];
 }

@@ -77,16 +77,16 @@ router.get('/governance', moduleEndpoint('governance')) // GovernanceTab (M19)
 router.get('/recommendations', moduleEndpoint('recommendation-engine')) // RecommendationsPage (M04, D-62)
 
 // Wired up 2026-09-02, alongside reality.js's M02/M03/M07/M28/M29/M31/M34/
-// M35 — see modules/implementations.js's header for the audit. No frontend
-// card consumes either yet.
+// M35 — see modules/implementations.js's header for the audit. Both now
+// have cards on the Org Science page (DependencyImpactCard, DigitalTwinCard).
 //
 // M32 ranks blast radius (direct + cascade impact) across EVERY entity type
 // in the graph — GET /api/dependencies/agent-spofs answers the same shape
 // of question but only for agents.
-router.get('/dependency-impact', moduleEndpoint('dependency-impact')) // M32, no card yet
+router.get('/dependency-impact', moduleEndpoint('dependency-impact')) // M32, DependencyImpactCard
 // M49 mirrors the full graph — every entity and relationship, plus stats —
 // as one snapshot. Nothing else returns the whole graph in a single call.
-router.get('/digital-twin', moduleEndpoint('digital-twin')) // M49, no card yet
+router.get('/digital-twin', moduleEndpoint('digital-twin')) // M49, DigitalTwinCard
 
 // ── Graph lifecycle (D-14) ───────────────────────────────────────
 // loadGraph() otherwise runs exactly once, at backend/index.js boot — nothing

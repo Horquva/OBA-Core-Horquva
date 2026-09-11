@@ -142,8 +142,9 @@ already drew between M39/M40 and their SQL namesakes.
 
 M01/M02/M03/M07/M20 joined M28/M29/M31/M34/M35 in `reality.js`; M32/M49 are
 in `routes/intelligence/prediction.js` alongside the rest of the
-Tahir/Kamran layer. No frontend card consumes any of the twelve yet — that
-is a separate, later decision.
+Tahir/Kamran layer. All twelve now have their own card on the Org Science
+page (`frontend/app/org-science/page.tsx`'s "Knowledge Graph — Structural
+Intelligence" grid).
 
 All three retirement passes, and both wiring passes, are recoverable from git
 history.
@@ -159,7 +160,9 @@ changed. Trend questions belong in SQL, and recording change is BUILD_SPEC W5.
 (M33 Dependency Evolution was one of the 2026-09-02 retirements for exactly
 this reason — it computed a current-state snapshot and labelled it a "trend.")
 
-**Five ontology types have no source.** `system`, `team`, `customer`, `process`
-and `project` are defined and queried but no Supabase table supplies them, so
-they are absent rather than approximated. M39's empty `systemCapabilities` and
-M31's empty `externalActors` are correct until W2 wires `data/company.json` in.
+**Two ontology types have no source.** `team` and `project` are defined and
+queried but no Supabase table supplies them, so they are absent rather than
+approximated. `system`, `customer`, `process` and `vendor` were wired in W-J
+(`systems`/`system_dependencies`/`system_agent_usage`, `accountability_entities`,
+and `external_entities`/`external_entity_supplies` respectively — see
+graphLoader.js's own header) and are no longer part of this gap.

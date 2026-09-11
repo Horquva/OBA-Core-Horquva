@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { orgScience, ApiError, type IntelligenceResponse, type CapabilityPayload } from '../../lib/api';
 import { Building2, AlertTriangle } from 'lucide-react';
+import { DefinitionInfo } from '../ui/DefinitionInfo';
 import clsx from 'clsx';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
@@ -54,6 +55,7 @@ export function CapabilityInventoryCard() {
               "Capability Intel" (and the endpoint "capability-by-dept")
               used to imply otherwise. */}
           <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Capability Inventory</h3>
+          {state === 'success' && <DefinitionInfo definition={res?.definition} />}
         </div>
         {/*
           The badge here used to read STRONG/DEVELOPING off

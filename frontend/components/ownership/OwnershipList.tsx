@@ -207,7 +207,7 @@ export function OwnershipList({ agents, riskByAgentName, humanSpofOwners, employ
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {group.agents.map((agent) => {
-                  const risk = riskByAgentName.get(agent.name)?.threatLevel ?? 'low';
+                  const risk = riskByAgentName.get(agent.name)?.threatLevel ?? 'unknown';
                   return (
                     <tr key={agent.id} className="hover:bg-[var(--bg-hover)] transition-colors group/row">
                       <td className="px-6 py-4">

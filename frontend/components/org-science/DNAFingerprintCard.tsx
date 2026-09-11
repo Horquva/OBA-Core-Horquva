@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { orgScience, ApiError, type IntelligenceResponse, type DNAPayload } from '../../lib/api';
 import { Dna, AlertTriangle } from 'lucide-react';
+import { DefinitionInfo } from '../ui/DefinitionInfo';
 import clsx from 'clsx';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
@@ -51,6 +52,7 @@ export function DNAFingerprintCard() {
         <div className="flex items-center gap-2.5">
           <Dna className="w-4 h-4 text-emerald-400" />
           <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">DNA Fingerprint</h3>
+          {state === 'success' && <DefinitionInfo definition={res?.definition} />}
         </div>
         {state === 'success' && data && (
           <span className="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">

@@ -32,6 +32,13 @@ async function runModule(analysis) {
     analysis,
     type: intel.type,
     confidence: intel.confidence,
+    // F-9: true only for a module whose headline number is built from
+    // invented weights/thresholds (M03, M18, M43, M45) rather than a
+    // measured structural fact — see intelligenceExchange.js's createIntelligence().
+    authored: !!intel.authored,
+    // Section 06: what population/computation this number covers, in one
+    // sentence — see intelligenceExchange.js's createIntelligence().
+    definition: intel.definition || '',
     payload: intel.payload,
     recommendations: intel.recommendations || [],
     dataSource: domain.graph.source(),

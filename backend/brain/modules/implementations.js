@@ -101,6 +101,7 @@ IMPL.M01 = (rt) => {
   const coverage = assets.length ? (assets.length - unowned.length) / assets.length : 1
   return {
     type: 'ownership',
+    definition: 'Asset-first ownership coverage across every asset type in the graph (knowledge, workflows, systems, processes, decisions — not just agents). GET /api/ownership is owner-first and agent-scoped instead, so it cannot surface a zero-owner asset by construction.',
     payload: {
       totalAssets: assets.length,
       ownedAssets: assets.length - unowned.length,
@@ -122,6 +123,7 @@ IMPL.M02 = (rt) => {
   const evidence = deps.map((r) => ev('relationship', r.id, `${A.nameOf(g, r.from)} depends_on ${A.nameOf(g, r.to)} (${r.criticality})`))
   return {
     type: 'dependency',
+    definition: 'Fan-in ranking and critical-dependency count over depends_on edges across every entity type in the graph (agents, platforms, systems, workflows). GET /api/dependencies reads the raw dependencies table directly, same rows, no graph traversal.',
     payload: {
       dependencyCount: deps.length,
       mostDependedUpon: ranking.slice(0, 5),
@@ -135,19 +137,37 @@ IMPL.M02 = (rt) => {
   }
 }
 
+// F-8: M03's and M18's risk/continuity scores used to divide a finding
+// COUNT by total asset count — so the same 16 real single points of failure
+// read as "risk: low" here and "resilient" in M18, and both numbers moved
+// every time an unrelated healthy asset was added or removed, with nothing
+// about the actual SPOFs changing. A count-of-findings has no natural
+// "population" to divide by (unlike a genuine coverage ratio such as M01's
+// ownershipCoverage, which correctly divides owned-assets by all-assets):
+// spofVerdict() already gates "SPOF" tightly (sole owner, no backup,
+// criticality >= high — see definitions.js), so each one found is a real,
+// serious, comparatively rare finding on its own terms, not a share of the
+// estate. Both modules now score severity with fixed per-finding weights
+// and no asset-count denominator, mirroring derived.js's predictiveRisk()
+// RISK_FACTORS convention (fixed points per factor, not a diluting ratio).
+// Authored, not measured — same footing as RISK_FACTORS itself.
+const SPOF_SEVERITY_WEIGHT = 0.04 // 25 real SPOFs alone reaches max severity
+const CRITICAL_DEP_SEVERITY_WEIGHT = 0.01
+
 // M03 — Risk Intelligence: where is the org vulnerable? SPOF + critical deps.
 IMPL.M03 = (rt) => {
   const g = rt.graph
   const spofs = A.singlePointsOfFailure(g)
   const criticalDeps = A.edgesOfType(g, 'depends_on').filter((r) => atOrAbove(r.criticality, 'high'))
-  const assets = A.assets(g)
-  const riskScore = A.round(Math.min(1, (spofs.length * 0.5 + criticalDeps.length * 0.3) / Math.max(1, assets.length)))
+  const riskScore = A.round(Math.min(1, spofs.length * SPOF_SEVERITY_WEIGHT + criticalDeps.length * CRITICAL_DEP_SEVERITY_WEIGHT))
   const evidence = [
     ...spofs.map((s) => ev('entity', s.id, `SPOF: ${s.name} (${s.dependents} dependents, ${s.owners} owner)`)),
     ...criticalDeps.map((r) => ev('relationship', r.id, `critical dependency ${A.nameOf(g, r.from)}→${A.nameOf(g, r.to)}`)),
   ]
   return {
     type: 'risk',
+    authored: true, // riskScore/riskLevel are built from SPOF_SEVERITY_WEIGHT/CRITICAL_DEP_SEVERITY_WEIGHT (authored, not measured) — singlePointsOfFailure/criticalDependencyCount themselves are real counts
+    definition: 'SPOF and critical-dependency severity across every asset type in the graph, fixed-weight scored (not diluted by unrelated healthy assets). GET /api/risks scores agents.risk alone; GET /api/dashboard averages predictiveRisk’s per-agent score — three genuinely different "risk" numbers, each correctly scoped to its own population.',
     payload: {
       riskScore,
       riskLevel: riskScore > 0.66 ? 'high' : riskScore > 0.33 ? 'medium' : 'low',
@@ -175,6 +195,7 @@ IMPL.M07 = (rt) => {
   const evidence = agents.map((a) => ev('entity', a.id, `AI agent: ${a.name}`))
   return {
     type: 'governance',
+    definition: 'Ownership/dependency/governance detail for every ai_agent entity — both automation agents and platforms. GET /api/tool-intelligence covers ai_platforms ("tools") only and never includes automation agents.',
     payload: { aiAgentCount: agents.length, agents: detail, ungovernedAgents: ungoverned.map((d) => d.name) },
     confidence: A.confidence(evidence.length, agents.length ? 1 : 0),
     evidence,
@@ -183,16 +204,28 @@ IMPL.M07 = (rt) => {
 }
 
 // M19 — Governance Intelligence: policies and what they govern; gaps.
+// F-6: `governs` edges only ever run policy -> AI platform (tool_policies is
+// the sole source in graphLoader.js, and it only ever resolves against
+// platformEntities) — no other asset type can be governed by anything this
+// graph models. Dividing by A.assets(g) (all 90: knowledge, workflows,
+// systems, processes, decisions included) capped coverage near 13% no
+// matter how governed the estate actually was, and M45 then benchmarked
+// that structurally-unreachable number against a 0.8 target. The
+// denominator is now the population that can actually carry a `governs`
+// edge -- AI platforms -- matching what GI's policyCoverage already
+// measures (derived.js).
 IMPL.M19 = (rt) => {
   const g = rt.graph
   const policies = A.byType(g, 'policy')
+  const platforms = A.byType(g, 'ai_agent').filter((a) => a.metadata && a.metadata.kind === 'ai-platform')
   const governs = A.edgesOfType(g, 'governs')
   const governedIds = new Set(governs.map((r) => r.to))
-  const ungovernedAssets = A.assets(g).filter((a) => a.type !== 'policy' && !governedIds.has(a.id))
+  const ungovernedAssets = platforms.filter((p) => !governedIds.has(p.id))
   const evidence = governs.map((r) => ev('relationship', r.id, `${A.nameOf(g, r.from)} governs ${A.nameOf(g, r.to)}`))
-  const coverage = A.assets(g).length ? governedIds.size / A.assets(g).length : 1
+  const coverage = platforms.length ? governedIds.size / platforms.length : 1
   return {
     type: 'governance',
+    definition: 'Share of AI platforms under an active tool_policies row — the only asset type a governs edge can ever target. GET /api/automation/governance is an unrelated concept despite the shared category name: pending-approval queue depth from the decision_queue table.',
     payload: {
       policyCount: policies.length,
       governedEntities: [...governedIds].map((id) => A.nameOf(g, id)),
@@ -218,6 +251,7 @@ IMPL.M20 = (rt) => {
   ]
   return {
     type: 'accountability',
+    definition: 'Org-chart reporting structure — reports_to/manages edges, sourced from employees.manager. GET /api/accountability/* is a RACI system (Responsible/Accountable/Consulted/Informed per entity, from accountability_links) — the same word, a structurally different question.',
     payload: { reportingChains: chains, managementLinks: manages, assetsWithoutAccountableOwner: assetsNoAccountable.map((a) => a.name) },
     confidence: A.confidence(evidence.length, 1),
     evidence,
@@ -243,6 +277,7 @@ IMPL.M28 = (rt) => {
   const evidence = deps.map((r) => ev('relationship', r.id, 'dependency edge'))
   return {
     type: 'dependency',
+    definition: 'The full depends_on graph across every entity type in the graph, with cycle detection and longest chain — a superset of GET /api/dependencies, which reads the same table but is agent/workflow-scoped only.',
     payload: {
       nodes: A.all(g).length,
       dependencyEdges: deps.length,
@@ -268,6 +303,7 @@ IMPL.M29 = (rt) => {
   const evidence = all.slice(0, 20).map((r) => ev('relationship', r.id, r.type))
   return {
     type: 'relationship',
+    definition: 'Every relationship type in the graph (owns, depends_on, collaborates_with, manages, governs, and more) — collaborationLinks is one field of several, not the whole payload. No SQL-layer equivalent covers this range of relationship types at once.',
     payload: {
       totalRelationships: all.length,
       typeDistribution: dist,
@@ -295,6 +331,7 @@ IMPL.M31 = (rt) => {
   const evidence = [...internal, ...external].map((e) => ev('entity', e.id, `${e.type}: ${e.name}`))
   return {
     type: 'ecosystem',
+    definition: 'Internal vs external entity composition across the whole graph, including vendors/customers from external_entities. No SQL-layer route computes an equivalent internal/external split.',
     payload: {
       internalEntities: internal.length,
       externalEntities: external.length,
@@ -322,6 +359,7 @@ IMPL.M34 = (rt) => {
   const evidence = hidden.map((h) => ev('inference', `${h.entity}->${h.hiddenDependency}`, 'transitive dependency'))
   return {
     type: 'dependency',
+    definition: 'Transitive dependencies not already recorded as a direct edge — indirect risk the direct depends_on graph alone would miss. No SQL-layer equivalent; this requires graph traversal.',
     payload: { hiddenDependencyCount: hidden.length, hiddenDependencies: hidden },
     confidence: A.confidence(evidence.length, hidden.length ? 1 : 0.5),
     evidence,
@@ -336,6 +374,7 @@ IMPL.M35 = (rt) => {
   const evidence = centrality.slice(0, 10).map((c) => ev('entity', c.id, `degree ${c.degree}`))
   return {
     type: 'network',
+    definition: 'Degree centrality across every entity in the graph — people, agents, platforms, workflows and systems together. GET /api/network/centrality is people-only, built from asset ownership edges rather than the full graph.',
     payload: {
       centralActors: centrality.slice(0, 5),
       mostConnected: centrality[0] ? centrality[0].name : null,
@@ -528,6 +567,7 @@ IMPL.M04 = (rt, context) => {
   ]
   return {
     type: 'recommendation',
+    definition: 'Prioritized actions across ownership, backup coverage, documentation, concentration, tool governance and dependency cycles — the graph’s own 7-rule action list, distinct from domain/analyses.js’s improvementOpportunities(), a smaller SQL-dataset heuristic.',
     payload: {
       recommendationCount: recs.length,
       criticalCount: recs.filter((r) => r.priority === 'CRITICAL').length,
@@ -545,14 +585,20 @@ IMPL.M04 = (rt, context) => {
 }
 
 // M18 — Continuity Intelligence: can the org survive disruption?
+// F-8: see M03's header comment — this used to divide the same SPOF count
+// by total asset count, so it moved for the same asset-count-unrelated
+// reasons M03's did. Complement of the identical fixed-weight severity M03
+// uses for the same finding, so the two can never disagree about how bad
+// the same SPOFs are.
 IMPL.M18 = (rt) => {
   const g = rt.graph
   const spofs = A.singlePointsOfFailure(g)
-  const assets = A.assets(g)
-  const continuityScore = A.round(1 - Math.min(1, spofs.length / Math.max(1, assets.length)))
+  const continuityScore = A.round(Math.max(0, 1 - spofs.length * SPOF_SEVERITY_WEIGHT))
   const evidence = spofs.map((s) => ev('entity', s.id, `continuity risk: ${s.name}`))
   return {
     type: 'health',
+    authored: true, // continuityScore is built from SPOF_SEVERITY_WEIGHT (authored, not measured) — the SPOFs it lists are real
+    definition: '1 minus fixed-weight SPOF severity — the exact same SPOFs M03 counts, scored the same way. GET /api/continuity is a different per-asset survival heuristic (domain/derived.js’s assetContinuity()); orgHealth.continuityScore is a third number, one of five inputs to the org health average.',
     payload: {
       continuityScore,
       survivability: continuityScore > 0.66 ? 'resilient' : continuityScore > 0.33 ? 'fragile' : 'critical',
@@ -565,11 +611,13 @@ IMPL.M18 = (rt) => {
 }
 
 // M39 — Capability Intelligence: inventory of organizational capabilities.
-// ⚠ `systemCapabilities` is empty because no Supabase table sources the `system`
-// entity type — see graphLoader's header. That is "not modelled", not "none exist".
-// A third field, brainConstitutionalCapabilities, used to report the capability
-// registry's own size (always 55). It measured the machinery, not the
-// organization, and went with the registry.
+// `systemCapabilities` reads the graph's `system` entities, sourced from
+// systems/system_dependencies/system_agent_usage since W-J (see graphLoader's
+// header) — it is no longer structurally empty, though a live org with zero
+// recorded systems would still report it as [] correctly. A third field,
+// brainConstitutionalCapabilities, used to report the capability registry's
+// own size (always 55). It measured the machinery, not the organization, and
+// went with the registry.
 IMPL.M39 = (rt) => {
   const g = rt.graph
   const systems = A.byType(g, 'system')
@@ -577,6 +625,7 @@ IMPL.M39 = (rt) => {
   const evidence = [...systems, ...workflows].map((e) => ev('entity', e.id, e.name))
   return {
     type: 'generic',
+    definition: 'Org-wide counts of system and workflow entities in the graph, with no department breakdown. domain/analyses.js’s departmentCapability() answers a related but different, per-department scored question over the SQL dataset.',
     payload: {
       systemCapabilities: systems.map((s) => s.name),
       workflowCapabilities: workflows.map((w) => w.name),
@@ -606,6 +655,7 @@ IMPL.M40 = (rt, context) => {
   const evidence = [ev('graph', 'coverage', `${covered}/${assets.length} assets owned`)]
   return {
     type: 'decision',
+    definition: 'Ownership coverage across every asset type — the same population and computation M01 reports, restated as a single ratio. Not a measure of alignment to strategy despite the catalog name; see this module’s own header comment.',
     payload: {
       ownershipCoverageScore: coverage,
       covered: coverage > 0.7,
@@ -637,6 +687,7 @@ IMPL.M32 = (rt) => {
   }).sort((a, b) => b.impactScore - a.impactScore)
   return {
     type: 'dependency',
+    definition: 'Blast radius (direct + transitive cascade) ranked across every entity type in the graph. GET /api/dependencies/agent-spofs answers the same shape of question — direct + cascade impact — but for agents only.',
     payload: { impactCount: impacts.length, impacts, highestImpact: impacts[0] || null },
     confidence: A.confidence(impacts.length || 1, 1),
     evidence: impacts.map((i, idx) => ev('impact', String(idx), `${i.entity}: ${i.cascadeImpact} cascade`)),
@@ -659,6 +710,7 @@ IMPL.M37 = (rt) => {
   ]
   return {
     type: 'prediction',
+    definition: 'Relationship-type frequency and structural anomalies (isolated entities, over-connected hubs) across the whole graph. The anomaly threshold (degree >= 4) is an authored cut, not derived from this graph’s own density.',
     payload: {
       patternDistribution: dist,
       dominantPattern: dominant ? { type: dominant[0], count: dominant[1] } : null,
@@ -683,6 +735,7 @@ IMPL.M41 = (rt) => {
   const automationShare = A.round(A.byTypes(g, ['ai_agent', 'system']).length / total)
   return {
     type: 'generic',
+    definition: 'Entity-type composition of the whole graph (departments, people, agents, workflows, knowledge, and every other type) — a structural fingerprint, not a culture or behavior measure. See M42 for culture, M44 for behavior.',
     payload: {
       composition: comp,
       dnaSignature: dominant ? `${dominant[0]}-centric` : 'undetermined',
@@ -729,6 +782,7 @@ IMPL.M42 = (rt) => {
 
   return {
     type: 'generic',
+    definition: 'Collaboration density and coverage from collaborates_with edges, derived only from RACI links and workflow steps — 16 of 40 people on the live dataset have no shared-work record and are reported as unobserved, never scored as siloed.',
     payload: {
       collaborationLinks: collab,
       people,
@@ -750,17 +804,30 @@ IMPL.M42 = (rt) => {
 }
 
 // M43 — Organizational Maturity: how disciplined the organization is.
+// F-6: governanceDim used to divide governed platforms by ALL assets (same
+// scope bug as M19 -- see that module's header) even though only AI
+// platforms can carry a `governs` edge at all, capping this dimension near
+// 13% regardless of real platform governance. ownershipDim is unaffected --
+// `owns` genuinely applies across every asset type, so all-assets is the
+// correct population there.
 IMPL.M43 = (rt) => {
   const g = rt.graph
   const assets = A.assets(g)
+  const platforms = A.byType(g, 'ai_agent').filter((a) => a.metadata && a.metadata.kind === 'ai-platform')
   const owned = assets.filter((a) => A.owners(g, a.id).length > 0).length
   const governed = new Set(A.edgesOfType(g, 'governs').map((r) => r.to)).size
   const ownershipDim = assets.length ? owned / assets.length : 0
-  const governanceDim = assets.length ? governed / assets.length : 0
+  const governanceDim = platforms.length ? governed / platforms.length : 0
   const maturity = A.round(ownershipDim * 0.5 + governanceDim * 0.5)
-  const level = maturity > 0.75 ? 'optimized' : maturity > 0.5 ? 'managed' : maturity > 0.25 ? 'developing' : 'initial'
+  // >= at each boundary, matching derived.js's band() convention (85/65/40) --
+  // was `>`, so a maturity score exactly AT a threshold (e.g. 0.5) fell into
+  // the band BELOW it while nextLevelGap (computed against that same
+  // threshold) read 0, self-contradicting: "still developing, 0 gap to go."
+  const level = maturity >= 0.75 ? 'optimized' : maturity >= 0.5 ? 'managed' : maturity >= 0.25 ? 'developing' : 'initial'
   return {
     type: 'health',
+    authored: true, // the 0.5/0.5 blend weight and the 0.75/0.5/0.25 level thresholds are authored, not measured -- ownership/governance ratios feeding them are real
+    definition: 'Blend of ownership coverage (all assets, same population as M01) and governance coverage (AI platforms only, same population as M19) — the same two ratios those modules report, combined 50/50 with authored thresholds.',
     payload: {
       maturityScore: maturity,
       level,
@@ -783,6 +850,7 @@ IMPL.M44 = (rt) => {
   const dependencyHeavy = (verbs.depends_on || 0) > (verbs.collaborates_with || 0)
   return {
     type: 'generic',
+    definition: 'Relationship-type frequency across the whole graph — the same distribution M29 reports, read here as a behavior/verb profile instead of a relationship inventory.',
     payload: {
       behaviorProfile: verbs,
       dominantBehavior: dominant ? dominant[0] : null,
@@ -794,13 +862,22 @@ IMPL.M44 = (rt) => {
   }
 }
 
-// M45 — Benchmark Intelligence: measure the org against constitutional targets.
+// M45 — Benchmark Intelligence: measure the org against constitutional
+// targets. These four targets are authored (see IMPL.M45's own payload
+// below), not recovered from any industry source -- see F-9 and the
+// `authored: true` this module now carries.
+// F-6/F-8: `governance` used to divide governed platforms by ALL assets
+// (M19's exact scope bug — only platforms can carry a `governs` edge, see
+// that module's header). `singlePointsOfFailure`/`isolatedEntities` were
+// already count-based against a fixed target of 0, so they never diluted;
+// only the two coverage RATIOS needed a fix.
 IMPL.M45 = (rt) => {
   const g = rt.graph
   const assets = A.assets(g)
+  const platforms = A.byType(g, 'ai_agent').filter((a) => a.metadata && a.metadata.kind === 'ai-platform')
   const ownership = assets.length ? assets.filter((a) => A.owners(g, a.id).length > 0).length / assets.length : 1
   const governed = new Set(A.edgesOfType(g, 'governs').map((r) => r.to)).size
-  const governance = assets.length ? governed / assets.length : 1
+  const governance = platforms.length ? governed / platforms.length : 1
   const spof = A.singlePointsOfFailure(g).length
   const isolated = A.all(g).filter((e) => A.degree(g, e.id) === 0).length
   const benchmarks = [
@@ -812,6 +889,8 @@ IMPL.M45 = (rt) => {
   const passing = benchmarks.filter((b) => b.pass).length
   return {
     type: 'generic',
+    authored: true, // all four targets (0.9/0.8/0/0) are constitutional constants this module was authored with, not recovered from any industry benchmark data source
+    definition: 'Four authored constitutional targets — ownership >=0.9 (all assets), governance >=0.8 (AI platforms only), zero SPOFs, zero isolated entities — not recovered industry data, see this module’s own header.',
     payload: { benchmarks, passing, total: benchmarks.length, benchmarkScore: A.round(passing / benchmarks.length) },
     confidence: A.confidence(benchmarks.length, 1),
     evidence: benchmarks.map((b) => ev('benchmark', b.metric, `${b.value} vs ${b.target}`)),
@@ -837,6 +916,7 @@ IMPL.M49 = (rt, context) => {
   }
   return {
     type: 'simulation',
+    definition: 'A full snapshot of every entity and relationship in the graph, mirrored as one object plus stats — nothing else in this codebase returns the whole graph in a single call.',
     payload: {
       digitalTwin: twin,
       synchronized: true,

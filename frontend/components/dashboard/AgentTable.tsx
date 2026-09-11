@@ -23,10 +23,10 @@ export function AgentTable() {
 
   const loading = agentsLoading || !predictiveLoaded;
 
-  const riskOf = (agent: Agent): RiskLevel => riskByAgentName.get(agent.name)?.threatLevel ?? 'low';
+  const riskOf = (agent: Agent): RiskLevel => riskByAgentName.get(agent.name)?.threatLevel ?? 'unknown';
 
   const sortedAgents = [...agents].sort((a, b) => {
-    const w: Record<RiskLevel, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+    const w: Record<RiskLevel, number> = { critical: 4, high: 3, medium: 2, low: 1, unknown: 0 };
     return w[riskOf(b)] - w[riskOf(a)];
   });
 

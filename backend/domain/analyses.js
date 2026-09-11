@@ -7,9 +7,9 @@
  *
  * ⚠ These are NOT the brain's M39/M40/M46/M48/M54. Those compute different
  * things from the Knowledge Graph and are reached through
- * routes/intelligence/prediction.js. Two analyses sharing a module number is
- * the collision the design document exists to remove — step 5 renames these
- * off the M-numbers. Until then, check which file you are in.
+ * routes/intelligence/prediction.js. Two analyses sharing a module number was
+ * the collision the design document existed to remove — every function below
+ * is named for what it computes, with no M-number attached to it.
  */
 
 const { atOrAbove } = require('./definitions')
@@ -27,15 +27,17 @@ function trendSignals(d) {
   const incidents = d.incidents || []
   const signals = []
   const trend = (s) => (s.length < 2 ? 'flat' : s[s.length - 1] - s[0] > 0 ? 'rising' : s[s.length - 1] - s[0] < 0 ? 'falling' : 'flat')
+  // `history` (domain/dataset.js) carries only documented_pct and risk_index
+  // per month — open_incidents and backup_pct have no per-month source
+  // anywhere in this schema, so checks for their trend used to sit here
+  // permanently unreachable (every row's value defaulted to 0, so the trend
+  // was always 'flat', never 'rising'/'falling'). Removed rather than left
+  // as dead code implying a signal this dataset cannot actually monitor.
   if (hist.length) {
     if (trend(hist.map(h => h.documented_pct || 0)) === 'falling')
       signals.push({ signal: 'Documentation coverage declining', severity: 'HIGH' })
     if (trend(hist.map(h => h.risk_index || 0)) === 'rising')
       signals.push({ signal: 'Organizational risk index rising', severity: 'CRITICAL' })
-    if (trend(hist.map(h => h.open_incidents || 0)) === 'rising')
-      signals.push({ signal: 'Open incidents trending up', severity: 'HIGH' })
-    if (trend(hist.map(h => h.backup_pct || 0)) === 'falling')
-      signals.push({ signal: 'Backup/continuity coverage eroding', severity: 'MEDIUM' })
   }
   const unresolved = incidents.filter(i => !i.resolved_by)
   if (unresolved.length) signals.push({ signal: 'Unresolved incidents on record', severity: 'HIGH' })

@@ -11,6 +11,7 @@ import { request, predictiveApi, ApiError } from '../../lib/api';
 import { normalizeAgent, RawAgent } from '../../lib/normalize';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { Agent, Dependency } from '../../types';
+import { UnavailableBanner } from '../../components/ui/UnavailableBanner';
 
 interface AgentSpofsResponse {
   spofs: { agentId: number; name: string; victimsCount: number }[];
@@ -31,6 +32,7 @@ export default function DependencyMapPage() {
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [spofData, setSpofData] = useState<AgentSpofsResponse | null>(null);
   const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
+  const [predictiveRiskUnavailable, setPredictiveRiskUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,12 +40,21 @@ export default function DependencyMapPage() {
     Promise.all([
       request<RawAgent[]>('/api/agents'),
       request<{ dependencies: RawDependency[] }>('/api/dependencies'),
-      // Server-computed — same SPOF definition (>=3 downstream, no backup
-      // owner, high/critical) now lives in backend/routes/dependencies.js
-      // instead of being reimplemented here and in every component that
-      // needs to know which agents are SPOFs.
+      // Server-computed — the canonical SPOF definition (sole owner, no
+      // backup, criticality >= high; see domain/definitions.js's
+      // spofVerdict()) lives in backend/routes/dependencies.js instead of
+      // being reimplemented here and in every component that needs to know
+      // which agents are SPOFs.
       request<AgentSpofsResponse>('/api/dependencies/agent-spofs'),
-      predictiveApi.agents().catch(() => []),
+      // Soft fallback: agents/dependencies/SPOFs are this page's own
+      // dataset (an outage there fails the page, below), predictive risk is
+      // a supplementary overlay -- losing it means every agent's risk badge
+      // falls back to its own 'low' default (F-11) rather than blanking the
+      // map. predictiveRiskUnavailable makes that degrade visible (F-12).
+      predictiveApi.agents().catch(() => {
+        setPredictiveRiskUnavailable(true);
+        return [];
+      }),
     ])
     .then(([agentsData, depsData, spofsData, predictiveData]) => {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
@@ -110,6 +121,12 @@ export default function DependencyMapPage() {
           Map how agents depend on each other, detect single points of failure, and simulate cascading risks.
         </p>
       </div>
+
+      {predictiveRiskUnavailable && (
+        <div className="mb-8">
+          <UnavailableBanner label="Predictive risk scores" />
+        </div>
+      )}
 
       <DependencyKPIs
         totalAgents={agents.length}

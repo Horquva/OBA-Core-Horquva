@@ -38,10 +38,15 @@ export function Heatmap() {
   const { agents, loading, error } = useAgents();
 
   const barData = useMemo(() => {
-    const deps: Record<string, { name: string; critical: number; high: number; medium: number; low: number }> = {};
+    // This chart visualizes SCORED risk severity only -- an 'unknown'
+    // (unscored) agent has no bar series here (F-11) and is deliberately
+    // excluded from the stack rather than counted as a fifth, uncolored
+    // category; `unknown` still needs a slot on the bucket type so the `in`
+    // guard below stays type-safe against the widened RiskLevel.
+    const deps: Record<string, { name: string; critical: number; high: number; medium: number; low: number; unknown: number }> = {};
     agents.forEach(agent => {
       if (!deps[agent.department]) {
-        deps[agent.department] = { name: agent.department, critical: 0, high: 0, medium: 0, low: 0 };
+        deps[agent.department] = { name: agent.department, critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
       }
       if (agent.criticality in deps[agent.department]) {
         deps[agent.department][agent.criticality] += 1;

@@ -1454,7 +1454,11 @@ function decisionQuality(roots) {
   const decided = roots.decision_history.filter((d) => d.outcome)
   const negative = decided.filter((d) => d.outcome === 'negative').length
   const evidence = evidenceGate(roots.decision_history, (d) => d.outcome != null)
-  const score = decided.length ? clamp(round(pct(decided.length - negative, decided.length))) : 50
+  // decided.length === 0 iff evidence's own coverage is 0, which always fails
+  // the 50% threshold below -- evidence.sufficient is then false and `score`
+  // is already nulled out at the return. A `: 50` fallback here used to
+  // compute a value that could never actually surface; `: null` says so.
+  const score = decided.length ? clamp(round(pct(decided.length - negative, decided.length))) : null
 
   return {
     score: evidence.sufficient ? score : null,

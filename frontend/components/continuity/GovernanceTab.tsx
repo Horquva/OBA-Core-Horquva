@@ -5,6 +5,7 @@ import { TruthBadge } from '../dashboard/TruthBadge';
 import { ShieldCheck, Scale, FileWarning } from 'lucide-react';
 import { ContinuityReport } from '../../lib/continuityRisk';
 import { ModuleResult } from '../../lib/moduleResult';
+import { DefinitionInfo } from '../ui/DefinitionInfo';
 
 export interface GovernancePayload {
   governanceCoverage: number; // 0-1
@@ -35,7 +36,10 @@ export function GovernanceTab({ report, module }: Props) {
         <div className="md:col-span-2 flex flex-col p-6 rounded-xl bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-sky-500/10 rounded-full blur-3xl pointer-events-none translate-x-1/2 -translate-y-1/2" />
           <div className="flex items-center justify-between z-10 mb-2">
-            <span className="text-xs text-[color:var(--text-tertiary)] uppercase tracking-wider">Governance Coverage (M19)</span>
+            <span className="text-xs text-[color:var(--text-tertiary)] uppercase tracking-wider flex items-center gap-1.5">
+              Governance Coverage (M19)
+              <DefinitionInfo definition={module?.definition} />
+            </span>
             <TruthBadge confidence={module ? module.confidence * 100 : null} />
           </div>
           {m19Coverage != null ? (
@@ -43,7 +47,9 @@ export function GovernanceTab({ report, module }: Props) {
               <span className={`text-4xl font-bold ${m19Coverage >= 80 ? 'text-sky-400' : m19Coverage >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                 {m19Coverage}
               </span>
-              <span className="text-sm text-[color:var(--text-tertiary)] mb-1">% of assets under policy</span>
+              {/* F-6: scope is now AI platforms only (the only asset type a
+                  governs edge can target), not "assets" broadly. */}
+              <span className="text-sm text-[color:var(--text-tertiary)] mb-1">% of AI platforms under policy</span>
             </div>
           ) : (
             <span className="text-sm text-[color:var(--text-tertiary)] z-10">Unavailable — brain graph not ready</span>
