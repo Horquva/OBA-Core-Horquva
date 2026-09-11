@@ -1,0 +1,3982 @@
+{
+  "version": 1,
+  "users": [
+    {
+      "id": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
+      "email": "admin@altair.local",
+      "name": "Altair Admin",
+      "role": "admin",
+      "active": true,
+      "createdAt": "2026-08-20T17:38:13.689Z"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "wf-promote-rc",
+      "name": "Promote Release Candidate",
+      "category": "project_ops",
+      "description": "Promotes a validated release candidate build to the production channel and updates deployment manifests across affected services.",
+      "owner": {
+        "id": "u-wei",
+        "name": "Wei Chen",
+        "role": "Release Manager",
+        "team": "Release Engineering"
+      },
+      "version": "3.4.0",
+      "availability": "available",
+      "trigger": {
+        "type": "Manual",
+        "source": "Release console / CI tag",
+        "preconditions": [
+          "Release candidate has passed the full CI gate",
+          "No open Sev-1/Sev-2 incidents on affected services",
+          "Changelog has been generated for the release"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "release_tag",
+            "type": "string",
+            "desc": "Git tag of the validated release candidate"
+          },
+          {
+            "name": "target_environment",
+            "type": "enum",
+            "desc": "production | production-eu"
+          }
+        ],
+        "optional": [
+          {
+            "name": "rollout_percentage",
+            "type": "number",
+            "desc": "Canary rollout percentage (default 100)"
+          }
+        ]
+      },
+      "approval": {
+        "required": true,
+        "approverRole": "Release Manager",
+        "protected": true
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Validate build artifacts",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Diff deployment manifest",
+          "phase": "processing"
+        },
+        {
+          "id": "s3",
+          "name": "Notify affected service owners",
+          "phase": "processing"
+        },
+        {
+          "id": "s4",
+          "name": "Deploy to production",
+          "phase": "execution"
+        },
+        {
+          "id": "s5",
+          "name": "Run smoke tests",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-repo-access",
+      "name": "Provision Repository Access",
+      "category": "repo_mgmt",
+      "description": "Grants a scoped, time-bounded write access role to a requested repository after ownership confirms the request.",
+      "owner": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "version": "1.9.2",
+      "availability": "available",
+      "trigger": {
+        "type": "Self-service request",
+        "source": "Developer portal",
+        "preconditions": [
+          "Requester has an active engineering identity",
+          "Repository is not archived"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "repository",
+            "type": "string",
+            "desc": "Target repository (org/repo)"
+          },
+          {
+            "name": "access_level",
+            "type": "enum",
+            "desc": "read | write | maintain"
+          }
+        ],
+        "optional": [
+          {
+            "name": "expires_in_days",
+            "type": "number",
+            "desc": "Access expiry window (default 30)"
+          }
+        ]
+      },
+      "approval": {
+        "required": true,
+        "approverRole": "Repository Owner",
+        "protected": false
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Validate requester identity",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Check repository policy",
+          "phase": "processing"
+        },
+        {
+          "id": "s3",
+          "name": "Grant access role",
+          "phase": "execution"
+        },
+        {
+          "id": "s4",
+          "name": "Schedule expiry revocation",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-archive-repo",
+      "name": "Archive Deprecated Repository",
+      "category": "repo_mgmt",
+      "description": "Archives a repository flagged as deprecated: disables writes, snapshots CI config, and notifies remaining contributors.",
+      "owner": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "version": "2.1.0",
+      "availability": "available",
+      "trigger": {
+        "type": "Manual",
+        "source": "Repository admin console",
+        "preconditions": [
+          "Repository has had zero commits in 180 days",
+          "No active deployment depends on the repository"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "repository",
+            "type": "string",
+            "desc": "Target repository (org/repo)"
+          }
+        ],
+        "optional": [
+          {
+            "name": "archive_reason",
+            "type": "string",
+            "desc": "Free-text justification"
+          }
+        ]
+      },
+      "approval": {
+        "required": true,
+        "approverRole": "Engineering Manager",
+        "protected": true
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Verify inactivity window",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Snapshot CI configuration",
+          "phase": "processing"
+        },
+        {
+          "id": "s3",
+          "name": "Archive repository",
+          "phase": "execution"
+        },
+        {
+          "id": "s4",
+          "name": "Notify contributors",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-publish-docs",
+      "name": "Publish API Documentation",
+      "category": "documentation",
+      "description": "Builds and publishes the latest API reference documentation from source annotations to the public docs site.",
+      "owner": {
+        "id": "u-lena",
+        "name": "Lena Kovac",
+        "role": "SRE",
+        "team": "Infrastructure"
+      },
+      "version": "4.0.1",
+      "availability": "available",
+      "trigger": {
+        "type": "Event",
+        "source": "Merge to main on docs-source",
+        "preconditions": [
+          "Docs build passes linting",
+          "No broken internal links"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "source_ref",
+            "type": "string",
+            "desc": "Commit or tag to build from"
+          }
+        ],
+        "optional": []
+      },
+      "approval": {
+        "required": false,
+        "approverRole": null,
+        "protected": false
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Build documentation site",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Validate internal links",
+          "phase": "processing"
+        },
+        {
+          "id": "s3",
+          "name": "Publish to docs CDN",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-deprecate-endpoint",
+      "name": "Deprecate Public API Endpoint",
+      "category": "documentation",
+      "description": "Marks a public API endpoint as deprecated, updates documentation with a sunset date, and notifies registered API consumers.",
+      "owner": {
+        "id": "u-sam",
+        "name": "Sam Okafor",
+        "role": "Security Lead",
+        "team": "AppSec"
+      },
+      "version": "1.3.0",
+      "availability": "available",
+      "trigger": {
+        "type": "Manual",
+        "source": "API governance console",
+        "preconditions": [
+          "Replacement endpoint is documented",
+          "Sunset date is at least 90 days out"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "endpoint",
+            "type": "string",
+            "desc": "Endpoint path, e.g. /v1/legacy-search"
+          },
+          {
+            "name": "sunset_date",
+            "type": "date",
+            "desc": "Date the endpoint stops serving traffic"
+          }
+        ],
+        "optional": [
+          {
+            "name": "replacement_endpoint",
+            "type": "string",
+            "desc": "Recommended replacement"
+          }
+        ]
+      },
+      "approval": {
+        "required": true,
+        "approverRole": "API Governance Lead",
+        "protected": true
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Validate sunset window",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Update documentation",
+          "phase": "execution"
+        },
+        {
+          "id": "s3",
+          "name": "Notify registered consumers",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-rotate-creds",
+      "name": "Rotate Service Credentials",
+      "category": "approvals",
+      "description": "Rotates a service's production credentials, updates the secret store, and performs a staged restart of dependent services.",
+      "owner": {
+        "id": "u-sam",
+        "name": "Sam Okafor",
+        "role": "Security Lead",
+        "team": "AppSec"
+      },
+      "version": "2.6.3",
+      "availability": "available",
+      "trigger": {
+        "type": "Scheduled / Manual",
+        "source": "Security console",
+        "preconditions": [
+          "Secret store is reachable",
+          "No deployment freeze is active"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "service",
+            "type": "string",
+            "desc": "Target service identifier"
+          }
+        ],
+        "optional": []
+      },
+      "approval": {
+        "required": true,
+        "approverRole": "Security Lead",
+        "protected": true
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Generate new credential",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Write to secret store",
+          "phase": "execution"
+        },
+        {
+          "id": "s3",
+          "name": "Restage dependent services",
+          "phase": "execution"
+        },
+        {
+          "id": "s4",
+          "name": "Revoke previous credential",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-close-stale",
+      "name": "Close Stale Sprint Issues",
+      "category": "sprint_ops",
+      "description": "Identifies issues untouched for the configured window within a sprint board and closes them with an explanatory comment.",
+      "owner": {
+        "id": "u-priya",
+        "name": "Priya Natarajan",
+        "role": "Staff Engineer",
+        "team": "Platform"
+      },
+      "version": "1.4.0",
+      "availability": "available",
+      "trigger": {
+        "type": "Scheduled",
+        "source": "Weekly sprint hygiene job",
+        "preconditions": [
+          "Sprint board is active"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "board",
+            "type": "string",
+            "desc": "Sprint board identifier"
+          }
+        ],
+        "optional": [
+          {
+            "name": "stale_after_days",
+            "type": "number",
+            "desc": "Inactivity window (default 21)"
+          }
+        ]
+      },
+      "approval": {
+        "required": false,
+        "approverRole": null,
+        "protected": false
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Scan board for stale issues",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Post explanatory comment",
+          "phase": "execution"
+        },
+        {
+          "id": "s3",
+          "name": "Close issues",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-sprint-retro",
+      "name": "Generate Sprint Retrospective Report",
+      "category": "sprint_ops",
+      "description": "Compiles velocity, carry-over, and incident data for the closed sprint into a structured retrospective report.",
+      "owner": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "version": "1.1.0",
+      "availability": "available",
+      "trigger": {
+        "type": "Event",
+        "source": "Sprint close",
+        "preconditions": [
+          "Sprint has been marked closed"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "sprint_id",
+            "type": "string",
+            "desc": "Closed sprint identifier"
+          }
+        ],
+        "optional": []
+      },
+      "approval": {
+        "required": false,
+        "approverRole": null,
+        "protected": false
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Aggregate sprint metrics",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Render report",
+          "phase": "execution"
+        },
+        {
+          "id": "s3",
+          "name": "Publish to team space",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-escalate-bug",
+      "name": "Escalate Critical Bug",
+      "category": "issue_mgmt",
+      "description": "Escalates a critical bug to the owning team's on-call, opens an incident channel, and applies the escalation label.",
+      "owner": {
+        "id": "u-lena",
+        "name": "Lena Kovac",
+        "role": "SRE",
+        "team": "Infrastructure"
+      },
+      "version": "2.0.0",
+      "availability": "available",
+      "trigger": {
+        "type": "Manual",
+        "source": "Issue tracker",
+        "preconditions": [
+          "Issue is labeled severity:critical"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "issue_id",
+            "type": "string",
+            "desc": "Issue tracker identifier"
+          }
+        ],
+        "optional": []
+      },
+      "approval": {
+        "required": false,
+        "approverRole": null,
+        "protected": false
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Identify owning on-call",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Open incident channel",
+          "phase": "execution"
+        },
+        {
+          "id": "s3",
+          "name": "Apply escalation label",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-db-access",
+      "name": "Request Production Database Access",
+      "category": "eng_requests",
+      "description": "Requests temporary, audited read access to a production database for incident investigation or migration support.",
+      "owner": {
+        "id": "u-sam",
+        "name": "Sam Okafor",
+        "role": "Security Lead",
+        "team": "AppSec"
+      },
+      "version": "1.7.0",
+      "availability": "available",
+      "trigger": {
+        "type": "Self-service request",
+        "source": "Developer portal",
+        "preconditions": [
+          "Requester has completed data-handling training"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "database",
+            "type": "string",
+            "desc": "Target production database"
+          },
+          {
+            "name": "justification",
+            "type": "string",
+            "desc": "Reason for access"
+          }
+        ],
+        "optional": [
+          {
+            "name": "duration_hours",
+            "type": "number",
+            "desc": "Access window (default 4)"
+          }
+        ]
+      },
+      "approval": {
+        "required": true,
+        "approverRole": "Security Lead",
+        "protected": true
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Validate training compliance",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Grant scoped read access",
+          "phase": "execution"
+        },
+        {
+          "id": "s3",
+          "name": "Schedule automatic revocation",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-broadcast-incident",
+      "name": "Broadcast Incident Notification",
+      "category": "notifications",
+      "description": "Sends a structured incident notification to affected team channels and the status page subscriber list.",
+      "owner": {
+        "id": "u-lena",
+        "name": "Lena Kovac",
+        "role": "SRE",
+        "team": "Infrastructure"
+      },
+      "version": "1.2.1",
+      "availability": "available",
+      "trigger": {
+        "type": "Manual",
+        "source": "Incident console",
+        "preconditions": [
+          "Incident has an assigned severity"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "incident_id",
+            "type": "string",
+            "desc": "Incident tracker identifier"
+          },
+          {
+            "name": "message",
+            "type": "string",
+            "desc": "Notification body"
+          }
+        ],
+        "optional": []
+      },
+      "approval": {
+        "required": false,
+        "approverRole": null,
+        "protected": false
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Resolve affected channels",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Publish to status page",
+          "phase": "execution"
+        },
+        {
+          "id": "s3",
+          "name": "Notify team channels",
+          "phase": "execution"
+        }
+      ]
+    },
+    {
+      "id": "wf-oncall-sync",
+      "name": "Sync On-call Schedule",
+      "category": "coordination",
+      "description": "Synchronizes the on-call rotation from the scheduling source of truth into paging and chat integrations.",
+      "owner": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "version": "1.0.4",
+      "availability": "restricted",
+      "trigger": {
+        "type": "Scheduled",
+        "source": "Nightly sync job",
+        "preconditions": [
+          "Schedule source is reachable"
+        ]
+      },
+      "inputs": {
+        "required": [
+          {
+            "name": "team",
+            "type": "string",
+            "desc": "Team identifier"
+          }
+        ],
+        "optional": []
+      },
+      "approval": {
+        "required": true,
+        "approverRole": "Coordination Admin",
+        "protected": false
+      },
+      "steps": [
+        {
+          "id": "s1",
+          "name": "Fetch rotation source",
+          "phase": "processing"
+        },
+        {
+          "id": "s2",
+          "name": "Update paging integration",
+          "phase": "execution"
+        },
+        {
+          "id": "s3",
+          "name": "Post schedule to team channel",
+          "phase": "execution"
+        }
+      ]
+    }
+  ],
+  "workflowVersions": [
+    {
+      "id": "wfv-70c7a64d-e6c7-4b0f-bdf3-2e301169575c",
+      "workflowId": "wf-promote-rc",
+      "version": "3.4.0",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-promote-rc",
+        "name": "Promote Release Candidate",
+        "category": "project_ops",
+        "description": "Promotes a validated release candidate build to the production channel and updates deployment manifests across affected services.",
+        "owner": {
+          "id": "u-wei",
+          "name": "Wei Chen",
+          "role": "Release Manager",
+          "team": "Release Engineering"
+        },
+        "version": "3.4.0",
+        "availability": "available",
+        "trigger": {
+          "type": "Manual",
+          "source": "Release console / CI tag",
+          "preconditions": [
+            "Release candidate has passed the full CI gate",
+            "No open Sev-1/Sev-2 incidents on affected services",
+            "Changelog has been generated for the release"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "release_tag",
+              "type": "string",
+              "desc": "Git tag of the validated release candidate"
+            },
+            {
+              "name": "target_environment",
+              "type": "enum",
+              "desc": "production | production-eu"
+            }
+          ],
+          "optional": [
+            {
+              "name": "rollout_percentage",
+              "type": "number",
+              "desc": "Canary rollout percentage (default 100)"
+            }
+          ]
+        },
+        "approval": {
+          "required": true,
+          "approverRole": "Release Manager",
+          "protected": true
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Validate build artifacts",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Diff deployment manifest",
+            "phase": "processing"
+          },
+          {
+            "id": "s3",
+            "name": "Notify affected service owners",
+            "phase": "processing"
+          },
+          {
+            "id": "s4",
+            "name": "Deploy to production",
+            "phase": "execution"
+          },
+          {
+            "id": "s5",
+            "name": "Run smoke tests",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-f3652751-a9ae-400f-b111-f73507d6ae58",
+      "workflowId": "wf-repo-access",
+      "version": "1.9.2",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-repo-access",
+        "name": "Provision Repository Access",
+        "category": "repo_mgmt",
+        "description": "Grants a scoped, time-bounded write access role to a requested repository after ownership confirms the request.",
+        "owner": {
+          "id": "u-jordan",
+          "name": "Jordan Ackerman",
+          "role": "Eng Manager",
+          "team": "Platform"
+        },
+        "version": "1.9.2",
+        "availability": "available",
+        "trigger": {
+          "type": "Self-service request",
+          "source": "Developer portal",
+          "preconditions": [
+            "Requester has an active engineering identity",
+            "Repository is not archived"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "repository",
+              "type": "string",
+              "desc": "Target repository (org/repo)"
+            },
+            {
+              "name": "access_level",
+              "type": "enum",
+              "desc": "read | write | maintain"
+            }
+          ],
+          "optional": [
+            {
+              "name": "expires_in_days",
+              "type": "number",
+              "desc": "Access expiry window (default 30)"
+            }
+          ]
+        },
+        "approval": {
+          "required": true,
+          "approverRole": "Repository Owner",
+          "protected": false
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Validate requester identity",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Check repository policy",
+            "phase": "processing"
+          },
+          {
+            "id": "s3",
+            "name": "Grant access role",
+            "phase": "execution"
+          },
+          {
+            "id": "s4",
+            "name": "Schedule expiry revocation",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-e3d72630-6593-47d6-a317-d3805b6f9ad6",
+      "workflowId": "wf-archive-repo",
+      "version": "2.1.0",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-archive-repo",
+        "name": "Archive Deprecated Repository",
+        "category": "repo_mgmt",
+        "description": "Archives a repository flagged as deprecated: disables writes, snapshots CI config, and notifies remaining contributors.",
+        "owner": {
+          "id": "u-jordan",
+          "name": "Jordan Ackerman",
+          "role": "Eng Manager",
+          "team": "Platform"
+        },
+        "version": "2.1.0",
+        "availability": "available",
+        "trigger": {
+          "type": "Manual",
+          "source": "Repository admin console",
+          "preconditions": [
+            "Repository has had zero commits in 180 days",
+            "No active deployment depends on the repository"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "repository",
+              "type": "string",
+              "desc": "Target repository (org/repo)"
+            }
+          ],
+          "optional": [
+            {
+              "name": "archive_reason",
+              "type": "string",
+              "desc": "Free-text justification"
+            }
+          ]
+        },
+        "approval": {
+          "required": true,
+          "approverRole": "Engineering Manager",
+          "protected": true
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Verify inactivity window",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Snapshot CI configuration",
+            "phase": "processing"
+          },
+          {
+            "id": "s3",
+            "name": "Archive repository",
+            "phase": "execution"
+          },
+          {
+            "id": "s4",
+            "name": "Notify contributors",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-cb59a15b-bd01-4f73-9855-2fb733cb5292",
+      "workflowId": "wf-publish-docs",
+      "version": "4.0.1",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-publish-docs",
+        "name": "Publish API Documentation",
+        "category": "documentation",
+        "description": "Builds and publishes the latest API reference documentation from source annotations to the public docs site.",
+        "owner": {
+          "id": "u-lena",
+          "name": "Lena Kovac",
+          "role": "SRE",
+          "team": "Infrastructure"
+        },
+        "version": "4.0.1",
+        "availability": "available",
+        "trigger": {
+          "type": "Event",
+          "source": "Merge to main on docs-source",
+          "preconditions": [
+            "Docs build passes linting",
+            "No broken internal links"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "source_ref",
+              "type": "string",
+              "desc": "Commit or tag to build from"
+            }
+          ],
+          "optional": []
+        },
+        "approval": {
+          "required": false,
+          "approverRole": null,
+          "protected": false
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Build documentation site",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Validate internal links",
+            "phase": "processing"
+          },
+          {
+            "id": "s3",
+            "name": "Publish to docs CDN",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-5c76024b-acbc-4579-9191-0842166fe49c",
+      "workflowId": "wf-deprecate-endpoint",
+      "version": "1.3.0",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-deprecate-endpoint",
+        "name": "Deprecate Public API Endpoint",
+        "category": "documentation",
+        "description": "Marks a public API endpoint as deprecated, updates documentation with a sunset date, and notifies registered API consumers.",
+        "owner": {
+          "id": "u-sam",
+          "name": "Sam Okafor",
+          "role": "Security Lead",
+          "team": "AppSec"
+        },
+        "version": "1.3.0",
+        "availability": "available",
+        "trigger": {
+          "type": "Manual",
+          "source": "API governance console",
+          "preconditions": [
+            "Replacement endpoint is documented",
+            "Sunset date is at least 90 days out"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "endpoint",
+              "type": "string",
+              "desc": "Endpoint path, e.g. /v1/legacy-search"
+            },
+            {
+              "name": "sunset_date",
+              "type": "date",
+              "desc": "Date the endpoint stops serving traffic"
+            }
+          ],
+          "optional": [
+            {
+              "name": "replacement_endpoint",
+              "type": "string",
+              "desc": "Recommended replacement"
+            }
+          ]
+        },
+        "approval": {
+          "required": true,
+          "approverRole": "API Governance Lead",
+          "protected": true
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Validate sunset window",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Update documentation",
+            "phase": "execution"
+          },
+          {
+            "id": "s3",
+            "name": "Notify registered consumers",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-5c272080-fd8e-45d8-b870-15113d6184cb",
+      "workflowId": "wf-rotate-creds",
+      "version": "2.6.3",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-rotate-creds",
+        "name": "Rotate Service Credentials",
+        "category": "approvals",
+        "description": "Rotates a service's production credentials, updates the secret store, and performs a staged restart of dependent services.",
+        "owner": {
+          "id": "u-sam",
+          "name": "Sam Okafor",
+          "role": "Security Lead",
+          "team": "AppSec"
+        },
+        "version": "2.6.3",
+        "availability": "available",
+        "trigger": {
+          "type": "Scheduled / Manual",
+          "source": "Security console",
+          "preconditions": [
+            "Secret store is reachable",
+            "No deployment freeze is active"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "service",
+              "type": "string",
+              "desc": "Target service identifier"
+            }
+          ],
+          "optional": []
+        },
+        "approval": {
+          "required": true,
+          "approverRole": "Security Lead",
+          "protected": true
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Generate new credential",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Write to secret store",
+            "phase": "execution"
+          },
+          {
+            "id": "s3",
+            "name": "Restage dependent services",
+            "phase": "execution"
+          },
+          {
+            "id": "s4",
+            "name": "Revoke previous credential",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-f175354d-42c3-4079-b3eb-11e63cec6712",
+      "workflowId": "wf-close-stale",
+      "version": "1.4.0",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-close-stale",
+        "name": "Close Stale Sprint Issues",
+        "category": "sprint_ops",
+        "description": "Identifies issues untouched for the configured window within a sprint board and closes them with an explanatory comment.",
+        "owner": {
+          "id": "u-priya",
+          "name": "Priya Natarajan",
+          "role": "Staff Engineer",
+          "team": "Platform"
+        },
+        "version": "1.4.0",
+        "availability": "available",
+        "trigger": {
+          "type": "Scheduled",
+          "source": "Weekly sprint hygiene job",
+          "preconditions": [
+            "Sprint board is active"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "board",
+              "type": "string",
+              "desc": "Sprint board identifier"
+            }
+          ],
+          "optional": [
+            {
+              "name": "stale_after_days",
+              "type": "number",
+              "desc": "Inactivity window (default 21)"
+            }
+          ]
+        },
+        "approval": {
+          "required": false,
+          "approverRole": null,
+          "protected": false
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Scan board for stale issues",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Post explanatory comment",
+            "phase": "execution"
+          },
+          {
+            "id": "s3",
+            "name": "Close issues",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-114ec2f5-946b-40a9-95b9-da82ce870d1b",
+      "workflowId": "wf-sprint-retro",
+      "version": "1.1.0",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-sprint-retro",
+        "name": "Generate Sprint Retrospective Report",
+        "category": "sprint_ops",
+        "description": "Compiles velocity, carry-over, and incident data for the closed sprint into a structured retrospective report.",
+        "owner": {
+          "id": "u-jordan",
+          "name": "Jordan Ackerman",
+          "role": "Eng Manager",
+          "team": "Platform"
+        },
+        "version": "1.1.0",
+        "availability": "available",
+        "trigger": {
+          "type": "Event",
+          "source": "Sprint close",
+          "preconditions": [
+            "Sprint has been marked closed"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "sprint_id",
+              "type": "string",
+              "desc": "Closed sprint identifier"
+            }
+          ],
+          "optional": []
+        },
+        "approval": {
+          "required": false,
+          "approverRole": null,
+          "protected": false
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Aggregate sprint metrics",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Render report",
+            "phase": "execution"
+          },
+          {
+            "id": "s3",
+            "name": "Publish to team space",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-78bb77e1-46d1-45b6-bd0f-9272e5015690",
+      "workflowId": "wf-escalate-bug",
+      "version": "2.0.0",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-escalate-bug",
+        "name": "Escalate Critical Bug",
+        "category": "issue_mgmt",
+        "description": "Escalates a critical bug to the owning team's on-call, opens an incident channel, and applies the escalation label.",
+        "owner": {
+          "id": "u-lena",
+          "name": "Lena Kovac",
+          "role": "SRE",
+          "team": "Infrastructure"
+        },
+        "version": "2.0.0",
+        "availability": "available",
+        "trigger": {
+          "type": "Manual",
+          "source": "Issue tracker",
+          "preconditions": [
+            "Issue is labeled severity:critical"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "issue_id",
+              "type": "string",
+              "desc": "Issue tracker identifier"
+            }
+          ],
+          "optional": []
+        },
+        "approval": {
+          "required": false,
+          "approverRole": null,
+          "protected": false
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Identify owning on-call",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Open incident channel",
+            "phase": "execution"
+          },
+          {
+            "id": "s3",
+            "name": "Apply escalation label",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-8cd5bec2-4bfa-4d74-a8bd-91282ef9ec84",
+      "workflowId": "wf-db-access",
+      "version": "1.7.0",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-db-access",
+        "name": "Request Production Database Access",
+        "category": "eng_requests",
+        "description": "Requests temporary, audited read access to a production database for incident investigation or migration support.",
+        "owner": {
+          "id": "u-sam",
+          "name": "Sam Okafor",
+          "role": "Security Lead",
+          "team": "AppSec"
+        },
+        "version": "1.7.0",
+        "availability": "available",
+        "trigger": {
+          "type": "Self-service request",
+          "source": "Developer portal",
+          "preconditions": [
+            "Requester has completed data-handling training"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "database",
+              "type": "string",
+              "desc": "Target production database"
+            },
+            {
+              "name": "justification",
+              "type": "string",
+              "desc": "Reason for access"
+            }
+          ],
+          "optional": [
+            {
+              "name": "duration_hours",
+              "type": "number",
+              "desc": "Access window (default 4)"
+            }
+          ]
+        },
+        "approval": {
+          "required": true,
+          "approverRole": "Security Lead",
+          "protected": true
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Validate training compliance",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Grant scoped read access",
+            "phase": "execution"
+          },
+          {
+            "id": "s3",
+            "name": "Schedule automatic revocation",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-389a6afd-bbe6-4277-9212-841618642b79",
+      "workflowId": "wf-broadcast-incident",
+      "version": "1.2.1",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-broadcast-incident",
+        "name": "Broadcast Incident Notification",
+        "category": "notifications",
+        "description": "Sends a structured incident notification to affected team channels and the status page subscriber list.",
+        "owner": {
+          "id": "u-lena",
+          "name": "Lena Kovac",
+          "role": "SRE",
+          "team": "Infrastructure"
+        },
+        "version": "1.2.1",
+        "availability": "available",
+        "trigger": {
+          "type": "Manual",
+          "source": "Incident console",
+          "preconditions": [
+            "Incident has an assigned severity"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "incident_id",
+              "type": "string",
+              "desc": "Incident tracker identifier"
+            },
+            {
+              "name": "message",
+              "type": "string",
+              "desc": "Notification body"
+            }
+          ],
+          "optional": []
+        },
+        "approval": {
+          "required": false,
+          "approverRole": null,
+          "protected": false
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Resolve affected channels",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Publish to status page",
+            "phase": "execution"
+          },
+          {
+            "id": "s3",
+            "name": "Notify team channels",
+            "phase": "execution"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wfv-36280260-6e04-4a21-8fb0-47ee8594262e",
+      "workflowId": "wf-oncall-sync",
+      "version": "1.0.4",
+      "status": "published",
+      "createdAt": "2026-08-20T17:38:13.638Z",
+      "createdBy": {
+        "id": "system",
+        "name": "Altair",
+        "role": "system"
+      },
+      "definition": {
+        "id": "wf-oncall-sync",
+        "name": "Sync On-call Schedule",
+        "category": "coordination",
+        "description": "Synchronizes the on-call rotation from the scheduling source of truth into paging and chat integrations.",
+        "owner": {
+          "id": "u-jordan",
+          "name": "Jordan Ackerman",
+          "role": "Eng Manager",
+          "team": "Platform"
+        },
+        "version": "1.0.4",
+        "availability": "restricted",
+        "trigger": {
+          "type": "Scheduled",
+          "source": "Nightly sync job",
+          "preconditions": [
+            "Schedule source is reachable"
+          ]
+        },
+        "inputs": {
+          "required": [
+            {
+              "name": "team",
+              "type": "string",
+              "desc": "Team identifier"
+            }
+          ],
+          "optional": []
+        },
+        "approval": {
+          "required": true,
+          "approverRole": "Coordination Admin",
+          "protected": false
+        },
+        "steps": [
+          {
+            "id": "s1",
+            "name": "Fetch rotation source",
+            "phase": "processing"
+          },
+          {
+            "id": "s2",
+            "name": "Update paging integration",
+            "phase": "execution"
+          },
+          {
+            "id": "s3",
+            "name": "Post schedule to team channel",
+            "phase": "execution"
+          }
+        ]
+      }
+    }
+  ],
+  "executions": [
+    {
+      "id": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc",
+      "status": "pending_approval",
+      "initiator": {
+        "id": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
+        "email": "admin@altair.local",
+        "name": "Altair Admin",
+        "role": "admin",
+        "permissions": [
+          "workflow:read",
+          "workflow:execute",
+          "approval:decide",
+          "execution:retry",
+          "execution:cancel",
+          "audit:read",
+          "operations:read",
+          "workflow:write",
+          "notification:manage",
+          "governance:manage"
+        ]
+      },
+      "startedAt": "2026-08-20T18:09:07.369Z",
+      "updatedAt": "2026-08-20T18:09:10.265Z",
+      "currentNodeId": "approval",
+      "inputs": {
+        "release_tag": "v-test",
+        "target_environment": "production"
+      },
+      "approval": {
+        "id": "ap-d7487598-8510-437b-927a-e40862e1ac36",
+        "requiredRole": "Release Manager",
+        "actor": null,
+        "decision": "pending",
+        "reason": null,
+        "decidedAt": null
+      },
+      "events": [
+        {
+          "id": "audit-37446c19-376f-4c5b-8b72-1d4c1aaf0782",
+          "type": "workflow.initiated",
+          "message": "Altair Admin initiated Promote Release Candidate",
+          "actor": {
+            "id": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
+            "name": "Altair Admin",
+            "role": "admin"
+          },
+          "at": "2026-08-20T18:09:07.371Z",
+          "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+          "workflowId": "wf-promote-rc",
+          "meta": null
+        },
+        {
+          "id": "ev-30da8f5d-b308-48a0-b66a-a414ca58e95c",
+          "type": "workflow.triggered",
+          "message": "Trigger accepted: Manual.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:08.190Z",
+          "meta": null,
+          "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-7c8020a0-c9a5-49b5-aecf-944c524af480",
+          "type": "workflow.step_started",
+          "message": "Started: Validate build artifacts.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:08.966Z",
+          "meta": {
+            "stepId": "s1",
+            "attempt": 1
+          },
+          "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-7375a0ef-311b-4880-9358-311a7bf00f56",
+          "type": "workflow.step_completed",
+          "message": "Completed: Validate build artifacts.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:08.969Z",
+          "meta": {
+            "stepId": "s1",
+            "adapter": "noop-internal",
+            "attempt": 1
+          },
+          "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-ff0d04e1-8622-4406-b73f-45c41a74ccc1",
+          "type": "workflow.step_started",
+          "message": "Started: Diff deployment manifest.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:09.488Z",
+          "meta": {
+            "stepId": "s2",
+            "attempt": 1
+          },
+          "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-7f56954a-44ca-4c52-b541-0e6aabf40cdf",
+          "type": "workflow.step_completed",
+          "message": "Completed: Diff deployment manifest.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:09.490Z",
+          "meta": {
+            "stepId": "s2",
+            "adapter": "noop-internal",
+            "attempt": 1
+          },
+          "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-6cdeac21-08ab-4653-be65-18b2f7b41fe0",
+          "type": "workflow.step_started",
+          "message": "Started: Notify affected service owners.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:10.004Z",
+          "meta": {
+            "stepId": "s3",
+            "attempt": 1
+          },
+          "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-cd4c4a0d-f5cb-41a6-b73b-5df0a2b7beb6",
+          "type": "workflow.step_completed",
+          "message": "Completed: Notify affected service owners.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:10.008Z",
+          "meta": {
+            "stepId": "s3",
+            "adapter": "noop-internal",
+            "attempt": 1
+          },
+          "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-105223ff-b162-41ad-a571-12bbfd3abae1",
+          "type": "approval.requested",
+          "message": "Approval requested from Release Manager.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:10.265Z",
+          "meta": null,
+          "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+          "workflowId": "wf-promote-rc"
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3,
+      "lastStepResult": {
+        "ok": true,
+        "adapter": "noop-internal",
+        "action": "Notify affected service owners"
+      },
+      "lastError": null
+    },
+    {
+      "id": "sch-wf-oncall-sync-2026-08-20",
+      "workflowId": "wf-oncall-sync",
+      "status": "pending_approval",
+      "initiator": {
+        "id": "scheduler",
+        "name": "Altair Scheduler",
+        "role": "system"
+      },
+      "startedAt": "2026-08-20T17:38:14.702Z",
+      "updatedAt": "2026-08-20T18:09:08.709Z",
+      "currentNodeId": "approval",
+      "inputs": {},
+      "approval": {
+        "id": "ap-4ae656a1-b226-41d8-8bae-dcc052b9f3d7",
+        "requiredRole": "Coordination Admin",
+        "actor": null,
+        "decision": "pending",
+        "reason": null,
+        "decidedAt": null
+      },
+      "events": [
+        {
+          "id": "audit-e4d11c1a-b8f5-43b8-b506-66195c353a98",
+          "type": "workflow.initiated",
+          "message": "Altair Scheduler initiated Sync On-call Schedule",
+          "actor": {
+            "id": "scheduler",
+            "name": "Altair Scheduler",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.703Z",
+          "executionId": "sch-wf-oncall-sync-2026-08-20",
+          "workflowId": "wf-oncall-sync",
+          "meta": null
+        },
+        {
+          "id": "ev-4e0dfdda-a28a-40dc-b081-3748f2710ec3",
+          "type": "workflow.triggered",
+          "message": "Trigger accepted: Scheduled.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:15.500Z",
+          "meta": null,
+          "executionId": "sch-wf-oncall-sync-2026-08-20",
+          "workflowId": "wf-oncall-sync"
+        },
+        {
+          "id": "ev-5a33a1ca-e950-4c9b-8c7d-29d73d649888",
+          "type": "workflow.step_started",
+          "message": "Started: Fetch rotation source.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:07.667Z",
+          "meta": {
+            "stepId": "s1",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-oncall-sync-2026-08-20",
+          "workflowId": "wf-oncall-sync"
+        },
+        {
+          "id": "ev-f2d171fb-4fc1-4e37-9b50-9af8e52e92c2",
+          "type": "workflow.step_completed",
+          "message": "Completed: Fetch rotation source.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:07.670Z",
+          "meta": {
+            "stepId": "s1",
+            "adapter": "noop-internal",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-oncall-sync-2026-08-20",
+          "workflowId": "wf-oncall-sync"
+        },
+        {
+          "id": "ev-e5e8079f-8c29-4a1b-af27-3752e72b66db",
+          "type": "approval.requested",
+          "message": "Approval requested from Coordination Admin.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:08.709Z",
+          "meta": null,
+          "executionId": "sch-wf-oncall-sync-2026-08-20",
+          "workflowId": "wf-oncall-sync"
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3,
+      "lastStepResult": {
+        "ok": true,
+        "adapter": "noop-internal",
+        "action": "Fetch rotation source"
+      },
+      "lastError": null
+    },
+    {
+      "id": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale",
+      "status": "completed",
+      "initiator": {
+        "id": "scheduler",
+        "name": "Altair Scheduler",
+        "role": "system"
+      },
+      "startedAt": "2026-08-20T17:38:14.697Z",
+      "updatedAt": "2026-08-20T18:09:09.748Z",
+      "currentNodeId": "result",
+      "inputs": {},
+      "approval": null,
+      "events": [
+        {
+          "id": "audit-6a77708a-61fa-4994-aa08-105af5182159",
+          "type": "workflow.initiated",
+          "message": "Altair Scheduler initiated Close Stale Sprint Issues",
+          "actor": {
+            "id": "scheduler",
+            "name": "Altair Scheduler",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.699Z",
+          "executionId": "sch-wf-close-stale-2026-08-20",
+          "workflowId": "wf-close-stale",
+          "meta": null
+        },
+        {
+          "id": "ev-b27ed6e6-1dd2-413b-83a4-b2f31302c736",
+          "type": "workflow.triggered",
+          "message": "Trigger accepted: Scheduled.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:15.241Z",
+          "meta": null,
+          "executionId": "sch-wf-close-stale-2026-08-20",
+          "workflowId": "wf-close-stale"
+        },
+        {
+          "id": "ev-8e9cfd3e-7da5-482a-a2e2-aba3504ae50e",
+          "type": "workflow.step_started",
+          "message": "Started: Scan board for stale issues.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:07.396Z",
+          "meta": {
+            "stepId": "s1",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-close-stale-2026-08-20",
+          "workflowId": "wf-close-stale"
+        },
+        {
+          "id": "ev-7308bad5-f152-402c-bed9-e662fe45a367",
+          "type": "workflow.step_completed",
+          "message": "Completed: Scan board for stale issues.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:07.399Z",
+          "meta": {
+            "stepId": "s1",
+            "adapter": "noop-internal",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-close-stale-2026-08-20",
+          "workflowId": "wf-close-stale"
+        },
+        {
+          "id": "ev-5b98256b-be24-45aa-9e55-cf2c3888d615",
+          "type": "workflow.step_started",
+          "message": "Started: Post explanatory comment.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:08.449Z",
+          "meta": {
+            "stepId": "s2",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-close-stale-2026-08-20",
+          "workflowId": "wf-close-stale"
+        },
+        {
+          "id": "ev-ff57d426-00dc-44a7-9c77-daa39b85248a",
+          "type": "workflow.step_completed",
+          "message": "Completed: Post explanatory comment.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:08.452Z",
+          "meta": {
+            "stepId": "s2",
+            "adapter": "http",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-close-stale-2026-08-20",
+          "workflowId": "wf-close-stale"
+        },
+        {
+          "id": "ev-9c91d5de-747c-49e5-8841-fa3ac43ff8fd",
+          "type": "workflow.step_started",
+          "message": "Started: Close issues.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:09.227Z",
+          "meta": {
+            "stepId": "s3",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-close-stale-2026-08-20",
+          "workflowId": "wf-close-stale"
+        },
+        {
+          "id": "ev-b01bbafe-6e2c-419f-aec0-ffd6fb3131d1",
+          "type": "workflow.step_completed",
+          "message": "Completed: Close issues.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:09.229Z",
+          "meta": {
+            "stepId": "s3",
+            "adapter": "http",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-close-stale-2026-08-20",
+          "workflowId": "wf-close-stale"
+        },
+        {
+          "id": "ev-66ae7572-ecb7-40be-b373-175503b8b99b",
+          "type": "workflow.completed",
+          "message": "Execution completed successfully.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:09.748Z",
+          "meta": null,
+          "executionId": "sch-wf-close-stale-2026-08-20",
+          "workflowId": "wf-close-stale"
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3,
+      "lastStepResult": {
+        "ok": true,
+        "adapter": "http-demo",
+        "simulated": true,
+        "action": "Close issues",
+        "message": "Simulated successfully in local demo mode."
+      },
+      "lastError": null
+    },
+    {
+      "id": "sch-wf-rotate-creds-2026-08-20",
+      "workflowId": "wf-rotate-creds",
+      "status": "pending_approval",
+      "initiator": {
+        "id": "scheduler",
+        "name": "Altair Scheduler",
+        "role": "system"
+      },
+      "startedAt": "2026-08-20T17:38:14.693Z",
+      "updatedAt": "2026-08-20T18:09:07.930Z",
+      "currentNodeId": "approval",
+      "inputs": {},
+      "approval": {
+        "id": "ap-733ccfc8-d92c-4747-8e2b-9973f309f90d",
+        "requiredRole": "Security Lead",
+        "actor": null,
+        "decision": "pending",
+        "reason": null,
+        "decidedAt": null
+      },
+      "events": [
+        {
+          "id": "audit-9f550906-6329-46d3-a8e8-c1322b586632",
+          "type": "workflow.initiated",
+          "message": "Altair Scheduler initiated Rotate Service Credentials",
+          "actor": {
+            "id": "scheduler",
+            "name": "Altair Scheduler",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.694Z",
+          "executionId": "sch-wf-rotate-creds-2026-08-20",
+          "workflowId": "wf-rotate-creds",
+          "meta": null
+        },
+        {
+          "id": "ev-39b1bbf1-1383-4d7e-ba52-4d24f9975a46",
+          "type": "workflow.triggered",
+          "message": "Trigger accepted: Scheduled / Manual.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.983Z",
+          "meta": null,
+          "executionId": "sch-wf-rotate-creds-2026-08-20",
+          "workflowId": "wf-rotate-creds"
+        },
+        {
+          "id": "ev-ae99bc9a-4659-4893-8acb-c80b8ef95302",
+          "type": "workflow.step_started",
+          "message": "Started: Generate new credential.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:07.134Z",
+          "meta": {
+            "stepId": "s1",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-rotate-creds-2026-08-20",
+          "workflowId": "wf-rotate-creds"
+        },
+        {
+          "id": "ev-8ec35976-8feb-4e6a-b609-2e3cfabf7c63",
+          "type": "workflow.step_completed",
+          "message": "Completed: Generate new credential.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:07.137Z",
+          "meta": {
+            "stepId": "s1",
+            "adapter": "noop-internal",
+            "attempt": 1
+          },
+          "executionId": "sch-wf-rotate-creds-2026-08-20",
+          "workflowId": "wf-rotate-creds"
+        },
+        {
+          "id": "ev-f694011d-b059-4e6c-a00d-781cd60b8bb6",
+          "type": "approval.requested",
+          "message": "Approval requested from Security Lead.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T18:09:07.931Z",
+          "meta": null,
+          "executionId": "sch-wf-rotate-creds-2026-08-20",
+          "workflowId": "wf-rotate-creds"
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3,
+      "lastStepResult": {
+        "ok": true,
+        "adapter": "noop-internal",
+        "action": "Generate new credential"
+      },
+      "lastError": null
+    },
+    {
+      "id": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc",
+      "status": "pending_approval",
+      "initiator": {
+        "id": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
+        "email": "admin@altair.local",
+        "name": "Altair Admin",
+        "role": "admin",
+        "permissions": [
+          "workflow:read",
+          "workflow:execute",
+          "approval:decide",
+          "execution:retry",
+          "execution:cancel",
+          "audit:read",
+          "operations:read",
+          "workflow:write",
+          "notification:manage",
+          "governance:manage"
+        ]
+      },
+      "startedAt": "2026-08-20T17:38:13.861Z",
+      "updatedAt": "2026-08-20T17:38:15.760Z",
+      "currentNodeId": "approval",
+      "inputs": {
+        "release_tag": "v-test",
+        "target_environment": "production"
+      },
+      "approval": {
+        "id": "ap-5abe4ed9-721c-439f-bbf2-152fc7e767ae",
+        "requiredRole": "Release Manager",
+        "actor": null,
+        "decision": "pending",
+        "reason": null,
+        "decidedAt": null
+      },
+      "events": [
+        {
+          "id": "audit-00539aae-e07a-4190-9f68-50a25a003985",
+          "type": "workflow.initiated",
+          "message": "Altair Admin initiated Promote Release Candidate",
+          "actor": {
+            "id": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
+            "name": "Altair Admin",
+            "role": "admin"
+          },
+          "at": "2026-08-20T17:38:13.862Z",
+          "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+          "workflowId": "wf-promote-rc",
+          "meta": null
+        },
+        {
+          "id": "ev-3a2826fc-7498-4786-8270-26fb3a822eeb",
+          "type": "workflow.triggered",
+          "message": "Trigger accepted: Manual.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:13.947Z",
+          "meta": null,
+          "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-e365fbc5-04b4-45cc-8b54-ca27c92f4529",
+          "type": "workflow.step_started",
+          "message": "Started: Validate build artifacts.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.203Z",
+          "meta": {
+            "stepId": "s1",
+            "attempt": 1
+          },
+          "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-f1564d2e-ab37-4adf-bc6e-881d0dc9e899",
+          "type": "workflow.step_completed",
+          "message": "Completed: Validate build artifacts.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.205Z",
+          "meta": {
+            "stepId": "s1",
+            "adapter": "noop-internal",
+            "attempt": 1
+          },
+          "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-10cb074d-c2ad-4491-9b46-f83a979d48e8",
+          "type": "workflow.step_started",
+          "message": "Started: Diff deployment manifest.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.462Z",
+          "meta": {
+            "stepId": "s2",
+            "attempt": 1
+          },
+          "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-218a4674-ed88-43e2-951a-62c1dbd3e424",
+          "type": "workflow.step_completed",
+          "message": "Completed: Diff deployment manifest.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.464Z",
+          "meta": {
+            "stepId": "s2",
+            "adapter": "noop-internal",
+            "attempt": 1
+          },
+          "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-a066c101-b78e-4a6d-aa48-b432952f3b78",
+          "type": "workflow.step_started",
+          "message": "Started: Notify affected service owners.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.721Z",
+          "meta": {
+            "stepId": "s3",
+            "attempt": 1
+          },
+          "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-a01479c3-1dee-4a1d-b218-071ddc396a54",
+          "type": "workflow.step_completed",
+          "message": "Completed: Notify affected service owners.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:14.723Z",
+          "meta": {
+            "stepId": "s3",
+            "adapter": "noop-internal",
+            "attempt": 1
+          },
+          "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+          "workflowId": "wf-promote-rc"
+        },
+        {
+          "id": "ev-26d883fa-25aa-4e51-8024-9d285ed99a70",
+          "type": "approval.requested",
+          "message": "Approval requested from Release Manager.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-20T17:38:15.761Z",
+          "meta": null,
+          "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+          "workflowId": "wf-promote-rc"
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3,
+      "lastStepResult": {
+        "ok": true,
+        "adapter": "noop-internal",
+        "action": "Notify affected service owners"
+      },
+      "lastError": null
+    },
+    {
+      "id": "seed-ex-0001",
+      "workflowId": "wf-promote-rc",
+      "status": "pending_approval",
+      "initiator": {
+        "id": "u-wei",
+        "name": "Wei Chen",
+        "role": "Release Manager",
+        "team": "Release Engineering"
+      },
+      "startedAt": "2026-08-19T17:38:13.637Z",
+      "updatedAt": "2026-08-19T17:43:13.637Z",
+      "currentNodeId": "approval",
+      "inputs": {
+        "release_tag": "demo-value",
+        "target_environment": "demo-value"
+      },
+      "approval": {
+        "id": "seed-ex-0001-approval",
+        "requiredRole": "Release Manager",
+        "actor": null,
+        "decision": "pending",
+        "reason": null,
+        "decidedAt": null
+      },
+      "events": [
+        {
+          "id": "seed-ex-0001-1",
+          "type": "workflow.initiated",
+          "message": "Wei Chen initiated Promote Release Candidate.",
+          "actor": {
+            "id": "u-wei",
+            "name": "Wei Chen",
+            "role": "Release Manager",
+            "team": "Release Engineering"
+          },
+          "at": "2026-08-19T17:38:13.637Z",
+          "executionId": "seed-ex-0001",
+          "workflowId": "wf-promote-rc",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0001-2",
+          "type": "approval.requested",
+          "message": "Approval requested from Release Manager.",
+          "actor": {
+            "id": "u-wei",
+            "name": "Wei Chen",
+            "role": "Release Manager",
+            "team": "Release Engineering"
+          },
+          "at": "2026-08-19T17:43:13.637Z",
+          "executionId": "seed-ex-0001",
+          "workflowId": "wf-promote-rc",
+          "meta": null
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "seed-ex-0002",
+      "workflowId": "wf-repo-access",
+      "status": "completed",
+      "initiator": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "startedAt": "2026-08-18T17:38:13.637Z",
+      "updatedAt": "2026-08-18T17:53:13.637Z",
+      "currentNodeId": "result",
+      "inputs": {
+        "repository": "demo-value",
+        "access_level": "demo-value"
+      },
+      "approval": {
+        "id": "seed-ex-0002-approval",
+        "requiredRole": "Repository Owner",
+        "actor": {
+          "id": "u-jordan",
+          "name": "Jordan Ackerman",
+          "role": "Eng Manager",
+          "team": "Platform"
+        },
+        "decision": "approved",
+        "reason": null,
+        "decidedAt": "2026-08-18T17:43:13.637Z"
+      },
+      "events": [
+        {
+          "id": "seed-ex-0002-1",
+          "type": "workflow.initiated",
+          "message": "Jordan Ackerman initiated Provision Repository Access.",
+          "actor": {
+            "id": "u-jordan",
+            "name": "Jordan Ackerman",
+            "role": "Eng Manager",
+            "team": "Platform"
+          },
+          "at": "2026-08-18T17:38:13.637Z",
+          "executionId": "seed-ex-0002",
+          "workflowId": "wf-repo-access",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0002-2",
+          "type": "approval.completed",
+          "message": "Approval completed by Repository Owner.",
+          "actor": {
+            "id": "u-jordan",
+            "name": "Jordan Ackerman",
+            "role": "Eng Manager",
+            "team": "Platform"
+          },
+          "at": "2026-08-18T17:43:13.637Z",
+          "executionId": "seed-ex-0002",
+          "workflowId": "wf-repo-access",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0002-3",
+          "type": "workflow.completed",
+          "message": "Execution completed successfully.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-18T17:53:13.637Z",
+          "executionId": "seed-ex-0002",
+          "workflowId": "wf-repo-access",
+          "meta": null
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "seed-ex-0003",
+      "workflowId": "wf-archive-repo",
+      "status": "completed",
+      "initiator": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "startedAt": "2026-08-17T17:38:13.637Z",
+      "updatedAt": "2026-08-17T17:53:13.637Z",
+      "currentNodeId": "result",
+      "inputs": {
+        "repository": "demo-value"
+      },
+      "approval": {
+        "id": "seed-ex-0003-approval",
+        "requiredRole": "Engineering Manager",
+        "actor": {
+          "id": "u-jordan",
+          "name": "Jordan Ackerman",
+          "role": "Eng Manager",
+          "team": "Platform"
+        },
+        "decision": "approved",
+        "reason": null,
+        "decidedAt": "2026-08-17T17:43:13.637Z"
+      },
+      "events": [
+        {
+          "id": "seed-ex-0003-1",
+          "type": "workflow.initiated",
+          "message": "Jordan Ackerman initiated Archive Deprecated Repository.",
+          "actor": {
+            "id": "u-jordan",
+            "name": "Jordan Ackerman",
+            "role": "Eng Manager",
+            "team": "Platform"
+          },
+          "at": "2026-08-17T17:38:13.637Z",
+          "executionId": "seed-ex-0003",
+          "workflowId": "wf-archive-repo",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0003-2",
+          "type": "approval.completed",
+          "message": "Approval completed by Engineering Manager.",
+          "actor": {
+            "id": "u-jordan",
+            "name": "Jordan Ackerman",
+            "role": "Eng Manager",
+            "team": "Platform"
+          },
+          "at": "2026-08-17T17:43:13.637Z",
+          "executionId": "seed-ex-0003",
+          "workflowId": "wf-archive-repo",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0003-3",
+          "type": "workflow.completed",
+          "message": "Execution completed successfully.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-17T17:53:13.637Z",
+          "executionId": "seed-ex-0003",
+          "workflowId": "wf-archive-repo",
+          "meta": null
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "seed-ex-0004",
+      "workflowId": "wf-publish-docs",
+      "status": "completed",
+      "initiator": {
+        "id": "u-lena",
+        "name": "Lena Kovac",
+        "role": "SRE",
+        "team": "Infrastructure"
+      },
+      "startedAt": "2026-08-16T17:38:13.637Z",
+      "updatedAt": "2026-08-16T17:53:13.637Z",
+      "currentNodeId": "result",
+      "inputs": {
+        "source_ref": "demo-value"
+      },
+      "approval": null,
+      "events": [
+        {
+          "id": "seed-ex-0004-1",
+          "type": "workflow.initiated",
+          "message": "Lena Kovac initiated Publish API Documentation.",
+          "actor": {
+            "id": "u-lena",
+            "name": "Lena Kovac",
+            "role": "SRE",
+            "team": "Infrastructure"
+          },
+          "at": "2026-08-16T17:38:13.637Z",
+          "executionId": "seed-ex-0004",
+          "workflowId": "wf-publish-docs",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0004-3",
+          "type": "workflow.completed",
+          "message": "Execution completed successfully.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-16T17:53:13.637Z",
+          "executionId": "seed-ex-0004",
+          "workflowId": "wf-publish-docs",
+          "meta": null
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "seed-ex-0005",
+      "workflowId": "wf-deprecate-endpoint",
+      "status": "completed",
+      "initiator": {
+        "id": "u-sam",
+        "name": "Sam Okafor",
+        "role": "Security Lead",
+        "team": "AppSec"
+      },
+      "startedAt": "2026-08-15T17:38:13.637Z",
+      "updatedAt": "2026-08-15T17:53:13.637Z",
+      "currentNodeId": "result",
+      "inputs": {
+        "endpoint": "demo-value",
+        "sunset_date": "demo-value"
+      },
+      "approval": {
+        "id": "seed-ex-0005-approval",
+        "requiredRole": "API Governance Lead",
+        "actor": {
+          "id": "u-sam",
+          "name": "Sam Okafor",
+          "role": "Security Lead",
+          "team": "AppSec"
+        },
+        "decision": "approved",
+        "reason": null,
+        "decidedAt": "2026-08-15T17:43:13.637Z"
+      },
+      "events": [
+        {
+          "id": "seed-ex-0005-1",
+          "type": "workflow.initiated",
+          "message": "Sam Okafor initiated Deprecate Public API Endpoint.",
+          "actor": {
+            "id": "u-sam",
+            "name": "Sam Okafor",
+            "role": "Security Lead",
+            "team": "AppSec"
+          },
+          "at": "2026-08-15T17:38:13.637Z",
+          "executionId": "seed-ex-0005",
+          "workflowId": "wf-deprecate-endpoint",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0005-2",
+          "type": "approval.completed",
+          "message": "Approval completed by API Governance Lead.",
+          "actor": {
+            "id": "u-sam",
+            "name": "Sam Okafor",
+            "role": "Security Lead",
+            "team": "AppSec"
+          },
+          "at": "2026-08-15T17:43:13.637Z",
+          "executionId": "seed-ex-0005",
+          "workflowId": "wf-deprecate-endpoint",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0005-3",
+          "type": "workflow.completed",
+          "message": "Execution completed successfully.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-15T17:53:13.637Z",
+          "executionId": "seed-ex-0005",
+          "workflowId": "wf-deprecate-endpoint",
+          "meta": null
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3
+    },
+    {
+      "id": "seed-ex-0006",
+      "workflowId": "wf-rotate-creds",
+      "status": "completed",
+      "initiator": {
+        "id": "u-sam",
+        "name": "Sam Okafor",
+        "role": "Security Lead",
+        "team": "AppSec"
+      },
+      "startedAt": "2026-08-14T17:38:13.637Z",
+      "updatedAt": "2026-08-14T17:53:13.637Z",
+      "currentNodeId": "result",
+      "inputs": {
+        "service": "demo-value"
+      },
+      "approval": {
+        "id": "seed-ex-0006-approval",
+        "requiredRole": "Security Lead",
+        "actor": {
+          "id": "u-sam",
+          "name": "Sam Okafor",
+          "role": "Security Lead",
+          "team": "AppSec"
+        },
+        "decision": "approved",
+        "reason": null,
+        "decidedAt": "2026-08-14T17:43:13.637Z"
+      },
+      "events": [
+        {
+          "id": "seed-ex-0006-1",
+          "type": "workflow.initiated",
+          "message": "Sam Okafor initiated Rotate Service Credentials.",
+          "actor": {
+            "id": "u-sam",
+            "name": "Sam Okafor",
+            "role": "Security Lead",
+            "team": "AppSec"
+          },
+          "at": "2026-08-14T17:38:13.637Z",
+          "executionId": "seed-ex-0006",
+          "workflowId": "wf-rotate-creds",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0006-2",
+          "type": "approval.completed",
+          "message": "Approval completed by Security Lead.",
+          "actor": {
+            "id": "u-sam",
+            "name": "Sam Okafor",
+            "role": "Security Lead",
+            "team": "AppSec"
+          },
+          "at": "2026-08-14T17:43:13.637Z",
+          "executionId": "seed-ex-0006",
+          "workflowId": "wf-rotate-creds",
+          "meta": null
+        },
+        {
+          "id": "seed-ex-0006-3",
+          "type": "workflow.completed",
+          "message": "Execution completed successfully.",
+          "actor": {
+            "id": "sys-altair",
+            "name": "Altair",
+            "role": "system"
+          },
+          "at": "2026-08-14T17:53:13.637Z",
+          "executionId": "seed-ex-0006",
+          "workflowId": "wf-rotate-creds",
+          "meta": null
+        }
+      ],
+      "retryCount": 0,
+      "cancelRequested": false,
+      "nextStepIndex": 0,
+      "maxAttempts": 3
+    }
+  ],
+  "notifications": [
+    {
+      "id": "n-a856e69e-3219-4439-85de-4fa35d7c3c2d",
+      "type": "approval_requested",
+      "title": "Approval required",
+      "message": "Approval requested from Release Manager.",
+      "at": "2026-08-20T18:09:10.265Z",
+      "read": false,
+      "link": {
+        "view": "execution",
+        "id": "ex-0206b5d0-4086-4849-81c3-29909061f785"
+      }
+    },
+    {
+      "id": "n-81dcbba4-d6bf-499f-a73b-44506205ed5b",
+      "type": "workflow_completed",
+      "title": "Workflow completed",
+      "message": "Execution completed successfully.",
+      "at": "2026-08-20T18:09:09.748Z",
+      "read": false,
+      "link": {
+        "view": "execution",
+        "id": "sch-wf-close-stale-2026-08-20"
+      }
+    },
+    {
+      "id": "n-7f9b496d-ee0b-4a3c-a90a-95eaa201db14",
+      "type": "approval_requested",
+      "title": "Approval required",
+      "message": "Approval requested from Coordination Admin.",
+      "at": "2026-08-20T18:09:08.709Z",
+      "read": false,
+      "link": {
+        "view": "execution",
+        "id": "sch-wf-oncall-sync-2026-08-20"
+      }
+    },
+    {
+      "id": "n-23d14995-77f5-41e6-98c5-ce36db7d6b9a",
+      "type": "approval_requested",
+      "title": "Approval required",
+      "message": "Approval requested from Security Lead.",
+      "at": "2026-08-20T18:09:07.931Z",
+      "read": false,
+      "link": {
+        "view": "execution",
+        "id": "sch-wf-rotate-creds-2026-08-20"
+      }
+    },
+    {
+      "id": "n-e8b89ef2-6fb2-4099-be68-3f5225d5aa9e",
+      "type": "approval_requested",
+      "title": "Approval required",
+      "message": "Approval requested from Release Manager.",
+      "at": "2026-08-20T17:38:15.761Z",
+      "read": false,
+      "link": {
+        "view": "execution",
+        "id": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc"
+      }
+    },
+    {
+      "id": "n-seed-ex-0001-approve",
+      "type": "approval_required",
+      "title": "Approval required",
+      "message": "wf-promote-rc is waiting for approval.",
+      "at": "2026-08-19T17:43:13.637Z",
+      "read": false,
+      "link": {
+        "view": "execution",
+        "id": "seed-ex-0001"
+      }
+    }
+  ],
+  "audit": [
+    {
+      "id": "ev-105223ff-b162-41ad-a571-12bbfd3abae1",
+      "type": "approval.requested",
+      "message": "Approval requested from Release Manager.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:10.265Z",
+      "meta": null,
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-cd4c4a0d-f5cb-41a6-b73b-5df0a2b7beb6",
+      "type": "workflow.step_completed",
+      "message": "Completed: Notify affected service owners.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:10.008Z",
+      "meta": {
+        "stepId": "s3",
+        "adapter": "noop-internal",
+        "attempt": 1
+      },
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-6cdeac21-08ab-4653-be65-18b2f7b41fe0",
+      "type": "workflow.step_started",
+      "message": "Started: Notify affected service owners.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:10.004Z",
+      "meta": {
+        "stepId": "s3",
+        "attempt": 1
+      },
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-66ae7572-ecb7-40be-b373-175503b8b99b",
+      "type": "workflow.completed",
+      "message": "Execution completed successfully.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:09.748Z",
+      "meta": null,
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale"
+    },
+    {
+      "id": "ev-7f56954a-44ca-4c52-b541-0e6aabf40cdf",
+      "type": "workflow.step_completed",
+      "message": "Completed: Diff deployment manifest.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:09.490Z",
+      "meta": {
+        "stepId": "s2",
+        "adapter": "noop-internal",
+        "attempt": 1
+      },
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-ff0d04e1-8622-4406-b73f-45c41a74ccc1",
+      "type": "workflow.step_started",
+      "message": "Started: Diff deployment manifest.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:09.488Z",
+      "meta": {
+        "stepId": "s2",
+        "attempt": 1
+      },
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-b01bbafe-6e2c-419f-aec0-ffd6fb3131d1",
+      "type": "workflow.step_completed",
+      "message": "Completed: Close issues.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:09.229Z",
+      "meta": {
+        "stepId": "s3",
+        "adapter": "http",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale"
+    },
+    {
+      "id": "ev-9c91d5de-747c-49e5-8841-fa3ac43ff8fd",
+      "type": "workflow.step_started",
+      "message": "Started: Close issues.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:09.227Z",
+      "meta": {
+        "stepId": "s3",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale"
+    },
+    {
+      "id": "ev-7375a0ef-311b-4880-9358-311a7bf00f56",
+      "type": "workflow.step_completed",
+      "message": "Completed: Validate build artifacts.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:08.969Z",
+      "meta": {
+        "stepId": "s1",
+        "adapter": "noop-internal",
+        "attempt": 1
+      },
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-7c8020a0-c9a5-49b5-aecf-944c524af480",
+      "type": "workflow.step_started",
+      "message": "Started: Validate build artifacts.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:08.966Z",
+      "meta": {
+        "stepId": "s1",
+        "attempt": 1
+      },
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-e5e8079f-8c29-4a1b-af27-3752e72b66db",
+      "type": "approval.requested",
+      "message": "Approval requested from Coordination Admin.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:08.709Z",
+      "meta": null,
+      "executionId": "sch-wf-oncall-sync-2026-08-20",
+      "workflowId": "wf-oncall-sync"
+    },
+    {
+      "id": "ev-ff57d426-00dc-44a7-9c77-daa39b85248a",
+      "type": "workflow.step_completed",
+      "message": "Completed: Post explanatory comment.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:08.452Z",
+      "meta": {
+        "stepId": "s2",
+        "adapter": "http",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale"
+    },
+    {
+      "id": "ev-5b98256b-be24-45aa-9e55-cf2c3888d615",
+      "type": "workflow.step_started",
+      "message": "Started: Post explanatory comment.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:08.449Z",
+      "meta": {
+        "stepId": "s2",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale"
+    },
+    {
+      "id": "ev-30da8f5d-b308-48a0-b66a-a414ca58e95c",
+      "type": "workflow.triggered",
+      "message": "Trigger accepted: Manual.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:08.190Z",
+      "meta": null,
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-f694011d-b059-4e6c-a00d-781cd60b8bb6",
+      "type": "approval.requested",
+      "message": "Approval requested from Security Lead.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:07.931Z",
+      "meta": null,
+      "executionId": "sch-wf-rotate-creds-2026-08-20",
+      "workflowId": "wf-rotate-creds"
+    },
+    {
+      "id": "ev-f2d171fb-4fc1-4e37-9b50-9af8e52e92c2",
+      "type": "workflow.step_completed",
+      "message": "Completed: Fetch rotation source.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:07.670Z",
+      "meta": {
+        "stepId": "s1",
+        "adapter": "noop-internal",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-oncall-sync-2026-08-20",
+      "workflowId": "wf-oncall-sync"
+    },
+    {
+      "id": "ev-5a33a1ca-e950-4c9b-8c7d-29d73d649888",
+      "type": "workflow.step_started",
+      "message": "Started: Fetch rotation source.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:07.667Z",
+      "meta": {
+        "stepId": "s1",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-oncall-sync-2026-08-20",
+      "workflowId": "wf-oncall-sync"
+    },
+    {
+      "id": "ev-7308bad5-f152-402c-bed9-e662fe45a367",
+      "type": "workflow.step_completed",
+      "message": "Completed: Scan board for stale issues.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:07.399Z",
+      "meta": {
+        "stepId": "s1",
+        "adapter": "noop-internal",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale"
+    },
+    {
+      "id": "ev-8e9cfd3e-7da5-482a-a2e2-aba3504ae50e",
+      "type": "workflow.step_started",
+      "message": "Started: Scan board for stale issues.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:07.396Z",
+      "meta": {
+        "stepId": "s1",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale"
+    },
+    {
+      "id": "audit-37446c19-376f-4c5b-8b72-1d4c1aaf0782",
+      "type": "workflow.initiated",
+      "message": "Altair Admin initiated Promote Release Candidate",
+      "actor": {
+        "id": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
+        "name": "Altair Admin",
+        "role": "admin"
+      },
+      "at": "2026-08-20T18:09:07.371Z",
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "workflowId": "wf-promote-rc",
+      "meta": null
+    },
+    {
+      "id": "ev-8ec35976-8feb-4e6a-b609-2e3cfabf7c63",
+      "type": "workflow.step_completed",
+      "message": "Completed: Generate new credential.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:07.137Z",
+      "meta": {
+        "stepId": "s1",
+        "adapter": "noop-internal",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-rotate-creds-2026-08-20",
+      "workflowId": "wf-rotate-creds"
+    },
+    {
+      "id": "ev-ae99bc9a-4659-4893-8acb-c80b8ef95302",
+      "type": "workflow.step_started",
+      "message": "Started: Generate new credential.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T18:09:07.134Z",
+      "meta": {
+        "stepId": "s1",
+        "attempt": 1
+      },
+      "executionId": "sch-wf-rotate-creds-2026-08-20",
+      "workflowId": "wf-rotate-creds"
+    },
+    {
+      "id": "ev-26d883fa-25aa-4e51-8024-9d285ed99a70",
+      "type": "approval.requested",
+      "message": "Approval requested from Release Manager.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:15.761Z",
+      "meta": null,
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-4e0dfdda-a28a-40dc-b081-3748f2710ec3",
+      "type": "workflow.triggered",
+      "message": "Trigger accepted: Scheduled.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:15.500Z",
+      "meta": null,
+      "executionId": "sch-wf-oncall-sync-2026-08-20",
+      "workflowId": "wf-oncall-sync"
+    },
+    {
+      "id": "ev-b27ed6e6-1dd2-413b-83a4-b2f31302c736",
+      "type": "workflow.triggered",
+      "message": "Trigger accepted: Scheduled.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:15.241Z",
+      "meta": null,
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale"
+    },
+    {
+      "id": "ev-39b1bbf1-1383-4d7e-ba52-4d24f9975a46",
+      "type": "workflow.triggered",
+      "message": "Trigger accepted: Scheduled / Manual.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.983Z",
+      "meta": null,
+      "executionId": "sch-wf-rotate-creds-2026-08-20",
+      "workflowId": "wf-rotate-creds"
+    },
+    {
+      "id": "ev-a01479c3-1dee-4a1d-b218-071ddc396a54",
+      "type": "workflow.step_completed",
+      "message": "Completed: Notify affected service owners.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.723Z",
+      "meta": {
+        "stepId": "s3",
+        "adapter": "noop-internal",
+        "attempt": 1
+      },
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-a066c101-b78e-4a6d-aa48-b432952f3b78",
+      "type": "workflow.step_started",
+      "message": "Started: Notify affected service owners.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.721Z",
+      "meta": {
+        "stepId": "s3",
+        "attempt": 1
+      },
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "audit-e4d11c1a-b8f5-43b8-b506-66195c353a98",
+      "type": "workflow.initiated",
+      "message": "Altair Scheduler initiated Sync On-call Schedule",
+      "actor": {
+        "id": "scheduler",
+        "name": "Altair Scheduler",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.703Z",
+      "executionId": "sch-wf-oncall-sync-2026-08-20",
+      "workflowId": "wf-oncall-sync",
+      "meta": null
+    },
+    {
+      "id": "audit-6a77708a-61fa-4994-aa08-105af5182159",
+      "type": "workflow.initiated",
+      "message": "Altair Scheduler initiated Close Stale Sprint Issues",
+      "actor": {
+        "id": "scheduler",
+        "name": "Altair Scheduler",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.699Z",
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "workflowId": "wf-close-stale",
+      "meta": null
+    },
+    {
+      "id": "audit-9f550906-6329-46d3-a8e8-c1322b586632",
+      "type": "workflow.initiated",
+      "message": "Altair Scheduler initiated Rotate Service Credentials",
+      "actor": {
+        "id": "scheduler",
+        "name": "Altair Scheduler",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.694Z",
+      "executionId": "sch-wf-rotate-creds-2026-08-20",
+      "workflowId": "wf-rotate-creds",
+      "meta": null
+    },
+    {
+      "id": "ev-218a4674-ed88-43e2-951a-62c1dbd3e424",
+      "type": "workflow.step_completed",
+      "message": "Completed: Diff deployment manifest.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.464Z",
+      "meta": {
+        "stepId": "s2",
+        "adapter": "noop-internal",
+        "attempt": 1
+      },
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-10cb074d-c2ad-4491-9b46-f83a979d48e8",
+      "type": "workflow.step_started",
+      "message": "Started: Diff deployment manifest.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.462Z",
+      "meta": {
+        "stepId": "s2",
+        "attempt": 1
+      },
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-f1564d2e-ab37-4adf-bc6e-881d0dc9e899",
+      "type": "workflow.step_completed",
+      "message": "Completed: Validate build artifacts.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.205Z",
+      "meta": {
+        "stepId": "s1",
+        "adapter": "noop-internal",
+        "attempt": 1
+      },
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-e365fbc5-04b4-45cc-8b54-ca27c92f4529",
+      "type": "workflow.step_started",
+      "message": "Started: Validate build artifacts.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:14.203Z",
+      "meta": {
+        "stepId": "s1",
+        "attempt": 1
+      },
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "ev-3a2826fc-7498-4786-8270-26fb3a822eeb",
+      "type": "workflow.triggered",
+      "message": "Trigger accepted: Manual.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-20T17:38:13.947Z",
+      "meta": null,
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc"
+    },
+    {
+      "id": "audit-00539aae-e07a-4190-9f68-50a25a003985",
+      "type": "workflow.initiated",
+      "message": "Altair Admin initiated Promote Release Candidate",
+      "actor": {
+        "id": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
+        "name": "Altair Admin",
+        "role": "admin"
+      },
+      "at": "2026-08-20T17:38:13.862Z",
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "workflowId": "wf-promote-rc",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0001-1",
+      "type": "workflow.initiated",
+      "message": "Wei Chen initiated Promote Release Candidate.",
+      "actor": {
+        "id": "u-wei",
+        "name": "Wei Chen",
+        "role": "Release Manager",
+        "team": "Release Engineering"
+      },
+      "at": "2026-08-19T17:38:13.637Z",
+      "executionId": "seed-ex-0001",
+      "workflowId": "wf-promote-rc",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0001-2",
+      "type": "approval.requested",
+      "message": "Approval requested from Release Manager.",
+      "actor": {
+        "id": "u-wei",
+        "name": "Wei Chen",
+        "role": "Release Manager",
+        "team": "Release Engineering"
+      },
+      "at": "2026-08-19T17:43:13.637Z",
+      "executionId": "seed-ex-0001",
+      "workflowId": "wf-promote-rc",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0002-1",
+      "type": "workflow.initiated",
+      "message": "Jordan Ackerman initiated Provision Repository Access.",
+      "actor": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "at": "2026-08-18T17:38:13.637Z",
+      "executionId": "seed-ex-0002",
+      "workflowId": "wf-repo-access",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0002-2",
+      "type": "approval.completed",
+      "message": "Approval completed by Repository Owner.",
+      "actor": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "at": "2026-08-18T17:43:13.637Z",
+      "executionId": "seed-ex-0002",
+      "workflowId": "wf-repo-access",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0002-3",
+      "type": "workflow.completed",
+      "message": "Execution completed successfully.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-18T17:53:13.637Z",
+      "executionId": "seed-ex-0002",
+      "workflowId": "wf-repo-access",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0003-1",
+      "type": "workflow.initiated",
+      "message": "Jordan Ackerman initiated Archive Deprecated Repository.",
+      "actor": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "at": "2026-08-17T17:38:13.637Z",
+      "executionId": "seed-ex-0003",
+      "workflowId": "wf-archive-repo",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0003-2",
+      "type": "approval.completed",
+      "message": "Approval completed by Engineering Manager.",
+      "actor": {
+        "id": "u-jordan",
+        "name": "Jordan Ackerman",
+        "role": "Eng Manager",
+        "team": "Platform"
+      },
+      "at": "2026-08-17T17:43:13.637Z",
+      "executionId": "seed-ex-0003",
+      "workflowId": "wf-archive-repo",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0003-3",
+      "type": "workflow.completed",
+      "message": "Execution completed successfully.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-17T17:53:13.637Z",
+      "executionId": "seed-ex-0003",
+      "workflowId": "wf-archive-repo",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0004-1",
+      "type": "workflow.initiated",
+      "message": "Lena Kovac initiated Publish API Documentation.",
+      "actor": {
+        "id": "u-lena",
+        "name": "Lena Kovac",
+        "role": "SRE",
+        "team": "Infrastructure"
+      },
+      "at": "2026-08-16T17:38:13.637Z",
+      "executionId": "seed-ex-0004",
+      "workflowId": "wf-publish-docs",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0004-3",
+      "type": "workflow.completed",
+      "message": "Execution completed successfully.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-16T17:53:13.637Z",
+      "executionId": "seed-ex-0004",
+      "workflowId": "wf-publish-docs",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0005-1",
+      "type": "workflow.initiated",
+      "message": "Sam Okafor initiated Deprecate Public API Endpoint.",
+      "actor": {
+        "id": "u-sam",
+        "name": "Sam Okafor",
+        "role": "Security Lead",
+        "team": "AppSec"
+      },
+      "at": "2026-08-15T17:38:13.637Z",
+      "executionId": "seed-ex-0005",
+      "workflowId": "wf-deprecate-endpoint",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0005-2",
+      "type": "approval.completed",
+      "message": "Approval completed by API Governance Lead.",
+      "actor": {
+        "id": "u-sam",
+        "name": "Sam Okafor",
+        "role": "Security Lead",
+        "team": "AppSec"
+      },
+      "at": "2026-08-15T17:43:13.637Z",
+      "executionId": "seed-ex-0005",
+      "workflowId": "wf-deprecate-endpoint",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0005-3",
+      "type": "workflow.completed",
+      "message": "Execution completed successfully.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-15T17:53:13.637Z",
+      "executionId": "seed-ex-0005",
+      "workflowId": "wf-deprecate-endpoint",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0006-1",
+      "type": "workflow.initiated",
+      "message": "Sam Okafor initiated Rotate Service Credentials.",
+      "actor": {
+        "id": "u-sam",
+        "name": "Sam Okafor",
+        "role": "Security Lead",
+        "team": "AppSec"
+      },
+      "at": "2026-08-14T17:38:13.637Z",
+      "executionId": "seed-ex-0006",
+      "workflowId": "wf-rotate-creds",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0006-2",
+      "type": "approval.completed",
+      "message": "Approval completed by Security Lead.",
+      "actor": {
+        "id": "u-sam",
+        "name": "Sam Okafor",
+        "role": "Security Lead",
+        "team": "AppSec"
+      },
+      "at": "2026-08-14T17:43:13.637Z",
+      "executionId": "seed-ex-0006",
+      "workflowId": "wf-rotate-creds",
+      "meta": null
+    },
+    {
+      "id": "seed-ex-0006-3",
+      "type": "workflow.completed",
+      "message": "Execution completed successfully.",
+      "actor": {
+        "id": "sys-altair",
+        "name": "Altair",
+        "role": "system"
+      },
+      "at": "2026-08-14T17:53:13.637Z",
+      "executionId": "seed-ex-0006",
+      "workflowId": "wf-rotate-creds",
+      "meta": null
+    }
+  ],
+  "jobs": [
+    {
+      "id": "job-cdffdb9d-3c7b-4168-ae50-3d1a3f17cad0",
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "stepIndex": 0,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247493865,
+      "createdAt": "2026-08-20T17:38:13.865Z",
+      "finishedAt": "2026-08-20T17:38:13.949Z"
+    },
+    {
+      "id": "job-4199c6f5-8ae9-4ca1-ba0b-4bd154c70999",
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "stepIndex": 1,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247493950,
+      "createdAt": "2026-08-20T17:38:13.950Z",
+      "finishedAt": "2026-08-20T17:38:14.207Z"
+    },
+    {
+      "id": "job-19b0601d-57e4-4ac9-b83b-690af2ba1c4e",
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "stepIndex": 2,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247494208,
+      "createdAt": "2026-08-20T17:38:14.208Z",
+      "finishedAt": "2026-08-20T17:38:14.466Z"
+    },
+    {
+      "id": "job-079ed5de-dd7b-4099-bf9e-60eb54720ec8",
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "stepIndex": 3,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247494467,
+      "createdAt": "2026-08-20T17:38:14.467Z",
+      "finishedAt": "2026-08-20T17:38:14.725Z"
+    },
+    {
+      "id": "job-f651fae1-9548-49da-be3b-715e0d2221a1",
+      "executionId": "sch-wf-rotate-creds-2026-08-20",
+      "stepIndex": 0,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247494696,
+      "createdAt": "2026-08-20T17:38:14.696Z",
+      "finishedAt": "2026-08-20T17:38:14.985Z"
+    },
+    {
+      "id": "job-d2653a26-bab0-4bc4-83d7-fd8dc64586cf",
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "stepIndex": 0,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247494701,
+      "createdAt": "2026-08-20T17:38:14.701Z",
+      "finishedAt": "2026-08-20T17:38:15.242Z"
+    },
+    {
+      "id": "job-6c379efc-8a2d-4237-8c08-a5186b007906",
+      "executionId": "sch-wf-oncall-sync-2026-08-20",
+      "stepIndex": 0,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247494705,
+      "createdAt": "2026-08-20T17:38:14.705Z",
+      "finishedAt": "2026-08-20T17:38:15.502Z"
+    },
+    {
+      "id": "job-fe718239-7203-40e7-8cb4-a42a4ededa71",
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "stepIndex": 4,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247494727,
+      "createdAt": "2026-08-20T17:38:14.727Z",
+      "finishedAt": "2026-08-20T17:38:15.762Z"
+    },
+    {
+      "id": "job-c036d971-9c9c-4a59-9be8-a01824976bfd",
+      "executionId": "sch-wf-rotate-creds-2026-08-20",
+      "stepIndex": 1,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247494986,
+      "createdAt": "2026-08-20T17:38:14.986Z",
+      "finishedAt": "2026-08-20T18:09:07.138Z"
+    },
+    {
+      "id": "job-f4175863-74bb-4b62-b523-a3151107c27c",
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "stepIndex": 1,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247495243,
+      "createdAt": "2026-08-20T17:38:15.243Z",
+      "finishedAt": "2026-08-20T18:09:07.401Z"
+    },
+    {
+      "id": "job-9ba7e5de-0de1-4905-8232-80bfac8099d9",
+      "executionId": "sch-wf-oncall-sync-2026-08-20",
+      "stepIndex": 1,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787247495503,
+      "createdAt": "2026-08-20T17:38:15.503Z",
+      "finishedAt": "2026-08-20T18:09:07.672Z"
+    },
+    {
+      "id": "job-8d22ac42-2500-42e3-8495-e08641b7ce57",
+      "executionId": "sch-wf-rotate-creds-2026-08-20",
+      "stepIndex": 2,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249347140,
+      "createdAt": "2026-08-20T18:09:07.140Z",
+      "finishedAt": "2026-08-20T18:09:07.934Z"
+    },
+    {
+      "id": "job-14095be4-b8a0-4bce-b7dc-9ac8eb2a4e14",
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "stepIndex": 0,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249347374,
+      "createdAt": "2026-08-20T18:09:07.374Z",
+      "finishedAt": "2026-08-20T18:09:08.192Z"
+    },
+    {
+      "id": "job-8aabafb8-ea22-4e88-b2c9-761cc67c4b9d",
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "stepIndex": 2,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249347402,
+      "createdAt": "2026-08-20T18:09:07.402Z",
+      "finishedAt": "2026-08-20T18:09:08.453Z"
+    },
+    {
+      "id": "job-58f4290d-9d0a-477a-9851-a6c035918ae0",
+      "executionId": "sch-wf-oncall-sync-2026-08-20",
+      "stepIndex": 2,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249347673,
+      "createdAt": "2026-08-20T18:09:07.673Z",
+      "finishedAt": "2026-08-20T18:09:08.711Z"
+    },
+    {
+      "id": "job-45bec218-3f99-4470-9c5e-f8464415cec3",
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "stepIndex": 1,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249348193,
+      "createdAt": "2026-08-20T18:09:08.193Z",
+      "finishedAt": "2026-08-20T18:09:08.971Z"
+    },
+    {
+      "id": "job-e1672637-1755-47f6-926b-09b0544aaa6f",
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "stepIndex": 3,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249348455,
+      "createdAt": "2026-08-20T18:09:08.455Z",
+      "finishedAt": "2026-08-20T18:09:09.232Z"
+    },
+    {
+      "id": "job-73e7deac-5de0-48d7-a534-5dd5e1478cd0",
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "stepIndex": 2,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249348973,
+      "createdAt": "2026-08-20T18:09:08.973Z",
+      "finishedAt": "2026-08-20T18:09:09.493Z"
+    },
+    {
+      "id": "job-848bb9e2-f44d-487e-9d86-e50509a4384e",
+      "executionId": "sch-wf-close-stale-2026-08-20",
+      "stepIndex": 4,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249349233,
+      "createdAt": "2026-08-20T18:09:09.233Z",
+      "finishedAt": "2026-08-20T18:09:09.750Z"
+    },
+    {
+      "id": "job-31f17e64-fb81-490b-be99-f94d3fdf614f",
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "stepIndex": 3,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249349494,
+      "createdAt": "2026-08-20T18:09:09.494Z",
+      "finishedAt": "2026-08-20T18:09:10.009Z"
+    },
+    {
+      "id": "job-20b7c737-80e7-4311-be71-dbaf7f0e29c2",
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "stepIndex": 4,
+      "attempt": 1,
+      "status": "completed",
+      "availableAt": 1787249350011,
+      "createdAt": "2026-08-20T18:09:10.011Z",
+      "finishedAt": "2026-08-20T18:09:10.267Z"
+    }
+  ],
+  "idempotency": [
+    {
+      "userId": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
+      "key": "test-1787247493858",
+      "executionId": "ex-11b8eb62-73d4-4fe0-a925-a3b55d873afc",
+      "createdAt": "2026-08-20T17:38:13.864Z"
+    },
+    {
+      "userId": "usr-fbc7c353-d451-4ca4-a36e-54e5e7aa3df2",
+      "key": "test-1787249347365",
+      "executionId": "ex-0206b5d0-4086-4849-81c3-29909061f785",
+      "createdAt": "2026-08-20T18:09:07.373Z"
+    }
+  ]
+}

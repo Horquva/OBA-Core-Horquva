@@ -1,0 +1,26 @@
+{
+  "name": "altair-platform",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server/index.js",
+    "start": "node server/index.js",
+    "test": "node --test server/*.test.js",
+    "test:unit": "node --test server/security.test.js",
+    "test:integration": "node --test server/integration.test.js",
+    "dev:all": "node scripts/dev-all.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.383.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.2.0"
+  }
+}
