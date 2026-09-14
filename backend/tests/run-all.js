@@ -1,5 +1,5 @@
-/*
- * OBA Core — Run all MVP tests in sequence.
+﻿/*
+ * OBA Core â€” Run all MVP tests in sequence.
  * Run from the backend/ folder:  node tests/run-all.js
  * To include the live API test:   BASE_URL=https://horquva-oba-core.vercel.app node tests/run-all.js
  */
@@ -27,6 +27,7 @@ const tests = [
 	'graphRoutes.test.js', // HTTP-level; stubs brain, so it runs offline
 	'simulationRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-I)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
+	'agentData.unit.test.js', // Tasks 10.6 and 12.7 - turn context and page context
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
 if (process.env.BASE_URL) tests.push('api.smoke.test.js')
@@ -43,3 +44,5 @@ console.log('\n========================================')
 console.log(failedSuites === 0 ? 'ALL TEST SUITES PASSED \u2705' : (failedSuites + ' SUITE(S) FAILED \u274c'))
 console.log('========================================\n')
 process.exit(failedSuites === 0 ? 0 : 1)
+
+
