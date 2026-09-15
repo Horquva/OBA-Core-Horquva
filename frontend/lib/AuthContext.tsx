@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE, authApi } from '@/lib/api';
+import { TOKEN_KEY, USER_KEY } from '@/lib/authFetch';
 
 export interface AuthUser {
   id: string;
@@ -21,9 +22,6 @@ interface AuthContextValue {
   logout: () => void;
 }
 
-const TOKEN_KEY = 'horquva-token';
-const USER_KEY = 'horquva-user';
-
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -39,6 +37,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const u = localStorage.getItem(USER_KEY);
         if (t) setToken(t);
         if (u) setUser(JSON.parse(u));
+
+        // F-10: a stored token used to be trusted forever, with nothing
+        // checking it was still valid server-side after login. This is a
+        // pure validation ping -- its response shape has no `name`/`id` to
+        // refresh `user` from, so the result is intentionally unused. A
+        // rejected token 401s, and request()'s global handler (lib/api.ts)
+        // clears storage and sends the user to /login from there.
+        if (t) authApi.me().catch(() => {});
       } catch {}
       setLoading(false);
     });

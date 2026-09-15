@@ -115,3 +115,23 @@ jobs:
           fi
 
           echo "Required security checks passed."
+  frontend-checks:
+    name: Frontend typecheck + lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      # The 106-error pre-existing backlog `npm run lint` used to report was
+      # cleared to 0 (commit 1c10b4c) — gate it now instead of leaving CI
+      # unable to catch a regression back into that backlog.
+      - run: npm run lint
+

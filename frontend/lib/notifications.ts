@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NotificationItem, NotificationGroup, NotificationSeverity } from '../types/notification';
-import { authHeader } from './authFetch';
-
-const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
+import { request } from './api';
 
 function timeAgo(iso?: string | null): string {
   if (!iso) return '';
@@ -35,12 +33,7 @@ function titleCase(s: string): string {
 }
 
 async function safeJson<T>(path: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${BASE}${path}`, { cache: 'no-store', headers: authHeader() });
-    return res.ok ? await res.json() : null;
-  } catch {
-    return null;
-  }
+  return request<T>(path, { cache: 'no-store' }).catch(() => null);
 }
 
 interface EscalationRaw {
@@ -162,18 +155,30 @@ export async function fetchLiveNotifications(): Promise<NotificationItem[]> {
   return items
 }
 
-/** Client hook — fetches once on mount. Used by both the slide-out panel and /notifications. */
-export function useLiveNotifications() {
+/**
+ * Client hook. `/notifications` wants this fetched immediately (its only
+ * job), so `enabled` defaults to true. `GlobalNotificationPanel` passes
+ * `isNotificationPanelOpen` instead — the four source fetches this triggers
+ * (avatar/governance/self-healing/continuity) then only happen the first
+ * time a user actually opens the panel, not on every page's initial mount.
+ * `fetchedRef` is read and written only inside the effect (never during
+ * render), so closing and reopening the panel re-runs the effect but does
+ * not re-fetch.
+ */
+export function useLiveNotifications(enabled: boolean = true) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
+  const fetchedRef = useRef(false)
 
   useEffect(() => {
+    if (!enabled || fetchedRef.current) return
+    fetchedRef.current = true
     let cancelled = false
     fetchLiveNotifications()
       .then((items) => { if (!cancelled) setNotifications(items) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [])
+  }, [enabled])
 
   return { notifications, loading }
 }

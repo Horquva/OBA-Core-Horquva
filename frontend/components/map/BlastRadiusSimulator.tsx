@@ -66,6 +66,8 @@ const RISK_COLOR: Record<RiskLevel, string> = {
   high:     'text-orange-400 bg-orange-500/10 border-orange-500/20',
   medium:   'text-amber-400 bg-amber-500/10 border-amber-500/20',
   low:      'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+  // F-11: not on the low->critical scale -- nobody scored this agent.
+  unknown:  'text-[color:var(--text-tertiary)] bg-[var(--border-subtle)] border-[var(--border-default)]',
 };
 
 export function BlastRadiusSimulator({ agents, dependencies, riskByAgentName }: Props) {
@@ -147,7 +149,7 @@ export function BlastRadiusSimulator({ agents, dependencies, riskByAgentName }: 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {cascade.map((node, i) => {
               const risk = riskByAgentName.get(node.agentName);
-              const tier = risk?.threatLevel ?? 'low';
+              const tier = risk?.threatLevel ?? 'unknown';
               return (
                 <div
                   key={i}

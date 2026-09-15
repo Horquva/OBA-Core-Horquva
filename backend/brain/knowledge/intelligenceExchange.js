@@ -6,9 +6,13 @@
  * exchanges a structured Intelligence Package: source, type, confidence,
  * evidence, recommendations, relationships, context, timestamp, version.
  *
- * This is the common structure every analysis returns, and how M11/M23/M24/M48/
- * M50/M55 read each other's output. Provides schema validation and confidence
- * fusion.
+ * This is the common structure every analysis returns. Provides schema
+ * validation and confidence fusion (`runMany()`'s fusedConfidence). The six
+ * modules that used to read each other's output through this shape — M11,
+ * M23, M24, M48, M50, M55 — were retired 2026-09-02 (see
+ * data/constitutional-modules.js); the dependency-ordering machinery this
+ * protocol rides on is kept regardless, since `dependsOn` still expresses
+ * real prerequisite structure among the 24 modules that remain.
  *
  * The publish/subscribe IntelligenceBus that used to live here was removed with
  * the runtime: its only readers were four analyses reporting on the log of Brain
@@ -42,6 +46,21 @@ function createIntelligence({
   context = {},
   consumers = [],
   version = '1.0.0',
+  // F-9: mirrors derived.js's pillars().definitionsAreAuthored -- true only
+  // for a module whose headline number is built from invented weights or
+  // thresholds (e.g. M45's benchmark targets, M03/M18's severity weights)
+  // rather than a measured structural fact (M01's ownership coverage, M02's
+  // dependency count). Named loudly so nobody mistakes an authored metric
+  // for a measured one.
+  authored = false,
+  // Section 06: one sentence naming exactly what population and computation
+  // this module's headline number covers. Several catalog names collide
+  // with a same-named SQL surface that answers a structurally different
+  // question over a different population (M03's SPOF count is every asset
+  // type; GET /api/dependencies/agent-spofs is agents only -- both correctly
+  // called "SPOF", both real, disagreeing numbers). `definition` is how a
+  // reader tells which one they're looking at without reading source.
+  definition = '',
 }) {
   if (!/^M[0-9]{2}$/.test(sourceModule || '')) {
     throw new Error(`Intelligence contract violation: invalid sourceModule "${sourceModule}"`)
@@ -61,6 +80,8 @@ function createIntelligence({
     context,
     consumers,
     version,
+    authored: !!authored,
+    definition: String(definition || ''),
     timestamp: new Date().toISOString(),
   }
 }

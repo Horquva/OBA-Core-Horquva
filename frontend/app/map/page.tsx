@@ -7,10 +7,11 @@ import { DependencyTable } from '../../components/map/DependencyTable';
 import { BlastRadiusSimulator } from '../../components/map/BlastRadiusSimulator';
 import { DependencyEvolutionTab } from '../../components/map/DependencyEvolutionTab';
 import { HiddenDependencyOverlay } from '../../components/map/HiddenDependencyOverlay';
-import { authHeader } from '../../lib/authFetch';
-import { normalizeAgent } from '../../lib/normalize';
+import { request, predictiveApi, ApiError } from '../../lib/api';
+import { normalizeAgent, RawAgent } from '../../lib/normalize';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { Agent, Dependency } from '../../types';
+import { UnavailableBanner } from '../../components/ui/UnavailableBanner';
 
 interface AgentSpofsResponse {
   spofs: { agentId: number; name: string; victimsCount: number }[];
@@ -31,30 +32,29 @@ export default function DependencyMapPage() {
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [spofData, setSpofData] = useState<AgentSpofsResponse | null>(null);
   const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
+  const [predictiveRiskUnavailable, setPredictiveRiskUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load agents');
-        return r.json();
+      request<RawAgent[]>('/api/agents'),
+      request<{ dependencies: RawDependency[] }>('/api/dependencies'),
+      // Server-computed — the canonical SPOF definition (sole owner, no
+      // backup, criticality >= high; see domain/definitions.js's
+      // spofVerdict()) lives in backend/routes/dependencies.js instead of
+      // being reimplemented here and in every component that needs to know
+      // which agents are SPOFs.
+      request<AgentSpofsResponse>('/api/dependencies/agent-spofs'),
+      // Soft fallback: agents/dependencies/SPOFs are this page's own
+      // dataset (an outage there fails the page, below), predictive risk is
+      // a supplementary overlay -- losing it means every agent's risk badge
+      // falls back to its own 'low' default (F-11) rather than blanking the
+      // map. predictiveRiskUnavailable makes that degrade visible (F-12).
+      predictiveApi.agents().catch(() => {
+        setPredictiveRiskUnavailable(true);
+        return [];
       }),
-      fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load dependencies');
-        return r.json();
-      }),
-      // Server-computed — same SPOF definition (>=3 downstream, no backup
-      // owner, high/critical) now lives in backend/routes/dependencies.js
-      // instead of being reimplemented here and in every component that
-      // needs to know which agents are SPOFs.
-      fetch(`${base}/api/dependencies/agent-spofs`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load SPOF analysis');
-        return r.json();
-      }),
-      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
     ])
     .then(([agentsData, depsData, spofsData, predictiveData]) => {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
@@ -66,7 +66,11 @@ export default function DependencyMapPage() {
           .map((d: RawDependency) => ({
             from: d.source_id?.toString() || '',
             to: d.target_id?.toString() || '',
-            type: d.dependency_type || 'sequential',
+            // 'sequential' was a leftover from the old sunrise_care.json
+            // vocabulary (types/index.ts's own comment) and isn't a valid
+            // Dependency['type'] value -- 'normal' is company.json's actual
+            // low-severity default.
+            type: (d.dependency_type || 'normal') as Dependency['type'],
           }))
         : [];
 
@@ -74,8 +78,8 @@ export default function DependencyMapPage() {
       setDependencies(mappedDeps);
       setSpofData(spofsData);
     })
-    .catch((err) => {
-      setError(err.message);
+    .catch((err: unknown) => {
+      setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to load dependency map data');
     })
     .finally(() => {
       setLoading(false);
@@ -117,6 +121,12 @@ export default function DependencyMapPage() {
           Map how agents depend on each other, detect single points of failure, and simulate cascading risks.
         </p>
       </div>
+
+      {predictiveRiskUnavailable && (
+        <div className="mb-8">
+          <UnavailableBanner label="Predictive risk scores" />
+        </div>
+      )}
 
       <DependencyKPIs
         totalAgents={agents.length}

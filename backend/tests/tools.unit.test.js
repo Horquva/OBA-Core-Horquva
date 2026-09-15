@@ -9,6 +9,12 @@
  * Run from backend/:  node tests/tools.unit.test.js
  */
 
+// routes/tools.js constructs the Supabase client at module load time and
+// throws if SUPABASE_URL/KEY are unset. This test only exercises the pure
+// scoring functions below on hand-built objects — it never calls Supabase.
+process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co'
+process.env.SUPABASE_KEY = process.env.SUPABASE_KEY || 'placeholder-key'
+
 const { computeToolRiskScore, toolRiskTier, TOOL_RISK_WEIGHTS } = require('../routes/tools')
 
 let passed = 0

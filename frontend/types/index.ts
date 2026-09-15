@@ -1,4 +1,10 @@
-export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+// F-11: 'unknown' is not a fifth severity -- it is the absence of a score
+// (an agent/tool never assessed, or a lookup miss against a scored map).
+// Before this, every consumer of a missing score fell back to 'low' --
+// the safest-looking possible value for data nobody actually looked at,
+// the exact anti-pattern the backend's `unknown` sentinel
+// (backend/domain/definitions.js) exists to prevent. See lib/criticality.ts.
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical' | 'unknown';
 
 export interface Agent {
   id: string;
@@ -8,6 +14,14 @@ export interface Agent {
   criticality: RiskLevel;
   department: string;
   documented: boolean;
+}
+
+/** GET /api/employees row — used for the assign-owner dropdown (DATA-1). */
+export interface Employee {
+  id: number;
+  name: string;
+  role?: string;
+  department?: string;
 }
 
 export interface Dependency {

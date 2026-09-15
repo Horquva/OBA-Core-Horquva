@@ -2,7 +2,9 @@ import { AITool, Workflow, Agent } from '../types';
 
 // ─── Risk Tier ───────────────────────────────────────────────────────────────
 
-export type ToolRiskTier = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+// F-11: 'UNKNOWN' for a tool whose score lookup missed (fetch failure) --
+// not the same claim as 'LOW', mirroring types/index.ts's RiskLevel.
+export type ToolRiskTier = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'UNKNOWN';
 
 export interface ToolRiskFactor {
   label: string;
@@ -164,7 +166,7 @@ export function computeAIToolIntelligence(
     return {
       tool,
       compositeScore: scored?.compositeScore ?? 0,
-      tier: scored?.tier ?? 'LOW',
+      tier: scored?.tier ?? 'UNKNOWN',
       isCriticalByRule: scored?.isCriticalByRule ?? false,
       hasNoBackup,
       hasNoPolicy,

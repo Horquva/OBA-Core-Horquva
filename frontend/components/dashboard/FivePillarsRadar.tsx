@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Network, AlertTriangle } from 'lucide-react';
 import { TruthBadge } from './TruthBadge';
-import { authHeader } from '../../lib/authFetch';
+import { request } from '../../lib/api';
 
 interface Pillar {
   label: string;
@@ -70,17 +70,14 @@ export function FivePillarsRadar() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     // Orchestrator modules have reliable per-pillar scores. A /api/intelligence/truth
     // fallback used to sit here for when this call failed, but truth's actual
     // response shape ({ totalClaims, verdictBreakdown, trustScore, entitiesChecked,
     // report }) has neither a `pillars` nor a `results` array, so the fallback's
     // `if (!built.length) throw` fired on every single use — it was unreachable
     // dead code that only ever produced the same error the primary fetch already had.
-    fetch(`${base}/api/intelligence/orchestrator/modules`, { headers: authHeader() })
-      .then(r => r.json())
-      .then((data: { modules?: { key: string; score: number }[] }) => {
+    request<{ modules?: { key: string; score: number }[] }>('/api/intelligence/orchestrator/modules')
+      .then((data) => {
         if (!data.modules?.length) throw new Error('no modules');
 
         const API_KEY_MAP: Record<string, string> = {
@@ -107,7 +104,7 @@ export function FivePillarsRadar() {
         return built;
       })
       .then(setPillars)
-      .catch((e) => setError(e?.message ?? 'Pillar data unavailable'))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Pillar data unavailable'))
       .finally(() => setLoading(false));
   }, []);
 

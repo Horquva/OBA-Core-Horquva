@@ -23,9 +23,9 @@ require('dotenv').config({ path: path.join(__dirname, '.env') })
 const DRY_RUN = process.argv.includes('--dry-run')
 const BASELINE = process.argv.includes('--baseline')
 
-/** schema.sql first — it defines escalation_logs, verification_logs,
- *  orchestration_state, execution_intents and execution_mode, which exist
- *  nowhere else — then sql/*.sql in filename order. */
+/** schema.sql first — it defines escalation_logs, execution_mode and
+ *  execution_intents, which exist nowhere else — then sql/*.sql in filename
+ *  order. */
 function migrationFiles() {
   const files = []
   const root = path.join(__dirname, 'schema.sql')

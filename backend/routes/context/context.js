@@ -55,37 +55,6 @@ async function fetchByType(contextType) {
 }
 
 // ─────────────────────────────────────────────
-// GET /api/context/summary
-// ─────────────────────────────────────────────
-
-router.get('/summary', async (req, res) => {
-  try {
-    const items = await fetchOpenItems()
-
-    const byType = items.reduce((acc, i) => {
-      acc[i.context_type] = (acc[i.context_type] || 0) + 1
-      return acc
-    }, {})
-
-    const byUrgency = items.reduce((acc, i) => {
-      acc[i.urgency] = (acc[i.urgency] || 0) + 1
-      return acc
-    }, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 })
-
-    const topItem = items[0]
-
-    res.json({
-      totalContextItems: items.length,
-      byType,
-      byUrgency,
-      topPriorityItem: topItem ? formatItem(topItem) : null
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
 // GET /api/context/feed
 // The ranked "What Matters Right Now" feed
 // ─────────────────────────────────────────────
@@ -100,30 +69,6 @@ router.get('/feed', async (req, res) => {
         rank: index + 1,
         ...formatItem(item)
       }))
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
-// GET /api/context/critical
-// ─────────────────────────────────────────────
-
-router.get('/critical', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('context_items')
-      .select('*')
-      .eq('urgency', 'CRITICAL')
-      .eq('status', 'open')
-      .order('blast_radius', { ascending: false })
-
-    if (error) throw new Error(error.message)
-
-    res.json({
-      totalCritical: data.length,
-      items: data.map(formatItem)
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

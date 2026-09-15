@@ -31,42 +31,6 @@ CREATE TABLE IF NOT EXISTS truth_claims (
 );
 
 -- ────────────────────────────────────────────────
--- 2. EXECUTIVE MEMORY
--- ────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS executive_memory_items (
-  id              SERIAL PRIMARY KEY,
-  memory_type     TEXT,          -- 'lesson' | 'hero_risk' | 'repeat_offender' | 'bad_decision'
-  title           TEXT,
-  description     TEXT,
-  entity_name     TEXT,
-  relevance_score NUMERIC,
-  severity        TEXT,          -- 'low' | 'medium' | 'high' | 'critical'
-  source_module   TEXT,
-  is_recurring    BOOLEAN DEFAULT false,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS incident_patterns (
-  id               SERIAL PRIMARY KEY,
-  pattern_name     TEXT,
-  failure_type     TEXT,
-  occurrence_count INT,
-  affected_entities TEXT[],
-  first_seen       TIMESTAMPTZ,
-  last_seen        TIMESTAMPTZ
-);
-
-CREATE TABLE IF NOT EXISTS hero_dependencies (
-  id               SERIAL PRIMARY KEY,
-  person_name      TEXT,
-  department       TEXT,
-  resolution_count INT,
-  risk_level       TEXT,          -- 'low' | 'medium' | 'high' | 'critical'
-  description      TEXT
-);
-
--- ────────────────────────────────────────────────
 -- 3. DECISION SUPPORT
 -- ────────────────────────────────────────────────
 
@@ -200,26 +164,6 @@ CREATE TABLE IF NOT EXISTS voice_history (
   answer          TEXT,
   confidence      TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS voice_daily_summary (
-  id         SERIAL PRIMARY KEY,
-  summary    TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ────────────────────────────────────────────────
--- 8. INTELLIGENCE RESULTS  (cross-module aggregation)
--- ────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS intelligence_results (
-  id          SERIAL PRIMARY KEY,
-  result_type TEXT,   -- 'pillar' | 'overall'
-  result_key  TEXT,   -- 'GI' | 'MI' | 'DI' | 'org_score'
-  score       INT,
-  rating      TEXT,
-  strengths   TEXT[],
-  weaknesses  TEXT[]
 );
 
 -- ────────────────────────────────────────────────

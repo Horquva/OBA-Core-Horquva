@@ -1,5 +1,5 @@
 import type { RiskLevel } from '../types';
-import { authHeader } from './authFetch';
+import { authHeader, TOKEN_KEY, USER_KEY } from './authFetch';
 import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Base ────────────────────────────────────────────────────────────────────
@@ -7,12 +7,46 @@ import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 const BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
-/** Minimal wrapper — throws on non-2xx so callers can catch uniformly. */
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * F-10: a token that expired or was revoked (logout in another tab, a
+ * password change) used to leave the UI signed in — nothing anywhere checked
+ * for a 401, so every panel on the page independently rendered its own
+ * "Failed to load" state while AppShell kept trusting whatever localStorage
+ * said. This clears the stale session and sends the user back to /login the
+ * first time ANY request comes back unauthorized, rather than per-component.
+ *
+ * A page that mounts several panels at once can fire this from more than one
+ * failing request; the pathname guard makes the second call through here a
+ * no-op instead of stacking up redundant navigations.
+ */
+function handleUnauthorized() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  } catch {}
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+}
+
+/**
+ * Minimal wrapper — throws on non-2xx so callers can catch uniformly.
+ *
+ * FE-2: exported so the ~19 files that used to hand-roll their own
+ * `const base = process.env.NEXT_PUBLIC_API_URL...` + raw `fetch` +
+ * `authHeader()` (one copy of this exact wrapper per file, and the direct
+ * cause of FE-1 -- those raw-fetch sites were exactly the ones with silent
+ * `r.ok ? r.json() : []` fallbacks, because this function throws and they
+ * didn't) can import the one implementation instead of redeclaring it.
+ */
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...authHeader(), ...init?.headers },
     ...init,
   });
+
+  if (res.status === 401) handleUnauthorized();
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -530,7 +564,6 @@ export interface SelfHealingIssue {
   type: string;
   severity: RiskLevel;
   description: string;
-  detectedAt: string;
 }
 
 export interface SelfHealingIntent {
@@ -561,7 +594,7 @@ export const selfHealing = {
 //
 // ⚠ These come from backend/domain/analyses.js (the company dataset), NOT from the
 // brain. `capability` and `alignment` here are different analyses from
-// orgScience.capabilityByDept and orgScience.strategicAlignment below, which
+// orgScience.capabilityInventory and orgScience.ownershipCoverage below, which
 // compute different things from the Knowledge Graph despite sharing the module
 // numbers M39 and M40. See docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
 //
@@ -615,6 +648,14 @@ export interface IntelligenceResponse<T> {
   module: string;
   type: string;
   confidence: number;
+  /** F-9: true only for a module whose headline number is built from
+   *  invented weights/thresholds (M03, M18, M43, M45) rather than a
+   *  measured structural fact -- see backend/brain/knowledge/
+   *  intelligenceExchange.js's createIntelligence(). */
+  authored?: boolean;
+  /** Section 06: one sentence naming exactly what population/computation
+   *  this module's headline number covers -- render with DefinitionInfo. */
+  definition?: string;
   payload: T;
   recommendations: string[];
   generatedAt: string;
@@ -651,7 +692,10 @@ export interface CapabilityPayload {
   workflowCapabilities: string[];
 }
 
-export interface StrategicAlignmentPayload {
+// API-2: renamed from StrategicAlignmentPayload -- this is M40's payload
+// verbatim, and the payload itself was always ownership coverage, never a
+// strategy-alignment measure. See prediction.js's route comment.
+export interface OwnershipCoveragePayload {
   ownershipCoverageScore: number;
   covered: boolean;
   gaps: string[];
@@ -702,10 +746,114 @@ export interface BenchmarkPayload {
   benchmarkScore: number;
 }
 
+// ─── Reality-layer graph endpoints (M01/M02/M03/M07/M20/M28/M29/M31/M32/M34/
+// M35/M49), wired 2026-09-02 — see backend/routes/intelligence/reality.js and
+// prediction.js. Each is named apart from its nearest same-sounding SQL
+// endpoint because it answers a broader or structurally different question —
+// see backend/brain/modules/implementations.js's header for the audit.
+
+export interface OwnershipMapPayload {
+  totalAssets: number;
+  ownedAssets: number;
+  unownedAssets: string[];
+  ownershipCoverage: number;
+  ownershipMap: Array<{ entity: string; id: string; type: string; owners: string[] }>;
+}
+
+export interface DependencyFanInPayload {
+  dependencyCount: number;
+  mostDependedUpon: Array<{ id: string; name: string; type: string; dependents: number }>;
+  criticalDependencies: Array<{ from: string; to: string; failureImpact?: string }>;
+}
+
+export interface OrganizationalRiskPayload {
+  riskScore: number;
+  riskLevel: 'low' | 'medium' | 'high';
+  singlePointsOfFailure: Array<{ id: string; name: string; type: string; dependents: number; owners: number }>;
+  criticalDependencyCount: number;
+}
+
+export interface AiAgentGovernancePayload {
+  aiAgentCount: number;
+  agents: Array<{
+    name: string;
+    id: string;
+    owners: string[];
+    dependsOn: string[];
+    governedBy: string[];
+    supports: string[];
+  }>;
+  ungovernedAgents: string[];
+}
+
+export interface ReportingChainsPayload {
+  reportingChains: Array<{ who: string; reportsTo: string }>;
+  managementLinks: Array<{ manager: string; manages: string }>;
+  assetsWithoutAccountableOwner: string[];
+}
+
+export interface DependencyGraphPayload {
+  nodes: number;
+  dependencyEdges: number;
+  cyclesDetected: string[][];
+  hasCycles: boolean;
+  longestDependencyChain: string[];
+  adjacency: Record<string, string[]>;
+}
+
+export interface RelationshipsPayload {
+  totalRelationships: number;
+  typeDistribution: Record<string, number>;
+  collaborationLinks: number;
+  isolatedEntities: string[];
+}
+
+export interface EcosystemPayload {
+  internalEntities: number;
+  externalEntities: number;
+  externalActors: Array<{ name: string; type: string }>;
+  composition: Record<string, number>;
+}
+
+export interface DependencyImpactPayload {
+  impactCount: number;
+  impacts: Array<{
+    entity: string;
+    directDependents: number;
+    cascadeImpact: number;
+    impactScore: number;
+    severity: 'critical' | 'high' | 'moderate';
+  }>;
+  highestImpact: { entity: string; cascadeImpact: number; impactScore: number; severity: string } | null;
+}
+
+export interface HiddenDependenciesPayload {
+  hiddenDependencyCount: number;
+  hiddenDependencies: Array<{ entity: string; hiddenDependency: string }>;
+}
+
+export interface NetworkCentralityPayload {
+  centralActors: Array<{ id: string; name: string; type: string; degree: number }>;
+  mostConnected: string | null;
+  averageDegree: number;
+}
+
+export interface DigitalTwinPayload {
+  digitalTwin: {
+    syncedAt: string;
+    entities: Array<{ id: string; type: string; name: string; status: string }>;
+    relationships: Array<{ from: string; type: string; to: string }>;
+    stats: Record<string, unknown>;
+    layers: { structure: number; systems: number; workflows: number; knowledge: number };
+  };
+  synchronized: boolean;
+  simulationReady: boolean;
+}
+
 export const orgScience = {
   pattern: () => request<IntelligenceResponse<PatternPayload>>('/api/intelligence/pattern'),
-  capabilityByDept: () => request<IntelligenceResponse<CapabilityPayload>>('/api/intelligence/capability-by-dept'),
-  strategicAlignment: () => request<IntelligenceResponse<StrategicAlignmentPayload>>('/api/intelligence/strategic-alignment'),
+  capabilityInventory: () => request<IntelligenceResponse<CapabilityPayload>>('/api/intelligence/capability-inventory'),
+  ownershipCoverage: () => request<IntelligenceResponse<OwnershipCoveragePayload>>('/api/intelligence/ownership-coverage'),
   dna: () => request<IntelligenceResponse<DNAPayload>>('/api/intelligence/dna'),
   culture: () => request<IntelligenceResponse<CulturePayload>>('/api/intelligence/culture'),
   maturity: () => request<IntelligenceResponse<MaturityPayload>>('/api/intelligence/maturity'),
@@ -713,6 +861,20 @@ export const orgScience = {
   benchmark: () => request<IntelligenceResponse<BenchmarkPayload>>('/api/intelligence/benchmark'),
   graphStatus: () => request<GraphStatus>('/api/intelligence/graph/status'),
   graphReload: () => request<GraphReloadResult>('/api/intelligence/graph/reload', { method: 'POST' }),
+
+  // Wired 2026-09-02:
+  ownershipMap: () => request<IntelligenceResponse<OwnershipMapPayload>>('/api/intelligence/ownership-map'),
+  dependencyFanIn: () => request<IntelligenceResponse<DependencyFanInPayload>>('/api/intelligence/dependency-fanin'),
+  organizationalRisk: () => request<IntelligenceResponse<OrganizationalRiskPayload>>('/api/intelligence/organizational-risk'),
+  aiAgentGovernance: () => request<IntelligenceResponse<AiAgentGovernancePayload>>('/api/intelligence/ai-agent-governance'),
+  reportingChains: () => request<IntelligenceResponse<ReportingChainsPayload>>('/api/intelligence/reporting-chains'),
+  dependencyGraph: () => request<IntelligenceResponse<DependencyGraphPayload>>('/api/intelligence/dependency-graph'),
+  relationships: () => request<IntelligenceResponse<RelationshipsPayload>>('/api/intelligence/relationships'),
+  ecosystem: () => request<IntelligenceResponse<EcosystemPayload>>('/api/intelligence/ecosystem'),
+  dependencyImpact: () => request<IntelligenceResponse<DependencyImpactPayload>>('/api/intelligence/dependency-impact'),
+  hiddenDependencies: () => request<IntelligenceResponse<HiddenDependenciesPayload>>('/api/intelligence/hidden-dependencies'),
+  networkCentrality: () => request<IntelligenceResponse<NetworkCentralityPayload>>('/api/intelligence/network-centrality'),
+  digitalTwin: () => request<IntelligenceResponse<DigitalTwinPayload>>('/api/intelligence/digital-twin'),
 };
 
 // ─── Orchestrator / M55  (/api/intelligence/orchestrator) ───────────────────
@@ -799,16 +961,8 @@ export interface ContextFeedResponse {
   feed: ContextFeedItem[];
 }
 
-export interface ContextSummary {
-  totalContextItems: number;
-  byType: Record<string, number>;
-  byUrgency: { CRITICAL: number; HIGH: number; MEDIUM: number; LOW: number };
-  topPriorityItem: ContextFeedItem | null;
-}
-
 export const contextApi = {
   feed: () => request<ContextFeedResponse>('/api/context/feed'),
-  summary: () => request<ContextSummary>('/api/context/summary'),
   avatar: () => request<Record<string, unknown>>('/api/context/avatar'),
 };
 
@@ -980,7 +1134,25 @@ export interface ChangePasswordResponse {
   message: string;
 }
 
+/** The JWT payload backend/routes/auth/auth.js's GET /me echoes back —
+ *  sub/email/role/org plus the token's own iat/exp/jti, not the richer
+ *  {id,email,name,role,org} shape AuthContext stores as `user`. Used only to
+ *  confirm the stored token is still accepted server-side, never to rebuild
+ *  the stored user object (it has no `name` or `id` field to rebuild it from). */
+export interface AuthMeResponse {
+  user: { sub: string; email: string; role: string; org: string; iat: number; exp: number; jti: string };
+}
+
 export const authApi = {
+  /**
+   * F-10: AppShell used to trust whatever localStorage said forever, with
+   * nothing validating it against the server after login. AuthContext calls
+   * this once on mount; a token the server no longer accepts 401s here,
+   * which request()'s global handler turns into a clean sign-out instead of
+   * a page full of independently-failing panels.
+   */
+  me: () => request<AuthMeResponse>('/api/auth/me'),
+
   /**
    * Changes the signed-in user's own password. Takes no email: the account is
    * whichever one the bearer token identifies, so there is no way to aim this
@@ -992,6 +1164,85 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
+};
+
+export interface AssignOwnerResponse {
+  ok: boolean;
+  agent: { id: number; name: string; owner_id: number | null };
+}
+
+export const agentsApi = {
+  /**
+   * DATA-1's first write path. Assign, change, or clear (ownerId: null) an
+   * agent's owner. Every other write the app could plausibly need (backup
+   * designation, documentation flags, recommendation resolution, decision
+   * approval, automation mode) is deliberately not built here — this is one
+   * narrow, complete slice, not the start of a bigger form.
+   */
+  assignOwner: (agentId: number, ownerId: number | null) =>
+    request<AssignOwnerResponse>(`/api/agents/${agentId}/owner`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ownerId }),
+    }),
+};
+
+// ─── Decision Support  (/api/decision-support)  — API-1 ─────────────────────
+// The prioritized "what needs deciding now" queue (decision_queue), a
+// genuinely different question from GET /api/decision-intelligence's
+// quality AUDIT of decisions already made (organizational_decisions) —
+// two real tables, not two views of one. Only summary/queue/drivers are
+// wired here; /top-actions is queue's own top 5 (redundant with sorting
+// queue client-side) and /review + /revisit read decision_history, a third,
+// less central table -- left for a later pass rather than risking a third
+// "decisions" list on the same page.
+
+export interface DecisionSupportSummary {
+  totalDecisions: number;
+  pending: number;
+  inProgress: number;
+  resolved: number;
+  decisionsToRevisit: number;
+  topPriorityDecision: {
+    title: string;
+    priorityScore: number;
+    driver: string;
+    entityName: string | null;
+    responsiblePerson: string | null;
+  } | null;
+  byDriver: Array<{ driver: string; count: number }>;
+}
+
+export interface DecisionQueueItem {
+  title: string;
+  description: string;
+  driver: string;
+  priorityScore: number;
+  impactScore: number;
+  urgencyScore: number;
+  effortScore: number;
+  blastRadius: number;
+  entityName: string | null;
+  responsiblePerson: string | null;
+  status: string;
+}
+
+export interface DecisionQueueResponse {
+  totalPending: number;
+  decisions: DecisionQueueItem[];
+}
+
+export interface DecisionDriverGroup {
+  driver: string;
+  driverKey: string;
+  count: number;
+  avgPriorityScore: number;
+  topDecision: { title: string; priorityScore: number } | null;
+}
+
+export const decisionSupportApi = {
+  summary: () => request<DecisionSupportSummary>('/api/decision-support/summary'),
+  queue: () => request<DecisionQueueResponse>('/api/decision-support/queue'),
+  drivers: () => request<DecisionDriverGroup[]>('/api/decision-support/drivers'),
 };
 
 // ─── Health Check Utility ────────────────────────────────────────────────────

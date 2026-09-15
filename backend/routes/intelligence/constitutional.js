@@ -71,7 +71,7 @@ router.get('/simulation-universe', wrap(resilienceScenarios))
 router.get('/', (req, res) => {
   res.json({
     source: 'company dataset (domain/dataset.js)',
-    note: 'Graph-derived analyses are served separately under /api/intelligence/{pattern,dna,culture,maturity,behavior,benchmark,strategic-alignment,capability-by-dept}.',
+    note: 'Graph-derived analyses are served separately under /api/intelligence/{pattern,dna,culture,maturity,behavior,benchmark,ownership-coverage,capability-inventory}.',
     owner: 'Kamran',
     endpoints: {
       'Trend signals': 'GET /api/intelligence/signals',

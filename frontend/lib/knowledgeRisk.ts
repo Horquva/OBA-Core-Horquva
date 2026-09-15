@@ -10,7 +10,9 @@ export interface PersonProfile {
   undocumentedOwned: number;
   noBackupOwned: number;
   concentrationScore: number; // 0–100
-  riskTier: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  // F-11: 'UNKNOWN' for a person whose concentration lookup missed (fetch
+  // failure) -- not the same claim as 'LOW', mirroring types/index.ts's RiskLevel.
+  riskTier: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
   isSoleHolder: boolean; // owns any asset with no backup
   unrecoverableIfLeaves: AssetItem[]; // no doc + no backup
 }
@@ -121,7 +123,7 @@ export function computeKnowledgeRisk(
       undocumentedOwned: undocumented.length,
       noBackupOwned: noBackup.length,
       concentrationScore,
-      riskTier: concentration?.tier ?? 'LOW',
+      riskTier: concentration?.tier ?? 'UNKNOWN',
       isSoleHolder,
       unrecoverableIfLeaves: unrecoverable,
     };

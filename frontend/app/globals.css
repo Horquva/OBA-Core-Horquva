@@ -41,6 +41,12 @@
   --risk-low-text: #4ade80;
   --risk-low-border: rgba(22 163  74 / 0.22);
 
+  /* F-11: neutral, not a fifth point on the severity scale -- nothing was
+     scored, which is not the same claim as "low". */
+  --risk-unknown-bg:   rgba(139 139 158 / 0.10);
+  --risk-unknown-text: #8b8b9e;
+  --risk-unknown-border: rgba(139 139 158 / 0.22);
+
   /* Font */
   --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 }
@@ -140,6 +146,11 @@ p, span, li {
   background-color: var(--risk-low-bg);
   color: var(--risk-low-text);
   border: 1px solid var(--risk-low-border);
+}
+.risk-unknown {
+  background-color: var(--risk-unknown-bg);
+  color: var(--risk-unknown-text);
+  border: 1px solid var(--risk-unknown-border);
 }
 
 /* ─── Card / Panel ───────────────────────────────────────── */

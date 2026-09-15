@@ -3,6 +3,7 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const { optional } = require('../../lib/supabaseQuery')
 const domain = require('../../domain')
+const signalReaders = require('../../domain/signalReaders')
 
 // ─────────────────────────────────────────────
 // SIGNAL WEIGHTS  (must sum to 1.0)
@@ -44,68 +45,21 @@ const SIGNAL_CONFIG = [
 // `domain.intelligence.all()` computes all of it from the root tables on
 // demand. See domain/derived.js for each metric's definition, and note that the
 // GI/MI/DI pillars are authored measures rather than recovered ones.
-
-function pillarScore(intel, key) {
-  const found = (intel.pillars.pillars || []).find((p) => p.resultKey === key)
-  return found
-    ? { score: found.score, source: `domain.intelligence.pillars(${key})`, verified: true }
-    : { score: 0, source: `domain.intelligence.pillars(${key})`, verified: false }
-}
-
+//
+// The reader implementations themselves live in domain/signalReaders.js,
+// shared with orchestrator.js's identical ten (of its thirteen) — this
+// registry only maps this route's own keys/labels/weights onto them.
 const SIGNAL_READERS = {
-  governance:         (intel) => pillarScore(intel, 'GI'),
-  memoryIntelligence: (intel) => pillarScore(intel, 'MI'),
-  domainIntelligence: (intel) => pillarScore(intel, 'DI'),
-
-  continuity: (intel) => ({
-    score: intel.orgHealth.continuityScore,
-    source: 'domain.intelligence.orgHealth',
-    verified: true,
-  }),
-
-  orgHealth: (intel) => ({
-    score: intel.orgHealth.healthIndex,
-    source: 'domain.intelligence.orgHealth',
-    verified: true,
-  }),
-
-  // Inverted: more CRITICAL agents means a lower score.
-  predictiveRisk: (intel) => {
-    const scores = intel.predictiveRisk.scores
-    if (!scores.length) {
-      return { score: 0, source: 'domain.intelligence.predictiveRisk', verified: false }
-    }
-    const critical = scores.filter((s) => s.threatLevel === 'CRITICAL').length
-    return {
-      score: Math.round(((scores.length - critical) / scores.length) * 100),
-      source: 'domain.intelligence.predictiveRisk',
-      verified: true,
-    }
-  },
-
-  collaboration: (intel) => ({
-    score: intel.collaboration.summary.collaborationScore,
-    source: 'domain.intelligence.collaboration',
-    verified: intel.collaboration.perEmployee.length > 0,
-  }),
-
-  accountability: (intel) => ({
-    score: intel.accountability.accountabilityScore,
-    source: 'domain.intelligence.accountability',
-    verified: intel.accountability.entitiesWithLinks > 0,
-  }),
-
-  aiAdoption: (intel) => ({
-    score: intel.collaboration.summary.aiAdoptionScore,
-    source: 'domain.intelligence.collaboration',
-    verified: intel.collaboration.perEmployee.length > 0,
-  }),
-
-  decisionQuality: (intel) => ({
-    score: intel.decisionQuality.score,
-    source: 'domain.intelligence.decisionQuality',
-    verified: intel.decisionQuality.evidence.sufficient,
-  }),
+  governance:         signalReaders.readGovernance,
+  memoryIntelligence: signalReaders.readMemoryIntelligence,
+  domainIntelligence: signalReaders.readDomainIntelligence,
+  continuity:         signalReaders.readContinuity,
+  orgHealth:          signalReaders.readOrgHealth,
+  predictiveRisk:     signalReaders.readPredictiveRisk,
+  collaboration:      signalReaders.readCollaboration,
+  accountability:     signalReaders.readAccountability,
+  aiAdoption:         signalReaders.readAIAdoption,
+  decisionQuality:    signalReaders.readDecisionQuality,
 }
 
 /**
@@ -190,14 +144,18 @@ async function computeBrainCore() {
   }
 
   // Same gate orchestrator.js applies to this identical intel.pillars.orgScore
-  // input (D-07, D-10, D-22): when evidence coverage is insufficient, orgScore
-  // is `null`. Without this guard, `brainIndex >= 80` and `>= 60` both compare
-  // false against null, so an insufficient-evidence organization fell through
-  // to the final `: 'CRITICAL'` branch by construction — reporting elevated
-  // structural risk from an absence of evidence, the exact fabricated-verdict
-  // failure the evidence gate exists to prevent. Short-circuit to an
-  // explanatory verdict instead of computing a posture from a score that was
-  // never published, exactly as orchestrator.js already does for the same input.
+  // input (D-07, D-10, D-22): when evidence coverage is insufficient, both
+  // orgScore.score and orgScore.rating are `null`. Short-circuit to an
+  // explanatory verdict instead of computing a summary/explanation from a
+  // score and posture that were never published, exactly as orchestrator.js
+  // already does for the same input. (This guard predates posture reading
+  // orgScore.rating directly; when posture was its own >=80/>=60 ternary
+  // against a null brainIndex, both comparisons were false, so an
+  // insufficient-evidence organization fell through to the final `:
+  // 'CRITICAL'` branch by construction — reporting elevated structural risk
+  // from an absence of evidence, the exact fabricated-verdict failure the
+  // evidence gate exists to prevent. The guard stays regardless, since
+  // brainIndex/summary/topSignals/explanation still need it.)
   const orgScoreEvidence = intel.pillars.orgScore.evidence
   if (!orgScoreEvidence.sufficient) {
     return {
@@ -214,12 +172,17 @@ async function computeBrainCore() {
 
   const brainIndex = intel.pillars.orgScore.score
 
-  // Posture keeps its own STABLE/STRAINED/CRITICAL vocabulary — only what
-  // feeds it changed.
-  const posture =
-    brainIndex >= 80 ? 'STABLE'
-    : brainIndex >= 60 ? 'STRAINED'
-    : 'CRITICAL'
+  // Posture used to hand-roll its own STABLE/STRAINED/CRITICAL bands off
+  // brainIndex directly (>=80/>=60 thresholds) instead of reading the
+  // canonical band() derived.js already computed for this exact number
+  // (intel.pillars.orgScore.rating — CRITICAL/WEAK/PARTIAL/STRONG,
+  // documented as "used by every score here so the word attached to a
+  // number means the same thing across the whole product"). The result: a
+  // score of 79 read "STRAINED" here and "PARTIAL" from
+  // GET /api/intelligence/orchestrator for the identical input — two
+  // verdicts for one number. Reading the same field orchestrator.js's
+  // `rating` reads guarantees they can never disagree again.
+  const posture = intel.pillars.orgScore.rating
 
   // Top signals — lowest scores pull the posture down
   const topSignals = [...rawSignals]
@@ -234,11 +197,13 @@ async function computeBrainCore() {
 
   // Summary
   const summary =
-    posture === 'STABLE'
+    posture === 'STRONG'
       ? 'The organization is operating within safe parameters. Verified intelligence signals are broadly healthy.'
-      : posture === 'STRAINED'
+      : posture === 'PARTIAL'
       ? 'The organization is under structural strain. Multiple intelligence signals require attention before they compound.'
-      : 'The organization is operating under elevated structural risk. Multiple verified intelligence signals confirm fragility across key dimensions.'
+      : posture === 'WEAK'
+      ? 'The organization is operating under elevated structural risk. Multiple verified intelligence signals confirm fragility across key dimensions.'
+      : 'The organization is operating under critical structural risk. Verified intelligence signals confirm severe fragility across key dimensions.'
 
   // Explanation
   const lowest = [...rawSignals].sort((a, b) => a.score - b.score).slice(0, 3)
@@ -249,9 +214,9 @@ async function computeBrainCore() {
     `The three weakest signals dragging the score down were: ${lowest.map(s => `${s.label} (${s.score}/100)`).join(', ')}.`,
     `The two strongest positive signals were: ${highest.map(s => `${s.label} (${s.score}/100)`).join(', ')}.`,
     `With a total weighted index of ${brainIndex}/100, the operating posture is classified as ${posture}.`,
-    posture === 'CRITICAL'
+    (posture === 'CRITICAL' || posture === 'WEAK')
       ? 'Immediate executive intervention is required to address the structural fragility detected.'
-      : posture === 'STRAINED'
+      : posture === 'PARTIAL'
       ? 'Targeted remediation of the weakest dimensions is recommended before posture degrades further.'
       : 'Continue monitoring. No immediate intervention required.'
   ].join(' ')
@@ -456,8 +421,9 @@ router.get('/explanation', async (req, res) => {
     const result = await computeBrainCore()
 
     const byPosture = {
-      STABLE:    'No immediate action required. Maintain current governance and monitoring cadence.',
-      STRAINED:  'Targeted intervention recommended. Address the weakest 2–3 signals before they compound.',
+      STRONG:    'No immediate action required. Maintain current governance and monitoring cadence.',
+      PARTIAL:   'Targeted intervention recommended. Address the weakest 2–3 signals before they compound.',
+      WEAK:      'Focused remediation required. Structural fragility is emerging across multiple dimensions.',
       CRITICAL:  'Immediate executive intervention required. Structural fragility is confirmed across multiple dimensions.'
     }
 

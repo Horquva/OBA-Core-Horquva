@@ -2,14 +2,15 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { computeAIToolIntelligence, AIToolReport, ToolScoreInput } from '../../lib/aiToolIntelligence';
-import { AITool, Agent, Workflow, RiskLevel } from '../../types';
+import { AITool, Agent, Workflow } from '../../types';
+import { resolveCriticality } from '../../lib/criticality';
 import { AIToolHeader } from '../../components/ai-tools/AIToolHeader';
 import { CriticalToolPanel } from '../../components/ai-tools/CriticalToolPanel';
 import { ToolRiskTable } from '../../components/ai-tools/ToolRiskTable';
 import { OutageImpactPanel } from '../../components/ai-tools/OutageImpactPanel';
 import { DeptExposureTable } from '../../components/ai-tools/DeptExposureTable';
-import { authHeader } from '../../lib/authFetch';
-import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
+import { request } from '../../lib/api';
+import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../lib/normalize';
 import { ExternalEcosystemTab } from '../../components/ai-tools/ExternalEcosystemTab';
 
 interface RawTool {
@@ -48,12 +49,13 @@ export default function AIToolsPage() {
   const [error, setError]       = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
+    // Each of these is the page's own dataset, not a supplementary overlay —
+    // an outage here must fail the page (the existing `error` branch below),
+    // not render as zero tools / zero agents / zero workflows.
     Promise.all([
-      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      request<RawTool[]>('/api/tools'),
+      request<RawAgent[]>('/api/agents'),
+      request<RawWorkflow[]>('/api/workflows'),
     ])
     .then(([toolsData, agentsData, wData]) => {
       const rawTools = Array.isArray(toolsData) ? toolsData : [];
@@ -69,7 +71,7 @@ export default function AIToolsPage() {
         workflows: Array.isArray(t.workflows) ? t.workflows : [],
         agents_using: Array.isArray(t.agents_using) ? t.agents_using.map(String) : [],
         monthly_cost_usd: Number(t.monthly_cost_usd ?? t.monthly_cost ?? 0),
-        criticality: (t.criticality || t.risk || 'low') as RiskLevel,
+        criticality: resolveCriticality({ risk: t.risk, criticality: t.criticality }),
         documented: Boolean(t.documented ?? t.has_policy ?? false),
         backup_tool: t.backup_tool || t.fallback_tool || null,
         access_owner: t.access_owner || t.owner || 'Unassigned',

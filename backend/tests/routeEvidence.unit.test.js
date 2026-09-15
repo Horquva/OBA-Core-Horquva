@@ -12,6 +12,13 @@
  * Run from backend/:  node tests/routeEvidence.unit.test.js
  */
 
+// truth.js, decisionIntelligence.js and orchestrator.js (required below, one
+// of them lazily further down this file) each construct the Supabase client
+// at module load time and throw if SUPABASE_URL/KEY are unset. This file
+// only asserts pure, extracted logic — it never calls Supabase for real.
+process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co'
+process.env.SUPABASE_KEY = process.env.SUPABASE_KEY || 'placeholder-key'
+
 const truthRouter = require('../routes/truth/truth')
 const decisionIntelligenceRouter = require('../routes/decisionIntelligence')
 

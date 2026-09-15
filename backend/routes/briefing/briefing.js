@@ -324,33 +324,4 @@ router.get('/top-risks', async (req, res) => {
   }
 })
 
-// ─────────────────────────────────────────────
-// GET /api/briefing/recommendations — top open recommendations
-// ─────────────────────────────────────────────
-
-// D-66: this used to SELECT from the `recommendations` table — seeded once
-// by SQL, zero writers anywhere in this codebase, so it answered the same
-// list every day regardless of what had changed (the same class of bug the
-// header comment above already fixed for getTopSPOF()/getMostOverloaded()).
-// Brain module M04 (D-62) is the real, comprehensive recommendation engine;
-// this now reads it directly instead of a frozen table under the same name.
-router.get('/recommendations', async (req, res) => {
-  try {
-    if (!domain.graph.isReady()) {
-      return res.status(503).json({ error: 'Brain graph not loaded' })
-    }
-    const intel = await domain.graph.run('recommendation-engine')
-    const recs = intel?.payload?.recommendations ?? []
-
-    const items = recs.slice(0, 10).map((r) => ({
-      type: r.priority.toLowerCase(),
-      message: `${r.title} — ${r.description}`,
-    }))
-
-    res.json(items)
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
 module.exports = router

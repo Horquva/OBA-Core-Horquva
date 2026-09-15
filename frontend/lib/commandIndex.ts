@@ -28,44 +28,45 @@ export interface CommandTarget {
   parent?: string;
   /** Extra search terms that should hit this target. */
   keywords?: string[];
-  /** Roles allowed to see it — mirrors the sidebar's gating. Undefined = everyone. */
-  roles?: string[];
   /** Constitutional module code, when this target is a module. */
   code?: string;
   /** One-line description shown under the label. */
   hint?: string;
 }
 
-const EXEC = ['admin', 'ceo', 'cto', 'coo'];
-const MANAGER_UP = [...EXEC, 'manager'];
-const ADMIN = ['admin', 'ceo', 'cto'];
-
 // ─────────────────────────────────────────────────────────────
 // PAGES — mirrors Sidebar.tsx navigation, plus the routes it omits
+//
+// FE-4: this used to carry a `roles` field per entry and filter results by
+// role in searchTargets()/defaultSuggestions() below, "mirroring the
+// sidebar's gating" (D-05 already deleted requireRole() server-side, so
+// that gating only ever hid a link, never enforced one). Once the sidebar
+// itself stopped filtering by role, this became the one remaining place a
+// page could be reachable from the nav but unreachable by search for the
+// same signed-in user — removed for the same reason and at the same time.
 // ─────────────────────────────────────────────────────────────
 
 export const PAGES: CommandTarget[] = [
   { id: 'p-dashboard', label: 'Dashboard', kind: 'page', page: '/', hint: 'What matters right now', keywords: ['home', 'overview', 'briefing', 'kpi', 'executive'] },
   { id: 'p-ownership', label: 'Ownership Intelligence', kind: 'page', page: '/ownership', hint: 'Who owns what', keywords: ['owner', 'who owns', 'accountable', 'registry', 'people'] },
-  { id: 'p-risk', label: 'Risk Intelligence', kind: 'page', page: '/risk', hint: 'What is risky', roles: MANAGER_UP, keywords: ['risk', 'critical', 'vulnerable', 'exposure', 'health'] },
+  { id: 'p-risk', label: 'Risk Intelligence', kind: 'page', page: '/risk', hint: 'What is risky', keywords: ['risk', 'critical', 'vulnerable', 'exposure', 'health'] },
   { id: 'p-map', label: 'Dependency Map', kind: 'page', page: '/map', hint: 'What depends on what', keywords: ['dependency', 'graph', 'blast radius', 'spof', 'chain'] },
-  { id: 'p-simulation', label: 'What-If Simulation', kind: 'page', page: '/simulation', hint: 'What happens if something breaks', roles: EXEC, keywords: ['simulate', 'scenario', 'what if', 'twin', 'sandbox'] },
-  { id: 'p-recommendations', label: 'Recommendations', kind: 'page', page: '/recommendations', hint: 'What should be done next', roles: MANAGER_UP, keywords: ['advice', 'actions', 'next steps', 'advisor', 'opportunity'] },
+  { id: 'p-simulation', label: 'What-If Simulation', kind: 'page', page: '/simulation', hint: 'What happens if something breaks', keywords: ['simulate', 'scenario', 'what if', 'twin', 'sandbox'] },
+  { id: 'p-recommendations', label: 'Recommendations', kind: 'page', page: '/recommendations', hint: 'What should be done next', keywords: ['advice', 'actions', 'next steps', 'advisor', 'opportunity'] },
   { id: 'p-ai-tools', label: 'AI Tool Intelligence', kind: 'page', page: '/ai-tools', hint: 'Which tools exist and how they are governed', keywords: ['tools', 'vendor', 'saas', 'spend', 'license'] },
   { id: 'p-knowledge', label: 'Knowledge Risk', kind: 'page', page: '/knowledge', hint: 'Where critical knowledge is concentrated', keywords: ['knowledge', 'documentation', 'undocumented', 'tribal', 'bus factor'] },
-  { id: 'p-memory', label: 'Org Memory', kind: 'page', page: '/memory', hint: 'What the organization remembers', roles: MANAGER_UP, keywords: ['history', 'past', 'memory', 'what happened', 'timeline'] },
-  { id: 'p-decision', label: 'Decision Intelligence', kind: 'page', page: '/decision', hint: 'How decisions are made and with what quality', roles: EXEC, keywords: ['decision', 'approve', 'quality', 'trail', 'truth gate'] },
-  { id: 'p-continuity', label: 'Continuity & Governance', kind: 'page', page: '/continuity', hint: 'Can the organization survive disruption', roles: MANAGER_UP, keywords: ['continuity', 'governance', 'compliance', 'resilience', 'disruption'] },
+  { id: 'p-memory', label: 'Org Memory', kind: 'page', page: '/memory', hint: 'What the organization remembers', keywords: ['history', 'past', 'memory', 'what happened', 'timeline'] },
+  { id: 'p-decision', label: 'Decision Intelligence', kind: 'page', page: '/decision', hint: 'How decisions are made and with what quality', keywords: ['decision', 'approve', 'quality', 'trail', 'truth gate'] },
+  { id: 'p-continuity', label: 'Continuity & Governance', kind: 'page', page: '/continuity', hint: 'Can the organization survive disruption', keywords: ['continuity', 'governance', 'compliance', 'resilience', 'disruption'] },
   { id: 'p-workflows', label: 'Workflows', kind: 'page', page: '/workflows', hint: 'How work actually flows', keywords: ['workflow', 'process', 'steps', 'runbook', 'collision'] },
-  { id: 'p-forecast', label: 'Forecast', kind: 'page', page: '/forecast', hint: 'What the organization will look like ahead', roles: MANAGER_UP, keywords: ['forecast', 'outlook', 'trend', 'trajectory', 'predict'] },
-  { id: 'p-org-science', label: 'Org Science', kind: 'page', page: '/org-science', hint: 'DNA, culture, maturity, benchmarks', roles: EXEC, keywords: ['culture', 'dna', 'maturity', 'benchmark', 'behavior'] },
+  { id: 'p-forecast', label: 'Forecast', kind: 'page', page: '/forecast', hint: 'What the organization will look like ahead', keywords: ['forecast', 'outlook', 'trend', 'trajectory', 'predict'] },
+  { id: 'p-org-science', label: 'Org Science', kind: 'page', page: '/org-science', hint: 'DNA, culture, maturity, benchmarks', keywords: ['culture', 'dna', 'maturity', 'benchmark', 'behavior'] },
   { id: 'p-network', label: 'Network Intelligence', kind: 'page', page: '/network', hint: 'Central actors and information pathways', keywords: ['network', 'centrality', 'connected', 'bottleneck', 'isolated'] },
   { id: 'p-notifications', label: 'Notifications', kind: 'page', page: '/notifications', hint: 'Signals raised for your attention', keywords: ['alerts', 'signals', 'inbox'] },
-  { id: 'p-admin', label: 'Admin', kind: 'page', page: '/admin', hint: 'Endpoint health, data freshness, automation mode', roles: ADMIN, keywords: ['settings', 'system', 'health check', 'endpoints', 'brain'] },
+  { id: 'p-admin', label: 'Admin', kind: 'page', page: '/admin', hint: 'Endpoint health, data freshness, automation mode', keywords: ['settings', 'system', 'health check', 'endpoints', 'brain'] },
 ];
 
 const PAGE_LABEL = new Map(PAGES.map((p) => [p.page, p.label]));
-const PAGE_ROLES = new Map(PAGES.map((p) => [p.page, p.roles]));
 
 // ─────────────────────────────────────────────────────────────
 // SECTIONS — headings verified to exist in the component tree
@@ -157,7 +158,6 @@ export const SECTIONS: CommandTarget[] = SECTION_SEEDS.map(([page, heading, keyw
   match: heading,
   parent: PAGE_LABEL.get(page) ?? page,
   keywords: keywords ?? [],
-  roles: PAGE_ROLES.get(page),
 }));
 
 // ─────────────────────────────────────────────────────────────
@@ -232,7 +232,6 @@ export const MODULES: CommandTarget[] = MODULE_SEEDS.map(([code, name, page, mat
   match,
   parent: PAGE_LABEL.get(page) ?? page,
   keywords: [code, name],
-  roles: PAGE_ROLES.get(page),
   hint: match
     ? `Opens ${PAGE_LABEL.get(page)} → ${match}`
     : `Opens ${PAGE_LABEL.get(page)}`,
@@ -296,12 +295,9 @@ export function scoreTarget(target: CommandTarget, rawQuery: string): number {
 export function searchTargets(
   targets: CommandTarget[],
   query: string,
-  role: string,
   limit = 24,
 ): CommandTarget[] {
-  const r = (role || 'employee').toLowerCase();
   return targets
-    .filter((t) => !t.roles || t.roles.includes(r))
     .map((t) => ({ t, score: scoreTarget(t, query) }))
     .filter((x) => x.score >= 0)
     .sort((a, b) => b.score - a.score || a.t.label.length - b.t.label.length)
@@ -310,8 +306,7 @@ export function searchTargets(
 }
 
 /** Suggestions shown before the executive types anything. */
-export function defaultSuggestions(role: string): CommandTarget[] {
-  const r = (role || 'employee').toLowerCase();
+export function defaultSuggestions(): CommandTarget[] {
   const wanted = [
     'p-dashboard',
     's-risk-critical-risk-agents',
@@ -322,5 +317,5 @@ export function defaultSuggestions(role: string): CommandTarget[] {
   ];
   return wanted
     .map((id) => STATIC_TARGETS.find((t) => t.id === id))
-    .filter((t): t is CommandTarget => !!t && (!t.roles || t.roles.includes(r)));
+    .filter((t): t is CommandTarget => !!t);
 }

@@ -2,20 +2,24 @@
 
 import { Play, Settings2, ShieldAlert, CheckCircle2, Loader2, AlertTriangle, User, Bot, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
-import { Agent, Dependency, AITool } from "../../types";
-import { ScenarioResult, mapScenario } from "../../lib/simulation";
-import { authHeader } from "../../lib/authFetch";
+import { Agent, AITool } from "../../types";
+import { ScenarioResult, mapScenario, RawScenario } from "../../lib/simulation";
+import { request } from "../../lib/api";
 import { PredictiveRiskEntry } from "../../lib/predictiveRisk";
-import { getSPOFs } from "../../lib/graph";
 
 interface Props {
   agents?: Agent[];
-  dependencies?: Dependency[];
   tools?: AITool[];
   riskByAgentName?: Map<string, PredictiveRiskEntry>;
+  /** Server-computed SPOF agent ids (backend/routes/dependencies.js
+   *  GET /agent-spofs) — the canonical definition (sole owner, no backup,
+   *  criticality >= high), not a locally re-derived rule. */
+  spofIds?: Set<string>;
 }
 
-const TIER_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+// F-11: unknown must be a real key -- a missing key reads as undefined and
+// `... + undefined` is NaN, which would silently corrupt the ranking sort.
+const TIER_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, unknown: 0 };
 
 type ScenarioKey = "stress" | "node_outage" | "data_breach";
 
@@ -47,7 +51,7 @@ const RISK_COLORS: Record<string, string> = {
   low: "text-emerald-400",
 };
 
-export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], riskByAgentName }: Props) {
+export function ScenarioSandbox({ agents = [], tools = [], riskByAgentName, spofIds }: Props) {
   const [activeKey, setActiveKey] = useState<ScenarioKey>("stress");
   const [status, setStatus] = useState<"idle" | "executing" | "done">("idle");
   const [result, setResult] = useState<ScenarioResult | null>(null);
@@ -58,8 +62,6 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], ri
     setStatus("executing");
     setResult(null);
     setShowAll(false);
-
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
     try {
       let res: ScenarioResult | null = null;
@@ -77,26 +79,21 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], ri
           agents[0]?.owner ??
           "";
         if (topPerson) {
-          const response = await fetch(`${base}/api/simulations/employee-leaves/${encodeURIComponent(topPerson)}`, { headers: authHeader() });
-          if (response.ok) {
-            res = mapScenario(await response.json());
-          }
+          const raw = await request<RawScenario>(`/api/simulations/employee-leaves/${encodeURIComponent(topPerson)}`).catch(() => null);
+          if (raw) res = mapScenario(raw);
         }
       } else if (activeKey === "node_outage") {
         // Fail the highest-risk agent
-        const spofs = getSPOFs(agents, dependencies).map(s => s.agentId);
         const ranked = [...agents].sort((a, b) => {
-          const aTier = riskByAgentName?.get(a.name)?.threatLevel ?? "low";
-          const bTier = riskByAgentName?.get(b.name)?.threatLevel ?? "low";
-          const aScore = (spofs.includes(a.id) ? 100 : 0) + TIER_WEIGHT[aTier];
-          const bScore = (spofs.includes(b.id) ? 100 : 0) + TIER_WEIGHT[bTier];
+          const aTier = riskByAgentName?.get(a.name)?.threatLevel ?? "unknown";
+          const bTier = riskByAgentName?.get(b.name)?.threatLevel ?? "unknown";
+          const aScore = (spofIds?.has(a.id) ? 100 : 0) + TIER_WEIGHT[aTier];
+          const bScore = (spofIds?.has(b.id) ? 100 : 0) + TIER_WEIGHT[bTier];
           return bScore - aScore;
         });
         if (ranked[0]) {
-          const response = await fetch(`${base}/api/simulations/agent-fails/${encodeURIComponent(ranked[0].name)}`, { headers: authHeader() });
-          if (response.ok) {
-            res = mapScenario(await response.json());
-          }
+          const raw = await request<RawScenario>(`/api/simulations/agent-fails/${encodeURIComponent(ranked[0].name)}`).catch(() => null);
+          if (raw) res = mapScenario(raw);
         }
       } else if (activeKey === "data_breach") {
         // Take the most-used critical tool offline
@@ -106,10 +103,8 @@ export function ScenarioSandbox({ agents = [], dependencies = [], tools = [], ri
             .sort((a, b) => (b.agents_using?.length ?? 0) - (a.agents_using?.length ?? 0))[0] ??
           tools[0];
         if (criticalTool) {
-          const response = await fetch(`${base}/api/simulations/platform-down/${encodeURIComponent(criticalTool.name)}`, { headers: authHeader() });
-          if (response.ok) {
-            res = mapScenario(await response.json());
-          }
+          const raw = await request<RawScenario>(`/api/simulations/platform-down/${encodeURIComponent(criticalTool.name)}`).catch(() => null);
+          if (raw) res = mapScenario(raw);
         }
       }
 

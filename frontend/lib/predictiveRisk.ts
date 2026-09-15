@@ -34,7 +34,10 @@ export function buildPredictiveRiskByAgentName(predictiveData: unknown): Map<str
     if (!p || typeof p.agentName !== 'string') continue;
     map.set(p.agentName, {
       predictedScore: typeof p.predictedScore === 'number' ? p.predictedScore : 0,
-      threatLevel: THREAT_TO_RISK_LEVEL[p.threatLevel] ?? 'low',
+      // F-11: an unrecognized threatLevel string is a malformed response, not
+      // evidence of low risk -- default to 'unknown' rather than the
+      // safest-looking value.
+      threatLevel: THREAT_TO_RISK_LEVEL[p.threatLevel] ?? 'unknown',
       contributingFactors: (p.contributingFactors && typeof p.contributingFactors === 'object') ? p.contributingFactors : {},
       reasons: Array.isArray(p.reasons) ? p.reasons : [],
     });

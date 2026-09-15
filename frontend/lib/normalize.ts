@@ -6,7 +6,7 @@ interface RawOwnerRef {
   department?: string;
 }
 
-interface RawAgent {
+export interface RawAgent {
   id?: string | number;
   name?: string;
   owner?: RawOwnerRef | string | null;
@@ -57,7 +57,7 @@ interface RawWorkflowStep {
   action?: string;
 }
 
-interface RawWorkflow {
+export interface RawWorkflow {
   id?: string | number;
   name?: string;
   owner?: RawOwnerRef | string | null;

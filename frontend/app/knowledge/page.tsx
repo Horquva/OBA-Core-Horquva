@@ -2,16 +2,18 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { computeKnowledgeRisk, ConcentrationEntry } from '../../lib/knowledgeRisk';
-import { Agent, Workflow, AITool, RiskLevel } from '../../types';
+import { Agent, Workflow, AITool } from '../../types';
+import { resolveCriticality } from '../../lib/criticality';
 import { KnowledgeHeader } from '../../components/knowledge/KnowledgeHeader';
 import { ConcentrationRiskPanel } from '../../components/knowledge/ConcentrationRiskPanel';
 import { UndocumentedAssetsTable } from '../../components/knowledge/UndocumentedAssetsTable';
 import { DepartureSim } from '../../components/knowledge/DepartureSim';
 import { KnowledgeGapsPanel } from '../../components/knowledge/KnowledgeGapsPanel';
-import { authHeader } from '../../lib/authFetch';
-import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
+import { request } from '../../lib/api';
+import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../lib/normalize';
 import { KnowledgeConcentrationGauge } from '../../components/knowledge/KnowledgeConcentrationGauge';
 import { EntitySearchPanel } from '../../components/knowledge/EntitySearchPanel';
+import { UnavailableBanner } from '../../components/ui/UnavailableBanner';
 
 interface RawTool {
   id?: string | number;
@@ -47,23 +49,33 @@ export default function KnowledgePage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [tools, setTools]       = useState<AITool[]>([]);
   const [concentrationByName, setConcentrationByName] = useState<Map<string, ConcentrationEntry>>(new Map());
+  const [concentrationUnavailable, setConcentrationUnavailable] = useState(false);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
+    // agents/workflows/tools are the page's own dataset -- an outage here
+    // must fail the page (the existing `error` branch below), not render as
+    // zero of everything. knowledge/intelligence is a genuine overlay on top
+    // of that dataset (concentration scores), so it keeps its soft fallback:
+    // losing it degrades scores to 0/LOW rather than blanking the page. F-12:
+    // that degrade used to be invisible -- 0/LOW read identically to a
+    // genuinely well-distributed organization. concentrationUnavailable
+    // tracks it so the page can say so instead.
     Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/knowledge/intelligence`, { headers: authHeader() }).then(r => r.ok ? r.json() : { concentration: [] }),
+      request<RawAgent[]>('/api/agents'),
+      request<RawWorkflow[]>('/api/workflows'),
+      request<RawTool[]>('/api/tools'),
+      request<{ concentration: RawConcentrationEntry[] }>('/api/knowledge/intelligence').catch(() => {
+        setConcentrationUnavailable(true);
+        return { concentration: [] };
+      }),
     ])
     .then(([agentsData, wData, toolsData, knowledgeIntel]) => {
       setConcentrationByName(new Map(
         (Array.isArray(knowledgeIntel.concentration) ? knowledgeIntel.concentration : [])
           .filter((p: RawConcentrationEntry) => p.name)
-          .map((p: RawConcentrationEntry) => [p.name, { concentrationScore: p.concentrationScore, tier: p.tier }])
+          .map((p: RawConcentrationEntry) => [p.name as string, { concentrationScore: p.concentrationScore, tier: p.tier } as ConcentrationEntry])
       ));
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
       const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
@@ -78,7 +90,7 @@ export default function KnowledgePage() {
         workflows: Array.isArray(t.workflows) ? t.workflows : [],
         agents_using: Array.isArray(t.agents_using) ? t.agents_using.map(String) : [],
         monthly_cost_usd: Number(t.monthly_cost_usd ?? t.monthly_cost ?? 0),
-        criticality: (t.criticality || t.risk || 'low') as RiskLevel,
+        criticality: resolveCriticality({ risk: t.risk, criticality: t.criticality }),
         documented: Boolean(t.documented ?? t.has_policy ?? false),
         backup_tool: t.backup_tool || t.fallback_tool || null,
         access_owner: (() => {
@@ -125,6 +137,7 @@ export default function KnowledgePage() {
   return (
     <div className="space-y-8 pb-12 animate-in fade-in duration-500">
       <KnowledgeHeader report={report} />
+      {concentrationUnavailable && <UnavailableBanner label="Knowledge concentration scores" />}
       <EntitySearchPanel report={report} />
       <KnowledgeConcentrationGauge profiles={report.profiles} totalAssets={report.totalAssets} />
       <ConcentrationRiskPanel profiles={report.profiles} />
