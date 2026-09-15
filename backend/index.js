@@ -10,6 +10,10 @@ console.log("2. Packages loaded")
 
 const app = express()
 
+// SEC-1: security headers first, so every response — including CORS
+// rejections and errors — carries them.
+app.use(require('./middleware/securityHeaders'))
+
 // Every /api route below requires a bearer token, but a default cors() sends
 // Access-Control-Allow-Origin: * on every response — any site can then read
 // an authenticated response from a browser holding a token (e.g. leaked via
