@@ -317,6 +317,19 @@ async function main() {
 		check('COOKIE_CROSS_SITE=true gives SameSite=None', /;\s*SameSite=None/i.test(raw), raw)
 		check('...and Secure', /;\s*Secure/i.test(raw), raw)
 	}
+	{
+		process.env.COOKIE_SECURE = 'true'
+		const r = await call('POST', '/api/auth/login', { body: { email: 'cookie@example.com', password: 'cookie-password-2' } })
+		delete process.env.COOKIE_SECURE
+		const raw = r.setCookie.find((c) => c.startsWith('horquva_session=')) || ''
+		check('COOKIE_SECURE=true (proxied deploy) keeps SameSite=Lax', /;\s*SameSite=Lax/i.test(raw), raw)
+		check('...and adds Secure', /;\s*Secure/i.test(raw), raw)
+	}
+	{
+		const r = await call('POST', '/api/auth/login', { body: { email: 'cookie@example.com', password: 'cookie-password-2' } })
+		const raw = r.setCookie.find((c) => c.startsWith('horquva_session=')) || ''
+		check('with neither flag (local http) the cookie is not Secure', raw.length > 0 && !/;\s*Secure/i.test(raw), raw)
+	}
 
 	server.close()
 

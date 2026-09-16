@@ -4,6 +4,10 @@ import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Base ────────────────────────────────────────────────────────────────────
 
+// NEXT_PUBLIC_API_URL="/" (deployed) strips to "", so every request goes to
+// this app's own /api/*, which next.config.ts rewrites to the backend. That
+// keeps the SEC-2 session cookie first-party. Unset (local dev) falls back to
+// calling the backend directly.
 const BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 

@@ -8,9 +8,13 @@
 //   Local dev — frontend on localhost:3001, backend on localhost:3000. Ports do
 //   not change the "site", so these are same-site and SameSite=Lax works over
 //   plain http.
-//   Deployed — frontend and backend are on different domains (cross-site). A
+//   Deployed (recommended) — the frontend proxies /api/* to the backend
+//   (frontend/next.config.ts), so the browser only ever talks to one site.
+//   Keep SameSite=Lax and set COOKIE_SECURE=true so the cookie is HTTPS-only.
+//   Deployed without the proxy — frontend and backend on different sites. A
 //   browser only sends a cookie on a cross-site request when it is
-//   SameSite=None; Secure. Set COOKIE_CROSS_SITE=true there.
+//   SameSite=None; Secure: set COOKIE_CROSS_SITE=true. Some browsers block
+//   such third-party cookies entirely, which is why the proxy is preferred.
 //
 // Because SameSite=None cookies ride along on requests other sites trigger,
 // cookie-authenticated state-changing requests must also carry CLIENT_HEADER
@@ -25,11 +29,16 @@ function crossSite() {
 	return String(process.env.COOKIE_CROSS_SITE || '').toLowerCase() === 'true'
 }
 
+function secureFlag() {
+	return String(process.env.COOKIE_SECURE || '').toLowerCase() === 'true'
+}
+
 function cookieOptions() {
 	const cross = crossSite()
 	return {
 		httpOnly: true,
-		secure: cross,
+		// SameSite=None is only accepted together with Secure.
+		secure: cross || secureFlag(),
 		sameSite: cross ? 'none' : 'lax',
 		path: '/',
 	}
