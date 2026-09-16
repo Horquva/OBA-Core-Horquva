@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
-const { requireAdmin } = require('../middleware/auth')
+const { requireAdmin } = require('../middleware/requireRole')
 
 /** agent_id -> is_documented, via knowledge_assets where asset_type='agent'.
  *  null when no assessment exists — never fabricate a default (matches tools.js). */
