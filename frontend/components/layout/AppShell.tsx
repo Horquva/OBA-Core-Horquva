@@ -14,19 +14,19 @@ const AUTH_ROUTES = ['/login'];
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { token, loading } = useAuth();
+  const { user, loading } = useAuth();
   const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
   useEffect(() => {
     if (loading) return;
-    if (!token && !isAuthRoute) {
+    if (!user && !isAuthRoute) {
       router.replace('/login');
     }
-  }, [token, loading, isAuthRoute, router]);
+  }, [user, loading, isAuthRoute, router]);
 
   if (isAuthRoute) return <>{children}</>;
 
-  if (loading || !token) {
+  if (loading || !user) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}>
         Loading...

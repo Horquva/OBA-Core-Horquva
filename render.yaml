@@ -22,6 +22,10 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      # SEC-2: frontend (Vercel) and backend (Render) are different sites, so
+      # the httpOnly session cookie must be SameSite=None; Secure.
+      - key: COOKIE_CROSS_SITE
+        value: "true"
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
