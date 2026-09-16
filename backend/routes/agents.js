@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
+const { requireAdmin } = require('../middleware/auth')
 
 /** agent_id -> is_documented, via knowledge_assets where asset_type='agent'.
  *  null when no assessment exists — never fabricate a default (matches tools.js). */
@@ -73,7 +74,11 @@ router.get('/', async (req, res) => {
 // Body: { ownerId: number | null }. `null` clears ownership — a genuine
 // action (e.g. the owner left and there is no replacement yet), not an
 // error, so it is accepted, not rejected.
-router.patch('/:id/owner', async (req, res) => {
+//
+// SEC-3: admin-only. The global requireAuth in index.js only proves the
+// caller is signed in; without this any signed-in user could reassign
+// ownership.
+router.patch('/:id/owner', requireAdmin, async (req, res) => {
   const agentId = Number(req.params.id)
   if (!Number.isInteger(agentId)) {
     return res.status(400).json({ error: 'Invalid agent id' })
