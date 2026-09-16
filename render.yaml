@@ -22,6 +22,11 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      # SEC-2: the frontend proxies /api/* to this service (frontend/next.config.ts),
+      # so the session cookie is first-party: SameSite=Lax, HTTPS-only.
+      # COOKIE_CROSS_SITE is intentionally not set.
+      - key: COOKIE_SECURE
+        value: "true"
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
