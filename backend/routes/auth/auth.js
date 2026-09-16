@@ -1,10 +1,15 @@
 /*
  * OBA Core — Authentication routes (Identity Gateway, MVP).
  * Endpoints:
- *   POST /api/auth/login           { email, password }   -> { token, user }
- *   GET  /api/auth/me              (Bearer token)         -> { user }
- *   POST /api/auth/logout          (Bearer token)         -> { ok: true }
- *   POST /api/auth/change-password (Bearer token)         -> { ok: true }
+ *   POST /api/auth/login           { email, password }   -> { user } + session cookie
+ *   GET  /api/auth/me              (session)              -> { user }
+ *   POST /api/auth/logout          (session, optional)    -> { ok: true }, cookie cleared
+ *   POST /api/auth/change-password (session)              -> { ok: true }, cookie cleared
+ *
+ * SEC-2: the token is set as an httpOnly cookie (lib/authCookie.js) and is
+ * never put in a response body, so page scripts cannot read it. "session"
+ * above means that cookie, or an Authorization: Bearer header for non-browser
+ * clients.
  *
  * Registration is closed (D-13) — accounts are created with
  * backend/tools/provision-user.js, not self-service. This router is mounted
@@ -22,7 +27,8 @@ const express = require('express')
 const router = express.Router()
 const { sign } = require('../../lib/jwt')
 const password = require('../../lib/password')
-const { requireAuth } = require('../../middleware/auth')
+const { requireAuth, optionalAuth } = require('../../middleware/auth')
+const { setSessionCookie, clearSessionCookie } = require('../../lib/authCookie')
 const { rateLimit } = require('../../middleware/rateLimit')
 const { revoke } = require('../../lib/tokenBlocklist')
 
@@ -85,7 +91,8 @@ router.post('/login', authRateLimit, async (req, res) => {
 		const user = await findUserByEmail(email)
 		if (user && password.verify(pass, user.password_hash)) {
 			const token = sign({ sub: user.id, email: user.email, role: user.role, org: user.org }, SECRET, TTL)
-			return res.json({ token, user: publicUser(user) })
+			setSessionCookie(res, token, TTL)
+			return res.json({ user: publicUser(user) })
 		}
 
 		// Fallback: env admin (MVP/demo) so login works even without a DB table
@@ -93,7 +100,8 @@ router.post('/login', authRateLimit, async (req, res) => {
 		const adminPass = process.env.ADMIN_PASSWORD
 		if (adminEmail && adminPass && email === adminEmail && password.timingSafeEqualString(pass, adminPass)) {
 			const token = sign({ sub: 'admin', email: adminEmail, role: 'admin', org: process.env.ADMIN_ORG || 'horquva' }, SECRET, TTL)
-			return res.json({ token, user: { id: 'admin', email: adminEmail, name: 'Admin', role: 'admin', org: process.env.ADMIN_ORG || 'horquva' } })
+			setSessionCookie(res, token, TTL)
+			return res.json({ user: { id: 'admin', email: adminEmail, name: 'Admin', role: 'admin', org: process.env.ADMIN_ORG || 'horquva' } })
 		}
 
 		return res.status(401).json({ error: 'Invalid credentials' })
@@ -110,8 +118,12 @@ router.get('/me', requireAuth, (req, res) => {
 // -- LOGOUT ------------------------------------------------------
 // Revokes this specific token (by jti) so it can't be reused after logout,
 // without invalidating the user's other active sessions/tokens.
-router.post('/logout', requireAuth, (req, res) => {
-	revoke(req.user.jti, req.user.exp)
+// optionalAuth, not requireAuth: a user whose token already expired must still
+// be able to log out and have the cookie cleared. Revocation only happens when
+// a valid token is present.
+router.post('/logout', optionalAuth, (req, res) => {
+	if (req.user) revoke(req.user.jti, req.user.exp)
+	clearSessionCookie(res)
 	res.json({ ok: true })
 })
 
@@ -165,6 +177,7 @@ router.post('/change-password', requireAuth, changePasswordRateLimit, async (req
 		// Retire the token that authorised the change. If it was stolen, the
 		// thief loses it the moment the real owner rotates their password.
 		revoke(req.user.jti, req.user.exp)
+		clearSessionCookie(res)
 
 		return res.json({ ok: true, message: 'Password updated. Please sign in again.' })
 	} catch (err) {

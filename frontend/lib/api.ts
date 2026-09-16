@@ -1,5 +1,5 @@
 import type { RiskLevel } from '../types';
-import { authHeader, TOKEN_KEY, USER_KEY } from './authFetch';
+import { clientHeaders, LEGACY_TOKEN_KEY, USER_KEY } from './authFetch';
 import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Base ────────────────────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ const BASE =
 function handleUnauthorized() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
   } catch {}
   if (window.location.pathname !== '/login') {
@@ -42,8 +42,10 @@ function handleUnauthorized() {
  */
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...authHeader(), ...init?.headers },
     ...init,
+    // SEC-2: send the httpOnly session cookie cross-origin.
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...clientHeaders(), ...init?.headers },
   });
 
   if (res.status === 401) handleUnauthorized();
@@ -1265,7 +1267,8 @@ export async function pingEndpoint(path: string): Promise<PingResult> {
     const res = await fetch(`${BASE}${path}`, {
       method: 'GET',
       signal: controller.signal,
-      headers: { ...authHeader() },
+      credentials: 'include',
+      headers: { ...clientHeaders() },
     });
     clearTimeout(timeoutId);
     return {

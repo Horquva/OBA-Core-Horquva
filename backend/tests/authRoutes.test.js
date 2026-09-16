@@ -100,16 +100,17 @@ async function main() {
 	await new Promise((r) => server.once('listening', r))
 	const base = 'http://127.0.0.1:' + server.address().port
 
-	async function call(method, path, { body, token, query } = {}) {
-		const headers = { 'Content-Type': 'application/json' }
+	async function call(method, path, { body, token, query, cookie, extraHeaders } = {}) {
+		const headers = { 'Content-Type': 'application/json', ...(extraHeaders || {}) }
 		if (token) headers.Authorization = 'Bearer ' + token
+		if (cookie) headers.Cookie = cookie
 		const res = await fetch(base + path + (query || ''), {
 			method,
 			headers,
 			body: body === undefined ? undefined : JSON.stringify(body),
 		})
 		const json = await res.json().catch(() => ({}))
-		return { status: res.status, json }
+		return { status: res.status, json, setCookie: res.headers.getSetCookie() }
 	}
 
 	console.log('\n=== OBA Core — Auth Route Test ===\n')
@@ -239,6 +240,82 @@ async function main() {
 	{
 		const r = await call('GET', '/api/auth/me', { token: ownerToken })
 		check('the old token is revoked after a successful change', r.status === 401, r.status)
+	}
+
+	// ── SEC-2: session token lives in an httpOnly cookie ───────────────────
+	console.log('\nSEC-2 httpOnly session cookie:')
+	rows = [{
+		id: 'u-3',
+		email: 'cookie@example.com',
+		name: 'Cookie User',
+		role: 'member',
+		org: 'test-org',
+		password_hash: password.hash('cookie-password'),
+	}]
+	let sessionCookie = null
+	{
+		const r = await call('POST', '/api/auth/login', { body: { email: 'cookie@example.com', password: 'cookie-password' } })
+		check('login succeeds', r.status === 200, r.status)
+		check('login response body carries no token', r.json.token === undefined, r.json)
+		check('login response still returns the user', r.json.user && r.json.user.email === 'cookie@example.com', r.json)
+		const raw = r.setCookie.find((c) => c.startsWith('horquva_session=')) || ''
+		check('login sets the horquva_session cookie', raw.length > 'horquva_session='.length, r.setCookie)
+		check('...marked HttpOnly', /;\s*HttpOnly/i.test(raw), raw)
+		check('...with SameSite=Lax in local (non-cross-site) mode', /;\s*SameSite=Lax/i.test(raw), raw)
+		check('...scoped to Path=/', /;\s*Path=\//i.test(raw), raw)
+		sessionCookie = raw.split(';')[0]
+	}
+	{
+		const r = await call('POST', '/api/auth/login', { body: { email: 'cookie@example.com', password: 'wrong-password' } })
+		check('a failed login sets no session cookie', r.status === 401 && !r.setCookie.some((c) => c.startsWith('horquva_session=')), r.setCookie)
+	}
+	{
+		const r = await call('GET', '/api/auth/me', { cookie: sessionCookie })
+		check('the cookie alone authenticates GET /me', r.status === 200 && r.json.user.email === 'cookie@example.com', r)
+	}
+	{
+		const r = await call('GET', '/api/auth/me', { cookie: 'horquva_session=not-a-real-token' })
+		check('a forged cookie is rejected', r.status === 401, r.status)
+	}
+	{
+		const r = await call('POST', '/api/auth/change-password', {
+			cookie: sessionCookie,
+			body: { currentPassword: 'cookie-password', newPassword: 'cookie-password-2' },
+		})
+		check('a cookie-authenticated POST without the client header is refused (CSRF)', r.status === 403, r.status)
+		check('...and the password is unchanged', password.verify('cookie-password', rows[0].password_hash))
+	}
+	{
+		const r = await call('POST', '/api/auth/change-password', {
+			cookie: sessionCookie,
+			extraHeaders: { 'X-Horquva-Client': 'web' },
+			body: { currentPassword: 'cookie-password', newPassword: 'cookie-password-2' },
+		})
+		check('with the client header the same POST succeeds', r.status === 200, r.json)
+		check('a successful password change clears the cookie', r.setCookie.some((c) => /^horquva_session=;/.test(c) && /Expires=Thu, 01 Jan 1970/i.test(c)), r.setCookie)
+		const me = await call('GET', '/api/auth/me', { cookie: sessionCookie })
+		check('the old cookie token is revoked after the change', me.status === 401, me.status)
+	}
+	{
+		const login = await call('POST', '/api/auth/login', { body: { email: 'cookie@example.com', password: 'cookie-password-2' } })
+		const c = (login.setCookie.find((x) => x.startsWith('horquva_session=')) || '').split(';')[0]
+		const out = await call('POST', '/api/auth/logout', { cookie: c, extraHeaders: { 'X-Horquva-Client': 'web' } })
+		check('logout succeeds', out.status === 200, out.status)
+		check('logout clears the cookie', out.setCookie.some((x) => /^horquva_session=;/.test(x)), out.setCookie)
+		const me = await call('GET', '/api/auth/me', { cookie: c })
+		check('the logged-out cookie token no longer authenticates', me.status === 401, me.status)
+	}
+	{
+		const r = await call('POST', '/api/auth/logout', {})
+		check('logout without any session still clears the cookie', r.status === 200 && r.setCookie.some((x) => /^horquva_session=;/.test(x)), r)
+	}
+	{
+		process.env.COOKIE_CROSS_SITE = 'true'
+		const r = await call('POST', '/api/auth/login', { body: { email: 'cookie@example.com', password: 'cookie-password-2' } })
+		delete process.env.COOKIE_CROSS_SITE
+		const raw = r.setCookie.find((c) => c.startsWith('horquva_session=')) || ''
+		check('COOKIE_CROSS_SITE=true gives SameSite=None', /;\s*SameSite=None/i.test(raw), raw)
+		check('...and Secure', /;\s*Secure/i.test(raw), raw)
 	}
 
 	server.close()

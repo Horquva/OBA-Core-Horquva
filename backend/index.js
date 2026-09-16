@@ -33,6 +33,10 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true)
     callback(new Error('Not allowed by CORS'))
   },
+  // SEC-2: the session is an httpOnly cookie, so the browser must be allowed
+  // to send it cross-origin. Safe only because `origin` above is an allowlist,
+  // never '*'.
+  credentials: true,
 }))
 app.use(express.json())
 
