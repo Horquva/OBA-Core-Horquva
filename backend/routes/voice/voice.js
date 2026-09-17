@@ -313,7 +313,16 @@ function greeting() {
 
 function dailySummary(brain) {
   const parts = []
-  if (brain.org.spof) parts.push(`${brain.org.spof} has no backup owner (CRITICAL SPOF).`)
+  if (brain.org.spof) {
+    // Same real backup lookup orgSpof() already uses correctly a few lines
+    // above in this file -- this branch used to assert "no backup owner"
+    // unconditionally, true today only because SecurityScanner (the current
+    // top risk) genuinely has none; it silently becomes false the day a
+    // backup is assigned.
+    const s = brain.agents.find((a) => a.name === brain.org.spof)
+    const backupClause = s?.backup ? `has backup coverage from ${s.backup}` : 'has no backup owner'
+    parts.push(`${brain.org.spof} ${backupClause} (CRITICAL SPOF).`)
+  }
   const top = mostLoadedPerson(brain)
   if (top) parts.push(`${top.name} carries the most key-person risk, owning ${top.criticalAgents} critical asset(s) with no backup.`)
   if (brain.org.failing) {

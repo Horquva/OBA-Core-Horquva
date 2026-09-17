@@ -20,6 +20,12 @@ async function getTopSPOF() {
   return {
     predicted_score: top.predictedScore,
     agents: { name: top.agentName, risk: top.recordedRisk, owner_id: null },
+    // predictiveRisk()'s single_owner factor is only present when the agent
+    // has no owner AT ALL, or has an owner with no backup (derived.js's
+    // predictiveRisk(), lines ~510-516) -- absent when the owner has a real
+    // backup. Previously this route asserted "no backup owner" for whichever
+    // agent happened to be top-CRITICAL, whether or not that was true.
+    hasNoBackupOwner: 'single_owner' in top.contributingFactors,
   }
 }
 
@@ -82,8 +88,15 @@ function buildSummaryPoints({ spof, overloaded, incident, docTrend, pendingCount
   const points = []
 
   if (spof) {
+    // Only call it a SPOF alert, and only claim "no backup owner", when
+    // that's actually true -- an agent with real backup coverage isn't a
+    // single point of failure by this app's own definition (definitions.js's
+    // spofVerdict: sole owner AND no backup AND criticality >= high), even
+    // if it's still the org's top predicted-risk CRITICAL agent.
+    const label = spof.hasNoBackupOwner ? 'SPOF ALERT' : 'CRITICAL RISK ALERT'
+    const backupClause = spof.hasNoBackupOwner ? 'has no backup owner' : 'has backup coverage'
     points.push(
-      `SPOF ALERT: ${spof.agents?.name} has no backup owner. It is rated CRITICAL with a predicted risk score of ${spof.predicted_score}.`
+      `${label}: ${spof.agents?.name} ${backupClause}. It is rated CRITICAL with a predicted risk score of ${spof.predicted_score}.`
     )
   }
 
@@ -325,3 +338,4 @@ router.get('/top-risks', async (req, res) => {
 })
 
 module.exports = router
+module.exports.buildSummaryPoints = buildSummaryPoints
