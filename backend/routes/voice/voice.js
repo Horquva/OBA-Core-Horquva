@@ -321,10 +321,11 @@ function dailySummary(brain) {
     // backup is assigned.
     const s = brain.agents.find((a) => a.name === brain.org.spof)
     const backupClause = s?.backup ? `has backup coverage from ${s.backup}` : 'has no backup owner'
-    parts.push(`${brain.org.spof} ${backupClause} (CRITICAL SPOF).`)
+    const label = s?.backup ? 'CRITICAL RISK' : 'CRITICAL SPOF'
+    parts.push(`${brain.org.spof} ${backupClause} (${label}).`)
   }
   const top = mostLoadedPerson(brain)
-  if (top) parts.push(`${top.name} carries the most key-person risk, owning ${top.criticalAgents} critical asset(s) with no backup.`)
+  if (top) parts.push(`${top.name} carries the most key-person risk, owning ${top.criticalAgents} critical asset(s).`)
   if (brain.org.failing) {
     const f = brain.agents.find((a) => a.name === brain.org.failing)
     parts.push(`${brain.org.failing} remains in a FAILED state${f?.onlyRestorer ? ` — ${f.onlyRestorer} is the only person who can restore it` : ''}.`)

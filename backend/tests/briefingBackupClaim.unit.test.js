@@ -4,10 +4,20 @@
  * Covers buildSummaryPoints()'s SPOF Alert line (backend/routes/briefing/
  * briefing.js) — it used to assert "has no backup owner" for whichever agent
  * was top-CRITICAL by predicted risk, whether or not that was actually true.
- * Pure function, no Supabase/network involved — runs fully offline.
+ * buildSummaryPoints() itself is a pure function, but requiring briefing.js
+ * transitively requires ../../supabase, which constructs a real Supabase
+ * client at module-load time — runs fully offline only because of the
+ * placeholder env vars below, not because Supabase is never involved.
  *
  * Run from backend/: node tests/briefingBackupClaim.unit.test.js
  */
+
+// briefing.js requires ../../supabase, which constructs a real Supabase
+// client at module load time and throws if SUPABASE_URL/KEY are unset. This
+// file only asserts buildSummaryPoints(), a pure function — it never calls
+// Supabase for real.
+process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co'
+process.env.SUPABASE_KEY = process.env.SUPABASE_KEY || 'placeholder-key'
 
 const { buildSummaryPoints } = require('../routes/briefing/briefing')
 
