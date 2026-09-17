@@ -52,7 +52,7 @@ export default function RecommendationHeader({ output }: Props) {
           Prioritized Recovery Plan
         </h1>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-          {output.recommendations.length} actionable recommendations generated from risk analysis · Sunrise Care Demo
+          {output.recommendations.length} actionable recommendations generated from risk analysis
         </p>
       </div>
 
