@@ -29,6 +29,7 @@ const tests = [
 	'simulationRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-I)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
 	'securityHeaders.test.js', // HTTP-level; offline (SEC-1)
+	'briefingBackupClaim.unit.test.js', // pure; asserts buildSummaryPoints()'s SPOF backup-coverage claim
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
 if (process.env.BASE_URL) tests.push('api.smoke.test.js')
