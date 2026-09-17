@@ -54,11 +54,11 @@ export default function SimulationPage() {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
+      // Same fix as ownership/page.tsx: backup_tool/users already arrive
+      // correctly via the `...t` spread -- stop overriding them.
       const mappedTools: AITool[] = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
         ...t,
         access_owner: t.owner || t.access_owner || 'Unassigned',
-        backup_tool: t.backupAssigned ? 'Yes' : null,
-        users: [],
       } as unknown as AITool)) : [];
 
       setAgents(mappedAgents);

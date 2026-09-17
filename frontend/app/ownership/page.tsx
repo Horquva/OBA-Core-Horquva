@@ -72,11 +72,14 @@ export default function OwnershipPage() {
       const agents = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
       setEmployees(Array.isArray(employeesData) ? employeesData : []);
 
+      // backup_tool and users already come through correctly via the `...t`
+      // spread (GET /api/tools sends both) -- the two lines below used to
+      // override them with a `backupAssigned` field the API never sends
+      // (always falsy, so "no backup" for every tool) and a hardcoded empty
+      // users array. Only access_owner genuinely needs a UI-level default.
       const ai_tools = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
         ...t,
         access_owner: t.owner || t.access_owner || 'Unassigned',
-        backup_tool: t.backupAssigned ? 'Yes' : null,
-        users: [],
       } as unknown as AITool)) : [];
 
       const workflows = Array.isArray(wfsData) ? wfsData.map(normalizeWorkflow) : [];
