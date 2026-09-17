@@ -117,6 +117,10 @@ console.log('\nemployeeLeaves:')
 	// workflows row) purely so orgHealth()'s five evidenceGate()s are all
 	// sufficient and healthDelta resolves to a real number, not null — see
 	// the note on the same pattern in Task 2's healthDelta test above.
+	// A second owners row (Priya, unrelated to Sarah) is included so the
+	// owners population doesn't drop to zero when employeeLeaves() removes
+	// the departing employee's own owners row — a real org's owners table
+	// doesn't empty out because one person left; a single-row fixture would.
 	const r = roots({
 		employees: [{ id: 1, name: 'Sarah', department: 'Eng' }],
 		agents: [
@@ -129,7 +133,10 @@ console.log('\nemployeeLeaves:')
 		workflow_dependencies: [{ id: 1, workflow_id: 100, agent_id: 10, is_critical: true }],
 		workflows: [{ id: 100, name: 'Release', status: 'active', risk: 'high' }],
 		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 10, is_documented: true }],
-		owners: [{ id: 1, name: 'Sarah', employee_id: 1, backup_owner: null }],
+		owners: [
+			{ id: 1, name: 'Sarah', employee_id: 1, backup_owner: null },
+			{ id: 2, name: 'Priya', employee_id: 2, backup_owner: 'Sarah' },
+		],
 	})
 
 	const unknown = s.employeeLeaves(999, r)

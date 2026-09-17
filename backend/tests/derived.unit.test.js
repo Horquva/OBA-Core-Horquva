@@ -380,15 +380,18 @@ console.log('\nOrg memory — backup_owner + documentation status, per-asset and
 
 	check('4 status buckets partition all 4 assets', report.preserved.length === 1 && report.atRisk.length === 1 && report.vulnerable.length === 1 && report.lost.length === 1, report)
 
-	// IMHS = (1*1.0 + 1*0.5 + 1*0.25) / 4 * 100 = 43.75 -> rounds to 44.
-	check('IMHS = round((preserved*1.0 + vulnerable*0.5 + atRisk*0.25) / total * 100)', report.imhs === 44, report.imhs)
+	// IMHS = (1*1.0 + 1*0.25 + 1*0.5) / 4 * 100 = 43.75 -> rounds to 44 (same
+	// total as before the vulnerable/atRisk weight swap, since this fixture
+	// has exactly one of each -- 0.25+0.5 sums the same as 0.5+0.25 did).
+	check('IMHS = round((preserved*1.0 + vulnerable*0.25 + atRisk*0.5) / total * 100)', report.imhs === 44, report.imhs)
 	check('44 lands below the 45 AT_RISK floor -> CRITICAL', report.imhsVerdict === 'CRITICAL', report.imhsVerdict)
 
 	const carriers = Object.fromEntries(report.carriers.map((c) => [c.name, c]))
 	check('Alice: fully preserved, no undocumented/unbacked load -> LOW tier', carriers.Alice.tier === 'LOW', carriers.Alice)
 	check('Bob: 1 undocumented (weight 2) but backed -> MEDIUM tier, not a critical carrier', carriers.Bob.tier === 'MEDIUM' && !carriers.Bob.isCriticalCarrier, carriers.Bob)
 	check('Cara: 1 unbacked (weight 1) but documented -> stays LOW, below the MEDIUM floor', carriers.Cara.tier === 'LOW', carriers.Cara)
-	check('carrier healthScore uses the same IMHS formula, scoped to their own assets', carriers.Bob.healthScore === 25, carriers.Bob.healthScore)
+	// Bob owns exactly 1 asset (FlowB, AT_RISK) -> calcIMHS(0, 0, 1, 1) = round(1*0.5/1*100) = 50.
+	check('carrier healthScore uses the same IMHS formula, scoped to their own assets', carriers.Bob.healthScore === 50, carriers.Bob.healthScore)
 	check('sorted worst tier first: MEDIUM (Bob) before the two LOWs', report.carriers[0].name === 'Bob', report.carriers.map((c) => c.name))
 	check('evidence is sufficient over 4 real assets', report.evidence.sufficient === true, report.evidence)
 }

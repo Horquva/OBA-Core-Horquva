@@ -24,17 +24,18 @@ router.get('/:workflow', async (req, res) => {
 
     const result = domain.simulations.workflowDisruption(target.id, roots)
     const baseline = domain.simulations.baselineHealthScore(roots)
+    const simulated = baseline != null && result.healthDelta != null ? baseline - result.healthDelta : null
     res.json({
       scenario: result.scenario,
       impactedAgents: result.impactedAgents,
       impactedWorkflows: result.impactedWorkflows,
       impactedPeople: result.impactedPeople,
-      healthBefore: 'stable',
-      healthAfter: result.severity === 'critical' ? 'critical' : result.severity === 'low' ? 'stable' : 'degraded',
+      healthBefore: domain.simulations.healthStatusFor(baseline),
+      healthAfter: domain.simulations.healthStatusFor(simulated),
       riskLevel: result.severity,
       healthDelta: result.healthDelta,
       baselineHealthScore: baseline,
-      simulatedHealthScore: baseline != null && result.healthDelta != null ? baseline - result.healthDelta : null,
+      simulatedHealthScore: simulated,
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

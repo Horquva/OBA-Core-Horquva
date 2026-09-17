@@ -757,7 +757,11 @@ function knowledgeConcentration(roots) {
  * this module's own "memory carrier" framing (would this survive the owner
  * leaving?) rather than a general risk-exposure question mislabeled as
  * memory status. Ported verbatim: same 4-status rules, same carrier-tier
- * weights (undocumented*2 + noBackup), same IMHS weights (1.0/0.5/0.25/0).
+ * weights (undocumented*2 + noBackup). The IMHS weights were ALSO ported
+ * verbatim at 1.0/0.5/0.25/0 for PRESERVED/VULNERABLE/AT_RISK/LOST — later
+ * corrected to 1.0/0.25/0.5/0 (see calcIMHS()'s own comment): the port
+ * carried over an inversion from the original formula, not a fact about
+ * which status is worse.
  *
  * Two deliberate departures from a byte-for-byte port, both display-only
  * fields that never feed the status/tier logic above:
@@ -788,8 +792,15 @@ function memoryCarrierTier(undocumentedCount, noBackupCount) {
   return 'LOW'
 }
 
+// D-60 ported these weights verbatim from the old frontend formula (1.0 /
+// 0.5 / 0.25 for PRESERVED / VULNERABLE / AT_RISK). That ordering scored
+// VULNERABLE (owned, no backup, and — per memoryStatus() above — possibly
+// also undocumented) twice the credit of AT_RISK (undocumented but a real
+// backup exists), even though AT_RISK is the better-covered situation of
+// the two: it has a real fallback person, VULNERABLE never does. Swapped so
+// the score agrees with which bucket is actually worse.
 function calcIMHS(preserved, vulnerable, atRisk, total) {
-  return round(((preserved * 1.0 + vulnerable * 0.5 + atRisk * 0.25) / total) * 100)
+  return round(((preserved * 1.0 + vulnerable * 0.25 + atRisk * 0.5) / total) * 100)
 }
 
 /**
@@ -1499,10 +1510,24 @@ function orgHealth(roots, { accountability: acc, predictiveRisk: risk }) {
 
   const documentedRunbooks = roots.workflow_runbooks.filter((r) => r.is_documented).length
   const ownersWithBackup = roots.owners.filter((o) => o.backup_owner).length
-  const continuityScore = clamp(round(mean([
+  // Platforms carried zero weight in org health until now -- taking one down
+  // in a what-if simulation always showed Δ0, no matter how critical it was.
+  // Backup coverage is the same continuity question tool_backups already
+  // answers for /api/tool-impact and the Ownership page; folding it in here
+  // means removing a platform from the roots (domain/simulations.js's
+  // platformDown()) actually moves this score, the same way removing an
+  // agent already moves ownershipSpreadScore. Only added as a term when
+  // platforms exist at all -- a population of zero (a fixture, or a
+  // genuinely tool-free department slice) must not silently drag continuity
+  // toward 0 for having nothing to score, the same reasoning the other
+  // pct() terms already follow when their own population is empty.
+  const platformsWithBackup = new Set(roots.tool_backups.map((b) => b.primary_platform)).size
+  const continuityTerms = [
     pct(documentedRunbooks, roots.workflows.length),
     pct(ownersWithBackup, roots.owners.length),
-  ])))
+  ]
+  if (roots.ai_platforms.length) continuityTerms.push(pct(platformsWithBackup, roots.ai_platforms.length))
+  const continuityScore = clamp(round(mean(continuityTerms)))
 
   // Ownership SPREAD, not coverage: concentration is the risk. One person
   // holding many assets scores worse than the same assets spread thin.

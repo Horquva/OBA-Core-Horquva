@@ -107,6 +107,21 @@ function healthDelta(baselineRoots, mutatedRoots) {
   return before - after
 }
 
+/**
+ * Bands a health index into the same STABLE/WARNING/CRITICAL thresholds
+ * orgHealth() itself uses (>=70 / >=45 / below), lowercased to match this
+ * module's existing scenario vocabulary. Every simulation route used to
+ * hardcode `healthBefore: 'stable'` regardless of the org's real state, and
+ * derived `healthAfter` from cascade blast-radius severity -- a different
+ * axis entirely, not a health status. Both now go through this one function
+ * so before/after describe the same real health score the rest of the app
+ * shows, not two unrelated fabrications.
+ */
+function healthStatusFor(healthIndex) {
+  if (healthIndex == null) return null
+  return healthIndex >= 70 ? 'stable' : healthIndex >= 45 ? 'warning' : 'critical'
+}
+
 // ─── Scenarios ───────────────────────────────────────────────────────────────
 
 function impactedEntitiesFor(agentIds, workflows) {
@@ -148,6 +163,17 @@ function employeeLeaves(employeeId, roots) {
   const mutated = cloneRoots(roots)
   mutated.employees = mutated.employees.filter((e) => e.id !== employeeId)
   mutated.agents = mutated.agents.map((a) => (a.owner_id === employeeId ? { ...a, owner_id: null } : a))
+  // The employee's own owners row disappears with them, and anyone who named
+  // them as a backup loses that coverage too -- owners.backup_owner is a
+  // name string (see backupIndex()'s own comment), not an employee_id, so
+  // this is a name match. Without this, orgHealth()'s continuityScore
+  // (ownersWithBackup / owners.length) never moved for a departure unless
+  // the employee happened to own an agent directly -- most departures
+  // showed a Δ0 health impact even when the person was someone else's named
+  // backup or had their own owner row.
+  mutated.owners = mutated.owners
+    .filter((o) => o.employee_id !== employeeId)
+    .map((o) => (o.backup_owner === employee.name ? { ...o, backup_owner: null } : o))
   recount(mutated)
 
   return {
@@ -312,6 +338,7 @@ module.exports = {
   recount,
   healthDelta,
   baselineHealthScore,
+  healthStatusFor,
   employeeLeaves,
   agentFails,
   platformDown,

@@ -121,5 +121,6 @@ module.exports = {
     workflowDisruption: simulations.workflowDisruption,
     rankAllScenarios: simulations.rankAllScenarios,
     baselineHealthScore: simulations.baselineHealthScore,
+    healthStatusFor: simulations.healthStatusFor,
   },
 }
