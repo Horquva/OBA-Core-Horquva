@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { forecast, ApiError, type ForecastHealthItem } from '../../lib/api';
 import { TrendingUp, TrendingDown, Minus, Activity, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
+import { ProvenanceBadge } from '../ui/ProvenanceBadge';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
 
 export function TrendArrow() {
   const [data, setData] = useState<ForecastHealthItem[]>([]);
+  const [provenance, setProvenance] = useState<{ source: string; table: string } | null>(null);
   const [state, setState] = useState<FetchState>('loading');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -24,6 +26,7 @@ export function TrendArrow() {
           // Sort by horizonDays ascending (30, 60, 90)
           const sorted = [...res.forecasts].sort((a, b) => a.horizonDays - b.horizonDays);
           setData(sorted);
+          setProvenance(res.provenance);
           setState('success');
         }
       } catch (err: unknown) {
@@ -42,14 +45,17 @@ export function TrendArrow() {
 
   return (
     <div className="animate-fade-up delay-300">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-          <Activity className="w-4 h-4 text-emerald-400" />
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+            <Activity className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Health Trajectory</h2>
+            <p className="text-xs text-[color:var(--text-secondary)]">Directional health score indicator over time</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Health Trajectory</h2>
-          <p className="text-xs text-[color:var(--text-secondary)]">Directional health score indicator over time</p>
-        </div>
+        {state === 'success' && provenance && <ProvenanceBadge provenance={provenance} />}
       </div>
 
       {state === 'loading' && (

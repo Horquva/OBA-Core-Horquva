@@ -68,7 +68,13 @@ router.get('/feed', async (req, res) => {
       feed: items.map((item, index) => ({
         rank: index + 1,
         ...formatItem(item)
-      }))
+      })),
+      // context_items is seeded once and written by nothing in this
+      // application — the same "genuine, never-rewritten" situation as
+      // organizational_forecasts/learning_snapshots (D-09 KEEP list),
+      // flagged here the same way so the frontend can say so instead of
+      // badging this feed "Verified" for merely being non-empty.
+      provenance: { source: 'historical', table: 'context_items' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

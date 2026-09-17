@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { learning, ApiError, type LearningSummary } from '../../lib/api';
 import { BookOpen, AlertTriangle, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import clsx from 'clsx';
+import { ProvenanceBadge } from '../ui/ProvenanceBadge';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
 
@@ -42,14 +43,17 @@ export function LearningMaturityCard() {
           <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Learning Maturity</h3>
         </div>
         {state === 'success' && data && (
-          <span className={clsx(
-            "px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border",
-            data.learningMaturityScore > 75 ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 
-            data.learningMaturityScore < 50 ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-            'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-          )}>
-            {data.learningMaturityLevel}
-          </span>
+          <div className="flex items-center gap-2">
+            <ProvenanceBadge provenance={data.provenance} />
+            <span className={clsx(
+              "px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border",
+              data.learningMaturityScore > 75 ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+              data.learningMaturityScore < 50 ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+              'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+            )}>
+              {data.learningMaturityLevel}
+            </span>
+          </div>
         )}
       </div>
 

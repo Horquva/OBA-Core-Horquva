@@ -416,6 +416,7 @@ export interface LearningSummary {
     department: string;
     exposureScore: number;
   } | null;
+  provenance: { source: string; table: string };
 }
 
 export interface FailureProneAsset {
@@ -964,6 +965,7 @@ export interface ContextFeedItem {
 export interface ContextFeedResponse {
   totalItems: number;
   feed: ContextFeedItem[];
+  provenance: { source: string; table: string };
 }
 
 export const contextApi = {
