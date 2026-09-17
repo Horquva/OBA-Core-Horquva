@@ -3,6 +3,7 @@ const router = express.Router()
 const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { requireAdmin } = require('../middleware/requireRole')
+const domain = require('../domain')
 
 /** agent_id -> is_documented, via knowledge_assets where asset_type='agent'.
  *  null when no assessment exists — never fabricate a default (matches tools.js). */
@@ -60,6 +61,47 @@ router.get('/', async (req, res) => {
   }
 })
 
+/**
+ * An owner change makes three caches stale that nothing else was clearing:
+ * the 30s derived.js memo (recommendations/coverage would serve a stale
+ * figure for up to 30s -- survivable), the in-memory Knowledge Graph (owns
+ * edges are graph entities, not re-read per request -- stale until someone
+ * hits the manual reload button), and today's already-cached brain-core /
+ * orchestrator / briefing rows (each caches once per UTC day, so without
+ * this a change made at 09:00 would not show up in those three surfaces
+ * until the next day). Every step here is best-effort: the owner write has
+ * already succeeded by the time this runs, and a cache that fails to clear
+ * must not turn that success into a failed response.
+ */
+async function clearCachesAfterOwnerChange() {
+  try {
+    domain.intelligence.invalidate()
+  } catch (err) {
+    console.warn(`[agents] failed to invalidate derived cache: ${err.message}`)
+  }
+
+  try {
+    await domain.graph.load()
+  } catch (err) {
+    console.warn(`[agents] owner-change graph reload failed: ${err.message}`)
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+  async function clearTable(label, build) {
+    try {
+      const { error } = await build()
+      if (error) console.warn(`[agents] failed to clear ${label}: ${error.message}`)
+    } catch (err) {
+      console.warn(`[agents] failed to clear ${label}: ${err.message}`)
+    }
+  }
+  await Promise.all([
+    clearTable('brain_core_snapshots', () => supabase.from('brain_core_snapshots').delete().gte('computed_at', `${today}T00:00:00`)),
+    clearTable('orchestrator_snapshots', () => supabase.from('orchestrator_snapshots').delete().gte('computed_at', `${today}T00:00:00`)),
+    clearTable('executive_briefings', () => supabase.from('executive_briefings').delete().eq('briefing_date', today)),
+  ])
+}
+
 // PATCH /api/agents/:id/owner — assign, change, or clear an agent's owner.
 //
 // DATA-1's first slice: the app has always been able to DETECT an unowned or
@@ -106,6 +148,8 @@ router.patch('/:id/owner', requireAdmin, async (req, res) => {
     return res.status(500).json({ error: error.message })
   }
   if (!data) return res.status(404).json({ error: `No agent with id ${agentId}` })
+
+  await clearCachesAfterOwnerChange()
 
   res.json({ ok: true, agent: data })
 })

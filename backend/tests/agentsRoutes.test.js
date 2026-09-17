@@ -39,6 +39,8 @@ const agentsTable = [
 ]
 const validEmployeeIds = new Set([1, 2, 3])
 
+const clearedTables = []
+
 const supabasePath = require.resolve(path.join(__dirname, '..', 'supabase.js'))
 require.cache[supabasePath] = {
 	id: supabasePath,
@@ -46,30 +48,51 @@ require.cache[supabasePath] = {
 	loaded: true,
 	exports: {
 		from(table) {
-			if (table !== 'agents') throw new Error(`agentsRoutes.test.js: unexpected table '${table}'`)
-			return {
-				update(patch) {
-					return {
-						eq(col, val) {
-							return {
-								select() {
-									return {
-										async maybeSingle() {
-											const agent = agentsTable.find((a) => a.id === val)
-											if (!agent) return { data: null, error: null }
-											if (patch.owner_id !== null && !validEmployeeIds.has(patch.owner_id)) {
-												return { data: null, error: { code: '23503', message: 'insert or update on table "agents" violates foreign key constraint' } }
-											}
-											agent.owner_id = patch.owner_id
-											return { data: { id: agent.id, name: agent.name, owner_id: agent.owner_id }, error: null }
-										},
-									}
-								},
-							}
-						},
-					}
-				},
+			if (table === 'agents') {
+				return {
+					update(patch) {
+						return {
+							eq(col, val) {
+								return {
+									select() {
+										return {
+											async maybeSingle() {
+												const agent = agentsTable.find((a) => a.id === val)
+												if (!agent) return { data: null, error: null }
+												if (patch.owner_id !== null && !validEmployeeIds.has(patch.owner_id)) {
+													return { data: null, error: { code: '23503', message: 'insert or update on table "agents" violates foreign key constraint' } }
+												}
+												agent.owner_id = patch.owner_id
+												return { data: { id: agent.id, name: agent.name, owner_id: agent.owner_id }, error: null }
+											},
+										}
+									},
+								}
+							},
+						}
+					},
+				}
 			}
+			if (['brain_core_snapshots', 'orchestrator_snapshots', 'executive_briefings'].includes(table)) {
+				return {
+					delete() {
+						return {
+							gte(col, val) {
+								clearedTables.push({ table, col, val })
+								return Promise.resolve({ error: null })
+							},
+							eq(col, val) {
+								clearedTables.push({ table, col, val })
+								return Promise.resolve({ error: null })
+							},
+						}
+					},
+				}
+			}
+			// Every other table (graphLoader's ~20 reads during domain.graph.load())
+			// is expected to fail in this offline test -- the fix must treat that
+			// failure as best-effort and not let it break the response.
+			throw new Error(`agentsRoutes.test.js: unexpected table '${table}'`)
 		},
 	},
 }
@@ -170,6 +193,25 @@ async function main() {
 	{
 		const r = await patch('/api/agents/10/owner', { ownerId: 'two' })
 		check('non-integer ownerId — 400', r.status === 400, r.status)
+	}
+
+	console.log('\nCache invalidation on successful owner change (post-diagnostic fix):')
+	{
+		clearedTables.length = 0
+		const today = new Date().toISOString().split('T')[0]
+		const r = await patch('/api/agents/10/owner', { ownerId: 2 })
+		check('owner change still succeeds — 200', r.status === 200, r.status)
+
+		const cleared = (table) => clearedTables.find((c) => c.table === table)
+		check('brain_core_snapshots cleared for today', cleared('brain_core_snapshots')?.val === `${today}T00:00:00`, clearedTables)
+		check('orchestrator_snapshots cleared for today', cleared('orchestrator_snapshots')?.val === `${today}T00:00:00`, clearedTables)
+		check('executive_briefings cleared for today', cleared('executive_briefings')?.val === today, clearedTables)
+	}
+
+	{
+		clearedTables.length = 0
+		const r = await patch('/api/agents/999999/owner', { ownerId: 1 })
+		check('nonexistent agent — 404, no cache clear attempted', r.status === 404 && clearedTables.length === 0, { status: r.status, clearedTables })
 	}
 
 	server.close()
