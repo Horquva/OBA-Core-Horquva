@@ -69,11 +69,16 @@ export interface OutageImpact {
 }
 
 export function simulateOutage(tool: AITool, workflows: Workflow[], agents: Agent[]): OutageImpact {
-  const brokenWorkflows = workflows.filter(w =>
-    w.steps.some(s => s.actor === 'tool' && s.name === tool.name)
-  );
+  // tool.workflows and tool.agents_using are both NAME lists (backend/routes/
+  // tools.js's loadPlatformWorkflows()/loadPlatformAgents(), sourced from
+  // workflow_tool_dependencies and agent_platform) -- match by name, not id.
+  // The previous w.steps.some(s => s.actor === 'tool' ...) check always
+  // missed: no workflow_steps row in this dataset has actor_type 'tool'
+  // (the real tool<->workflow link lives in workflow_tool_dependencies, not
+  // in step actors), and agents_using.includes(a.id) compared names to ids.
+  const brokenWorkflows = workflows.filter(w => tool.workflows.includes(w.name));
 
-  const brokenAgents = agents.filter(a => tool.agents_using.includes(a.id));
+  const brokenAgents = agents.filter(a => tool.agents_using.includes(a.name));
 
   const departmentsHit = Array.from(new Set([
     ...brokenWorkflows.map(w => w.department),
@@ -158,10 +163,9 @@ export function computeAIToolIntelligence(
     const hasNoBackup = !tool.backup_tool;
     const hasNoPolicy = !tool.documented;
 
-    const affectedWorkflows = workflows.filter(w =>
-      w.steps.some(s => s.actor === 'tool' && s.name === tool.name)
-    );
-    const affectedAgents = agents.filter(a => tool.agents_using.includes(a.id));
+    // Same name-based matching as simulateOutage() above -- see its comment.
+    const affectedWorkflows = workflows.filter(w => tool.workflows.includes(w.name));
+    const affectedAgents = agents.filter(a => tool.agents_using.includes(a.name));
 
     return {
       tool,
