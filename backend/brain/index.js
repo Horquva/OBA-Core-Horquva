@@ -153,7 +153,7 @@ function resolveOrder(ids) {
 /** Invoke one analysis and wrap its output in a validated intelligence package. */
 async function invoke(code, context) {
   const m = BY_CODE[code]
-  const out = await IMPL[code]({ graph }, context)
+  const out = await IMPL[code]({ graph, source: graphSource() }, context)
   return createIntelligence({
     sourceModule: code,
     type: out.type || 'generic',

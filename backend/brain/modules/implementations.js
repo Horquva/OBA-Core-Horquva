@@ -898,12 +898,25 @@ IMPL.M45 = (rt) => {
   }
 }
 
-// M49 — Digital Twin: a live, synchronized virtual model of the organization.
+// M49 — Digital Twin: a full snapshot of the graph, mirrored as one object.
+//
+// `syncedAt` used to be `new Date().toISOString()` -- "now", on every single
+// call, regardless of when the graph itself was actually loaded. Paired with
+// a hardcoded `synchronized: true`, the Digital Twin card always claimed to
+// be perfectly in sync even sitting right next to GraphFreshnessBanner
+// reporting the graph is genuinely days old. There is no async twin/replica
+// in this architecture (the graph is read synchronously from memory on every
+// request, same reasoning TwinSyncStatus.tsx's own fix already established
+// for the simulation page's twin card) -- so "synchronized" was never a
+// measurable fact and is dropped rather than computed differently.
+// `syncedAt` now reports the graph's real load time (`rt.source.loadedAt`,
+// from brain/index.js's own provenance tracking), which the caller can
+// compare against "now" itself instead of trusting a self-reported claim.
 IMPL.M49 = (rt, context) => {
   const g = rt.graph
   const stats = g.stats()
   const twin = {
-    syncedAt: new Date().toISOString(),
+    syncedAt: rt.source.loadedAt,
     entities: g.entities.list().map((e) => ({ id: e.id, type: e.type, name: e.name, status: e.status || 'active' })),
     relationships: g.relationships.list().map((r) => ({ from: r.from, type: r.type, to: r.to })),
     stats,
@@ -919,7 +932,6 @@ IMPL.M49 = (rt, context) => {
     definition: 'A full snapshot of every entity and relationship in the graph, mirrored as one object plus stats — nothing else in this codebase returns the whole graph in a single call.',
     payload: {
       digitalTwin: twin,
-      synchronized: true,
       simulationReady: stats.entities > 0,
     },
     confidence: A.confidence(twin.entities.length || 1, 1),

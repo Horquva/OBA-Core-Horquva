@@ -852,7 +852,6 @@ export interface DigitalTwinPayload {
     stats: Record<string, unknown>;
     layers: { structure: number; systems: number; workflows: number; knowledge: number };
   };
-  synchronized: boolean;
   simulationReady: boolean;
 }
 
