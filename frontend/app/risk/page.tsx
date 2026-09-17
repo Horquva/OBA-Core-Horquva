@@ -15,6 +15,8 @@ import { buildPredictiveRiskByAgentName } from '../../lib/predictiveRisk';
 interface RawDependency {
   source_id?: string | number;
   target_id?: string | number;
+  source_type?: string;
+  target_type?: string;
   dependency_type?: string;
 }
 
@@ -42,11 +44,21 @@ export default function RiskPage() {
     .then(([agentsData, depsData, spofData, predictiveData, healthData]) => {
       const agents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
-      const dependencies: Dependency[] = Array.isArray(depsData.dependencies) ? depsData.dependencies.map((d: RawDependency) => ({
-        from: d.source_id?.toString() || '',
-        to: d.target_id?.toString() || '',
-        type: (d.dependency_type || 'normal') as Dependency['type'],
-      })) : [];
+      // Only agent-agent edges belong in this graph -- /api/dependencies also
+      // returns workflow->agent and other cross-type edges sharing the same
+      // numeric id space, which getDownstream() would otherwise walk as if
+      // they were all agent ids (a workflow id colliding with an unrelated
+      // agent id). Same fix already applied on the Dependency Map page
+      // (app/map/page.tsx) -- this page was the one place it was missing.
+      const dependencies: Dependency[] = Array.isArray(depsData.dependencies)
+        ? depsData.dependencies
+            .filter((d: RawDependency) => d.source_type === 'agent' && d.target_type === 'agent')
+            .map((d: RawDependency) => ({
+              from: d.source_id?.toString() || '',
+              to: d.target_id?.toString() || '',
+              type: (d.dependency_type || 'normal') as Dependency['type'],
+            }))
+        : [];
 
       const spofAgentIds = new Set<string>(
         (spofData.spofs || []).map((s: RawSpof) => s.agentId?.toString() || '')
