@@ -28,6 +28,7 @@ async function fetchAllScores() {
     ai_agents_used:        e.aiAgentsUsed,
     critical_agents_owned: e.criticalAgentsOwned,
     has_backup:            e.hasBackup,
+    is_named_owner:        e.isNamedOwner,
     computed_at:           intel.collaboration.computedAt,
     employees: { name: e.name, department: e.department, role: null, risk: null },
   }))
@@ -61,8 +62,14 @@ function buildWeakAreas(scores) {
   const undocumented = scores.filter(s => s.critical_agents_owned > 0 && !s.has_backup).length
   if (undocumented > 0) weak.push(`${undocumented} employees own critical agents without backup coverage`)
 
-  const noBackup = scores.filter(s => !s.has_backup).length
-  if (noBackup > 0) weak.push(`${noBackup} employees have no backup owner assigned`)
+  // !has_backup alone counted every employee who isn't a NAMED owner at all
+  // (has nothing to back up in the first place) as a coverage gap right next
+  // to the line above -- diagnosed live as "21 employees have no backup" when
+  // 19 of those 21 owned nothing critical (and most owned nothing at all).
+  // Scoped to named owners so this only flags people who actually have
+  // ownership responsibility and no backup for it.
+  const namedOwnerNoBackup = scores.filter(s => s.is_named_owner && !s.has_backup).length
+  if (namedOwnerNoBackup > 0) weak.push(`${namedOwnerNoBackup} named owners have no backup assigned`)
 
   const highDependency = scores.filter(s => s.dependency_score >= 50).length
   if (highDependency > 0) weak.push(`${highDependency} employees carry above-average dependency risk`)
