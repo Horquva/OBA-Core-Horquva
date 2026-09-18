@@ -161,10 +161,17 @@ export const SECTIONS: CommandTarget[] = SECTION_SEEDS.map(([page, heading, keyw
 }));
 
 // ─────────────────────────────────────────────────────────────
-// MODULES — M01–M55 minus four retired (M10, M12, M17, M47; see
-// backend/brain/data/constitutional-modules.js), each pointed at the
-// surface that renders it. A module with no `match` has no dedicated
-// block on its page yet.
+// MODULES — the 23 modules still live in
+// backend/brain/data/constitutional-modules.js, each pointed at the surface
+// that renders it. A module with no `match` has no dedicated block on its
+// page yet.
+//
+// The catalog started at M01–M55 and was cut to these 23 across three
+// retirement passes (2026-08-24: M10, M12, M17, M47; 2026-09-02: M05 M06 M08
+// M09 M11 M13 M14 M15 M16 M21 M22 M23 M24 M25 M26 M27 M33 M36 M38 M46 M48
+// M50 M51 M52 M53 M54 M55, then M30) -- this list used to still carry all 28
+// codes retired in the second and third passes, so the command bar searched
+// and linked to modules that no longer exist in the backend catalog.
 // ─────────────────────────────────────────────────────────────
 
 type ModuleSeed = [code: string, name: string, page: string, match?: string];
@@ -174,37 +181,17 @@ const MODULE_SEEDS: ModuleSeed[] = [
   ['M02', 'Dependency Intelligence', '/map', 'Dependency Intelligence'],
   ['M03', 'Risk Intelligence', '/risk', 'Risk Intelligence'],
   ['M04', 'Recommendation Engine', '/recommendations'],
-  ['M05', 'What-If Simulation Engine', '/simulation'],
-  ['M06', 'Human-Agent Dependency Map', '/ownership', 'Human-Agent Dependency Pipeline'],
   ['M07', 'AI Tool Intelligence', '/ai-tools'],
-  ['M08', 'Workflow Intelligence', '/workflows', 'Workflow Step Chains'],
-  ['M09', 'Knowledge Risk Intelligence', '/knowledge'],
-  ['M11', 'Predictive Risk Intelligence', '/risk', 'Predictive Risk Forecast'],
-  ['M13', 'Human-AI Collaboration Intelligence', '/org-science', 'Collaboration Matrix'],
-  ['M14', 'Decision Intelligence', '/decision'],
-  ['M15', 'Verification Intelligence', '/workflows', 'Verification Ledger'],
-  ['M16', 'Workflow Orchestration Intelligence', '/workflows', 'Collision Detection'],
   ['M18', 'Organizational Continuity Intelligence', '/continuity', 'Disruption Continuity'],
   ['M19', 'Governance Intelligence', '/continuity', 'Governance Heatmap'],
   ['M20', 'Accountability Intelligence', '/continuity', 'Compliance Governance'],
-  ['M21', 'Executive Avatar Intelligence', '/'],
-  ['M22', 'Voice Intelligence Engine', '/'],
-  ['M23', 'Executive Briefing Intelligence', '/'],
-  ['M24', 'Decision Support Intelligence', '/recommendations', 'Decision Support Queue'],
-  ['M25', 'Organizational Health Intelligence', '/risk', 'Organizational Health Summary'],
-  ['M26', 'Executive Memory Intelligence', '/memory'],
-  ['M27', 'Executive Context Intelligence', '/memory'],
   ['M28', 'Universal Dependency Graph', '/map', 'Agent Continuity Matrix'],
   ['M29', 'Organizational Relationship Intelligence', '/ownership', 'Organizational Relationship Map'],
-  ['M30', 'Knowledge Concentration Intelligence', '/knowledge', 'Knowledge Concentration Gauge'],
   ['M31', 'Organizational Ecosystem Intelligence', '/ai-tools', 'External Vendor Ecosystem'],
   ['M32', 'Dependency Impact Intelligence', '/map', 'Blast Radius Simulator'],
-  ['M33', 'Dependency Evolution Intelligence', '/map', 'Dependency Evolution'],
   ['M34', 'Hidden Dependency Intelligence', '/map', 'Hidden Dependency Overlay'],
   ['M35', 'Organizational Network Intelligence', '/network', 'People Centrality Graph (M35)'],
-  ['M36', 'Signal Intelligence', '/notifications'],
   ['M37', 'Pattern Intelligence', '/org-science', 'Pattern Regularity'],
-  ['M38', 'Opportunity Intelligence', '/recommendations', 'Opportunity Backlog'],
   ['M39', 'Capability Intelligence', '/org-science', 'Capability Intel'],
   ['M40', 'Ownership Coverage Intelligence', '/org-science', 'Ownership Coverage'],
   ['M41', 'Organizational DNA Intelligence', '/org-science', 'DNA Fingerprint'],
@@ -212,15 +199,7 @@ const MODULE_SEEDS: ModuleSeed[] = [
   ['M43', 'Organizational Maturity Intelligence', '/org-science', 'Maturity Curve'],
   ['M44', 'Organizational Behavior Intelligence', '/org-science', 'Behavioral Profile'],
   ['M45', 'Benchmark Intelligence', '/org-science', 'Industry Benchmark'],
-  ['M46', 'Truth Intelligence', '/decision'],
-  ['M48', 'Autonomous Advisor', '/recommendations', 'Verified Advisor Panel'],
   ['M49', 'Digital Twin Intelligence', '/simulation'],
-  ['M50', 'Organizational Brain Core Logic', '/admin'],
-  ['M51', 'Self-Healing Intelligence', '/workflows', 'Self-Healing Feed'],
-  ['M52', 'Governance Automation Intelligence', '/admin', 'Automation Mode'],
-  ['M53', 'Continuity Automation Intelligence', '/continuity', 'Department Disruption Map'],
-  ['M54', 'Simulation Universe', '/simulation', 'Simulation Universe Ranking'],
-  ['M55', 'Meta-Brain Orchestrator', '/admin'],
 ];
 
 export const MODULES: CommandTarget[] = MODULE_SEEDS.map(([code, name, page, match]) => ({
