@@ -102,10 +102,13 @@ async function answerContinuity() {
   const top = data[0]
 
   return {
-    answer: `${data.length} workflows have no documentation or backup: ${names}. The highest risk is ${top.workflows?.name}, owned solely by ${top.employees?.name}.`,
+    // This query only checks is_documented -- it never joins to `owners` to
+    // check backup_owner, so "no backup" was an unverified claim tacked onto
+    // a genuinely-checked "no documentation" finding.
+    answer: `${data.length} workflows have no documentation: ${names}. The highest risk is ${top.workflows?.name}, owned solely by ${top.employees?.name}.`,
     entityName: top.workflows?.name,
     responsiblePerson: top.employees?.name,
-    dataSources: ['workflow_runbooks', 'workflow_failures', 'workflows']
+    dataSources: ['workflow_runbooks', 'workflows', 'employees']
   }
 }
 
@@ -125,7 +128,8 @@ async function answerPredictive() {
     answer: `${data.length} agents are emerging threats predicted to escalate: ${names}. These agents are not yet critical but are trending toward HIGH or CRITICAL risk.`,
     entityName: data[0]?.agents?.name,
     responsiblePerson: null,
-    dataSources: ['agents', 'owners', 'dependencies']
+    // Same predictiveRisk() computation answerRisk() uses -- same table set.
+    dataSources: ['agents', 'owners', 'dependencies', 'workflows', 'knowledge_assets']
   }
 }
 
@@ -171,25 +175,42 @@ async function answerAccountability() {
     answer: `Your Accountability Score is ${summary.accountability_score}/100 (${summary.status}). ${summary.same_r_and_a_count} of ${summary.total_entities} entities have the same person as Responsible and Accountable — a separation-of-duties violation. Only ${summary.unique_people_count} unique people appear across all responsibility chains, indicating high concentration.`,
     entityName: null,
     responsiblePerson: null,
-    dataSources: ['accountability_summary', 'accountability_links']
+    // accountability_summary was a frozen pre-aggregate table (see the
+    // comment above this function) -- the score is computed live from these
+    // two now, same as accountability() itself reads.
+    dataSources: ['accountability_entities', 'accountability_links']
   }
 }
 
 async function answerKnowledge() {
-  const data = await must('knowledge_assets', supabase
+  const rows = await must('knowledge_assets', supabase
     .from('knowledge_assets')
     .select('criticality, is_documented, owner_id, employees(name, department)')
     .eq('is_documented', false)
-    .eq('criticality', 'critical')
-    .limit(1)
-    .maybeSingle())
+    .eq('criticality', 'critical'))
 
-  if (!data) return null
+  if (!rows.length) return null
+
+  // No `ORDER BY` here has a real ranking to fall back on -- criticality and
+  // documentation are already filtered to one value each, so a bare
+  // `.limit(1)` just returned whichever row Postgres happened to return
+  // first, not "the highest risk" the answer text claimed. The person
+  // holding the MOST undocumented-critical assets is a genuine ranking.
+  const byOwner = new Map()
+  for (const row of rows) {
+    if (row.owner_id == null) continue
+    const entry = byOwner.get(row.owner_id) || { count: 0, employee: row.employees }
+    entry.count++
+    byOwner.set(row.owner_id, entry)
+  }
+  if (!byOwner.size) return null
+
+  const top = [...byOwner.values()].reduce((a, b) => (b.count > a.count ? b : a))
 
   return {
-    answer: `${data.employees?.name} carries the highest knowledge risk. They own critical undocumented assets. If they leave, this knowledge is unrecoverable with no backup path documented.`,
-    entityName: data.employees?.name,
-    responsiblePerson: data.employees?.name,
+    answer: `${top.employee?.name} carries the highest knowledge risk: ${top.count} critical, undocumented asset${top.count === 1 ? '' : 's'}. If they leave, this knowledge is unrecoverable with no backup path documented.`,
+    entityName: top.employee?.name,
+    responsiblePerson: top.employee?.name,
     dataSources: ['knowledge_assets', 'employees']
   }
 }
@@ -204,7 +225,12 @@ async function answerGeneral() {
     weaknesses: weakest[0].weaknesses,
   }
 
-  if (!orgScore) {
+  // `orgScore` is always a freshly-built object here, so `if (!orgScore)`
+  // never fired -- the real "nothing to report" case is evidence.sufficient
+  // being false on pillars.orgScore, which leaves .score/.rating `null` and
+  // used to print "Your overall ... Score is null/100 (null)" straight
+  // through to the answer text.
+  if (orgScore.score == null) {
     return {
       answer: 'I could not find a matching intelligence answer for that question. Try asking about risk, ownership, continuity, governance, or accountability.',
       entityName: null,
@@ -217,7 +243,12 @@ async function answerGeneral() {
     answer: `Your overall Organizational Intelligence Score is ${orgScore.score}/100 (${orgScore.rating}). Key weaknesses: ${orgScore.weaknesses?.join(', ')}.`,
     entityName: null,
     responsiblePerson: null,
-    dataSources: ['intelligence_results']
+    // domain.intelligence.all()'s pillars() computation -- see its own
+    // provenance.inputs for the full table set (workflows, workflow_runbooks,
+    // ai_platforms, tool_policies, policy_violations, owners,
+    // knowledge_assets, truth_claims, accountability_links/_entities).
+    // 'intelligence_results' was never a real table.
+    dataSources: ['workflows', 'workflow_runbooks', 'ai_platforms', 'tool_policies', 'policy_violations', 'owners', 'knowledge_assets', 'truth_claims', 'accountability_entities', 'accountability_links']
   }
 }
 
