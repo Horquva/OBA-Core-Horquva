@@ -10,6 +10,17 @@ console.log("2. Packages loaded")
 
 const app = express()
 
+// Render (and any platform fronting this app with a reverse proxy) terminates
+// the client connection itself and forwards the real client IP in
+// X-Forwarded-For. Express ignores that header by default, so req.ip resolves
+// to the proxy's own IP for every single request -- every caller landed in
+// the same rate-limit bucket (middleware/rateLimit.js keys on req.ip), so one
+// abusive client could exhaust the shared bucket and lock out everyone else
+// behind the same proxy. `1` trusts exactly one hop (Render's edge), which is
+// also correct locally: with no proxy in front, there is no X-Forwarded-For
+// to trust and req.ip falls back to the direct socket address as before.
+app.set('trust proxy', 1)
+
 // SEC-1: security headers first, so every response — including CORS
 // rejections and errors — carries them.
 app.use(require('./middleware/securityHeaders'))
