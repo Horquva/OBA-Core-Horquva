@@ -190,7 +190,12 @@ const MODULE_SEEDS: ModuleSeed[] = [
   ['M31', 'Organizational Ecosystem Intelligence', '/ai-tools', 'External Vendor Ecosystem'],
   ['M32', 'Dependency Impact Intelligence', '/map', 'Blast Radius Simulator'],
   ['M34', 'Hidden Dependency Intelligence', '/map', 'Hidden Dependency Overlay'],
-  ['M35', 'Organizational Network Intelligence', '/network', 'People Centrality Graph (M35)'],
+  // Points at Org Science's NetworkCentralityCard (GET /api/intelligence/
+  // network-centrality), not the /network page -- that page's own
+  // "People Centrality Graph" is a different, people-only computation
+  // (GET /api/network/centrality) that was never M35, despite what its
+  // legend used to claim.
+  ['M35', 'Organizational Network Intelligence', '/org-science', 'Network Centrality'],
   ['M37', 'Pattern Intelligence', '/org-science', 'Pattern Regularity'],
   ['M39', 'Capability Intelligence', '/org-science', 'Capability Intel'],
   ['M40', 'Ownership Coverage Intelligence', '/org-science', 'Ownership Coverage'],

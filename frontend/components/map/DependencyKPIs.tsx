@@ -33,7 +33,12 @@ export function DependencyKPIs({ totalAgents, totalDependencies, spofCount, maxC
           <AlertOctagon size={18} className="text-red-500" />
         </div>
         <div className="text-3xl font-bold text-[var(--text-primary)]">{spofCount}</div>
-        <div className="text-xs text-[var(--text-secondary)] mt-1">Nodes with 3+ victims & no backup</div>
+        {/* spofCount comes from GET /api/dependencies/agent-spofs, via
+            definitions.js's spofVerdict() -- sole owner, no backup, criticality
+            >= high. Dependent/victim count is informational only and was
+            never part of this verdict (D-06); this subtitle used to describe
+            an old client-side >=3-victims rule that no longer exists here. */}
+        <div className="text-xs text-[var(--text-secondary)] mt-1">Sole owner, no backup, high+ criticality</div>
       </div>
 
       <div className="card p-5 animate-fade-up delay-225">

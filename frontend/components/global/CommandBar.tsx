@@ -12,10 +12,13 @@ import { Search, Command } from 'lucide-react';
 import { useGlobalPanels } from './GlobalPanelsContext';
 import { PAGES } from '@/lib/commandIndex';
 
+// Module codes below must be ones commandIndex.ts's MODULE_SEEDS still
+// carries -- M46/M55/M09/M23 were retired from the backend catalog and used
+// to suggest codes the command bar could no longer find anything for.
 const PLACEHOLDERS = [
-  'Ask for anything — “blast radius”, “M46”, “who owns what”…',
+  'Ask for anything — “blast radius”, “M32”, “who owns what”…',
   'Try “knowledge concentration” to jump straight to the gauge',
-  'Type a module code — M09, M23, M55 — to open its surface',
+  'Type a module code — M07, M42, M49 — to open its surface',
   'Search a person, agent, workflow or tool by name',
 ];
 
