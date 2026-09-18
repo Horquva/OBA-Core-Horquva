@@ -112,10 +112,18 @@ export function FivePillarsRadar() {
     ? Math.round(pillars.reduce((s, p) => s + p.score, 0) / pillars.length)
     : 0;
 
+  // Every pillar's own label matches its own PILLAR_META entry, so the
+  // inner `.find()` used to be satisfied by that label match alone before
+  // it ever reached the `k === p.from`/`k === p.to` branch -- the outer
+  // `.find()` then always returned pillars[0], so `from`/`to` never varied
+  // with which pair was being checked. Look up the meta key for a pillar's
+  // label first, then compare THAT key to p.from/p.to.
+  const keyForLabel = (label: string) => Object.keys(PILLAR_META).find(k => PILLAR_META[k].label === label);
+
   const activeDraggingPairs = pillars.length
     ? DRAGGING_PAIRS.filter(p => {
-        const from = pillars.find(x => Object.keys(PILLAR_META).find(k => PILLAR_META[k].label === x.label || k === p.from));
-        const to   = pillars.find(x => Object.keys(PILLAR_META).find(k => PILLAR_META[k].label === x.label || k === p.to));
+        const from = pillars.find(x => keyForLabel(x.label) === p.from);
+        const to   = pillars.find(x => keyForLabel(x.label) === p.to);
         return (from?.score ?? 100) < 60 && (to?.score ?? 100) < 75;
       })
     : [];
