@@ -19,20 +19,24 @@ export default function MemoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // error must be checked before the loading/!report fallback below --
+  // a failed fetch sets loading:false but leaves report:null, so
+  // `loading || !report` alone stayed true forever and the error branch
+  // was unreachable dead code.
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 mx-6">
+        Failed to load Org Memory pipeline: {error}
+      </div>
+    );
+  }
+
   if (loading || !report) {
     return (
       <div className="space-y-8 pb-12 animate-pulse mt-8 px-6">
         <div className="h-48 w-full bg-[var(--border-subtle)] rounded-xl" />
         <div className="h-96 w-full bg-[var(--border-subtle)] rounded-xl" />
         <div className="h-64 w-full bg-[var(--border-subtle)] rounded-xl" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 mx-6">
-        Failed to load Org Memory pipeline: {error}
       </div>
     );
   }

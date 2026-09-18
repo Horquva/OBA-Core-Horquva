@@ -34,6 +34,18 @@ export default function ContinuityPage() {
     .finally(() => setLoading(false));
   }, []);
 
+  // error must be checked before the loading/!report fallback below -- a
+  // failed fetch sets loading:false but leaves report:null, so
+  // `loading || !report` alone stayed true forever and the error branch
+  // was unreachable dead code.
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 max-w-7xl mx-auto">
+        Failed to load Continuity Intelligence pipeline: {error}
+      </div>
+    );
+  }
+
   if (loading || !report) {
     return (
       <div className="space-y-8 pb-12 animate-pulse mt-8 px-6 max-w-7xl mx-auto">
@@ -42,14 +54,6 @@ export default function ContinuityPage() {
            <div className="flex-1 h-96 bg-[var(--border-subtle)] rounded-xl" />
            <div className="flex-1 h-96 bg-[var(--border-subtle)] rounded-xl" />
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 max-w-7xl mx-auto">
-        Failed to load Continuity Intelligence pipeline: {error}
       </div>
     );
   }
