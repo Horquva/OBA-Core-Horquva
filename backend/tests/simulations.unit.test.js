@@ -174,6 +174,52 @@ console.log('\nagentFails:')
 	check('impactedPeople is empty for an agent scenario', result.impactedPeople.length === 0)
 }
 
+console.log('\nagentFails no longer improves health by shrinking the population (owner decision, 2026-09-18):')
+{
+	// Agent 1 is pushed to CRITICAL threat level by construction (NO_OWNER 35 +
+	// DEPENDENTS_MANY 25 + INTRINSIC_CRITICAL 20 = 80, >= threatLevel's 75 cutoff
+	// -- the 3 dependency rows below don't need real agent rows behind their
+	// source ids, predictiveRisk() only counts the edges). Under the old
+	// filter()-based removal, failing agent 1 would drop BOTH the numerator
+	// (0 critical left) and the denominator (1 agent left) of
+	// criticalSafetyScore's pct(criticalThreats, agents.length) at once,
+	// scoring a perfect 100 -- a critical agent failing looked like the org
+	// getting healthier.
+	const r = roots({
+		agents: [
+			{ id: 1, name: 'Critical', status: 'active', risk: 'critical', owner_id: null },
+			{ id: 2, name: 'Other', status: 'active', risk: 'low', owner_id: 20 },
+		],
+		employees: [{ id: 20, name: 'Owner2' }],
+		owners: [{ id: 20, name: 'Owner2', employee_id: 20, backup_owner: 'Backup Person' }],
+		dependencies: [
+			{ source_id: 90, target_id: 1, source_type: 'agent', target_type: 'agent', dependency_type: 'normal' },
+			{ source_id: 91, target_id: 1, source_type: 'agent', target_type: 'agent', dependency_type: 'normal' },
+			{ source_id: 92, target_id: 1, source_type: 'agent', target_type: 'agent', dependency_type: 'normal' },
+		],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 1, is_documented: true }],
+		workflows: [{ id: 1, name: 'Wf', status: 'active', risk: 'low' }],
+	})
+
+	const before = d.predictiveRisk(r).scores.find((x) => x.agentId === 1)
+	check('fixture setup: agent 1 is CRITICAL threat before failing', before?.threatLevel === 'CRITICAL', before)
+
+	const result = s.agentFails(1, r)
+	check(
+		'healthDelta is not negative -- a critical agent failing must not look like an improvement',
+		typeof result.healthDelta === 'number' && result.healthDelta >= 0,
+		result.healthDelta,
+	)
+
+	// Prove the mechanism directly: the mutated roots still count the agent,
+	// marked failed rather than removed.
+	const mutated = s.cloneRoots(r)
+	mutated.agents = mutated.agents.map((a) => (a.id === 1 ? { ...a, status: 'failed' } : a))
+	check('agents.length is unchanged after a failure -- the agent stays counted', mutated.agents.length === r.agents.length, mutated.agents.length)
+	const afterRisk = d.predictiveRisk(mutated).scores.find((x) => x.agentId === 1)
+	check('the failed agent is still CRITICAL, not silently gone from the population', afterRisk?.threatLevel === 'CRITICAL', afterRisk)
+}
+
 // ── platformDown ─────────────────────────────────────────────────────────────
 console.log('\nplatformDown:')
 {

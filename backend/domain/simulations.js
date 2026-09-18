@@ -203,8 +203,20 @@ function agentFails(agentId, roots) {
   const impactedWorkflows = workflowsUsingAgents(new Set([agentId, ...impactedAgentIds]), roots)
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
+  // A failed agent is still counted in the org -- it doesn't cease to exist --
+  // so ownershipSpreadScore's per-owner counts and criticalSafetyScore's
+  // agents.length denominator don't shrink. Removing it from the array used
+  // to make both drop out of the population at once (numerator AND
+  // denominator), which could make a CRITICAL agent failing look like an
+  // IMPROVEMENT (0 critical / fewer agents can score better than 1 critical /
+  // more agents). Marking it `status: 'failed'` instead feeds
+  // predictiveRisk()'s existing STATUS_FAILED factor (see its header
+  // comment: "an already-failing agent is not a risk, it is an incident, and
+  // should outrank anything merely fragile") -- the population stays the
+  // same size, and the failure itself is what raises the threat level, not a
+  // shrinking denominator. Owner decision, 2026-09-18.
   const mutated = cloneRoots(roots)
-  mutated.agents = mutated.agents.filter((a) => a.id !== agentId)
+  mutated.agents = mutated.agents.map((a) => (a.id === agentId ? { ...a, status: 'failed' } : a))
   recount(mutated)
 
   return {
