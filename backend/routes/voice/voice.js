@@ -34,7 +34,10 @@ async function buildBrain() {
     { data: orchestration, error: e4 },
   ] = await Promise.all([
     loadOrgDataset(),
-    supabase.from('pending_decisions').select('*'),
+    // decision_queue merged onto it 2026-09-18 (owner decision) -- see
+    // sql/18_drop_superseded_pending_decisions.sql. Only .length is read
+    // below, so no field mapping is needed here.
+    supabase.from('decision_queue').select('*').eq('status', 'pending'),
     supabase.from('workflow_orchestration').select('*, workflows ( name )'),
   ])
   if (e3 || e4) throw new Error((e3 || e4).message)

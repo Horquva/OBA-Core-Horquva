@@ -4,6 +4,7 @@ const supabase = require('../../supabase')
 const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
 const { requireCsrfHeader } = require('../../middleware/auth')
+const { computePriorityScore, priorityLabel, driverLabel } = require('../../lib/decisionPriority')
 
 // ─────────────────────────────────────────────
 // HELPERS — pull live signals from existing modules
@@ -77,11 +78,11 @@ async function getDocTrend() {
 
 async function getPendingDecisionsCount() {
   const { count, error } = await supabase
-    .from('pending_decisions')
+    .from('decision_queue')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'pending')
 
-  if (error) throw new Error(`pending_decisions: ${error.message}`)
+  if (error) throw new Error(`decision_queue: ${error.message}`)
   return count ?? 0
 }
 
@@ -279,26 +280,37 @@ router.get('/documentation-trend', async (req, res) => {
 
 router.get('/pending-decisions', async (req, res) => {
   try {
+    // Reads decision_queue (merged onto it 2026-09-18, owner decision -- see
+    // sql/18_drop_superseded_pending_decisions.sql) and derives the same
+    // priority/sourceModule shape this route always returned, from
+    // decision_queue's real impact/urgency/effort/blast_radius score instead
+    // of a hand-picked label.
     const { data, error } = await supabase
-      .from('pending_decisions')
+      .from('decision_queue')
       .select('*')
       .eq('status', 'pending')
-      .order('priority', { ascending: true })
 
     if (error) throw new Error(error.message)
 
-    const critical = data.filter(d => d.priority === 'critical').length
-    const high = data.filter(d => d.priority === 'high').length
+    const withPriority = data
+      .map(d => {
+        const score = computePriorityScore(d.impact_score, d.urgency_score, d.effort_score, d.blast_radius)
+        return { ...d, priorityScore: score, priority: priorityLabel(score) }
+      })
+      .sort((a, b) => b.priorityScore - a.priorityScore)
+
+    const critical = withPriority.filter(d => d.priority === 'critical').length
+    const high = withPriority.filter(d => d.priority === 'high').length
 
     res.json({
-      totalPending: data.length,
+      totalPending: withPriority.length,
       criticalCount: critical,
       highCount: high,
-      decisions: data.map(d => ({
+      decisions: withPriority.map(d => ({
         title: d.title,
         description: d.description,
         priority: d.priority,
-        sourceModule: d.source_module,
+        sourceModule: driverLabel(d.driver),
         raisedAt: d.raised_at
       }))
     })

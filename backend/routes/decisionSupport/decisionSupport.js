@@ -2,19 +2,11 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
 const { optional } = require('../../lib/supabaseQuery')
+const { computePriorityScore, driverLabel } = require('../../lib/decisionPriority')
 
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
-
-function computePriorityScore(impact, urgency, effort, blastRadius) {
-  return Math.round(
-    (impact * 0.40) +
-    (urgency * 0.35) +
-    ((100 - effort) * 0.15) +
-    (blastRadius * 0.10)
-  )
-}
 
 async function fetchQueue(filterStatus = null, filterDriver = null) {
   let query = supabase
@@ -39,16 +31,6 @@ async function fetchQueue(filterStatus = null, filterDriver = null) {
       )
     }))
     .sort((a, b) => b.priority_score - a.priority_score)
-}
-
-function driverLabel(driver) {
-  const labels = {
-    spof:                   'Single Point of Failure',
-    active_incident:        'Active Incident',
-    undocumented_knowledge: 'Undocumented Knowledge',
-    other:                  'Other'
-  }
-  return labels[driver] ?? driver
 }
 
 // ─────────────────────────────────────────────

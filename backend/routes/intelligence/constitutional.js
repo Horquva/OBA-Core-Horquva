@@ -32,7 +32,7 @@
 // field that isn't its own. e.g. the brain's M52 returns governance coverage
 // from the graph (complianceRate, governanceGaps) while
 // /api/automation/governance returns pending approvals from
-// `pending_decisions` — two real answers, now under two distinct names.
+// `decision_queue` — two real answers, now under two distinct names.
 // See docs/superpowers/specs/2026-08-24-brain-as-library-design.md.
 // ─────────────────────────────────────────────────────────────
 
