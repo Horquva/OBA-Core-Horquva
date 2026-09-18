@@ -1817,14 +1817,24 @@ async function computeAll(supabase) {
  */
 const MEMO_TTL_MS = 30_000
 let memo = null
+let inFlight = null
 
 async function computeAllCached(supabase, { force = false } = {}) {
   const now = Date.now()
   if (!force && memo && now - memo.at < MEMO_TTL_MS) {
     return { ...memo.value, fromMemo: true }
   }
-  const value = await computeAll(supabase)
-  memo = { at: now, value }
+  // Cold-start stampede: a dashboard mounting several components at once (or
+  // any burst of concurrent requests) used to arrive here while `memo` is
+  // still null/expired and each independently call computeAll() -- 18 root
+  // reads per caller, so 8 concurrent requests meant 144+ table reads instead
+  // of 18. Callers that land while a computation is already in flight now
+  // share that same promise instead of starting their own.
+  if (!inFlight) {
+    inFlight = computeAll(supabase).finally(() => { inFlight = null })
+  }
+  const value = await inFlight
+  memo = { at: Date.now(), value }
   return { ...value, fromMemo: false }
 }
 
