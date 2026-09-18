@@ -3,6 +3,7 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const domain = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
+const { requireCsrfHeader } = require('../../middleware/auth')
 
 // ─────────────────────────────────────────────
 // Every puller below returns `null` for "genuinely nothing on record" and
@@ -267,7 +268,10 @@ const ANSWERERS = {
 // GET /api/executive/ask?q=What+is+my+biggest+risk
 // ─────────────────────────────────────────────
 
-router.get('/ask', async (req, res) => {
+// requireCsrfHeader: logs to executive_sessions on every answered call, a
+// GET that writes, which the global CSRF guard's "GET is safe" exemption
+// doesn't cover. See middleware/auth.js.
+router.get('/ask', requireCsrfHeader, async (req, res) => {
   try {
     const question = req.query.q
     if (!question) return res.status(400).json({ error: 'Provide a question using ?q=' })

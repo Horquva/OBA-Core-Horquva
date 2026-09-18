@@ -3,6 +3,7 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
+const { requireCsrfHeader } = require('../../middleware/auth')
 
 // ─────────────────────────────────────────────
 // HELPERS — pull live signals from existing modules
@@ -134,7 +135,10 @@ function buildSummaryPoints({ spof, overloaded, incident, docTrend, pendingCount
 // GET /api/briefing/today
 // ─────────────────────────────────────────────
 
-router.get('/today', async (req, res) => {
+// requireCsrfHeader: this route caches its computed result into
+// executive_briefings on a miss -- a GET that writes, which the global CSRF
+// guard's "GET is safe" exemption doesn't cover. See middleware/auth.js.
+router.get('/today', requireCsrfHeader, async (req, res) => {
   try {
     // Try to serve today's cached briefing first
     const today = new Date().toISOString().split('T')[0]

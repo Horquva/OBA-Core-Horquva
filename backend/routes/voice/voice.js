@@ -5,6 +5,7 @@ const domain = require('../../domain')
 const { loadDataset: loadOrgDataset } = domain
 const { atOrAbove } = require('../../domain/definitions')
 const { must } = require('../../lib/supabaseQuery')
+const { requireCsrfHeader } = require('../../middleware/auth')
 
 // ─────────────────────────────────────────────
 // LIVE ORGANIZATIONAL BRAIN
@@ -435,8 +436,10 @@ function respond(res, query, r) {
 // ROUTES
 // ─────────────────────────────────────────────
 
-// GET /api/voice/ask?q=...
-router.get('/ask', async (req, res) => {
+// GET /api/voice/ask?q=... — requireCsrfHeader: logs to voice_history on
+// every call, a GET that writes, which the global CSRF guard's "GET is
+// safe" exemption doesn't cover. See middleware/auth.js.
+router.get('/ask', requireCsrfHeader, async (req, res) => {
   try {
     const query = req.query.q
     if (!query) return res.status(400).json({ error: 'Provide a query using ?q=' })

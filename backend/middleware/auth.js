@@ -88,8 +88,23 @@ function requireAuth(req, res, next) {
 	}
 }
 
+// A handful of GET routes write a cache/log row as a side effect (briefing's
+// today-cache, brain-core/orchestrator's daily snapshot, voice/executive's
+// history log) -- csrfBlocked() above exempts GET entirely under the normal
+// "GET is safe" assumption, which these break. Apply this middleware (after
+// requireAuth) on exactly those routes to close the gap: a cross-site page
+// can trigger a plain GET with the browser's cookie attached and no way to
+// add a custom header, so those specific writes need the same CLIENT_HEADER
+// requirement a state-changing request already gets.
+function requireCsrfHeader(req, res, next) {
+	const hasBearer = (req.headers.authorization || '').startsWith('Bearer ')
+	if (hasBearer) return next() // not the threat model — see csrfBlocked's comment
+	if (req.headers[CLIENT_HEADER]) return next()
+	return res.status(403).json({ error: `Missing ${CLIENT_HEADER} header on a cookie-authenticated request` })
+}
+
 // SEC-3: requireRole / requireAdmin live in middleware/requireRole.js (no
 // JWT secret needed there); re-exported here for convenience.
 const { requireRole, requireAdmin } = require('./requireRole')
 
-module.exports = { requireAuth, optionalAuth, orgContext, extractToken, requireRole, requireAdmin }
+module.exports = { requireAuth, optionalAuth, orgContext, extractToken, requireRole, requireAdmin, requireCsrfHeader }

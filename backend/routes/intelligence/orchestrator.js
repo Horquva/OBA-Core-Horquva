@@ -4,6 +4,7 @@ const supabase = require('../../supabase')
 const { must, optional } = require('../../lib/supabaseQuery')
 const domain = require('../../domain')
 const signalReaders = require('../../domain/signalReaders')
+const { requireCsrfHeader } = require('../../middleware/auth')
 
 // ─────────────────────────────────────────────
 // MODULE REGISTRY
@@ -428,7 +429,10 @@ async function getOrComputeOrchestration() {
 // GET /api/intelligence/orchestrator/summary
 // ─────────────────────────────────────────────
 
-router.get('/summary', async (req, res) => {
+// requireCsrfHeader: caches into orchestrator_snapshots on a miss -- a GET
+// that writes, which the global CSRF guard's "GET is safe" exemption
+// doesn't cover. See middleware/auth.js.
+router.get('/summary', requireCsrfHeader, async (req, res) => {
   try {
     const snap = await getOrComputeOrchestration()
 
