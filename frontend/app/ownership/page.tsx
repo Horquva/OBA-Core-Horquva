@@ -13,6 +13,7 @@ import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../
 import { AITool, Dataset, Employee } from '../../types';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { DependencyRiskProfile } from '../../components/ownership/HumanDependencyRisks';
+import { invalidateAgentsCache } from '../../lib/useAgents';
 
 interface RawOwnerRow {
   name?: string;
@@ -108,9 +109,14 @@ export default function OwnershipPage() {
   // DATA-1's first write path: assign an owner, then reload the page's own
   // dataset so every derived view (coverage score, human-SPOF set, dependency
   // risk) reflects the change immediately instead of only the one row that
-  // changed.
+  // changed. Also drops useAgents' module-level cache -- AgentTable/Heatmap/
+  // RiskSplit on the dashboard mount that hook independently of this page's
+  // own fetch, and it only ever cleared itself on a failed request, so an
+  // owner reassignment here left the dashboard showing the previous owner
+  // until a full page reload.
   async function handleAssignOwner(agentId: string, ownerId: number) {
     await agentsApi.assignOwner(Number(agentId), ownerId);
+    invalidateAgentsCache();
     await loadOwnershipData();
   }
 

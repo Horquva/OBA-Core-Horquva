@@ -2,41 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { request, ApiError } from './api';
-import { resolveCriticality } from './criticality';
+import { normalizeAgent, RawAgent } from './normalize';
 import type { Agent } from '../types';
-
-interface RawAgentOwner {
-  name: string;
-  department?: string;
-}
-
-interface RawAgent {
-  id: string;
-  name: string;
-  department?: string;
-  owner?: string | RawAgentOwner | null;
-  backup_owner?: string | RawAgentOwner | null;
-  risk?: string;
-  criticality?: string;
-  documented?: boolean;
-}
-
-function ownerName(owner: string | RawAgentOwner | null | undefined): string | null {
-  if (!owner) return null;
-  return typeof owner === 'object' ? owner.name : owner;
-}
-
-function normalize(raw: RawAgent): Agent {
-  return {
-    id: raw.id,
-    name: raw.name,
-    department: raw.department || (typeof raw.owner === 'object' && raw.owner?.department) || 'Unassigned',
-    criticality: resolveCriticality(raw),
-    owner: ownerName(raw.owner),
-    backup_owner: ownerName(raw.backup_owner),
-    documented: Boolean(raw.documented),
-  };
-}
 
 /**
  * Shared fetch + normalization for GET /api/agents.
@@ -48,7 +15,10 @@ function normalize(raw: RawAgent): Agent {
  * shared list. A module-level promise cache means the first mount fetches,
  * every other mount in the same page load reuses that in-flight (or
  * settled) promise -- no new dependency (SWR/React Query), just one fetch
- * instead of N.
+ * instead of N. Normalization itself now reuses lib/normalize.ts's
+ * normalizeAgent() rather than a fourth hand-copied version of the same
+ * owner-flattening/department-fallback logic that function's own docstring
+ * already found nine copies of.
  *
  * A failed fetch clears the cache so the next mount (e.g. after a retry
  * or navigation back to the dashboard) gets a fresh attempt rather than
@@ -59,13 +29,27 @@ let cached: Promise<Agent[]> | null = null;
 function fetchAgents(): Promise<Agent[]> {
   if (!cached) {
     cached = request<unknown>('/api/agents')
-      .then((data) => (Array.isArray(data) ? (data as RawAgent[]).map(normalize) : []))
+      .then((data) => (Array.isArray(data) ? (data as RawAgent[]).map(normalizeAgent) : []))
       .catch((err) => {
         cached = null;
         throw err;
       });
   }
   return cached;
+}
+
+/**
+ * Drops the cached agents list so the next mount of AgentTable/Heatmap/
+ * RiskSplit refetches instead of replaying stale owner data. A successful
+ * fetch never expired on its own -- only a failed one cleared `cached` --
+ * so PATCH /api/agents/:id/owner (app/ownership/page.tsx's assign-owner
+ * flow) reassigning an agent left every dashboard component that already
+ * mounted this hook showing the previous owner until a full page reload,
+ * even though the backend caches were already invalidated
+ * (clearCachesAfterOwnerChange, backend/routes/agents.js).
+ */
+export function invalidateAgentsCache() {
+  cached = null;
 }
 
 export function useAgents() {
