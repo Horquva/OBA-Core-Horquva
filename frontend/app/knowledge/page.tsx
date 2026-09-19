@@ -45,11 +45,18 @@ interface RawConcentrationEntry {
   tier?: string;
 }
 
+interface OrgConcentration {
+  busFactor: number;
+  hhi: number;
+  hhiTier: 'HEALTHY' | 'MODERATE' | 'HIGH' | 'SEVERE';
+}
+
 export default function KnowledgePage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [tools, setTools]       = useState<AITool[]>([]);
   const [concentrationByName, setConcentrationByName] = useState<Map<string, ConcentrationEntry>>(new Map());
+  const [orgConcentration, setOrgConcentration] = useState<OrgConcentration | null>(null);
   const [concentrationUnavailable, setConcentrationUnavailable] = useState(false);
   const [cascadeByName, setCascadeByName] = useState<Map<string, ScenarioResult>>(new Map());
   const [loading, setLoading]   = useState(true);
@@ -72,9 +79,9 @@ export default function KnowledgePage() {
       request<RawAgent[]>('/api/agents'),
       request<RawWorkflow[]>('/api/workflows'),
       request<RawTool[]>('/api/tools'),
-      request<{ concentration: RawConcentrationEntry[] }>('/api/knowledge/intelligence').catch(() => {
+      request<{ concentration: RawConcentrationEntry[]; orgConcentration?: OrgConcentration }>('/api/knowledge/intelligence').catch(() => {
         setConcentrationUnavailable(true);
-        return { concentration: [] };
+        return { concentration: [], orgConcentration: undefined };
       }),
       request<{ scenarios: RawEmployeeLeavesScenario[] }>('/api/simulations/employee-leaves').catch(() => ({ scenarios: [] })),
     ])
@@ -84,6 +91,7 @@ export default function KnowledgePage() {
           .filter((p: RawConcentrationEntry) => p.name)
           .map((p: RawConcentrationEntry) => [p.name as string, { concentrationScore: p.concentrationScore, tier: p.tier } as ConcentrationEntry])
       ));
+      setOrgConcentration(knowledgeIntel.orgConcentration ?? null);
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
       const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
 
@@ -155,7 +163,7 @@ export default function KnowledgePage() {
       <KnowledgeHeader report={report} />
       {concentrationUnavailable && <UnavailableBanner label="Knowledge concentration scores" />}
       <EntitySearchPanel report={report} />
-      <KnowledgeConcentrationGauge profiles={report.profiles} totalAssets={report.totalAssets} />
+      <KnowledgeConcentrationGauge profiles={report.profiles} orgConcentration={orgConcentration} />
       <ConcentrationRiskPanel profiles={report.profiles} />
       <DepartureSim profiles={report.profiles} cascadeByName={cascadeByName} />
       <UndocumentedAssetsTable assets={report.undocumentedAssets} />
