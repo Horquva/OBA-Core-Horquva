@@ -198,7 +198,7 @@ const MODULE_SEEDS: ModuleSeed[] = [
   ['M35', 'Organizational Network Intelligence', '/org-science', 'Network Centrality'],
   ['M37', 'Pattern Intelligence', '/org-science', 'Pattern Regularity'],
   ['M39', 'Capability Intelligence', '/org-science', 'Capability Intel'],
-  ['M40', 'Ownership Coverage Intelligence', '/org-science', 'Ownership Coverage'],
+  ['M40', 'Strategic Alignment Intelligence', '/org-science', 'Ownership Coverage'],
   ['M41', 'Organizational DNA Intelligence', '/org-science', 'DNA Fingerprint'],
   ['M42', 'Culture Intelligence', '/org-science', 'Culture Health'],
   ['M43', 'Organizational Maturity Intelligence', '/org-science', 'Maturity Curve'],
