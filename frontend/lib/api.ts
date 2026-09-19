@@ -514,7 +514,12 @@ export interface CollaborationScoreResponse {
   collaborationScore: number;
   collaborationLevel: string;
   aiAdoptionScore: number;
+  /** derived.js's band() of aiAdoptionScore: MINIMAL/LOW/MODERATE/HIGH. */
+  adoptionLevel: string | null;
   humanDependencyScore: number;
+  /** derived.js's band() of (100 - humanDependencyScore), inverted so LOW
+   *  reads as good: SEVERE/HIGH/MODERATE/LOW. */
+  dependencyLevel: string | null;
   weakestCollaborationAreas: string[];
   computedAt: string;
 }
@@ -1223,6 +1228,10 @@ export interface DecisionQueueItem {
   description: string;
   driver: string;
   priorityScore: number;
+  /** critical / high / medium / low — backend/lib/decisionPriority.js's
+   *  priorityLabel(), the same band briefing/context/automation already use
+   *  for this exact score. */
+  priorityLabel: string;
   impactScore: number;
   urgencyScore: number;
   effortScore: number;

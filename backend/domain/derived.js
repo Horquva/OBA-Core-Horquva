@@ -1846,6 +1846,7 @@ function invalidate() {
 module.exports = {
   ROOT_TABLES,
   loadRoots,
+  band,
   dependencyIndex,
   cascadeReach,
   computeAllCached,

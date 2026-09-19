@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, Users, AlertTriangle, Link2 } from 'lucide-react';
 import { healthApi, request } from '../../lib/api';
+import { healthStatusGradientClass } from '../../lib/healthStatus';
 
 interface RiskSummary {
   total: number;
@@ -12,6 +13,7 @@ interface RiskSummary {
 
 interface KpiData {
   riskScore: number;
+  riskStatus: string | null;
   totalAgents: number;
   orphanedAgents: number;
   criticalCount: number;
@@ -39,8 +41,9 @@ export function KpiStrip() {
       const orphanedAgents = riskSummary?.orphaned ?? 0;
       const criticalCount  = riskSummary?.breakdown?.critical ?? 0;
       const riskScore      = health?.healthIndex ?? 0;
+      const riskStatus     = health?.healthStatus ?? null;
 
-      setData({ riskScore, totalAgents, orphanedAgents, criticalCount });
+      setData({ riskScore, riskStatus, totalAgents, orphanedAgents, criticalCount });
     }).finally(() => setLoading(false));
   }, []);
 
@@ -53,9 +56,9 @@ export function KpiStrip() {
   const orphaned     = data?.orphanedAgents ?? 0;
   const critical     = data?.criticalCount ?? 0;
 
-  const riskColor = score >= 60 ? 'from-emerald-600 to-emerald-400'
-    : score >= 40 ? 'from-amber-500 to-amber-400'
-    : 'from-red-600 to-red-400';
+  // Derived from the backend's own healthStatus (70/45) instead of a local
+  // 60/40 re-threshold of the same score.
+  const riskColor = healthStatusGradientClass(data?.riskStatus);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

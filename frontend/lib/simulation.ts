@@ -21,6 +21,11 @@ export interface ScenarioResult {
   /** domain/simulations.js's severityFor() -- based on the real criticality
    *  of impacted entities, not a health-score-drop-magnitude guess. */
   severity: RiskLevel;
+  /** domain/simulations.js's healthStatusFor() -- the same STABLE/WARNING/
+   *  CRITICAL band (70/45) orgHealth() itself uses, lowercased. Consume this
+   *  instead of re-thresholding baselineHealthScore/simulatedHealthScore. */
+  healthBefore: 'stable' | 'warning' | 'critical' | null;
+  healthAfter: 'stable' | 'warning' | 'critical' | null;
 }
 
 const TARGET_TYPE_TO_SCENARIO_TYPE: Record<string, ScenarioType> = {
@@ -39,6 +44,8 @@ export interface RawScenario {
   impactedAgents?: { id?: string | number; name?: string; risk?: RiskLevel }[];
   impactedWorkflows?: { name?: string }[];
   severity?: RiskLevel;
+  healthBefore?: 'stable' | 'warning' | 'critical' | null;
+  healthAfter?: 'stable' | 'warning' | 'critical' | null;
 }
 
 /** Reshapes one raw backend simulation response into the frontend's display type. Pure field mapping — no risk/health recomputation. */
@@ -57,6 +64,8 @@ export function mapScenario(raw: RawScenario): ScenarioResult {
     impactedAgents: (raw.impactedAgents ?? []).map((a) => ({ id: String(a.id), name: a.name ?? '', risk: a.risk ?? 'unknown' })),
     impactedWorkflowNames: (raw.impactedWorkflows ?? []).map((w) => w.name ?? ''),
     severity: (raw.severity ?? 'unknown') as RiskLevel,
+    healthBefore: raw.healthBefore ?? null,
+    healthAfter: raw.healthAfter ?? null,
   };
 }
 
@@ -77,6 +86,8 @@ export interface RawEmployeeLeavesScenario {
   impactedAgents?: { id?: string | number; name?: string; risk?: RiskLevel }[];
   impactedWorkflows?: { name?: string }[];
   riskLevel?: RiskLevel;
+  healthBefore?: 'stable' | 'warning' | 'critical' | null;
+  healthAfter?: 'stable' | 'warning' | 'critical' | null;
 }
 
 /** Adapts one bulk employee-leaves entry into the same ScenarioResult shape
@@ -93,5 +104,7 @@ export function mapEmployeeLeavesScenario(raw: RawEmployeeLeavesScenario): Scena
     impactedAgents: raw.impactedAgents,
     impactedWorkflows: raw.impactedWorkflows,
     severity: raw.riskLevel,
+    healthBefore: raw.healthBefore,
+    healthAfter: raw.healthAfter,
   });
 }

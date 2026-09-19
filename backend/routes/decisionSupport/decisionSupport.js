@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
 const { optional } = require('../../lib/supabaseQuery')
-const { computePriorityScore, driverLabel } = require('../../lib/decisionPriority')
+const { computePriorityScore, priorityLabel, driverLabel } = require('../../lib/decisionPriority')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -99,6 +99,11 @@ router.get('/queue', async (req, res) => {
         description: d.description,
         driver: driverLabel(d.driver),
         priorityScore: d.priority_score,
+        // Same critical/high/medium/low band briefing.js/context.js/
+        // automation/index.js already attach via this shared helper — this
+        // route used to leave callers to invent their own cutoffs for the
+        // same score (see frontend/components/decision/DecisionSupportQueue.tsx).
+        priorityLabel: priorityLabel(d.priority_score),
         impactScore: d.impact_score,
         urgencyScore: d.urgency_score,
         effortScore: d.effort_score,

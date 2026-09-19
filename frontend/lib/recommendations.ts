@@ -38,6 +38,9 @@ export interface RecommendationEngineOutput {
   recommendations: Recommendation[];
   top5: Recommendation[];
   healthScore: number;
+  /** STABLE/WARNING/CRITICAL — the same band orgHealth() itself computes
+   *  (70/45), from the same /api/health/summary fetch healthScore comes from. */
+  healthStatus: string | null;
   criticalCount: number;
   highCount: number;
   mediumCount: number;
@@ -62,7 +65,7 @@ export interface RawRecommendationsPayload {
  *  into RecommendationEngineOutput. `orgHealthIndex` comes from a separate
  *  fetch (/api/health/summary) -- M04 doesn't compute org health, it consumes
  *  M01/M03 the same way the rest of the brain does. */
-export function mapRecommendationsResponse(json: { payload?: RawRecommendationsPayload } | null | undefined, orgHealthIndex: number): RecommendationEngineOutput {
+export function mapRecommendationsResponse(json: { payload?: RawRecommendationsPayload } | null | undefined, orgHealthIndex: number, orgHealthStatus: string | null = null): RecommendationEngineOutput {
   const payload = json?.payload ?? {};
   const recommendations: Recommendation[] = Array.isArray(payload.recommendations) ? payload.recommendations : [];
 
@@ -70,6 +73,7 @@ export function mapRecommendationsResponse(json: { payload?: RawRecommendationsP
     recommendations,
     top5: recommendations.slice(0, 5),
     healthScore: orgHealthIndex,
+    healthStatus: orgHealthStatus,
     criticalCount: payload.criticalCount ?? 0,
     highCount: payload.highCount ?? 0,
     mediumCount: payload.mediumCount ?? 0,

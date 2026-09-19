@@ -41,6 +41,7 @@ async function fetchSummary() {
     ai_adoption_score:           s.aiAdoptionScore,
     adoption_level:              s.adoptionLevel,
     human_dependency_score:      s.humanDependencyScore,
+    dependency_level:            s.dependencyLevel,
     highest_dependency_employee: s.highestDependencyEmployee,
     collaboration_score:         s.collaborationScore,
     collaboration_level:         s.collaborationLevel,
@@ -173,7 +174,12 @@ router.get('/score', async (req, res) => {
       collaborationScore: summary.collaboration_score,
       collaborationLevel: summary.collaboration_level,
       aiAdoptionScore: summary.ai_adoption_score,
+      // Was missing here even though fetchSummary() already computes it —
+      // CollaborationScoreCard.tsx had nothing to consume and re-thresholded
+      // the raw scores itself instead (frontend item D).
+      adoptionLevel: summary.adoption_level,
       humanDependencyScore: summary.human_dependency_score,
+      dependencyLevel: summary.dependency_level,
       weakestCollaborationAreas: weakAreas,
       computedAt: summary.computed_at
     })

@@ -4,6 +4,7 @@ const supabase = require('../../supabase')
 const { must, optional } = require('../../lib/supabaseQuery')
 const domain = require('../../domain')
 const signalReaders = require('../../domain/signalReaders')
+const { band } = require('../../domain/derived')
 const { requireCsrfHeader } = require('../../middleware/auth')
 
 // ─────────────────────────────────────────────
@@ -498,6 +499,10 @@ router.get('/modules', async (req, res) => {
         key: m.key,
         verified: m.verified,
         score: m.score,
+        // Same band() every other STRONG/PARTIAL/WEAK/CRITICAL rating in the
+        // product uses (85/65/40) — added so consumers (e.g. FivePillarsRadar)
+        // don't have to re-threshold m.score with their own cutoffs.
+        rating: band(m.score),
         weight: `${Math.round(m.weight * 100)}%`,
         source: m.source,
         // Separates "no row seeded" from "this query failed".

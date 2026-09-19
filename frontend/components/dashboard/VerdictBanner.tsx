@@ -80,10 +80,11 @@ export function VerdictBanner() {
     );
   }
 
-  const scoreColor = (data.organizationalIntelligenceScore ?? 0) >= 80 ? '#4ade80' // Green
-    : (data.organizationalIntelligenceScore ?? 0) >= 60 ? '#facc15' // Yellow (Strained)
-    : (data.organizationalIntelligenceScore ?? 0) >= 40 ? '#fb923c' // Orange (At risk)
-    : '#f87171'; // Red (Critical)
+  // Reuses BAND_STYLE[data.rating] — the same canonical band the RatingBadge
+  // above renders — instead of re-thresholding the raw score with its own
+  // cutoffs, which used to let this bar disagree with the badge right next
+  // to it (e.g. score=82 badged "PARTIAL" while the bar rendered green).
+  const scoreColor = BAND_STYLE[data.rating ?? '']?.text ?? BAND_STYLE.PARTIAL.text;
 
   return (
     <div className="card p-6 relative overflow-hidden animate-fade-up">

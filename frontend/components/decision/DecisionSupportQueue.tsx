@@ -11,11 +11,19 @@ const DRIVER_COLOR: Record<string, string> = {
   Other: '#8b8b9e',
 };
 
-function priorityColor(score: number) {
-  if (score >= 75) return '#f87171';
-  if (score >= 50) return '#fb923c';
-  if (score >= 25) return '#facc15';
-  return '#4ade80';
+// Keyed off the backend's own priorityLabel (lib/decisionPriority.js,
+// critical/high/medium/low) instead of re-thresholding priorityScore here —
+// this used to use a fourth, different cutoff pair (75/50/25) for the same
+// score the backend already bands at 80/60/40.
+const PRIORITY_COLOR: Record<string, string> = {
+  critical: '#f87171',
+  high: '#fb923c',
+  medium: '#facc15',
+  low: '#4ade80',
+};
+
+function priorityColor(label: string) {
+  return PRIORITY_COLOR[label] ?? PRIORITY_COLOR.low;
 }
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
@@ -123,7 +131,7 @@ export function DecisionSupportQueue() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {queue.map((d, i) => {
-              const color = priorityColor(d.priorityScore);
+              const color = priorityColor(d.priorityLabel);
               return (
                 <div key={`${d.title}-${i}`} style={{
                   padding: '14px 18px',

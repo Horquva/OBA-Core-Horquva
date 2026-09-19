@@ -29,7 +29,7 @@ export default function RecommendationsPage() {
       request<unknown[]>('/api/agents'),
     ])
     .then(([recJson, healthData, agentsData]) => {
-      setOutput(mapRecommendationsResponse(recJson, healthData.healthIndex ?? 0));
+      setOutput(mapRecommendationsResponse(recJson, healthData.healthIndex ?? 0, healthData.healthStatus ?? null));
       setAgentCount(Array.isArray(agentsData) ? agentsData.length : 0);
     })
     .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load'))

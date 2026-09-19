@@ -1,6 +1,7 @@
 'use client';
 
 import { RecommendationEngineOutput } from '../../lib/recommendations';
+import { healthStatusColor } from '../../lib/healthStatus';
 import { AlertTriangle, Flame, ShieldAlert, TrendingUp } from 'lucide-react';
 
 interface Props {
@@ -13,7 +14,9 @@ const KPI_CONFIG = [
     label: 'Health Score',
     icon: TrendingUp,
     suffix: '/100',
-    colorFn: (v: number) => v < 60 ? 'var(--risk-critical-text)' : v < 75 ? 'var(--risk-high-text)' : 'var(--risk-low-text)',
+    // Color resolved from output.healthStatus below instead of colorFn —
+    // this used to re-threshold the score itself (60/75), a third cutoff
+    // pair for the same STABLE/WARNING/CRITICAL band orgHealth() computes.
   },
   {
     key: 'criticalCount',
@@ -58,9 +61,9 @@ export default function RecommendationHeader({ output }: Props) {
 
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
-        {KPI_CONFIG.map(({ key, label, icon: Icon, suffix, color, colorFn }, i) => {
+        {KPI_CONFIG.map(({ key, label, icon: Icon, suffix, color }, i) => {
           const val = values[key];
-          const resolvedColor = colorFn ? colorFn(val) : color!;
+          const resolvedColor = key === 'healthScore' ? healthStatusColor(output.healthStatus) : color!;
           return (
             <div
               key={key}

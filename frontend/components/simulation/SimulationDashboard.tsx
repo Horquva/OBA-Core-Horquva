@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { ScenarioResult } from '../../lib/simulation';
+import { healthStatusColor } from '../../lib/healthStatus';
 import { ScenarioRanking } from './ScenarioRanking';
 import { ImpactSummary } from './ImpactSummary';
 import {
@@ -29,11 +30,9 @@ export function SimulationDashboard({ scenarios }: Props) {
   const agentScenarios  = scenarios.filter(s => s.type === 'AGENT_FAILS').length;
   const toolScenarios   = scenarios.filter(s => s.type === 'TOOL_UNAVAILABLE').length;
 
-  const baselineColor =
-    baselineHealthScore < 50 ? 'var(--risk-critical-text)' :
-    baselineHealthScore < 65 ? 'var(--risk-high-text)'     :
-    baselineHealthScore < 80 ? 'var(--risk-medium-text)'   :
-                               'var(--risk-low-text)';
+  // Derived from the scenario's own healthBefore (backend's healthStatusFor(),
+  // 70/45) instead of a local 50/65/80 re-threshold of the same score.
+  const baselineColor = healthStatusColor(scenarios[0]?.healthBefore);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
