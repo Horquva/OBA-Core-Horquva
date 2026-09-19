@@ -36,6 +36,7 @@ const tests = [
 	'realityRoutes.test.js', // HTTP-level; real brain + fixture graph, so it runs offline (M02/M03/M07/M28/M29/M31/M32/M34/M35/M49 wire-up)
 	'simulationRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-I)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
+    'agentData.unit.test.js', // Task 10.6 turn context
 	'provider.unit.test.js',   // pure/stubbed; asserts adapter normalisation, error classes, abort (W-L 10.7)
 	'agentLoop.unit.test.js', // stubbed; six loop scenarios including cap, retry, abort and timeout (W-L 11.5)
 ]
