@@ -127,6 +127,7 @@ async function main() {
                                 body: JSON.stringify({ message: 'hello' }),
                         })
                         check('401 without bearer token', response.status === 401, response.status)
+                        await response.text().catch(() => {})
                 }
 
                 console.log('\nFeature flag off:')
@@ -144,11 +145,11 @@ async function main() {
                         })
 
                         check('404 when agent flag is off', response.status === 404, response.status)
+                        await response.text().catch(() => {})
 
                         if (previous === undefined) delete process.env.AGENT_ENABLED
                         else process.env.AGENT_ENABLED = previous
                 }
-
                 process.env.AGENT_ENABLED = 'true'
 
                 console.log('\nSSE event order:')
@@ -248,6 +249,7 @@ async function main() {
 
                 process.exitCode = failed === 0 ? 0 : 1
         } finally {
+                server.closeAllConnections()
                 server.close()
 
                 if (originalTurnContext) {
@@ -267,9 +269,10 @@ async function main() {
                 } else {
                         delete require.cache[require.resolve(loopPath)]
                 }
-
-                delete require.cache[require.resolve('../routes/agent/chat')]
+               delete require.cache[require.resolve('../routes/agent/chat')]
         }
+
+        process.exit(process.exitCode ?? 0)
 }
 
 main().catch((err) => {
