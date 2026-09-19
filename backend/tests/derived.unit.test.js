@@ -456,6 +456,27 @@ console.log('\nAsset continuity — per-asset survival status + governance score
 	check('evidence is sufficient over 5 real assets', report.evidence.sufficient === true, report.evidence)
 }
 
+console.log('\nAsset continuity — id is type-prefixed so agents/workflows/tools sharing a raw id never collide:')
+{
+	// Agent, workflow, and platform all use id 3 -- three independently-
+	// numbered sequences. ownedAssetBase() used to copy the raw table id
+	// through unchanged, so all three collapsed to the same React key (`3`)
+	// wherever a frontend list mixed types (ContinuityTab's must-protect,
+	// GovernanceTab's worst-offenders, MemoryCarriersPanel, LostAssetsPanel) --
+	// "Encountered two children with the same key" in the browser console.
+	const r = roots({
+		agents: [{ id: 3, name: 'AgentThree', risk: 'critical', owner_id: null }],
+		workflows: [{ id: 3, name: 'WorkflowThree', risk: 'critical', department: 'Eng' }],
+		ai_platforms: [{ id: 3, name: 'ToolThree' }],
+	})
+	const report = d.assetContinuity(r)
+	const ids = report.assets.map((a) => a.id)
+	check('three different entities sharing raw id 3 produce three distinct, type-prefixed ids', new Set(ids).size === ids.length, ids)
+	check('agent id is prefixed', report.assets.find((a) => a.name === 'AgentThree').id === 'agent-3')
+	check('workflow id is prefixed', report.assets.find((a) => a.name === 'WorkflowThree').id === 'workflow-3')
+	check('tool id is prefixed', report.assets.find((a) => a.name === 'ToolThree').id === 'tool-3')
+}
+
 // ── Executive memory ─────────────────────────────────────────────────────────
 console.log('\nExecutive memory — four types, four roots:')
 {

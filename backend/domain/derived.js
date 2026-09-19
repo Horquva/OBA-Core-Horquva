@@ -854,7 +854,14 @@ function ownedAssetBase(roots) {
     const hasOwner = a.owner_id != null
     const ownerBackup = hasOwner ? backups.get(a.owner_id) : null
     assets.push({
-      id: a.id, name: a.name, type: 'agent',
+      // Type-prefixed: agents/workflows/platforms are three independently-
+      // numbered id sequences merged into one array below, so the same raw
+      // number (e.g. agent 3 and workflow 3) collided once combined. Every
+      // frontend consumer of this list (ContinuityTab's must-protect,
+      // GovernanceTab's worst-offenders, MemoryCarriersPanel, LostAssetsPanel)
+      // keys its rows off this `id`, and React warned "two children with the
+      // same key" for exactly that reason.
+      id: `agent-${a.id}`, name: a.name, type: 'agent',
       ownerEmployeeId: hasOwner ? a.owner_id : null,
       owner: ownerName(a.owner_id),
       backup_owner: ownerBackup?.backupOwner ?? null,
@@ -869,7 +876,7 @@ function ownedAssetBase(roots) {
     const hasOwner = rb?.owner_id != null
     const ownerBackup = hasOwner ? backups.get(rb.owner_id) : null
     assets.push({
-      id: w.id, name: w.name, type: 'workflow',
+      id: `workflow-${w.id}`, name: w.name, type: 'workflow',
       ownerEmployeeId: hasOwner ? rb.owner_id : null,
       owner: hasOwner ? ownerName(rb.owner_id) : null,
       backup_owner: ownerBackup?.backupOwner ?? null,
@@ -882,7 +889,7 @@ function ownedAssetBase(roots) {
   for (const p of roots.ai_platforms) {
     const ownerEmployeeId = platformOwnerEmployeeId.get(p.id) ?? null
     assets.push({
-      id: p.id, name: p.name, type: 'tool',
+      id: `tool-${p.id}`, name: p.name, type: 'tool',
       ownerEmployeeId,
       owner: ownerName(ownerEmployeeId),
       backup_owner: platformBackupName.get(p.id) ?? null,
