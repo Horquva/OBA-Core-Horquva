@@ -19,6 +19,7 @@ const { verify } = require('../lib/jwt')
 const { isRevoked } = require('../lib/tokenBlocklist')
 const SECRET = require('../lib/authSecret')
 const { readSessionCookie, CLIENT_HEADER } = require('../lib/authCookie')
+const { recordAudit } = require('../lib/audit')
 
 // Token sources, in order:
 //   1. Authorization: Bearer <token> — API clients, curl, tests.
@@ -75,6 +76,7 @@ function requireAuth(req, res, next) {
 	const { token, source } = readToken(req)
 	if (!token) return res.status(401).json({ error: 'Authentication required' })
 	if (csrfBlocked(req, source)) {
+		recordAudit(req, { action: 'authz.denied', outcome: 'denied', reason: 'missing_client_header' })
 		return res.status(403).json({ error: `Missing ${CLIENT_HEADER} header on a cookie-authenticated request` })
 	}
 	try {

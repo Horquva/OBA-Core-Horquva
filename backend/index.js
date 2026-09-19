@@ -91,6 +91,7 @@ const orgGuardCheck = require('./lib/orgGuard').assertSingleTenant()
 // Everything else under /api touches real org data — require a valid bearer token.
 app.use('/api', requireAuth)
 
+app.use('/api/audit-log', require('./routes/auditLog'))
 app.use('/api/agents', require('./routes/agents'))
 app.use('/api/employees', require('./routes/employees'))
 app.use('/api/ownership', require('./routes/ownership'))

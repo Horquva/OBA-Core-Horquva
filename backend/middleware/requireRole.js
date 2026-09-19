@@ -18,6 +18,11 @@ function requireRole(...roles) {
 	return function roleGate(req, res, next) {
 		if (!req.user) return res.status(401).json({ error: 'Authentication required' })
 		if (!roles.includes(req.user.role)) {
+			require('../lib/audit').recordAudit(req, {
+				action: 'authz.denied',
+				outcome: 'denied',
+				reason: `role_required:${roles.join(',')}`,
+			})
 			return res.status(403).json({ error: `This action requires the ${roles.join(' or ')} role` })
 		}
 		next()
