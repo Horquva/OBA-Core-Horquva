@@ -131,6 +131,11 @@ export interface SpofWorkflow {
   is_documented: boolean;
   agentCount: number;
   toolCount: number;
+  /** Informational only -- a recorded workflow_failures row, not part of the
+   *  SPOF gate itself (see backend/routes/workflows/spof.js). */
+  humanSpofRecorded: boolean;
+  /** From domain/definitions.js's spofVerdict(): sole_owner / no_backup_owner /
+   *  criticality_<level>. */
   spofReasons: string[];
   spofDetected: true;
 }
