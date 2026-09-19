@@ -541,3 +541,16 @@ router.get('/daily-summary', async (req, res) => {
 })
 
 module.exports = router
+
+// Consolidation onto one Q&A engine (diagnostic item C, 2026-09-20): executive.js's
+// biggest-risk / most-overloaded-person answerers used to run their own separate
+// queries and could disagree with this engine's answer to the same question (its
+// old "biggest risk" pick was an unordered `.find()` for the first CRITICAL agent —
+// array-order-dependent, not actually "biggest"). executive.js now delegates those
+// two questions to this module's own selection logic instead of maintaining a
+// second implementation. Everything else exported here stays private to this file.
+module.exports.buildBrain = buildBrain
+module.exports.topRiskAgent = topRiskAgent
+module.exports.mostLoadedPerson = mostLoadedPerson
+module.exports.orgBiggestRisk = orgBiggestRisk
+module.exports.orgOverloaded = orgOverloaded

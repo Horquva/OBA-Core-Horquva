@@ -4,6 +4,7 @@ const supabase = require('../../supabase')
 const domain = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
 const { requireCsrfHeader } = require('../../middleware/auth')
+const voiceEngine = require('../voice/voice')
 
 // ─────────────────────────────────────────────
 // Every puller below returns `null` for "genuinely nothing on record" and
@@ -53,41 +54,41 @@ function detectQuestionType(question) {
 // INTELLIGENCE PULLERS (one per question type)
 // ─────────────────────────────────────────────
 
+// Delegates to voice.js's own selection logic (see the comment on that
+// module's exports) instead of running a second, independent query — this
+// used to pick the first CRITICAL-threat agent in whatever order
+// predictiveRisk.scores came back in, which is a different (and
+// array-order-dependent) answer from "biggest risk" than voice.js's actual
+// highest-score selection.
 async function answerRisk() {
-  const intel = await domain.intelligence.all()
-  const top = intel.predictiveRisk.scores.find(p => p.threatLevel === 'CRITICAL')
+  const brain = await voiceEngine.buildBrain()
+  const top = voiceEngine.topRiskAgent(brain)
   if (!top) return null
-  const data = {
-    predicted_score: top.predictedScore,
-    reasons: top.reasons,
-    agents: { name: top.agentName, risk: top.recordedRisk },
-  }
 
   return {
-    answer: `Your biggest risk is ${data.agents?.name} — a ${data.agents?.risk} agent with a predicted risk score of ${data.predicted_score}. Key reasons: ${data.reasons?.join(', ')}.`,
-    entityName: data.agents?.name,
+    answer: voiceEngine.orgBiggestRisk(brain),
+    entityName: top.name,
     responsiblePerson: null,
     dataSources: ['agents', 'owners', 'dependencies', 'workflows', 'knowledge_assets']
   }
 }
 
+// Delegates to voice.js's own selection logic instead of running a second,
+// independent query — this used to rank every employee by
+// collaboration.perEmployee's dependencyScore, a genuinely different metric
+// from voice.js's hero-risk-based "most overloaded person" (2+ critical
+// assets, no named backup). Two real but disagreeing answers to "who is most
+// overloaded" collapse onto one here.
 async function answerOwnership() {
-  const intel = await domain.intelligence.all()
-  const people = intel.collaboration.perEmployee
-  if (!people.length) return null
-  const top = people.reduce((a, b) => (b.dependencyScore > a.dependencyScore ? b : a))
-  const data = {
-    dependency_score: top.dependencyScore,
-    critical_agents_owned: top.criticalAgentsOwned,
-    has_backup: top.hasBackup,
-    employees: { name: top.name, department: top.department, role: null },
-  }
+  const brain = await voiceEngine.buildBrain()
+  const top = voiceEngine.mostLoadedPerson(brain)
+  if (!top) return null
 
   return {
-    answer: `${data.employees?.name} is your most overloaded person. They own ${data.critical_agents_owned} critical agents, have a dependency score of ${data.dependency_score}/100, and ${data.has_backup ? 'have' : 'have no'} backup coverage assigned.`,
-    entityName: data.employees?.name,
-    responsiblePerson: data.employees?.name,
-    dataSources: ['employees', 'tool_users', 'employee_agent', 'agents', 'owners']
+    answer: voiceEngine.orgOverloaded(brain),
+    entityName: top.name,
+    responsiblePerson: top.name,
+    dataSources: ['agents', 'workflows', 'employees', 'owners']
   }
 }
 
