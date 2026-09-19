@@ -163,16 +163,20 @@ function employeeLeaves(employeeId, roots) {
   const mutated = cloneRoots(roots)
   mutated.employees = mutated.employees.filter((e) => e.id !== employeeId)
   mutated.agents = mutated.agents.map((a) => (a.owner_id === employeeId ? { ...a, owner_id: null } : a))
-  // The employee's own owners row disappears with them, and anyone who named
-  // them as a backup loses that coverage too -- owners.backup_owner is a
-  // name string (see backupIndex()'s own comment), not an employee_id, so
-  // this is a name match. Without this, orgHealth()'s continuityScore
-  // (ownersWithBackup / owners.length) never moved for a departure unless
-  // the employee happened to own an agent directly -- most departures
-  // showed a Δ0 health impact even when the person was someone else's named
-  // backup or had their own owner row.
+  // Anyone who named the departing employee as a backup loses that coverage
+  // -- owners.backup_owner is a name string (see backupIndex()'s own
+  // comment), not an employee_id, so this is a name match. The employee's
+  // OWN owners row is kept, not deleted: same reasoning as agentFails()
+  // (owner decision, 2026-09-18) -- deleting it used to shrink both the
+  // numerator and denominator of continuityScore's pct(ownersWithBackup,
+  // owners.length) at once (the row disappearing removed it from
+  // owners.length, and if it had no backup_owner it also wasn't in the
+  // ownersWithBackup count), which could make an unbacked owner leaving
+  // score as an IMPROVEMENT. The role stays in the population -- whatever
+  // backup coverage it already had (or didn't) still counts -- until
+  // something reassigns it; only the person disappears (mutated.employees
+  // above), not the ownership slot itself.
   mutated.owners = mutated.owners
-    .filter((o) => o.employee_id !== employeeId)
     .map((o) => (o.backup_owner === employee.name ? { ...o, backup_owner: null } : o))
   recount(mutated)
 
@@ -252,8 +256,19 @@ function platformDown(platformId, roots) {
   const impactedWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
+  // A platform going down is still a platform the org has to account for --
+  // it doesn't cease to exist -- so ai_platforms.length (continuityScore's
+  // pct(platformsWithBackup, ai_platforms.length) denominator) doesn't
+  // shrink. platformsWithBackup comes from tool_backups, an entirely
+  // separate table this mutation never touches, so removing the platform
+  // from the array only ever shrank the denominator, never the numerator --
+  // taking an UNBACKED platform down always inflated continuityScore, the
+  // same shrinking-population failure mode agentFails() was fixed for.
+  // Marking it down instead keeps the population the same size; only an
+  // actual backup relationship should move this ratio. Owner decision,
+  // 2026-09-18.
   const mutated = cloneRoots(roots)
-  mutated.ai_platforms = mutated.ai_platforms.filter((p) => p.id !== platformId)
+  mutated.ai_platforms = mutated.ai_platforms.map((p) => (p.id === platformId ? { ...p, status: 'down' } : p))
   recount(mutated)
 
   return {
@@ -293,8 +308,21 @@ function workflowDisruption(workflowId, roots) {
   ]
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
+  // A disrupted workflow is still a workflow the org has to account for --
+  // it doesn't cease to exist -- so workflows.length (continuityScore's
+  // pct(documentedRunbooks, workflows.length) denominator, and
+  // incidentLoadScore's failuresPerWorkflow denominator) doesn't shrink.
+  // documentedRunbooks comes from workflow_runbooks and failuresPerWorkflow's
+  // numerator from workflow_failures -- both entirely separate tables this
+  // mutation never touches, so removing the workflow from the array only
+  // ever shrank the denominator, never the numerator -- disrupting an
+  // UNDOCUMENTED workflow always inflated continuityScore, the same
+  // shrinking-population failure mode agentFails() was fixed for. Marking it
+  // disrupted instead keeps the population the same size; only an actual
+  // runbook/failure record should move these ratios. Owner decision,
+  // 2026-09-18.
   const mutated = cloneRoots(roots)
-  mutated.workflows = mutated.workflows.filter((w) => w.id !== workflowId)
+  mutated.workflows = mutated.workflows.map((w) => (w.id === workflowId ? { ...w, status: 'disrupted' } : w))
   recount(mutated)
 
   return {

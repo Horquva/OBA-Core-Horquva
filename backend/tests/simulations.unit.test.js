@@ -117,10 +117,10 @@ console.log('\nemployeeLeaves:')
 	// workflows row) purely so orgHealth()'s five evidenceGate()s are all
 	// sufficient and healthDelta resolves to a real number, not null — see
 	// the note on the same pattern in Task 2's healthDelta test above.
-	// A second owners row (Priya, unrelated to Sarah) is included so the
-	// owners population doesn't drop to zero when employeeLeaves() removes
-	// the departing employee's own owners row — a real org's owners table
-	// doesn't empty out because one person left; a single-row fixture would.
+	// A second owners row (Priya, unrelated to Sarah) exercises the
+	// backup_owner name-match clearing (Priya's backup_owner is 'Sarah').
+	// Sarah's own owners row is kept, not removed, by employeeLeaves() (owner
+	// decision, 2026-09-18) — see the dedicated test below.
 	const r = roots({
 		employees: [{ id: 1, name: 'Sarah', department: 'Eng' }],
 		agents: [
@@ -149,6 +149,48 @@ console.log('\nemployeeLeaves:')
 	check('the workflow using the owned agent is impacted', result.impactedWorkflows.length === 1 && result.impactedWorkflows[0].id === 100, result.impactedWorkflows)
 	check('severity reflects the critical owned agent', result.severity === 'critical', result.severity)
 	check('healthDelta is a number', typeof result.healthDelta === 'number', result.healthDelta)
+}
+
+console.log('\nemployeeLeaves no longer improves continuity by shrinking the population (owner decision, 2026-09-18):')
+{
+	// Sarah's own owners row has no backup_owner. Priya's does exist and is
+	// unrelated to Sarah, so the owners population doesn't empty out.
+	// Sarah leaving must not move continuityScore's pct(ownersWithBackup,
+	// owners.length) term at all -- under the old filter()-based removal,
+	// owners.length dropped from 2 to 1 while ownersWithBackup (Sarah's row
+	// had no backup_owner, so it was never in that count) stayed the same,
+	// so the ratio jumped from 50% to 100%: an unbacked owner leaving looked
+	// like an IMPROVEMENT in backup coverage.
+	const r = roots({
+		employees: [
+			{ id: 1, name: 'Sarah', department: 'Eng' },
+			{ id: 2, name: 'Priya', department: 'Eng' },
+		],
+		agents: [
+			{ id: 10, name: 'DeployBot', status: 'active', risk: 'high', owner_id: 1 },
+			// Keeps ownershipSpreadScore's evidenceGate (at least one agent with
+			// owner_id != null) sufficient after Sarah's own agent goes unowned.
+			{ id: 11, name: 'Other', status: 'active', risk: 'low', owner_id: 2 },
+		],
+		workflows: [{ id: 100, name: 'Release', status: 'active', risk: 'high' }],
+		workflow_dependencies: [{ id: 1, workflow_id: 100, agent_id: 10, is_critical: true }],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 10, is_documented: true }],
+		owners: [
+			{ id: 1, name: 'Sarah', employee_id: 1, backup_owner: null },
+			{ id: 2, name: 'Priya', employee_id: 2, backup_owner: 'Someone Else' },
+		],
+	})
+
+	const before = d.orgHealth(r, { accountability: d.accountability(r), predictiveRisk: d.predictiveRisk(r) })
+	const result = s.employeeLeaves(1, r)
+	const mutated = s.cloneRoots(r)
+	mutated.employees = mutated.employees.filter((e) => e.id !== 1)
+	mutated.agents = mutated.agents.map((a) => (a.owner_id === 1 ? { ...a, owner_id: null } : a))
+	const after = d.orgHealth(mutated, { accountability: d.accountability(mutated), predictiveRisk: d.predictiveRisk(mutated) })
+
+	check('owners.length is unchanged after a departure -- the ownership slot stays counted', mutated.owners.length === r.owners.length, mutated.owners.length)
+	check('continuityScore does not improve when an unbacked owner departs', after.continuityScore <= before.continuityScore, { before: before.continuityScore, after: after.continuityScore })
+	check('healthDelta is not negative -- an unbacked owner departing must not look like an improvement', typeof result.healthDelta === 'number' && result.healthDelta >= 0, result.healthDelta)
 }
 
 // ── agentFails ───────────────────────────────────────────────────────────────
@@ -242,6 +284,41 @@ console.log('\nplatformDown:')
 	check('reaches the agent on the platform AND its transitive dependent', ids.length === 2 && ids[0] === 10 && ids[1] === 11, ids)
 }
 
+console.log('\nplatformDown no longer improves continuity by shrinking the population (owner decision, 2026-09-18):')
+{
+	// Platform 51 is backed via tool_backups, platform 50 is not. Taking the
+	// UNBACKED platform down must not move continuityScore's
+	// pct(platformsWithBackup, ai_platforms.length) term at all -- under the
+	// old filter()-based removal, ai_platforms.length dropped from 2 to 1
+	// while platformsWithBackup (read from tool_backups, untouched by this
+	// mutation) stayed at 1, so the ratio jumped from 50% to 100%: an
+	// unrelated platform outage looked like an IMPROVEMENT in backup
+	// coverage.
+	const r = roots({
+		ai_platforms: [
+			{ id: 50, name: 'ClaudeAPI', type: 'llm', status: 'active' },
+			{ id: 51, name: 'OtherAPI', type: 'llm', status: 'active' },
+		],
+		tool_backups: [{ id: 1, primary_platform: 51, backup_platform: 'Backup' }],
+		agents: [{ id: 10, name: 'User1', status: 'active', risk: 'high', owner_id: 1 }],
+		agent_platform: [{ id: 1, agent_id: 10, platform_id: 50 }],
+		employees: [{ id: 1, name: 'Owner1' }],
+		owners: [{ id: 1, name: 'Owner1', employee_id: 1, backup_owner: null }],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 10, is_documented: true }],
+		workflows: [{ id: 1, name: 'Wf', status: 'active', risk: 'low' }],
+	})
+
+	const before = d.orgHealth(r, { accountability: d.accountability(r), predictiveRisk: d.predictiveRisk(r) })
+	const result = s.platformDown(50, r)
+	const mutated = s.cloneRoots(r)
+	mutated.ai_platforms = mutated.ai_platforms.map((p) => (p.id === 50 ? { ...p, status: 'down' } : p))
+	const after = d.orgHealth(mutated, { accountability: d.accountability(mutated), predictiveRisk: d.predictiveRisk(mutated) })
+
+	check('ai_platforms.length is unchanged after an outage -- the platform stays counted', mutated.ai_platforms.length === r.ai_platforms.length, mutated.ai_platforms.length)
+	check('continuityScore does not improve when an unbacked platform goes down', after.continuityScore <= before.continuityScore, { before: before.continuityScore, after: after.continuityScore })
+	check('healthDelta is not negative -- an unbacked platform outage must not look like an improvement', typeof result.healthDelta === 'number' && result.healthDelta >= 0, result.healthDelta)
+}
+
 // ── workflowDisruption ───────────────────────────────────────────────────────
 console.log('\nworkflowDisruption:')
 {
@@ -265,6 +342,40 @@ console.log('\nworkflowDisruption:')
 	const wfIds = result.impactedWorkflows.map((w) => w.id).sort()
 	check('includes itself and the sibling workflow sharing the same agent', wfIds.length === 2 && wfIds[0] === 100 && wfIds[1] === 101, wfIds)
 	check('the shared agent is impacted', result.impactedAgents.some((a) => a.id === 10))
+}
+
+console.log('\nworkflowDisruption no longer improves continuity by shrinking the population (owner decision, 2026-09-18):')
+{
+	// Workflow 100 has a documented runbook, workflow 101 does not. Disrupting
+	// the UNDOCUMENTED workflow must not move continuityScore's
+	// pct(documentedRunbooks, workflows.length) term at all -- under the old
+	// filter()-based removal, workflows.length dropped from 2 to 1 while
+	// documentedRunbooks (read from workflow_runbooks, untouched by this
+	// mutation) stayed at 1, so the ratio jumped from 50% to 100%: disrupting
+	// the one workflow with no runbook looked like an IMPROVEMENT in runbook
+	// coverage.
+	const r = roots({
+		workflows: [
+			{ id: 100, name: 'Release', status: 'active', risk: 'high' },
+			{ id: 101, name: 'Hotfix', status: 'active', risk: 'critical' },
+		],
+		workflow_runbooks: [{ id: 1, workflow_id: 100, is_documented: true }],
+		agents: [{ id: 10, name: 'Shared', status: 'active', risk: 'high', owner_id: 1 }],
+		workflow_dependencies: [{ id: 1, workflow_id: 101, agent_id: 10, is_critical: true }],
+		employees: [{ id: 1, name: 'Owner1' }],
+		owners: [{ id: 1, name: 'Owner1', employee_id: 1, backup_owner: null }],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 10, is_documented: true }],
+	})
+
+	const before = d.orgHealth(r, { accountability: d.accountability(r), predictiveRisk: d.predictiveRisk(r) })
+	const result = s.workflowDisruption(101, r)
+	const mutated = s.cloneRoots(r)
+	mutated.workflows = mutated.workflows.map((w) => (w.id === 101 ? { ...w, status: 'disrupted' } : w))
+	const after = d.orgHealth(mutated, { accountability: d.accountability(mutated), predictiveRisk: d.predictiveRisk(mutated) })
+
+	check('workflows.length is unchanged after a disruption -- the workflow stays counted', mutated.workflows.length === r.workflows.length, mutated.workflows.length)
+	check('continuityScore does not improve when an undocumented workflow is disrupted', after.continuityScore <= before.continuityScore, { before: before.continuityScore, after: after.continuityScore })
+	check('healthDelta is not negative -- an undocumented workflow disruption must not look like an improvement', typeof result.healthDelta === 'number' && result.healthDelta >= 0, result.healthDelta)
 }
 
 // ── rankAllScenarios ─────────────────────────────────────────────────────────
