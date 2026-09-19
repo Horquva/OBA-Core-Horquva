@@ -39,7 +39,7 @@ interface Props {
   recommendations: Recommendation[];
 }
 
-export function DecisionSupportQueue({ recommendations }: Props) {
+export function RecommendationQueue({ recommendations }: Props) {
   const [filter, setFilter] = useState<string>('ALL');
 
   // driverKey is a genuine grouping of rec.category (real, brain module M04-derived, D-62).
@@ -84,9 +84,9 @@ export function DecisionSupportQueue({ recommendations }: Props) {
         <div>
           <div className="flex items-center gap-2">
             <ListOrdered className="w-5 h-5 text-orange-400" />
-            <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Decision Support Queue</h2>
+            <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Recommendation Queue</h2>
           </div>
-          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Ranked by priority and effort, grouped by driver</p>
+          <p className="text-sm text-[color:var(--text-secondary)] mt-1">Brain-generated recommendations, ranked by priority and effort, grouped by driver</p>
         </div>
         <TruthBadge verified={recommendations.length > 0} />
       </div>

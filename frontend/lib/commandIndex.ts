@@ -103,7 +103,7 @@ const SECTION_SEEDS: SectionSeed[] = [
 
   ['/simulation', 'Simulation Universe Ranking', ['universe', 'ranked scenarios']],
 
-  ['/recommendations', 'Decision Support Queue', ['support queue', 'pending decisions']],
+  ['/recommendations', 'Recommendation Queue', ['support queue', 'recommendations']],
   ['/recommendations', 'Verified Advisor Panel', ['advisor', 'autonomous advice']],
   ['/recommendations', 'Opportunity Backlog', ['opportunities', 'backlog']],
 
