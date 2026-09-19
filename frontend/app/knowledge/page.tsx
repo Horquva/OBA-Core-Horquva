@@ -11,6 +11,7 @@ import { DepartureSim } from '../../components/knowledge/DepartureSim';
 import { KnowledgeGapsPanel } from '../../components/knowledge/KnowledgeGapsPanel';
 import { request } from '../../lib/api';
 import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../lib/normalize';
+import { mapEmployeeLeavesScenario, RawEmployeeLeavesScenario, ScenarioResult } from '../../lib/simulation';
 import { KnowledgeConcentrationGauge } from '../../components/knowledge/KnowledgeConcentrationGauge';
 import { EntitySearchPanel } from '../../components/knowledge/EntitySearchPanel';
 import { UnavailableBanner } from '../../components/ui/UnavailableBanner';
@@ -50,6 +51,7 @@ export default function KnowledgePage() {
   const [tools, setTools]       = useState<AITool[]>([]);
   const [concentrationByName, setConcentrationByName] = useState<Map<string, ConcentrationEntry>>(new Map());
   const [concentrationUnavailable, setConcentrationUnavailable] = useState(false);
+  const [cascadeByName, setCascadeByName] = useState<Map<string, ScenarioResult>>(new Map());
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
@@ -61,7 +63,11 @@ export default function KnowledgePage() {
     // losing it degrades scores to 0/LOW rather than blanking the page. F-12:
     // that degrade used to be invisible -- 0/LOW read identically to a
     // genuinely well-distributed organization. concentrationUnavailable
-    // tracks it so the page can say so instead.
+    // tracks it so the page can say so instead. The bulk employee-leaves
+    // cascade is the same kind of overlay -- DepartureSim's existing
+    // ownership-based list stays correct without it; losing it just means
+    // that panel's additive "Downstream Disruption" section has nothing to
+    // show for anyone (see DepartureSim.tsx).
     Promise.all([
       request<RawAgent[]>('/api/agents'),
       request<RawWorkflow[]>('/api/workflows'),
@@ -70,8 +76,9 @@ export default function KnowledgePage() {
         setConcentrationUnavailable(true);
         return { concentration: [] };
       }),
+      request<{ scenarios: RawEmployeeLeavesScenario[] }>('/api/simulations/employee-leaves').catch(() => ({ scenarios: [] })),
     ])
-    .then(([agentsData, wData, toolsData, knowledgeIntel]) => {
+    .then(([agentsData, wData, toolsData, knowledgeIntel, employeeScenarios]) => {
       setConcentrationByName(new Map(
         (Array.isArray(knowledgeIntel.concentration) ? knowledgeIntel.concentration : [])
           .filter((p: RawConcentrationEntry) => p.name)
@@ -102,6 +109,11 @@ export default function KnowledgePage() {
       setAgents(normalizedAgents);
       setWorkflows(normalizedWorkflows);
       setTools(normalizedTools);
+      setCascadeByName(new Map(
+        (Array.isArray(employeeScenarios.scenarios) ? employeeScenarios.scenarios : [])
+          .filter((s) => s.employeeName)
+          .map((s) => [s.employeeName as string, mapEmployeeLeavesScenario(s)])
+      ));
     })
     .catch(err => setError(err.message))
     .finally(() => setLoading(false));
@@ -145,7 +157,7 @@ export default function KnowledgePage() {
       <EntitySearchPanel report={report} />
       <KnowledgeConcentrationGauge profiles={report.profiles} totalAssets={report.totalAssets} />
       <ConcentrationRiskPanel profiles={report.profiles} />
-      <DepartureSim profiles={report.profiles} />
+      <DepartureSim profiles={report.profiles} cascadeByName={cascadeByName} />
       <UndocumentedAssetsTable assets={report.undocumentedAssets} />
       <KnowledgeGapsPanel gaps={report.knowledgeGaps} />
     </div>

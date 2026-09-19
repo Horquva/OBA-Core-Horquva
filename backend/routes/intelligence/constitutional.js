@@ -41,7 +41,7 @@ const router = express.Router()
 const {
   loadDataset: loadData,
   trendSignals, improvementOpportunities, departmentCapability,
-  alignmentChecklist, standardClaimChecks, playbookAdvice, resilienceScenarios,
+  alignmentChecklist, standardClaimChecks, playbookAdvice,
 } = require('../../domain')
 
 // ─────────────────────────────────────────────────────────────
@@ -56,7 +56,6 @@ router.get('/opportunities', wrap(improvementOpportunities))
 router.get('/capability', wrap(departmentCapability))
 router.get('/alignment', wrap(alignmentChecklist))
 router.get('/advisor', wrap(playbookAdvice))
-router.get('/simulation-universe', wrap(resilienceScenarios))
 
 // ⚠ No '/truth' route here. index.js mounts routes/truth/truth.js at the more
 // specific /api/intelligence/truth, which is registered first and therefore
@@ -79,7 +78,6 @@ router.get('/', (req, res) => {
       'Department capability': 'GET /api/intelligence/capability',
       'Alignment checklist': 'GET /api/intelligence/alignment',
       'Playbook advice': 'GET /api/intelligence/advisor',
-      'Resilience scenarios': 'GET /api/intelligence/simulation-universe',
     },
     servedElsewhere: {
       'Claim verification': 'GET /api/intelligence/truth (routes/truth/truth.js)',

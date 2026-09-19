@@ -594,10 +594,12 @@ export const selfHealing = {
 };
 
 // ─── Dataset-derived organizational analyses ─────────────────────────────────
-// All seven ARE mounted — index.js mounts routes/intelligence/constitutional.js
+// All six ARE mounted — index.js mounts routes/intelligence/constitutional.js
 // at /api/intelligence. The previous "NOT MOUNTED" comments on signals,
-// opportunities, capability, alignment, advisor and simulation-universe were
-// stale and wrong.
+// opportunities, capability, alignment and advisor were stale and wrong.
+// simulation-universe (resilienceScenarios()) was removed entirely -- zero
+// real consumers, only ever reached by the admin health-check ping; see
+// docs/superpowers/specs/2026-09-18-duplicate-simulation-engines-design.md.
 //
 // ⚠ These come from backend/domain/analyses.js (the company dataset), NOT from the
 // brain. `capability` and `alignment` here are different analyses from
@@ -637,9 +639,6 @@ export const intelligence = {
 
   advisor: () =>
     request<Record<string, unknown>>('/api/intelligence/advisor'),
-
-  simulationUniverse: () =>
-    request<Record<string, unknown>>('/api/intelligence/simulation-universe'),
 };
 
 // ─── Org Science Predictions (M37, M39-M45) ──────────────────────────────────

@@ -54,10 +54,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Human-Agent Map',   path: '/api/human-agent-map',        pingPath: '/api/human-agent-map',        category: 'Reality Layer',  mounted: true },
   { name: 'Tools',             path: '/api/tools',                  pingPath: '/api/tools',                  category: 'Reality Layer',  mounted: true },
   { name: 'Tool Intelligence', path: '/api/tool-intelligence',      pingPath: '/api/tool-intelligence',      category: 'Reality Layer',  mounted: true },
-  { name: 'Tool Impact',       path: '/api/tool-impact',            pingPath: '/api/tool-impact',            category: 'Reality Layer',  mounted: true },
   { name: 'Workflows',         path: '/api/workflows',              pingPath: '/api/workflows/intelligence', category: 'Reality Layer',  mounted: true },
   { name: 'Knowledge Intel',   path: '/api/knowledge/intelligence', pingPath: '/api/knowledge/intelligence', category: 'Reality Layer',  mounted: true },
-  { name: 'Knowledge Impact', path: '/api/knowledge/impact',       pingPath: '/api/knowledge/impact',       category: 'Reality Layer',  mounted: true },
   { name: 'Knowledge Gaps',    path: '/api/knowledge/gaps',         pingPath: '/api/knowledge/gaps',         category: 'Reality Layer',  mounted: true },
   { name: 'Memory',            path: '/api/memory',                 pingPath: '/api/memory/health',          category: 'Reality Layer',  mounted: true },
 
@@ -107,7 +105,6 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   { name: 'Industry Benchmark',   path: '/api/intelligence/benchmark',         pingPath: '/api/intelligence/benchmark',          category: 'Constitutional', module: 'M45', mounted: true },
   { name: 'Graph Status',         path: '/api/intelligence/graph/status',      pingPath: '/api/intelligence/graph/status',       category: 'Constitutional', mounted: true },
   { name: 'Autonomous Advisor',   path: '/api/intelligence/advisor',           pingPath: '/api/intelligence/advisor',            category: 'Constitutional', mounted: true },
-  { name: 'Simulation Universe',  path: '/api/intelligence/simulation-universe', pingPath: '/api/intelligence/simulation-universe', category: 'Constitutional', mounted: true },
   // Wired up 2026-09-02 alongside the 27-module retirement — see backend/routes/intelligence/reality.js
   { name: 'Ownership Map',        path: '/api/intelligence/ownership-map',      pingPath: '/api/intelligence/ownership-map',      category: 'Constitutional', module: 'M01', mounted: true },
   { name: 'Reporting Chains',     path: '/api/intelligence/reporting-chains',   pingPath: '/api/intelligence/reporting-chains',   category: 'Constitutional', module: 'M20', mounted: true },

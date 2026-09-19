@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { computeAIToolIntelligence, AIToolReport, ToolScoreInput } from '../../lib/aiToolIntelligence';
+import { computeAIToolIntelligence, AIToolReport, ToolScoreInput, PlatformImpactScenario } from '../../lib/aiToolIntelligence';
 import { AITool, Agent, Workflow } from '../../types';
 import { resolveCriticality } from '../../lib/criticality';
 import { AIToolHeader } from '../../components/ai-tools/AIToolHeader';
@@ -45,19 +45,26 @@ export default function AIToolsPage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [scoreByToolId, setScoreByToolId] = useState<Map<string, ToolScoreInput>>(new Map());
+  const [platformScenariosByToolId, setPlatformScenariosByToolId] = useState<Map<string, PlatformImpactScenario>>(new Map());
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
   useEffect(() => {
     // Each of these is the page's own dataset, not a supplementary overlay —
     // an outage here must fail the page (the existing `error` branch below),
-    // not render as zero tools / zero agents / zero workflows.
+    // not render as zero tools / zero agents / zero workflows. The bulk
+    // platform-down scenarios are a real cascade computation layered on top
+    // of that dataset (see aiToolIntelligence.ts's buildOutageImpact()), so
+    // it keeps a soft fallback like knowledge/page.tsx's concentration
+    // overlay: losing it degrades OutageImpactPanel to "no impact detected"
+    // per tool rather than blanking the page.
     Promise.all([
       request<RawTool[]>('/api/tools'),
       request<RawAgent[]>('/api/agents'),
       request<RawWorkflow[]>('/api/workflows'),
+      request<{ scenarios: PlatformImpactScenario[] }>('/api/simulations/platform-down').catch(() => ({ scenarios: [] })),
     ])
-    .then(([toolsData, agentsData, wData]) => {
+    .then(([toolsData, agentsData, wData, platformScenarios]) => {
       const rawTools = Array.isArray(toolsData) ? toolsData : [];
 
       // Normalize tools
@@ -94,10 +101,20 @@ export default function AIToolsPage() {
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
       const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
 
+      // Keyed by platformId (an ai_platforms.id, same primary key AITool.id
+      // is normalized from) rather than name -- see buildOutageImpact()'s
+      // own comment on why the single-entity route's name matching isn't
+      // repeated here.
+      const platformScenarioMap = new Map<string, PlatformImpactScenario>(
+        (Array.isArray(platformScenarios.scenarios) ? platformScenarios.scenarios : [])
+          .map((s) => [String(s.platformId), s])
+      );
+
       setTools(normalizedTools);
       setAgents(normalizedAgents);
       setWorkflows(normalizedWorkflows);
       setScoreByToolId(scoreMap);
+      setPlatformScenariosByToolId(platformScenarioMap);
     })
     .catch(err => setError(err.message))
     .finally(() => setLoading(false));
@@ -106,8 +123,8 @@ export default function AIToolsPage() {
   const report: AIToolReport | null = useMemo(() => {
     if (tools.length === 0 && !loading) return computeAIToolIntelligence([], [], [], scoreByToolId);
     if (loading) return null;
-    return computeAIToolIntelligence(tools, workflows, agents, scoreByToolId);
-  }, [tools, agents, workflows, scoreByToolId, loading]);
+    return computeAIToolIntelligence(tools, workflows, agents, scoreByToolId, platformScenariosByToolId);
+  }, [tools, agents, workflows, scoreByToolId, platformScenariosByToolId, loading]);
 
   // error must be checked before the loading/!report fallback below -- a
   // failed fetch sets loading:false but leaves report:null, so

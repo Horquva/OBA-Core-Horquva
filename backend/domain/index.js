@@ -71,7 +71,6 @@ module.exports = {
   alignmentChecklist: analyses.alignmentChecklist,
   standardClaimChecks: analyses.standardClaimChecks,
   playbookAdvice: analyses.playbookAdvice,
-  resilienceScenarios: analyses.resilienceScenarios,
 
   // ─── Derived intelligence (computed, formerly frozen tables) ───
   /**

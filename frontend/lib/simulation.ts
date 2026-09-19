@@ -59,3 +59,39 @@ export function mapScenario(raw: RawScenario): ScenarioResult {
     severity: (raw.severity ?? 'unknown') as RiskLevel,
   };
 }
+
+/** One entry of GET /api/simulations/employee-leaves's bulk response --
+ *  domain/simulations.js's employeeLeaves() run for every employees row,
+ *  from one shared root read (see that route's own header comment). Field
+ *  names differ from RawScenario (employeeId/employeeName/riskLevel vs.
+ *  targetId/targetName/severity) because the bulk route also serves
+ *  EndpointHealthGrid's ping and the admin-facing shape predates this
+ *  mapper; mapEmployeeLeavesScenario() below adapts one to the other rather
+ *  than the route inventing a second display type. */
+export interface RawEmployeeLeavesScenario {
+  employeeId?: string | number;
+  employeeName?: string;
+  baselineHealthScore?: number;
+  simulatedHealthScore?: number;
+  healthDelta?: number;
+  impactedAgents?: { id?: string | number; name?: string; risk?: RiskLevel }[];
+  impactedWorkflows?: { name?: string }[];
+  riskLevel?: RiskLevel;
+}
+
+/** Adapts one bulk employee-leaves entry into the same ScenarioResult shape
+ *  mapScenario() produces for the single-entity route, so both draw from one
+ *  display type and one mapping function. */
+export function mapEmployeeLeavesScenario(raw: RawEmployeeLeavesScenario): ScenarioResult {
+  return mapScenario({
+    targetType: 'employee',
+    targetId: raw.employeeId,
+    targetName: raw.employeeName,
+    baselineHealthScore: raw.baselineHealthScore,
+    simulatedHealthScore: raw.simulatedHealthScore,
+    healthDelta: raw.healthDelta,
+    impactedAgents: raw.impactedAgents,
+    impactedWorkflows: raw.impactedWorkflows,
+    severity: raw.riskLevel,
+  });
+}

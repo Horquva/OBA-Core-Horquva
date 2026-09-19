@@ -68,17 +68,42 @@ export interface OutageImpact {
   usersAffected: number;
 }
 
-export function simulateOutage(tool: AITool, workflows: Workflow[], agents: Agent[]): OutageImpact {
-  // tool.workflows and tool.agents_using are both NAME lists (backend/routes/
-  // tools.js's loadPlatformWorkflows()/loadPlatformAgents(), sourced from
-  // workflow_tool_dependencies and agent_platform) -- match by name, not id.
-  // The previous w.steps.some(s => s.actor === 'tool' ...) check always
-  // missed: no workflow_steps row in this dataset has actor_type 'tool'
-  // (the real tool<->workflow link lives in workflow_tool_dependencies, not
-  // in step actors), and agents_using.includes(a.id) compared names to ids.
-  const brokenWorkflows = workflows.filter(w => tool.workflows.includes(w.name));
+/** One entry of GET /api/simulations/platform-down's bulk response --
+ *  domain/simulations.js's platformDown() run for every ai_platforms row,
+ *  from one shared root read (see that route's own header comment). Only the
+ *  fields this file reads are declared; the route returns more (severity,
+ *  healthDelta, etc.) for other consumers. */
+export interface PlatformImpactScenario {
+  platformId: number;
+  impactedAgents: { id: number }[];
+  impactedWorkflows: { id: number }[];
+}
 
-  const brokenAgents = agents.filter(a => tool.agents_using.includes(a.name));
+/**
+ * Cascade-correct outage impact, backed by the same engine
+ * (domain/simulations.js's platformDown()) that powers the /simulation
+ * page's ranking. Replaces the previous direct-link-only simulateOutage(),
+ * which only matched a tool's own `workflows`/`agents_using` name lists and
+ * missed anything transitively downstream of them -- see
+ * docs/superpowers/specs/2026-09-18-duplicate-simulation-engines-design.md.
+ *
+ * `scenario` is looked up by the caller via platformId (not name) to avoid
+ * the fragile case-insensitive matching the single-entity route still uses.
+ * A missing scenario (fetch failure) degrades to "no impact detected" rather
+ * than throwing -- same soft-fallback shape callers already expect from an
+ * empty OutageImpact.
+ */
+export function buildOutageImpact(
+  tool: AITool,
+  workflows: Workflow[],
+  agents: Agent[],
+  scenario: PlatformImpactScenario | undefined
+): OutageImpact {
+  const impactedWorkflowIds = new Set((scenario?.impactedWorkflows ?? []).map(w => String(w.id)));
+  const impactedAgentIds = new Set((scenario?.impactedAgents ?? []).map(a => String(a.id)));
+
+  const brokenWorkflows = workflows.filter(w => impactedWorkflowIds.has(w.id));
+  const brokenAgents = agents.filter(a => impactedAgentIds.has(a.id));
 
   const departmentsHit = Array.from(new Set([
     ...brokenWorkflows.map(w => w.department),
@@ -153,7 +178,8 @@ export function computeAIToolIntelligence(
   tools: AITool[],
   workflows: Workflow[],
   agents: Agent[],
-  scoreByToolId: Map<string, ToolScoreInput>
+  scoreByToolId: Map<string, ToolScoreInput>,
+  platformScenariosByToolId: Map<string, PlatformImpactScenario> = new Map()
 ): AIToolReport {
   const profiles: ToolRiskProfile[] = tools.map(tool => {
     // Real backend score (backend/routes/tools.js's computeToolRiskScore()) --
@@ -163,7 +189,12 @@ export function computeAIToolIntelligence(
     const hasNoBackup = !tool.backup_tool;
     const hasNoPolicy = !tool.documented;
 
-    // Same name-based matching as simulateOutage() above -- see its comment.
+    // tool.workflows and tool.agents_using are both NAME lists (backend/
+    // routes/tools.js's loadPlatformWorkflows()/loadPlatformAgents(), sourced
+    // from workflow_tool_dependencies and agent_platform) -- match by name,
+    // not id. Direct links only, unlike buildOutageImpact() above (which
+    // uses the real cascade) -- this profile field is a different, narrower
+    // question ("what's directly wired to this tool"), not a duplicate.
     const affectedWorkflows = workflows.filter(w => tool.workflows.includes(w.name));
     const affectedAgents = agents.filter(a => tool.agents_using.includes(a.name));
 
@@ -199,7 +230,7 @@ export function computeAIToolIntelligence(
   const totalUsers = new Set(tools.flatMap(t => t.users)).size;
 
   const deptExposure = buildDeptExposure(tools);
-  const outageImpacts = tools.map(t => simulateOutage(t, workflows, agents));
+  const outageImpacts = tools.map(t => buildOutageImpact(t, workflows, agents, platformScenariosByToolId.get(t.id)));
 
   return {
     profiles,

@@ -1103,10 +1103,8 @@ cd backend && npm test
 | `GET /api/human-agent-map` | 06 | Person → agents ownership tree with coverage scores |
 | `GET /api/tools` | 07 | All AI tools with user counts and risk levels |
 | `GET /api/tool-intelligence` | 07 | Tool risk analysis with department exposure |
-| `GET /api/tool-impact` | 07 | Impact simulation: what breaks if a tool goes offline |
 | `GET /api/workflows` | 08 | All workflows with step chains and risk scores |
 | `GET /api/knowledge/intelligence` | 09 | Knowledge concentration scores per person |
-| `GET /api/knowledge/impact` | 09 | Asset loss mapping per person departure |
 | `GET /api/knowledge/gaps` | 09 | All undocumented assets with no backup |
 | `GET /api/memory` | 10 | Institutional memory status per asset |
 | `GET /api/simulations/employee-leaves` | 05 | Health Score impact when a person leaves |
@@ -1183,7 +1181,6 @@ cd backend && npm test
 | `GET /api/intelligence/truth` | 46 | Verified truths + data trust score |
 | `GET /api/intelligence/advisor` | 48 | Recommendations from verified truths only |
 | `GET /api/intelligence/brain-core` | 50 | Brain index + operating posture |
-| `GET /api/intelligence/simulation-universe` | 54 | Ranked what-if scenarios + survivability |
 | `GET /api/intelligence/orchestrator` | 55 | Organizational Intelligence Score + verdict |
 
 #### Organizational Brain — graph endpoints (wired 2026-09-02)
@@ -1303,7 +1300,6 @@ OBA-Core-Horquva/
 │       ├── humanAgentMap.js                   # /api/human-agent-map
 │       ├── tools.js                           # /api/tools
 │       ├── toolIntelligence.js                # /api/tool-intelligence
-│       ├── toolImpact.js                      # /api/tool-impact
 │       ├── simulations/
 │       │   ├── employeeLeaves.js              # /api/simulations/employee-leaves
 │       │   ├── agentFails.js                  # /api/simulations/agent-fails
@@ -1316,7 +1312,6 @@ OBA-Core-Horquva/
 │       │   └── spof.js
 │       ├── knowledge/
 │       │   ├── intelligence.js                # /api/knowledge/intelligence
-│       │   ├── impact.js                      # /api/knowledge/impact
 │       │   └── gaps.js                        # /api/knowledge/gaps
 │       ├── memory/
 │       │   └── memory.js                      # /api/memory
@@ -1362,7 +1357,7 @@ OBA-Core-Horquva/
 │       │   ├── stt.js                         # Speech-to-text transcription
 │       │   └── intentParser.js                # Transcript → structured intent
 │       └── intelligence/
-│           ├── constitutional.js              # /api/intelligence/{signals,opportunities,capability,alignment,advisor,simulation-universe} (dataset-derived)
+│           ├── constitutional.js              # /api/intelligence/{signals,opportunities,capability,alignment,advisor} (dataset-derived)
 │           ├── prediction.js                  # /api/intelligence/{pattern,dna,culture,maturity,behavior,benchmark,ownership-coverage,capability-inventory,continuity,governance,recommendations,dependency-impact,digital-twin,graph/*} (graph-derived)
 │           ├── reality.js                     # /api/intelligence/{ownership-map,reporting-chains,dependency-fanin,organizational-risk,ai-agent-governance,dependency-graph,relationships,ecosystem,hidden-dependencies,network-centrality} — wired 2026-09-02
 │           ├── _graphEndpoint.js               # Shared GET-one-analysis handler used by prediction.js + reality.js
@@ -1563,7 +1558,7 @@ This is the original full-catalog assignment as first designed, kept as a histor
 
 ### Phase 6 backend endpoints
 
-Of the original Phase 6 modules, M39 and M40 remain live under `/api/intelligence/*` (see the **All API Endpoints** table above); M36, M38, M46, M48, M50, M54, M55 were retired 2026-09-02, each replaced by a richer, already-live system named at each module's entry earlier in this document — the `GET /api/intelligence/signals`/`/opportunities`/`/truth`/`/advisor`/`/brain-core`/`/simulation-universe`/`/orchestrator` endpoints in the table above are those replacements, not those modules' own logic. Verification steps are in **`backend/brain/README.md`** and **`HOWTO_RUN_AND_CHECK.md`**.
+Of the original Phase 6 modules, M39 and M40 remain live under `/api/intelligence/*` (see the **All API Endpoints** table above); M36, M38, M46, M48, M50, M54, M55 were retired 2026-09-02, each replaced by a richer, already-live system named at each module's entry earlier in this document — the `GET /api/intelligence/signals`/`/opportunities`/`/truth`/`/advisor`/`/brain-core`/`/orchestrator` endpoints in the table above are those replacements, not those modules' own logic. (M54's `/simulation-universe` replacement was itself removed 2026-09-18 — zero real consumers; see `docs/superpowers/specs/2026-09-18-duplicate-simulation-engines-design.md`.) Verification steps are in **`backend/brain/README.md`** and **`HOWTO_RUN_AND_CHECK.md`**.
 
 ---
 

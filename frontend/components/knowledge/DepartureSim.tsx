@@ -2,11 +2,30 @@
 
 import { useState } from 'react';
 import { PersonProfile, AssetItem } from '../../lib/knowledgeRisk';
-import { UserX, AlertTriangle, Bot, Workflow, Wrench } from 'lucide-react';
+import { ScenarioResult } from '../../lib/simulation';
+import { UserX, AlertTriangle, Bot, Workflow, Wrench, GitBranch } from 'lucide-react';
 
 interface Props {
   profiles: PersonProfile[];
+  /** GET /api/simulations/employee-leaves's bulk cascade result, keyed by
+   *  employee name -- domain/simulations.js's employeeLeaves(), the same
+   *  engine that powers /simulation's ranking. Answers a different question
+   *  than the ownership-based panel above ("what breaks downstream" vs.
+   *  "what personal knowledge is lost"), so it's rendered as an additional
+   *  section, not a replacement -- see
+   *  docs/superpowers/specs/2026-09-18-duplicate-simulation-engines-design.md.
+   *  Missing entry (fetch failure, or a person with zero cascade impact)
+   *  degrades to "no data" rather than hiding the section. */
+  cascadeByName: Map<string, ScenarioResult>;
 }
+
+const SEVERITY_COLOR: Record<string, string> = {
+  critical: 'var(--risk-critical-text)',
+  high:     'var(--risk-high-text)',
+  medium:   'var(--risk-medium-text)',
+  low:      'var(--risk-low-text)',
+  unknown:  'var(--text-tertiary)',
+};
 
 function TypeIcon({ type }: { type: string }) {
   const s = { flexShrink: 0 as const };
@@ -47,11 +66,12 @@ function ImpactAssetRow({ asset }: { asset: AssetItem }) {
   );
 }
 
-export function DepartureSim({ profiles }: Props) {
+export function DepartureSim({ profiles, cascadeByName }: Props) {
   const candidates = profiles.filter(p => p.unrecoverableIfLeaves.length > 0);
   const [selected, setSelected] = useState<string>(candidates[0]?.name ?? '');
 
   const activePerson = profiles.find(p => p.name === selected);
+  const cascade = activePerson ? cascadeByName.get(activePerson.name) : undefined;
 
   return (
     <div className="animate-fade-up delay-300">
@@ -221,6 +241,43 @@ export function DepartureSim({ profiles }: Props) {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Downstream disruption — additive, from domain/simulations.js's
+                real cascade engine (the same one /simulation ranks by).
+                Answers "what else breaks", not "what knowledge is lost" --
+                see this component's cascadeByName prop comment. */}
+            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border-subtle)' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-tertiary)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <GitBranch size={11} style={{ color: 'var(--text-tertiary)' }} />
+                Downstream Disruption
+              </p>
+              {cascade ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                  <div style={{ padding: '12px 14px', borderRadius: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                    <p style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{cascade.impactedAgents.length}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', margin: '3px 0 0' }}>Agents Impacted</p>
+                  </div>
+                  <div style={{ padding: '12px 14px', borderRadius: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                    <p style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{cascade.impactedWorkflowNames.length}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', margin: '3px 0 0' }}>Workflows Impacted</p>
+                  </div>
+                  <div style={{ padding: '12px 14px', borderRadius: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                    <p style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: SEVERITY_COLOR[cascade.severity] }}>{cascade.severity.toUpperCase()}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', margin: '3px 0 0' }}>Cascade Severity</p>
+                  </div>
+                  <div style={{ padding: '12px 14px', borderRadius: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                    <p style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: cascade.healthDelta > 0 ? 'var(--risk-critical-text)' : 'var(--text-primary)' }}>
+                      {cascade.healthDelta > 0 ? `-${cascade.healthDelta}` : cascade.healthDelta}
+                    </p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', margin: '3px 0 0' }}>Org Health Δ</p>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                  Cascade data unavailable for {activePerson.name}.
+                </p>
+              )}
             </div>
           </div>
         )}
