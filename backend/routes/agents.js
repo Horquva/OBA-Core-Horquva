@@ -3,6 +3,7 @@ const router = express.Router()
 const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { requireAdmin } = require('../middleware/requireRole')
+const { recordAudit } = require('../lib/audit')
 const domain = require('../domain')
 
 /** agent_id -> is_documented, via knowledge_assets where asset_type='agent'.
@@ -76,14 +77,9 @@ router.get('/', async (req, res) => {
 async function clearCachesAfterOwnerChange() {
   try {
     domain.intelligence.invalidate()
-  } catch (err) {
-    console.warn(`[agents] failed to invalidate derived cache: ${err.message}`)
-  }
-
-  try {
     await domain.graph.load()
   } catch (err) {
-    console.warn(`[agents] owner-change graph reload failed: ${err.message}`)
+    console.warn(`[agents] owner-change intelligence cache reload failed: ${err.message}`)
   }
 
   const today = new Date().toISOString().split('T')[0]
@@ -131,6 +127,17 @@ router.patch('/:id/owner', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'ownerId must be an integer employee id, or null to clear ownership' })
   }
 
+  const { data: before, error: beforeError } = await supabase
+    .from('agents')
+    .select('id, owner_id')
+    .eq('id', agentId)
+    .maybeSingle()
+  if (beforeError) return res.status(500).json({ error: beforeError.message })
+  if (!before) {
+    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_agent', targetType: 'agent', targetId: agentId })
+    return res.status(404).json({ error: `No agent with id ${agentId}` })
+  }
+
   const { data, error } = await supabase
     .from('agents')
     .update({ owner_id: ownerId })
@@ -143,12 +150,18 @@ router.patch('/:id/owner', requireAdmin, async (req, res) => {
     // declared in sql/05_foreign_keys.sql) — a real, expected outcome for a
     // bad id, not a server fault.
     if (error.code === '23503') {
+      await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_employee', targetType: 'agent', targetId: agentId, changes: { owner_id: { from: before.owner_id, to: ownerId } } })
       return res.status(400).json({ error: `No employee with id ${ownerId}` })
     }
+    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'update_error', targetType: 'agent', targetId: agentId })
     return res.status(500).json({ error: error.message })
   }
-  if (!data) return res.status(404).json({ error: `No agent with id ${agentId}` })
+  if (!data) {
+    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_agent', targetType: 'agent', targetId: agentId })
+    return res.status(404).json({ error: `No agent with id ${agentId}` })
+  }
 
+  await recordAudit(req, { action: 'agent.owner_update', outcome: 'success', targetType: 'agent', targetId: agentId, changes: { owner_id: { from: before.owner_id, to: ownerId } } })
   await clearCachesAfterOwnerChange()
 
   res.json({ ok: true, agent: data })

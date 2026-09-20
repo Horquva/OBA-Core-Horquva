@@ -48,51 +48,63 @@ require.cache[supabasePath] = {
 	loaded: true,
 	exports: {
 		from(table) {
-			if (table === 'agents') {
-				return {
-					update(patch) {
-						return {
-							eq(col, val) {
-								return {
-									select() {
-										return {
-											async maybeSingle() {
-												const agent = agentsTable.find((a) => a.id === val)
-												if (!agent) return { data: null, error: null }
-												if (patch.owner_id !== null && !validEmployeeIds.has(patch.owner_id)) {
-													return { data: null, error: { code: '23503', message: 'insert or update on table "agents" violates foreign key constraint' } }
-												}
-												agent.owner_id = patch.owner_id
-												return { data: { id: agent.id, name: agent.name, owner_id: agent.owner_id }, error: null }
-											},
-										}
-									},
-								}
-							},
-						}
-					},
-				}
+			if (table === 'audit_log') {
+				return { insert: async () => ({ data: null, error: null }) }
 			}
-			if (['brain_core_snapshots', 'orchestrator_snapshots', 'executive_briefings'].includes(table)) {
+			if (table !== 'agents' && !['brain_core_snapshots', 'orchestrator_snapshots', 'executive_briefings'].includes(table)) {
+				throw new Error(`agentsRoutes.test.js: unexpected table '${table}'`)
+			}
+			if (table !== 'agents') {
 				return {
 					delete() {
 						return {
-							gte(col, val) {
-								clearedTables.push({ table, col, val })
-								return Promise.resolve({ error: null })
+							gte(column, val) {
+								clearedTables.push({ table, column, val })
+								return Promise.resolve({ data: null, error: null })
 							},
-							eq(col, val) {
-								clearedTables.push({ table, col, val })
-								return Promise.resolve({ error: null })
+							eq(column, val) {
+								clearedTables.push({ table, column, val })
+								return Promise.resolve({ data: null, error: null })
 							},
 						}
 					},
 				}
 			}
-			// Every other table (graphLoader's ~20 reads during domain.graph.load())
-			// is expected to fail in this offline test -- the fix must treat that
-			// failure as best-effort and not let it break the response.
-			throw new Error(`agentsRoutes.test.js: unexpected table '${table}'`)
+			return {
+				select() {
+					return {
+						eq(col, val) {
+							return {
+								async maybeSingle() {
+									const agent = agentsTable.find((a) => a.id === val)
+									return { data: agent ? { id: agent.id, owner_id: agent.owner_id } : null, error: null }
+								},
+							}
+						},
+					}
+				},
+				update(patch) {
+					return {
+						eq(col, val) {
+							return {
+								select() {
+									return {
+										async maybeSingle() {
+											const agent = agentsTable.find((a) => a.id === val)
+											if (!agent) return { data: null, error: null }
+											if (patch.owner_id !== null && !validEmployeeIds.has(patch.owner_id)) {
+												return { data: null, error: { code: '23503', message: 'insert or update on table "agents" violates foreign key constraint' } }
+											}
+											agent.owner_id = patch.owner_id
+											return { data: { id: agent.id, name: agent.name, owner_id: agent.owner_id }, error: null }
+										},
+									}
+								},
+							}
+						},
+					}
+				},
+			}
 		},
 	},
 }

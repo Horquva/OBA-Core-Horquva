@@ -32,6 +32,14 @@ function rateLimit({ windowMs = 15 * 60 * 1000, max = 10, keyField = 'email', ke
 
     bucket.count += 1
     if (bucket.count > max) {
+      if (req.path === '/login' && req.baseUrl === '/api/auth') {
+        require('../lib/audit').recordAudit(req, {
+          action: 'auth.login_rate_limited',
+          outcome: 'denied',
+          reason: 'rate_limited',
+          actor: null,
+        })
+      }
       const retryAfterSec = Math.ceil((bucket.resetAt - now) / 1000)
       res.set('Retry-After', String(retryAfterSec))
       return res.status(429).json({ error: 'Too many attempts. Please try again later.', retryAfterSeconds: retryAfterSec })
