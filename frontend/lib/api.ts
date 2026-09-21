@@ -850,6 +850,25 @@ export interface DigitalTwinPayload {
   simulationReady: boolean;
 }
 
+export interface ReplaceabilityResponse {
+  entityId: string;
+  name: string;
+  type: string;
+  rating: 'High' | 'Medium' | 'Low';
+  explanation: string;
+  hasBackupOwner: boolean;
+  hasAltVendor: boolean;
+  isDocumented: boolean;
+}
+
+export interface ReplaceabilityListResponse {
+  total: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  entities: ReplaceabilityResponse[];
+}
+
 export const orgScience = {
   pattern: () => request<IntelligenceResponse<PatternPayload>>('/api/intelligence/pattern'),
   capabilityInventory: () => request<IntelligenceResponse<CapabilityPayload>>('/api/intelligence/capability-inventory'),
@@ -875,6 +894,10 @@ export const orgScience = {
   hiddenDependencies: () => request<IntelligenceResponse<HiddenDependenciesPayload>>('/api/intelligence/hidden-dependencies'),
   networkCentrality: () => request<IntelligenceResponse<NetworkCentralityPayload>>('/api/intelligence/network-centrality'),
   digitalTwin: () => request<IntelligenceResponse<DigitalTwinPayload>>('/api/intelligence/digital-twin'),
+
+  // FE-5: Replaceability
+  replaceability: (entityId: string) => request<ReplaceabilityResponse>(`/api/intelligence/replaceability/${entityId}`),
+  replaceabilityList: (type?: string) => request<ReplaceabilityListResponse>(type ? `/api/intelligence/replaceability?type=${type}` : '/api/intelligence/replaceability'),
 };
 
 // ─── Orchestrator / M55  (/api/intelligence/orchestrator) ───────────────────

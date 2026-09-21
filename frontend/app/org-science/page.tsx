@@ -24,6 +24,7 @@ import { DependencyImpactCard } from '../../components/org-science/DependencyImp
 import { HiddenDependenciesCard } from '../../components/org-science/HiddenDependenciesCard';
 import { NetworkCentralityCard } from '../../components/org-science/NetworkCentralityCard';
 import { DigitalTwinCard } from '../../components/org-science/DigitalTwinCard';
+import { ReplaceabilityCard } from '../../components/org-science/ReplaceabilityCard';
 
 export default function OrgSciencePage() {
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -86,6 +87,7 @@ export default function OrgSciencePage() {
         <HiddenDependenciesCard />
         <NetworkCentralityCard />
         <DigitalTwinCard />
+        <ReplaceabilityCard />
       </div>
     </div>
   );
