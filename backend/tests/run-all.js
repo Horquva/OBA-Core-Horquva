@@ -1,4 +1,4 @@
-/*
+﻿/*
  * OBA Core — Run all MVP tests in sequence.
  * Run from the backend/ folder:  node tests/run-all.js
  * To include the live API test:   BASE_URL=https://horquva-oba-core.vercel.app node tests/run-all.js
@@ -40,10 +40,12 @@ const tests = [
 	'realityRoutes.test.js', // HTTP-level; real brain + fixture graph, so it runs offline (M02/M03/M07/M28/M29/M31/M32/M34/M35/M49 wire-up)
 	'simulationRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-I)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
-    'agentData.unit.test.js', // Task 10.6 turn context
-    'navigationCatalog.unit.test.js', // W-L 12.2 navigation catalog
+	'agentData.unit.test.js', // Tasks 10.6 and 12.7 - turn context and page context
+	'navigationCatalog.unit.test.js', // W-L 12.2 navigation catalog
 	'provider.unit.test.js',   // pure/stubbed; asserts adapter normalisation, error classes, abort (W-L 10.7)
 	'agentLoop.unit.test.js', // stubbed; six loop scenarios including cap, retry, abort and timeout (W-L 11.5)
+	'agentRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-L 11.6 SSE route)
+	'getPageContext.unit.test.js', // Task 12.7 - get_page_context tool
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
 if (process.env.BASE_URL) tests.push('api.smoke.test.js')
@@ -60,3 +62,5 @@ console.log('\n========================================')
 console.log(failedSuites === 0 ? 'ALL TEST SUITES PASSED \u2705' : (failedSuites + ' SUITE(S) FAILED \u274c'))
 console.log('========================================\n')
 process.exit(failedSuites === 0 ? 0 : 1)
+
+
