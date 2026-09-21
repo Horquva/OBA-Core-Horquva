@@ -113,8 +113,19 @@ export function EntitySearchPanel({ report }: Props) {
                       <h4 className="text-sm font-semibold text-[color:var(--text-primary)]">{p.name}</h4>
                       <p className="text-xs text-[color:var(--text-tertiary)]">Person · Owns {p.totalOwned} assets</p>
                     </div>
-                    <div className="text-xs font-medium px-2 py-1 rounded bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)]">
-                      Tier: {p.riskTier}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-xs font-medium px-2 py-1 rounded bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)]">
+                        Tier: {p.riskTier}
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                        p.noBackupOwned === 0 && p.undocumentedOwned === 0
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : p.noBackupOwned === 0 || p.undocumentedOwned === 0
+                          ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                          : 'bg-red-500/10 text-red-400 border-red-500/20'
+                      }`}>
+                        {p.noBackupOwned === 0 && p.undocumentedOwned === 0 ? 'High' : p.noBackupOwned === 0 || p.undocumentedOwned === 0 ? 'Medium' : 'Low'} Replaceability
+                      </span>
                     </div>
                   </div>
                 );
@@ -132,6 +143,13 @@ export function EntitySearchPanel({ report }: Props) {
                 tool: 'bg-violet-500/10 border-violet-500/20'
               };
 
+              const assetConditions = [
+                Boolean(a.backup_owner),
+                Boolean(a.type !== 'tool' || a.backup_owner),
+                Boolean(a.documented),
+              ].filter(Boolean).length;
+              const assetRating = assetConditions === 3 ? 'High' : assetConditions === 2 ? 'Medium' : 'Low';
+
               return (
                 <div key={i} className="flex items-start gap-4 p-4 hover:bg-[color:var(--bg-hover)] transition-colors">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${typeColors[a.type as keyof typeof typeColors]}`}>
@@ -145,6 +163,15 @@ export function EntitySearchPanel({ report }: Props) {
                           Undocumented
                         </span>
                       )}
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase ml-auto ${
+                        assetRating === 'High'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : assetRating === 'Medium'
+                          ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                          : 'bg-red-500/10 text-red-400 border-red-500/20'
+                      }`}>
+                        {assetRating} Replaceability
+                      </span>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-[color:var(--text-tertiary)]">
                       <span className="capitalize">{a.type}</span>

@@ -116,6 +116,12 @@ function PersonCard({ profile, index }: { profile: PersonProfile; index: number 
           <div style={{ marginTop: '12px' }}>
             <ConcentrationBar score={profile.concentrationScore} tier={profile.riskTier} />
           </div>
+
+          {profile.noBackupOwned > 0 && (
+            <p style={{ fontSize: '11px', fontStyle: 'italic', color: 'var(--risk-critical-text)', margin: '8px 0 0' }}>
+              &ldquo;{profile.name} silently owns {profile.ownedWorkflows.length} workflow{profile.ownedWorkflows.length === 1 ? '' : 's'} and {profile.ownedAgents.length} AI agent{profile.ownedAgents.length === 1 ? '' : 's'}, with no backup for any of them.&rdquo;
+            </p>
+          )}
         </div>
 
         {/* Stats */}
