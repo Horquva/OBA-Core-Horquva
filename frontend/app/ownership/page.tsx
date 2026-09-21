@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { OwnershipOverview } from '../../components/ownership/OwnershipOverview';
 import { ConcentrationBar } from '../../components/ownership/ConcentrationBar';
+import { ConcentrationFindings } from '../../components/ownership/ConcentrationFindings';
 import { OwnershipList } from '../../components/ownership/OwnershipList';
 import { DependencyPipeline } from '../../components/ownership/DependencyPipeline';
 import { HumanDependencyRisks } from '../../components/ownership/HumanDependencyRisks';
@@ -149,6 +150,7 @@ export default function OwnershipPage() {
       </div>
 
       <ConcentrationBar agents={dataset.agents} />
+      <ConcentrationFindings />
       <DependencyPipeline dataset={dataset} riskByAgentName={riskByAgentName} humanSpofOwners={humanSpofOwners} />
       <HumanDependencyRisks dataset={dataset} riskByAgentName={riskByAgentName} dependencyRiskByName={dependencyRiskByName} />
       <OrgRelationshipMap dataset={dataset} />

@@ -898,6 +898,38 @@ export const orgScience = {
   // FE-5: Replaceability
   replaceability: (entityId: string) => request<ReplaceabilityResponse>(`/api/intelligence/replaceability/${entityId}`),
   replaceabilityList: (type?: string) => request<ReplaceabilityListResponse>(type ? `/api/intelligence/replaceability?type=${type}` : '/api/intelligence/replaceability'),
+
+  // FE-5: Concentration Findings
+  concentrationFindings: () => request<ConcentrationFindingsResponse>('/api/intelligence/concentration/findings'),
+};
+
+export interface ConcentrationFinding {
+  ownerId: number | string;
+  ownerName: string;
+  role?: string | null;
+  department?: string | null;
+  workflowCount: number;
+  agentCount: number;
+  toolCount: number;
+  workflows: string[];
+  agents: string[];
+  tools: string[];
+  hasBackup: boolean;
+  backupOwner: string | null;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  finding: string;
+}
+
+export interface ConcentrationFindingsResponse {
+  totalFindings: number;
+  unbackedOwnersCount: number;
+  findings: ConcentrationFinding[];
+}
+
+export const concentrationApi = {
+  findings: () => request<ConcentrationFindingsResponse>('/api/intelligence/concentration/findings'),
+  ownerFinding: (ownerId: number | string) =>
+    request<ConcentrationFinding>(`/api/intelligence/concentration/findings/${ownerId}`),
 };
 
 // ─── Orchestrator / M55  (/api/intelligence/orchestrator) ───────────────────
