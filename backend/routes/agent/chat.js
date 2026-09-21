@@ -2,6 +2,8 @@ const express = require('express')
 
 const { buildTurnContext } = require('../../agent/turnContext')
 const { buildRegistry } = require('../../agent/registry')
+const getPageContext = require('../../tools/get-page-context')
+const proposeNavigation = require('../../tools/propose-navigation')
 const { getProvider, isConfigured } = require('../../agent/providers')
 const { runTurn } = require('../../agent/loop')
 
@@ -72,7 +74,7 @@ router.post('/chat', async (req, res) => {
 
     if (closed || controller.signal.aborted) return
 
-    const registry = buildRegistry([], turnContext)
+    const registry = buildRegistry([getPageContext, proposeNavigation], turnContext)
     const provider = getProvider()
 
     writeEvent(res, 'ready', {

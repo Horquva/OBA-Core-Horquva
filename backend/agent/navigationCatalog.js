@@ -32,14 +32,14 @@
 'use strict'
 
 const NAVIGATION_CATALOG = {
-  dashboard:     { route: '/',            label: 'Executive Command Center' },
+  dashboard:     { route: '/dashboard',   label: 'Executive Command Center' },
   risks:         { route: '/risk',        label: 'Risk Dashboard' },
   continuity:    { route: '/continuity',  label: 'Continuity & Succession' },
   governance:    { route: '/continuity',  label: 'Governance Intelligence' },
   dependencies:  { route: '/ownership',   label: 'Dependencies & Ownership' },
   workflows:     { route: '/workflows',   label: 'Workflows' },
   health:        { route: '/risk',        label: 'Organizational Health' },
-  briefing:      { route: '/',            label: 'Executive Briefing' },
+  briefing:      { route: '/dashboard',   label: 'Executive Briefing' },
   predictive:    { route: '/forecast',    label: 'Predictive Risk' },
   collaboration: { route: '/org-science', label: 'Human-Agent Collaboration' },
 }
