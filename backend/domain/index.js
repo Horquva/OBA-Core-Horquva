@@ -119,6 +119,7 @@ module.exports = {
     agentFails: simulations.agentFails,
     platformDown: simulations.platformDown,
     workflowDisruption: simulations.workflowDisruption,
+    compoundScenario: simulations.compoundScenario,
     rankAllScenarios: simulations.rankAllScenarios,
     baselineHealthScore: simulations.baselineHealthScore,
   },
