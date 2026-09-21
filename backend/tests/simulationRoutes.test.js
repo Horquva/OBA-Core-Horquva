@@ -106,5 +106,9 @@ const server = app.listen(0, async () => {
 	console.log('\n========================================')
 	console.log(`${passed} passed, ${failed} failed`)
 	console.log('========================================\n')
-	server.close(() => process.exit(failed === 0 ? 0 : 1))
+	server.close(() => {
+        process.exitCode = failed === 0 ? 0 : 1
 })
+})
+
+
