@@ -46,6 +46,7 @@ const tests = [
 	'agentLoop.unit.test.js', // stubbed; six loop scenarios including cap, retry, abort and timeout (W-L 11.5)
 	'agentRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-L 11.6 SSE route)
 	'getPageContext.unit.test.js', // Task 12.7 - get_page_context tool
+	'agentSuggestions.unit.test.js', // agent empty-state starter questions
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
 if (process.env.BASE_URL) tests.push('api.smoke.test.js')

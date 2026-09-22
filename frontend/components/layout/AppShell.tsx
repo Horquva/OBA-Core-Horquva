@@ -8,14 +8,10 @@ import GlobalNotificationPanel from '@/components/global/GlobalNotificationPanel
 import GlobalSearchOverlay from '@/components/global/GlobalSearchOverlay';
 import CommandBar from '@/components/global/CommandBar';
 import DeepLinkFocus from '@/components/global/DeepLinkFocus';
-import { AgentProvider } from '../agent/AgentProvider';
-import AgentPanel from '../agent/AgentPanel';
+import { AGENT_FROM_ROUTE_KEY } from '@/lib/agentClient';
 
 const AUTH_ROUTES = ['/login'];
-
-// Task 12.4's flag requirement -- when the backend has the agent disabled,
-// the frontend hides the panel entirely rather than showing a broken one.
-const AGENT_ENABLED = process.env.NEXT_PUBLIC_AGENT_ENABLED === 'true';
+const AGENT_ROUTE = '/agent';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -30,6 +26,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, isAuthRoute, router]);
 
+  // The agent's starter questions are tailored to the page the user came
+  // from (EmptyState -> /api/agent/suggestions?from=...), so remember the
+  // last non-agent page. Per-tab convenience only -- losing it just means
+  // general questions.
+  useEffect(() => {
+    if (isAuthRoute || pathname === AGENT_ROUTE) return;
+    try {
+      sessionStorage.setItem(AGENT_FROM_ROUTE_KEY, pathname);
+    } catch {
+      // Storage blocked -- the agent falls back to general questions.
+    }
+  }, [pathname, isAuthRoute]);
+
   if (isAuthRoute) return <>{children}</>;
 
   if (loading || !user) {
@@ -41,19 +50,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AgentProvider>
-      <div className="flex h-full">
-        <Sidebar />
-        <div className="flex flex-1 flex-col min-w-0 overflow-hidden relative">
-          <CommandBar />
-          <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
-        </div>
-        <GlobalNotificationPanel />
-        <GlobalSearchOverlay />
-        <DeepLinkFocus />
-        {AGENT_ENABLED && <AgentPanel slot="shell" />}
+    <div className="flex h-full">
+      <Sidebar />
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden relative">
+        <CommandBar />
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
       </div>
-    </AgentProvider>
+      <GlobalNotificationPanel />
+      <GlobalSearchOverlay />
+      <DeepLinkFocus />
+    </div>
   );
 }
 

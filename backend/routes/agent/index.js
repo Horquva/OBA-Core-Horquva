@@ -9,6 +9,8 @@ const agentEnabled =
 
 if (agentEnabled) {
   router.use('/', require('./chat'))
+  router.use('/', require('./conversations'))
+  router.use('/', require('./suggestions'))
 }
 
 module.exports = router

@@ -1,6 +1,6 @@
 // frontend/lib/agentClient.ts
 
-import { API_BASE } from '@/lib/api';
+import { API_BASE, request } from '@/lib/api';
 import { clientHeaders } from '@/lib/authFetch';
 
 // ============================================
@@ -46,7 +46,7 @@ export type AgentEvent =
   | { type: 'tool_start'; id: string; name: string; label: string }
   | { type: 'tool_done'; id: string; name: string; summary: string; durationMs: number }
   | { type: 'warning'; code: string; message: string }
-  | { type: 'done'; text: string; toolTrace: ToolCall[]; navigationOffer: NavigationOffer | null; provenance: Provenance; usage: Usage; validatorStatus: 'clean' | 'repaired' | 'flagged' }
+  | { type: 'done'; text: string; toolTrace: ToolCall[]; navigationOffers: NavigationOffer[]; provenance: Provenance; usage: Usage; validatorStatus: 'clean' | 'repaired' | 'flagged' }
   | { type: 'error'; code: string; message: string; retryable: boolean };
 
 // ============================================
@@ -215,4 +215,59 @@ export async function* streamAgent(
       // Ignore errors on release - stream is already closed
     }
   }
+}
+
+// ============================================
+// CONVERSATION HISTORY (backend/routes/agent/conversations.js)
+// ============================================
+
+export interface AgentConversationSummary {
+  id: string;
+  title: string;
+  createdAt: string;
+  lastMessageAt: string;
+}
+
+export interface AgentConversationMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  toolCalls?: ToolCall[];
+  validatorStatus?: 'clean' | 'repaired' | 'flagged';
+  navigationOffers?: NavigationOffer[];
+  provenance?: Provenance;
+  usage?: Usage;
+}
+
+export interface AgentConversationDetail {
+  id: string;
+  title: string;
+  messages: AgentConversationMessage[];
+}
+
+export async function listAgentConversations(): Promise<AgentConversationSummary[]> {
+  const data = await request<{ conversations: AgentConversationSummary[] }>('/api/agent/conversations');
+  return data.conversations;
+}
+
+export async function getAgentConversation(id: string): Promise<AgentConversationDetail> {
+  return request<AgentConversationDetail>(`/api/agent/conversations/${encodeURIComponent(id)}`);
+}
+// ============================================
+// STARTER SUGGESTIONS (backend/routes/agent/suggestions.js)
+// ============================================
+
+// sessionStorage key AppShell writes the last non-agent route to.
+export const AGENT_FROM_ROUTE_KEY = 'agent:fromRoute';
+
+export interface AgentSuggestions {
+  slug: string | null;
+  pageLabel: string | null;
+  prompts: string[];
+}
+
+export async function getAgentSuggestions(fromRoute: string | null): Promise<AgentSuggestions> {
+  const query = fromRoute ? `?from=${encodeURIComponent(fromRoute)}` : '';
+  return request<AgentSuggestions>(`/api/agent/suggestions${query}`);
 }
