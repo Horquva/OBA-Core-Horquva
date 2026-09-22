@@ -23,6 +23,29 @@
 
 'use strict'
 
+// The field paths below were rewritten against the REAL shape of
+// domain/derived.js's computeAllFromRoots() (the `intel` this tool receives
+// via TurnContext) and loadRoots() (`roots`) -- every path here was read
+// back from derived.js itself, not guessed. The previous version guessed
+// keys like `intel.orchestrator.score` / `intel.brainCore.brainIndex` /
+// `roots.people` / `wf.criticality` that never existed on either bundle, so
+// every page except 'workflows' silently returned all-null metrics (this
+// was a known, documented, unfixed gap -- see the old caveat this replaced
+// in constitution.js). Fixed rather than just documented around.
+//
+// `orchestrator`/`brainCore` (dashboard's original fields) are a genuinely
+// separate computation (routes/intelligence/orchestrator.js +
+// domain/signalReaders.js) that TurnContext never loads -- not reachable
+// from here without changing what a turn loads, which is out of this
+// tool's scope. 'dashboard' and 'briefing' below use intel.pillars.orgScore
+// instead: a real, already-computed overall score from the same intel
+// bundle, not a stand-in for the orchestrator's own number.
+const { atOrAbove, entityCriticality } = require('../domain/definitions')
+
+function findPillar(intel, resultKey) {
+  return (intel?.pillars?.pillars ?? []).find((p) => p.resultKey === resultKey) ?? null
+}
+
 // ─── Page catalog ─────────────────────────────────────────────────────────────
 
 const PAGE_CATALOG = {
@@ -31,11 +54,11 @@ const PAGE_CATALOG = {
     title: 'Dashboard Overview',
     extract(intel) {
       return {
-        organizationalIntelligenceScore: intel?.orchestrator?.score               ?? null,
-        rating:                          intel?.orchestrator?.rating              ?? null,
-        brainIndex:                      intel?.brainCore?.brainIndex             ?? null,
-        brainPosture:                    intel?.brainCore?.posture                ?? null,
-        trustScore:                      intel?.orchestrator?.trustScore          ?? null,
+        organizationalScore:    intel?.pillars?.orgScore?.score  ?? null,
+        rating:                 intel?.pillars?.orgScore?.rating ?? null,
+        governanceIntelligence: findPillar(intel, 'GI')?.score   ?? null,
+        memoryIntelligence:     findPillar(intel, 'MI')?.score   ?? null,
+        domainIntelligence:     findPillar(intel, 'DI')?.score   ?? null,
       }
     },
   },
@@ -43,40 +66,45 @@ const PAGE_CATALOG = {
   'risks': {
     title: 'Risk Dashboard',
     extract(intel, roots) {
-      const people = roots?.people ?? []
-      const topRisk = [...people]
-        .sort((a, b) => (b.risk_score ?? 0) - (a.risk_score ?? 0))
+      const topThreats = (intel?.predictiveRisk?.scores ?? [])
         .slice(0, 5)
-        .map(p => ({ name: p.name, riskScore: p.risk_score ?? 0 }))
+        .map((t) => ({ name: t.agentName, threatLevel: t.threatLevel, predictedScore: t.predictedScore }))
+      const topPeopleAtRisk = (intel?.humanDependencyRisk ?? [])
+        .slice(0, 5)
+        .map((p) => ({ name: p.name, tier: p.tier, riskScore: p.totalRiskScore }))
+      const criticalAgentsCount = (roots?.agents ?? [])
+        .filter((a) => atOrAbove(entityCriticality('agent', a), 'critical')).length
 
       return {
-        predictiveRiskScore:  intel?.predictiveRisk?.score   ?? null,
-        criticalAgentsCount:  roots?.criticalAgents?.length  ?? null,
-        topKeyPersonRisk:     topRisk,
+        emergingThreatsCount: intel?.predictiveRisk?.emergingThreats?.length ?? null,
+        topPredictedThreats:  topThreats,
+        criticalAgentsCount,
+        topPeopleAtRisk,
       }
     },
   },
 
   'continuity': {
     title: 'Continuity & Succession',
-    extract(intel, roots) {
+    extract(intel) {
+      const mi = findPillar(intel, 'MI')
       return {
-        continuityScore:      intel?.continuity?.score       ?? null,
-        agentsWithNoBackup:   roots?.agentsWithNoBackup      ?? null,
-        singleOwnerWorkflows: roots?.singleOwnerWorkflows    ?? null,
-        orgHealthIndex:       intel?.orgHealth?.score        ?? null,
+        continuityScore:   intel?.orgHealth?.continuityScore  ?? null,
+        orgHealthIndex:    intel?.orgHealth?.healthIndex      ?? null,
+        backupCoverage:    mi?.components?.backupCoverage     ?? null,
+        ownershipCoverage: mi?.components?.ownershipCoverage  ?? null,
       }
     },
   },
 
   'governance': {
     title: 'Governance Intelligence',
-    extract(intel) {
+    extract(intel, roots) {
       return {
-        governanceScore:           intel?.governance?.score          ?? null,
-        accountabilityScore:       intel?.accountability?.score      ?? null,
-        decisionQualityScore:      intel?.decisionQuality?.score     ?? null,
-        separationOfDutyViolations: intel?.governance?.violations    ?? null,
+        governanceScore:       findPillar(intel, 'GI')?.score         ?? null,
+        accountabilityScore:   intel?.accountability?.accountabilityScore ?? null,
+        decisionQualityScore:  intel?.decisionQuality?.score          ?? null,
+        policyViolationsCount: roots?.policy_violations?.length       ?? null,
       }
     },
   },
@@ -84,17 +112,15 @@ const PAGE_CATALOG = {
   'dependencies': {
     title: 'Dependencies & Ownership',
     extract(intel, roots) {
-      const agents = roots?.agents ?? []
-      const topOwned = [...agents]
-        .sort((a, b) => (b.owned_count ?? 0) - (a.owned_count ?? 0))
+      const topOwners = (intel?.humanDependencyRisk ?? [])
         .slice(0, 5)
-        .map(a => ({ name: a.name, ownedCount: a.owned_count ?? 0 }))
+        .map((p) => ({ name: p.name, ownedAgentCount: p.ownedAgentCount, ownedWorkflowCount: p.ownedWorkflowCount }))
 
       return {
-        collaborationScore:    intel?.collaboration?.score    ?? null,
-        aiAdoptionScore:       intel?.aiAdoption?.score       ?? null,
-        topOwners:             topOwned,
-        totalAgents:           agents.length                  ?? null,
+        collaborationScore: intel?.collaboration?.summary?.collaborationScore ?? null,
+        aiAdoptionScore:    intel?.collaboration?.summary?.aiAdoptionScore    ?? null,
+        topOwners,
+        totalAgents:        (roots?.agents ?? []).length,
       }
     },
   },
@@ -103,11 +129,16 @@ const PAGE_CATALOG = {
     title: 'Workflows',
     extract(intel, roots) {
       const wf = roots?.workflows ?? []
+      const documentedWorkflowIds = new Set(
+        (roots?.knowledge_assets ?? [])
+          .filter((k) => k.asset_type === 'workflow' && k.is_documented)
+          .map((k) => k.asset_id),
+      )
       return {
-        totalWorkflows:     wf.length,
-        criticalWorkflows:  wf.filter(w => w.criticality === 'HIGH').length,
-        undocumented:       wf.filter(w => !w.documented).length,
-        memoryScore:        intel?.memory?.score              ?? null,
+        totalWorkflows:          wf.length,
+        criticalWorkflows:       wf.filter((w) => atOrAbove(entityCriticality('workflow', w), 'high')).length,
+        undocumented:            wf.filter((w) => !documentedWorkflowIds.has(w.id)).length,
+        memoryIntelligenceScore: findPillar(intel, 'MI')?.score ?? null,
       }
     },
   },
@@ -116,10 +147,10 @@ const PAGE_CATALOG = {
     title: 'Organizational Health',
     extract(intel) {
       return {
-        healthIndex:          intel?.orgHealth?.score         ?? null,
-        continuityScore:      intel?.continuity?.score        ?? null,
-        healthTrendScore:     intel?.healthTrend?.score       ?? null,
-        domainIntelligence:   intel?.domainInt?.score         ?? null,
+        healthIndex:        intel?.orgHealth?.healthIndex        ?? null,
+        healthStatus:       intel?.orgHealth?.healthStatus       ?? null,
+        continuityScore:    intel?.orgHealth?.continuityScore    ?? null,
+        documentationScore: intel?.orgHealth?.documentationScore ?? null,
       }
     },
   },
@@ -127,22 +158,25 @@ const PAGE_CATALOG = {
   'briefing': {
     title: 'Executive Briefing',
     extract(intel) {
+      const items = intel?.executiveMemory?.items ?? []
       return {
-        brainIndex:              intel?.brainCore?.brainIndex          ?? null,
-        organizationalScore:     intel?.orchestrator?.score            ?? null,
-        executiveBriefingScore:  intel?.executiveBriefing?.score       ?? null,
-        topRecommendations:      intel?.orchestrator?.recommendations  ?? [],
+        organizationalScore: intel?.pillars?.orgScore?.score  ?? null,
+        rating:              intel?.pillars?.orgScore?.rating ?? null,
+        topMemoryItems:      items.slice(0, 3).map((i) => i.title),
+        memoryItemCount:     items.length,
       }
     },
   },
 
   'predictive': {
     title: 'Predictive Risk',
-    extract(intel, roots) {
+    extract(intel) {
+      const threats = intel?.predictiveRisk?.scores ?? []
       return {
-        predictiveRiskScore: intel?.predictiveRisk?.score             ?? null,
-        criticalCount:       roots?.criticalAgents?.length            ?? null,
-        forecastScore:       intel?.forecast?.score                   ?? null,
+        emergingThreatsCount: intel?.predictiveRisk?.emergingThreats?.length ?? null,
+        topPredictedThreats: threats
+          .slice(0, 5)
+          .map((t) => ({ name: t.agentName, threatLevel: t.threatLevel, predictedScore: t.predictedScore })),
       }
     },
   },
@@ -151,9 +185,9 @@ const PAGE_CATALOG = {
     title: 'Human-Agent Collaboration',
     extract(intel) {
       return {
-        collaborationScore: intel?.collaboration?.score               ?? null,
-        aiAdoptionScore:    intel?.aiAdoption?.score                  ?? null,
-        accountabilityScore: intel?.accountability?.score             ?? null,
+        collaborationScore:  intel?.collaboration?.summary?.collaborationScore ?? null,
+        aiAdoptionScore:     intel?.collaboration?.summary?.aiAdoptionScore    ?? null,
+        accountabilityScore: intel?.accountability?.accountabilityScore       ?? null,
       }
     },
   },

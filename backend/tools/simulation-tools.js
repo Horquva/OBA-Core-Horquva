@@ -70,9 +70,19 @@ const runSimulationTool = {
   },
 }
 
+// An unbounded rank_scenarios() on a real org (40 employees -> 48 ranked
+// scenarios) serialises to ~33KB, well past registry.js's 20KB envelope
+// cap. Once that cap trips, truncate() throws away the ENTIRE array --
+// including item [0], the single worst scenario, which is exactly what
+// "what's our biggest risk" needs -- and the model is left with nothing
+// to answer from. DEFAULT_LIMIT keeps a no-args call comfortably inside
+// the cap (~15 items is ~10KB on real data) so the common query always
+// gets a real, usable, worst-first answer instead of hitting that wall.
+const DEFAULT_LIMIT = 15
+
 const rankScenariosTool = {
   name: 'rank_scenarios',
-  description: 'Call when the user asks for the biggest risk, worst-case scenario, or "what should we worry about" org-wide, without naming a specific person/agent/tool.',
+  description: `Call when the user asks for the biggest risk, worst-case scenario, or "what should we worry about" org-wide, without naming a specific person/agent/tool. Returns the top ${DEFAULT_LIMIT} worst-first by default -- pass a larger limit explicitly if the user wants more than that.`,
   parameters: {
     type: 'object',
     properties: { limit: { type: 'integer' } },
@@ -80,8 +90,12 @@ const rankScenariosTool = {
   },
   run(ctx, args) {
     const all = rankAllScenarios(ctx.roots)
-    const limited = args.limit ? all.slice(0, args.limit) : all
-    return { data: limited, notes: [] }
+    const limit = args.limit ?? DEFAULT_LIMIT
+    const limited = all.slice(0, limit)
+    const notes = limited.length < all.length
+      ? [`Showing the top ${limited.length} of ${all.length} ranked scenarios, worst-first. Pass a larger "limit" to see more.`]
+      : []
+    return { data: limited, notes }
   },
 }
 

@@ -43,7 +43,7 @@ type NavItem = { name: string; href: string; icon: LucideIcon };
 // role-based access is wanted later, it needs a real server-side check
 // (see FE-4 in the decision log) — a client-side nav filter is not it.
 const navigation: NavItem[] = [
-  { name: "Agent", href: "/", icon: Sparkles },
+  { name: "Agent", href: "/agent", icon: Sparkles },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Ownership", href: "/ownership", icon: Users },
   { name: "Risk Intelligence", href: "/risk", icon: ShieldAlert },

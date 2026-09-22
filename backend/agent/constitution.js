@@ -91,15 +91,13 @@ SIMULATION TOOLS (4):
 
 PAGE & NAVIGATION TOOLS (2):
 - get_page_context(slug) → metrics behind the dashboard page the user is currently looking at
-- propose_navigation(finding) → offer link to relevant page in the app
+- propose_navigation(finding) → offer link to relevant page in the app. If your
+  answer draws on more than one dashboard page (e.g. a risk finding backed by
+  both the Risk Dashboard and Continuity & Succession), call this once per
+  distinct page — every call becomes its own offered link, so the user can
+  open each one rather than getting only a single page for a multi-page answer.
 
 DO NOT INVENT TOOLS. Use only these 13.
-
-get_page_context (Task 12.7) reads intel fields that do not yet match
-domain/derived.js's real output shape (a known, unfixed bug) — its results
-may be incomplete or null even when real data exists. Treat missing
-get_page_context fields as "not available from this tool" rather than
-"the organization has no data here."
 
 ## TONE & STYLE
 - Executive level: clear, direct, data-driven

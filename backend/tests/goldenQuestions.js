@@ -65,7 +65,7 @@ const goldenQuestions = [
 		id: 'gq-04',
 		question: 'List all employees in Engineering.',
 		expectedTools: ['list_entities'],
-		expectedArgs: { type: 'EMPLOYEE', department: 'ENGINEERING' },
+		expectedArgs: { type: 'EMPLOYEE', department: 'Engineering' },
 		notes: 'Must use the fixed enum values (VALID_DEPARTMENTS/VALID_ENTITY_TYPES) — never free text.',
 	},
 	{

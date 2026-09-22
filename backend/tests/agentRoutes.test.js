@@ -30,10 +30,12 @@ async function main() {
         const turnContextPath = path.join(__dirname, '..', 'agent', 'turnContext.js')
         const providersPath = path.join(__dirname, '..', 'agent', 'providers', 'index.js')
         const loopPath = path.join(__dirname, '..', 'agent', 'loop.js')
+        const persistencePath = path.join(__dirname, '..', 'agent', 'persistence.js')
 
         const originalTurnContext = require.cache[require.resolve(turnContextPath)]
         const originalProviders = require.cache[require.resolve(providersPath)]
         const originalLoop = require.cache[require.resolve(loopPath)]
+        const originalPersistence = require.cache[require.resolve(persistencePath)]
 
         let abortObserved = false
 
@@ -98,17 +100,39 @@ async function main() {
                 },
         }
 
+        // This suite's own header promises "no provider/network/database
+        // access" -- chat.js now calls agent/persistence.js on every turn
+        // (resolveConversation before the ready event, saveTurn after done),
+        // which without this seam would make a real Supabase round-trip
+        // from what is meant to be a pure offline unit test, same reason
+        // turnContext/providers/loop are stubbed above rather than real.
+        require.cache[require.resolve(persistencePath)] = {
+                id: persistencePath,
+                filename: persistencePath,
+                loaded: true,
+                exports: {
+                        resolveConversation: async ({ requestedId }) => requestedId || 'stub-conversation-id',
+                        saveTurn: async () => null,
+                        getConversation: async () => null,
+                        listConversations: async () => [],
+                },
+        }
+
         delete require.cache[require.resolve('../routes/agent/chat')]
         const chatRouter = require('../routes/agent/chat')
 
         const app = express()
         app.use(express.json())
 
-        // Mirror the production auth boundary.
+        // Mirror the production auth boundary: requireAuth (middleware/auth.js)
+        // sets req.user from the verified token before any /api/agent route
+        // runs, so this fake needs to too -- chat.js reads req.user.sub for
+        // persistence.
         app.use('/api/agent', (req, res, next) => {
                 if (req.headers.authorization !== 'Bearer test-token') {
                         return res.status(401).json({ error: 'Unauthorized' })
                 }
+                req.user = { sub: 'test-user-agent-route', email: 'test@example.com' }
                 next()
         })
 
@@ -268,6 +292,11 @@ async function main() {
                         require.cache[require.resolve(loopPath)] = originalLoop
                 } else {
                         delete require.cache[require.resolve(loopPath)]
+                }
+                if (originalPersistence) {
+                        require.cache[require.resolve(persistencePath)] = originalPersistence
+                } else {
+                        delete require.cache[require.resolve(persistencePath)]
                 }
                delete require.cache[require.resolve('../routes/agent/chat')]
         }

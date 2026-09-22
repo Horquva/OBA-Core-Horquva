@@ -13,28 +13,38 @@ interface NavigationOfferData {
   reason: string | null;
 }
 
+// One answer can point to several dashboard pages (loop.js's
+// navigationOffersFrom collects every propose_navigation call in the turn,
+// deduped by slug) -- render one button per offer instead of only ever
+// showing the last page the model happened to call.
 export function NavigationOffer({
-  navigationOffer,
+  navigationOffers,
 }: {
-  navigationOffer: NavigationOfferData | null;
+  navigationOffers: NavigationOfferData[];
 }) {
   const router = useRouter();
 
-  if (!navigationOffer) return null;
+  if (!navigationOffers || navigationOffers.length === 0) return null;
 
   return (
-    <button
-      onClick={() =>
-        goToTarget({
-          page: navigationOffer.route,
-          match: undefined,
-          router,
-        })
-      }
-      className="mt-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-left text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-hover)]"
-    >
-      {navigationOffer.label} →
-    </button>
+    <div className="mt-2 flex flex-col gap-1.5">
+      {navigationOffers.map((offer) => (
+        <button
+          key={offer.slug}
+          onClick={() =>
+            goToTarget({
+              page: offer.route,
+              match: undefined,
+              router,
+            })
+          }
+          title={offer.reason ?? undefined}
+          className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-left text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-hover)] hover:border-[var(--accent-border)]"
+        >
+          {offer.label} →
+        </button>
+      ))}
+    </div>
   );
 }
 

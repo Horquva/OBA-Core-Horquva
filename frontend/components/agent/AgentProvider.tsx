@@ -3,8 +3,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useReducer, useCallback, useRef } from 'react';
-import { usePathname } from 'next/navigation';
-import { streamAgent } from '@/lib/agentClient';
+import { streamAgent, listAgentConversations, getAgentConversation } from '@/lib/agentClient';
 import { useAuth } from '@/lib/AuthContext';
 
 // ============================================
@@ -26,14 +25,16 @@ interface Message {
   content: string;
   toolCalls?: ToolCall[];
   validatorStatus?: 'clean' | 'repaired' | 'flagged';
-  navigationOffer?: NavigationOffer | null;
+  navigationOffers?: NavigationOffer[];
   provenance?: Provenance;
   usage?: Usage;
   timestamp: Date;
 }
 
 // Matches propose-navigation.js's tool result data shape exactly --
-// { slug, route, label, reason }, not { page, section, ... }.
+// { slug, route, label, reason }, not { page, section, ... }. The agent may
+// call propose_navigation more than once per turn (one answer can span
+// several dashboard pages), so this always flows through as an array.
 interface NavigationOffer {
   slug: string;
   route: string;
@@ -56,8 +57,6 @@ interface Usage {
   toolIterations: number;
 }
 
-type DisplayMode = 'fullscreen' | 'docked' | 'collapsed';
-
 interface AgentState {
   conversationId: string | null;
   messages: Message[];
@@ -67,8 +66,6 @@ interface AgentState {
     toolCalls: ToolCall[];
   } | null;
   error: string | null;
-  mode: DisplayMode;
-  isCollapsed: boolean;
 }
 
 // ============================================
@@ -80,19 +77,18 @@ type AgentAction =
   | { type: 'APPEND_TOKEN'; text: string }
   | { type: 'TOOL_START'; id: string; name: string; label: string }
   | { type: 'TOOL_DONE'; id: string; summary: string; durationMs: number }
-  | { type: 'END_STREAM'; 
-      finalText: string; 
-      toolCalls: ToolCall[]; 
+  | { type: 'END_STREAM';
+      finalText: string;
+      toolCalls: ToolCall[];
       validatorStatus?: 'clean' | 'repaired' | 'flagged';
-      navigationOffer?: NavigationOffer | null;
+      navigationOffers?: NavigationOffer[];
       provenance?: Provenance;
       usage?: Usage;
     }
   | { type: 'STREAM_ERROR'; error: string }
-  | { type: 'TOGGLE_COLLAPSED' }
-  | { type: 'SET_MODE'; mode: DisplayMode }
   | { type: 'SET_CONVERSATION_ID'; conversationId: string }
-  | { type: 'RESTORE_CONVERSATION'; messages: Message[]; conversationId: string | null };
+  | { type: 'RESTORE_CONVERSATION'; messages: Message[]; conversationId: string | null }
+  | { type: 'NEW_CONVERSATION' };
 
 // ============================================
 // REDUCER
@@ -107,7 +103,7 @@ function agentReducer(state: AgentState, action: AgentAction): AgentState {
         content: action.userMessage,
         timestamp: new Date(),
       };
-      
+
       return {
         ...state,
         isStreaming: true,
@@ -170,7 +166,7 @@ function agentReducer(state: AgentState, action: AgentAction): AgentState {
         content: action.finalText,
         toolCalls: action.toolCalls,
         validatorStatus: action.validatorStatus,
-        navigationOffer: action.navigationOffer,
+        navigationOffers: action.navigationOffers,
         provenance: action.provenance,
         usage: action.usage,
         timestamp: new Date(),
@@ -193,20 +189,6 @@ function agentReducer(state: AgentState, action: AgentAction): AgentState {
       };
     }
 
-    case 'TOGGLE_COLLAPSED': {
-      return {
-        ...state,
-        isCollapsed: !state.isCollapsed,
-      };
-    }
-
-    case 'SET_MODE': {
-      return {
-        ...state,
-        mode: action.mode,
-      };
-    }
-
     case 'SET_CONVERSATION_ID': {
       return {
         ...state,
@@ -219,6 +201,15 @@ function agentReducer(state: AgentState, action: AgentAction): AgentState {
         ...state,
         messages: action.messages,
         conversationId: action.conversationId,
+      };
+    }
+
+    case 'NEW_CONVERSATION': {
+      return {
+        ...state,
+        messages: [],
+        conversationId: null,
+        error: null,
       };
     }
 
@@ -235,7 +226,8 @@ interface AgentContextValue {
   state: AgentState;
   sendMessage: (text: string) => Promise<void>;
   abort: () => void;
-  toggleCollapsed: () => void;
+  newConversation: () => void;
+  loadConversation: (conversationId: string) => Promise<void>;
 }
 
 const AgentContext = createContext<AgentContextValue | null>(null);
@@ -245,7 +237,6 @@ const AgentContext = createContext<AgentContextValue | null>(null);
 // ============================================
 
 export function AgentProvider({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const { user } = useAuth();
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -255,17 +246,49 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     isStreaming: false,
     currentStream: null,
     error: null,
-    mode: pathname === '/' ? 'fullscreen' : 'docked',
-    isCollapsed: false,
   });
 
-  // Update mode when path changes
-  useEffect(() => {
-    const newMode = pathname === '/' ? 'fullscreen' : 'docked';
-    if (!state.isCollapsed) {
-      dispatch({ type: 'SET_MODE', mode: newMode });
+  // Fetches one conversation's full messages and swaps it in. Shared by the
+  // mount-time "resume the latest chat" effect below and ConversationHistory
+  // (the sidebar rail) manually switching conversations -- one code path for
+  // "load this conversation" rather than two copies that could drift.
+  const loadConversation = useCallback(async (conversationId: string) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
-  }, [pathname, state.isCollapsed]);
+    const conversation = await getAgentConversation(conversationId);
+    dispatch({
+      type: 'RESTORE_CONVERSATION',
+      conversationId: conversation.id,
+      messages: conversation.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) })),
+    });
+  }, []);
+
+  // Conversation history now lives in Supabase (agent_conversations /
+  // agent_messages -- backend/agent/persistence.js), not the browser. On
+  // mount, pick up wherever the most recent conversation left off, the same
+  // way opening claude.ai resumes your last chat. Silently does nothing on
+  // failure (e.g. no conversations yet) -- an empty chat is the correct
+  // starting state, not an error.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const conversations = await listAgentConversations();
+        if (cancelled || conversations.length === 0) return;
+        if (!cancelled) await loadConversation(conversations[0].id);
+      } catch {
+        // No history yet, or the fetch failed -- start fresh either way.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loadConversation]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -355,7 +378,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
                 finalText: event.text,
                 toolCalls: event.toolTrace,
                 validatorStatus: event.validatorStatus,
-                navigationOffer: event.navigationOffer,
+                navigationOffers: event.navigationOffers,
                 provenance: event.provenance,
                 usage: event.usage,
               });
@@ -394,12 +417,16 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'STREAM_ERROR', error: 'Stream cancelled' });
   }, []);
 
-  const toggleCollapsed = useCallback(() => {
-    dispatch({ type: 'TOGGLE_COLLAPSED' });
+  const newConversation = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    dispatch({ type: 'NEW_CONVERSATION' });
   }, []);
 
   return (
-    <AgentContext.Provider value={{ state, sendMessage, abort, toggleCollapsed }}>
+    <AgentContext.Provider value={{ state, sendMessage, abort, newConversation, loadConversation }}>
       {children}
     </AgentContext.Provider>
   );

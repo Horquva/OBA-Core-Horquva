@@ -9,6 +9,7 @@ const getPageContext = require('../../tools/get-page-context')
 const proposeNavigation = require('../../tools/propose-navigation')
 const { getProvider, isConfigured } = require('../../agent/providers')
 const { runTurn } = require('../../agent/loop')
+const { resolveConversation, saveTurn } = require('../../agent/persistence')
 
 const ALL_TOOLS = [
   ...readTools,
@@ -88,8 +89,19 @@ router.post('/chat', async (req, res) => {
     const registry = buildRegistry(ALL_TOOLS, turnContext)
     const provider = getProvider()
 
+    // Resolved BEFORE the turn runs (and before anything else sees this id)
+    // so `ready` hands back a real, persisted conversation id rather than
+    // just echoing whatever the client sent -- this route never actually
+    // assigned one server-side before, so nothing outside the browser tab
+    // that started a chat could ever find it again.
+    const conversationId = await resolveConversation({
+      userId: req.user.sub,
+      requestedId: req.body?.conversationId || null,
+      firstMessage: userMessage,
+    })
+
     writeEvent(res, 'ready', {
-      conversationId: req.body?.conversationId || null,
+      conversationId,
       snapshotAt: turnContext.snapshotAt,
     })
 
@@ -117,17 +129,25 @@ router.post('/chat', async (req, res) => {
       provider,
     })
 
+    const provenance = result?.provenance || {
+      snapshotAt: turnContext.snapshotAt,
+      graphSource: turnContext.graphSource,
+      graphStale: turnContext.graphStale,
+    }
+
+    // Fire-and-forget: saveTurn() never throws (it catches and logs
+    // internally) and the user is already looking at their answer by the
+    // time this runs, so a slow or failed write must never hold up or
+    // break the response that already succeeded.
+    saveTurn({ userId: req.user.sub, conversationId, userMessage, result, provenance })
+
     if (closed || res.writableEnded) return
 
     writeEvent(res, 'done', {
       text: result?.text || '',
       toolTrace: result?.toolTrace || [],
-      navigationOffer: result?.navigationOffer || null,
-      provenance: result?.provenance || {
-        snapshotAt: turnContext.snapshotAt,
-        graphSource: turnContext.graphSource,
-        graphStale: turnContext.graphStale,
-      },
+      navigationOffers: result?.navigationOffers || [],
+      provenance,
       usage: result?.usage || null,
       validatorStatus: result?.validatorStatus || null,
       finishReason: result?.finishReason || null,
