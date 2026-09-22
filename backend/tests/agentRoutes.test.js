@@ -68,7 +68,7 @@ async function main() {
                 loaded: true,
                 exports: {
                         runTurn: async ({ emit, signal }) => {
-                                emit({ type: 'token', text: 'hello' })
+                                emit('token', { text: 'hello' })
 
                                 await new Promise((resolve) => {
                                         if (signal.aborted) {

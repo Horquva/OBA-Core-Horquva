@@ -72,6 +72,24 @@ function summarize(result) {
 }
 
 /**
+ * The navigation offer surfaced in the `done` event (Appendix B). The model
+ * proposes a destination by calling propose_navigation; this pulls the last
+ * successful call's result out of the trace rather than having chat.js (or
+ * the model) construct the offer itself, so the offered route always traces
+ * back to a real tool result (I-3) and is never null just because nobody
+ * wired it through.
+ */
+function navigationOfferFrom(toolTrace) {
+  for (let i = toolTrace.length - 1; i >= 0; i--) {
+    const call = toolTrace[i]
+    if (call.name === 'propose_navigation' && !call.toolError && call.result && call.result.data) {
+      return call.result.data
+    }
+  }
+  return null
+}
+
+/**
  * The volatile per-turn block (§11.4, §3.3 consequence 2). Gemini re-sends
  * systemInstruction every request, so there is no cached prefix to protect
  * and this can go straight in. It also keeps operator instructions out of
@@ -172,13 +190,13 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
         text += roundText
         if (signal && signal.aborted) {
           // Client disconnected. Nobody is listening; stop quietly (§14).
-          return { text, toolTrace, usage, iterations, finishReason: 'ABORTED' }
+          return { text, toolTrace, usage, iterations, finishReason: 'ABORTED', navigationOffer: navigationOfferFrom(toolTrace) }
         }
         send('warning', {
           code: 'TURN_TIMEOUT',
           message: 'The turn exceeded its time limit. This answer is partial.',
         })
-        return { text, toolTrace, usage, iterations, finishReason: 'TIMEOUT' }
+        return { text, toolTrace, usage, iterations, finishReason: 'TIMEOUT', navigationOffer: navigationOfferFrom(toolTrace) }
       }
 
       if (providerError) {
@@ -198,7 +216,7 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
           message: providerError.error ? providerError.error.message : 'The model is unavailable',
           retryable: Boolean(providerError.retryable),
         })
-        return { text, toolTrace, usage, iterations, finishReason: 'ERROR' }
+        return { text, toolTrace, usage, iterations, finishReason: 'ERROR', navigationOffer: navigationOfferFrom(toolTrace) }
       }
 
       text += roundText
@@ -215,7 +233,8 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
       prov.appendModelTurn(convo, pending)
 
       for (const call of pending) {
-        send('tool_start', { id: call.id, name: call.name, label: labelFor(call.name, call.args) })
+        const label = labelFor(call.name, call.args)
+        send('tool_start', { id: call.id, name: call.name, label })
 
         const startedAt = Date.now()
         // execute() always resolves to an envelope, including for unknown
@@ -229,6 +248,7 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
         toolTrace.push({
           id: call.id,
           name: call.name,
+          label,
           args: call.args,
           summary,
           durationMs,
@@ -256,10 +276,10 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
       finishReason = 'ITERATION_CAP'
     }
 
-    return { text, toolTrace, usage, iterations, finishReason }
+    return { text, toolTrace, usage, iterations, finishReason, navigationOffer: navigationOfferFrom(toolTrace) }
   } finally {
     clearTimeout(timer)
   }
 }
 
-module.exports = { runTurn, labelFor, summarize, volatileBlock }
+module.exports = { runTurn, labelFor, summarize, volatileBlock, navigationOfferFrom }
