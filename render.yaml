@@ -35,8 +35,10 @@ services:
         value: horquva
       - key: TOKEN_TTL
         value: 3600
+      # routes/agent/index.js mounts nothing unless this is "true" AND a
+      # provider key (GEMINI_API_KEY below) is set in the dashboard.
       - key: AGENT_ENABLED
-        value: "false"
+        value: "true"
       - key: AGENT_PROVIDER
         value: gemini
       - key: AGENT_MODEL
