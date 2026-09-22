@@ -8,13 +8,13 @@ import { EmptyState } from "./EmptyState";
 
 function ConversationBody() {
   const { state } = useAgent();
-  const { messages, isStreaming, currentStream } = state;
+  const { messages, isStreaming, currentStream, error } = state;
 
   const runningTool = currentStream?.toolCalls.find(
     (tc) => tc.status === "running"
   );
 
-  const isEmpty = messages.length === 0 && !isStreaming;
+  const isEmpty = messages.length === 0 && !isStreaming && !error;
 
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
@@ -33,6 +33,22 @@ function ConversationBody() {
           )}
 
           {runningTool && <ToolStatusLine label={runningTool.label} />}
+
+          {!isStreaming && error && (
+            <div
+              style={{
+                marginTop: "12px",
+                padding: "10px 14px",
+                borderRadius: "10px",
+                background: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                color: "rgb(239, 68, 68)",
+                fontSize: "13px",
+              }}
+            >
+              {error}
+            </div>
+          )}
         </>
       )}
     </div>
