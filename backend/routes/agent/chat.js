@@ -101,9 +101,14 @@ router.post('/chat', async (req, res) => {
       turnContext,
       history,
       userMessage,
-      emit: (event) => {
-        if (!closed && !res.writableEnded && event?.type) {
-          const { type, ...data } = event
+      // loop.js calls this as send(type, data) -- a two-argument contract
+      // (see its own doc comment). This used to expect a single { type,
+      // ...data } object instead, so event?.type was always undefined and
+      // every token/tool_start/tool_done/warning call was silently dropped
+      // before reaching writeEvent; only ready/done/error (written directly
+      // above and below, not through this callback) ever reached the wire.
+      emit: (type, data) => {
+        if (!closed && !res.writableEnded) {
           writeEvent(res, type, data)
         }
       },
