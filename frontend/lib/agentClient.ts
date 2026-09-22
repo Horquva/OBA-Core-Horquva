@@ -1,5 +1,8 @@
 // frontend/lib/agentClient.ts
 
+import { API_BASE } from '@/lib/api';
+import { clientHeaders } from '@/lib/authFetch';
+
 // ============================================
 // TYPES - Matches backend events exactly
 // ============================================
@@ -13,11 +16,13 @@ interface ToolCall {
   durationMs: number | null;
 }
 
+// Matches propose-navigation.js's tool result data shape exactly --
+// { slug, route, label, reason }, not { page, section, ... }.
 interface NavigationOffer {
-  page: string;
-  section: string;
+  slug: string;
+  route: string;
   label: string;
-  reason: string;
+  reason: string | null;
 }
 
 interface Provenance {
@@ -46,13 +51,24 @@ export type AgentEvent =
 
 // ============================================
 // SSE PARSER - Handles heartbeats and partial events
+//
+// The backend (routes/agent/chat.js's writeEvent()) writes the standard
+// named-event SSE shape: an `event: <name>` line followed by `data: <json>`,
+// and deliberately does NOT embed `type` inside the JSON body (it's
+// destructured out before serializing). So the event name has to come from
+// the `event:` line, not be assumed to live in the payload.
 // ============================================
 
-function parseSSEEvents(buffer: string): { events: { data: string }[]; remaining: string } {
-  const events: { data: string }[] = [];
+interface RawSSEEvent {
+  event: string | null;
+  data: string;
+}
+
+function parseSSEEvents(buffer: string): { events: RawSSEEvent[]; remaining: string } {
+  const events: RawSSEEvent[] = [];
   const lines = buffer.split('\n');
-  
-  let currentEvent: { data: string } | null = null;
+
+  let currentEvent: RawSSEEvent | null = null;
   let remaining = '';
 
   for (const line of lines) {
@@ -61,13 +77,20 @@ function parseSSEEvents(buffer: string): { events: { data: string }[]; remaining
       continue;
     }
 
+    // Event-name line
+    if (line.startsWith('event: ')) {
+      currentEvent = currentEvent ?? { event: null, data: '' };
+      currentEvent.event = line.slice(7);
+      continue;
+    }
+
     // Data line
     if (line.startsWith('data: ')) {
       const data = line.slice(6);
       if (currentEvent) {
-        currentEvent.data += '\n' + data;
+        currentEvent.data = currentEvent.data ? currentEvent.data + '\n' + data : data;
       } else {
-        currentEvent = { data };
+        currentEvent = { event: null, data };
       }
       continue;
     }
@@ -81,7 +104,9 @@ function parseSSEEvents(buffer: string): { events: { data: string }[]; remaining
 
   // Keep partial event for next chunk
   if (currentEvent) {
-    remaining = `data: ${currentEvent.data}\n\n`;
+    remaining =
+      (currentEvent.event ? `event: ${currentEvent.event}\n` : '') +
+      `data: ${currentEvent.data}\n\n`;
   }
 
   return { events, remaining };
@@ -93,32 +118,29 @@ function parseSSEEvents(buffer: string): { events: { data: string }[]; remaining
 
 /**
  * Stream a conversation turn from the agent
- * 
+ *
  * Returns an async generator that yields typed events
- * 
+ *
  * @param message - User's message
- * @param token - Authentication token (from AuthContext)
  * @param conversationId - Existing conversation ID, or undefined for new
  * @param signal - AbortSignal for cancellation
  */
 export async function* streamAgent(
   message: string,
-  token: string,
   conversationId?: string,
   signal?: AbortSignal
 ): AsyncGenerator<AgentEvent> {
-  // Validate token - matches authHeader() pattern from api.ts
-  if (!token) {
-    throw new Error('Not authenticated - no token provided');
-  }
-
-  // Build the request - matches api.ts pattern
-  const response = await fetch('/api/agent/chat', {
+  // SEC-2: there is no client-readable token any more -- the session is an
+  // httpOnly cookie. Send it with credentials: 'include' plus the CSRF
+  // client header the backend's cookie-auth guard requires on POST
+  // (middleware/auth.js), matching the pattern in lib/api.ts's request().
+  const response = await fetch(`${API_BASE}/api/agent/chat`, {
     method: 'POST',
+    credentials: 'include',
     headers: {
-      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
-      'Accept': 'text/event-stream',
+      Accept: 'text/event-stream',
+      ...clientHeaders(),
     },
     body: JSON.stringify({
       message,
@@ -161,10 +183,13 @@ export async function* streamAgent(
       // Parse complete events from the buffer
       const result = parseSSEEvents(buffer);
       
-      // Yield each complete event
+      // Yield each complete event, attaching the SSE `event:` line as `type`
+      // -- the JSON body itself never carries it (see parseSSEEvents above).
       for (const event of result.events) {
+        if (!event.event) continue;
         try {
-          yield JSON.parse(event.data);
+          const payload = JSON.parse(event.data);
+          yield { ...payload, type: event.event } as AgentEvent;
         } catch (parseError) {
           // Log parse error but continue - don't crash the stream
           console.warn('Failed to parse SSE event:', event.data, parseError);

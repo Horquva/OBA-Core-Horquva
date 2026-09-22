@@ -8,7 +8,7 @@ import { streamAgent } from '@/lib/agentClient';
 import { useAuth } from '@/lib/AuthContext';
 
 // ============================================
-// TYPES - FIXED: Now matches agentClient.ts
+// TYPES
 // ============================================
 
 interface ToolCall {
@@ -26,17 +26,21 @@ interface Message {
   content: string;
   toolCalls?: ToolCall[];
   validatorStatus?: 'clean' | 'repaired' | 'flagged';
+  navigationOffer?: NavigationOffer | null;
+  provenance?: Provenance;
+  usage?: Usage;
   timestamp: Date;
 }
 
+// Matches propose-navigation.js's tool result data shape exactly --
+// { slug, route, label, reason }, not { page, section, ... }.
 interface NavigationOffer {
-  page: string;
-  section: string;
+  slug: string;
+  route: string;
   label: string;
-  reason: string;
+  reason: string | null;
 }
 
-// ✅ FIXED: Now matches agentClient.ts exactly
 interface Provenance {
   computedAt: string;
   snapshotAt: string;
@@ -87,6 +91,7 @@ type AgentAction =
   | { type: 'STREAM_ERROR'; error: string }
   | { type: 'TOGGLE_COLLAPSED' }
   | { type: 'SET_MODE'; mode: DisplayMode }
+  | { type: 'SET_CONVERSATION_ID'; conversationId: string }
   | { type: 'RESTORE_CONVERSATION'; messages: Message[]; conversationId: string | null };
 
 // ============================================
@@ -165,6 +170,9 @@ function agentReducer(state: AgentState, action: AgentAction): AgentState {
         content: action.finalText,
         toolCalls: action.toolCalls,
         validatorStatus: action.validatorStatus,
+        navigationOffer: action.navigationOffer,
+        provenance: action.provenance,
+        usage: action.usage,
         timestamp: new Date(),
       };
 
@@ -196,6 +204,13 @@ function agentReducer(state: AgentState, action: AgentAction): AgentState {
       return {
         ...state,
         mode: action.mode,
+      };
+    }
+
+    case 'SET_CONVERSATION_ID': {
+      return {
+        ...state,
+        conversationId: action.conversationId,
       };
     }
 
@@ -231,7 +246,7 @@ const AgentContext = createContext<AgentContextValue | null>(null);
 
 export function AgentProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { token } = useAuth();
+  const { user } = useAuth();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const [state, dispatch] = useReducer(agentReducer, {
@@ -256,7 +271,11 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     async (text: string) => {
       if (!text.trim() || state.isStreaming) return;
 
-      if (!token) {
+      // SEC-2: no client-readable token to check -- the session is an
+      // httpOnly cookie, so `user` being non-null is what "signed in" means
+      // on the client (see lib/AuthContext.tsx). The server re-checks the
+      // cookie itself on every request regardless.
+      if (!user) {
         dispatch({ type: 'STREAM_ERROR', error: 'Not authenticated' });
         return;
       }
@@ -274,22 +293,42 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         userMessage: text.trim(),
       });
 
+      // Task 12.5: buffer token deltas to ~30ms frames instead of one
+      // dispatch (one React render) per streamed token.
+      let tokenBuffer = '';
+      let flushTimer: ReturnType<typeof setTimeout> | null = null;
+      const flushTokens = () => {
+        flushTimer = null;
+        if (!tokenBuffer) return;
+        const text = tokenBuffer;
+        tokenBuffer = '';
+        dispatch({ type: 'APPEND_TOKEN', text });
+      };
+      const queueToken = (delta: string) => {
+        tokenBuffer += delta;
+        if (!flushTimer) {
+          flushTimer = setTimeout(flushTokens, 30);
+        }
+      };
+
       try {
         for await (const event of streamAgent(
           text.trim(),
-          token,
           state.conversationId || undefined,
           controller.signal
         )) {
           switch (event.type) {
             case 'ready':
-              if (!state.conversationId) {
-                dispatch({ type: 'START_STREAM', conversationId: event.conversationId, userMessage: text.trim() });
-              }
+              // Only sets the id -- START_STREAM already appended the user
+              // message above. Re-dispatching START_STREAM here (as before)
+              // appended it a second time on every new conversation, since
+              // state.conversationId is still the stale pre-turn value in
+              // this closure.
+              dispatch({ type: 'SET_CONVERSATION_ID', conversationId: event.conversationId });
               break;
 
             case 'token':
-              dispatch({ type: 'APPEND_TOKEN', text: event.text });
+              queueToken(event.text);
               break;
 
             case 'tool_start':
@@ -340,10 +379,11 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           error: error instanceof Error ? error.message : 'Unknown error',
         });
       } finally {
+        if (flushTimer) clearTimeout(flushTimer);
         abortControllerRef.current = null;
       }
     },
-    [token, state.conversationId, state.isStreaming]
+    [user, state.conversationId, state.isStreaming]
   );
 
   const abort = useCallback(() => {

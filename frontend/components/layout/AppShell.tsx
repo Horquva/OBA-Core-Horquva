@@ -8,9 +8,14 @@ import GlobalNotificationPanel from '@/components/global/GlobalNotificationPanel
 import GlobalSearchOverlay from '@/components/global/GlobalSearchOverlay';
 import CommandBar from '@/components/global/CommandBar';
 import DeepLinkFocus from '@/components/global/DeepLinkFocus';
-import { AgentProvider } from '../agent/AgentProvider';  // ← ADD THIS
+import { AgentProvider } from '../agent/AgentProvider';
+import AgentPanel from '../agent/AgentPanel';
 
 const AUTH_ROUTES = ['/login'];
+
+// Task 12.4's flag requirement -- when the backend has the agent disabled,
+// the frontend hides the panel entirely rather than showing a broken one.
+const AGENT_ENABLED = process.env.NEXT_PUBLIC_AGENT_ENABLED === 'true';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -35,7 +40,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // ← WRAP EVERYTHING WITH AgentProvider
   return (
     <AgentProvider>
       <div className="flex h-full">
@@ -47,6 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <GlobalNotificationPanel />
         <GlobalSearchOverlay />
         <DeepLinkFocus />
+        {AGENT_ENABLED && <AgentPanel slot="shell" />}
       </div>
     </AgentProvider>
   );

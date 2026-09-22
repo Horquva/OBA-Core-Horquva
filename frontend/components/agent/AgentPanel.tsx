@@ -39,12 +39,21 @@ function ConversationBody() {
   );
 }
 
-export default function AgentPanel() {
+// AgentPanel is mounted at two fixed points that never remount across
+// navigation (D-77): AppShell (`slot="shell"`, persists on every route) and
+// app/page.tsx (`slot="route"`, only present while the route is `/`). Both
+// read the same AgentProvider context, so the conversation itself never
+// resets -- only which slot is visible changes. Each slot renders exactly
+// one of the three presentations so the two mounts never draw on top of
+// each other: "shell" owns the collapsed pill and the docked panel, "route"
+// owns the fullscreen column.
+export default function AgentPanel({ slot = "shell" }: { slot?: "shell" | "route" }) {
   const { state } = useAgent();
   const { mode, isCollapsed, messages } = state;
 
-  // Collapsed pill — shows regardless of mode when isCollapsed is true
   if (isCollapsed) {
+    if (slot !== "shell") return null;
+
     const lastMessage = messages[messages.length - 1];
     return (
       <div
@@ -65,8 +74,9 @@ export default function AgentPanel() {
     );
   }
 
-  // Fullscreen mode
   if (mode === "fullscreen") {
+    if (slot !== "route") return null;
+
     return (
       <div
         style={{
@@ -84,6 +94,8 @@ export default function AgentPanel() {
   }
 
   // Docked mode
+  if (slot !== "shell") return null;
+
   return (
     <div
       style={{
