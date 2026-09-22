@@ -1,6 +1,7 @@
 'use client';
 
 import { ScenarioResult, ScenarioType } from '../../lib/simulation';
+import { healthStatusColor } from '../../lib/healthStatus';
 import { RiskLevel } from '../../types';
 import {
   Activity, ArrowRight, ShieldAlert, Info,
@@ -16,6 +17,7 @@ const riskBadgeClass: Record<RiskLevel, string> = {
   high:     'risk-high',
   medium:   'risk-medium',
   low:      'risk-low',
+  unknown:  'risk-unknown',
 };
 
 const typeConfig: Record<ScenarioType, { icon: React.ElementType; verb: string; color: string }> = {
@@ -34,6 +36,9 @@ const SEVERITY_META: Record<RiskLevel, { label: string; color: string; bg: strin
   high:     { label: 'HIGH IMPACT',     color: 'var(--risk-high-text)',     bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.22)' },
   medium:   { label: 'MEDIUM IMPACT',   color: 'var(--risk-medium-text)',   bg: 'rgba(202,138,4,0.08)', border: 'rgba(202,138,4,0.22)' },
   low:      { label: 'LOW IMPACT',      color: 'var(--risk-low-text)',      bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.22)' },
+  // F-11: the backend's severityFor() always returns a real value; this
+  // only fires if a response is missing the field entirely.
+  unknown:  { label: 'IMPACT UNKNOWN',  color: 'var(--risk-unknown-text)',  bg: 'rgba(139,139,158,0.08)', border: 'rgba(139,139,158,0.22)' },
 };
 
 export function ImpactSummary({ scenario }: Props) {
@@ -43,11 +48,9 @@ export function ImpactSummary({ scenario }: Props) {
   const severity = SEVERITY_META[scenario.severity];
 
   const afterScore = scenario.simulatedHealthScore;
-  const afterColor =
-    afterScore < 50 ? 'var(--risk-critical-text)' :
-    afterScore < 65 ? 'var(--risk-high-text)'     :
-    afterScore < 80 ? 'var(--risk-medium-text)'   :
-                      'var(--risk-low-text)';
+  // Derived from the scenario's own healthAfter (backend's healthStatusFor(),
+  // 70/45) instead of a local 50/65/80 re-threshold of the same score.
+  const afterColor = healthStatusColor(scenario.healthAfter);
 
   return (
     <div className="animate-fade-up" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

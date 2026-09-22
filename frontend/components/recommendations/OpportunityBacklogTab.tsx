@@ -21,7 +21,7 @@ export function OpportunityBacklogTab({ recommendations }: Props) {
   // Transform standard recommendations into Backlog items. Previously computed
   // a fabricated "leverageScore" (start at 50, +30/+15/+15/+5 point arithmetic
   // with no real basis) used for both the displayed number and sort order --
-  // same anti-pattern already fixed in DecisionSupportQueue.tsx. `recommendations`
+  // same anti-pattern already fixed in RecommendationQueue.tsx. `recommendations`
   // arrives already sorted CRITICAL->HIGH->MEDIUM then by effort
   // (brain module M04's own priority/effort sort, D-62), and filtering preserves that
   // order, so no re-sort is needed once the fake score is gone.

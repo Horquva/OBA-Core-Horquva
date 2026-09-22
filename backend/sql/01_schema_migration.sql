@@ -28,17 +28,17 @@
 -- ── DESTRUCTIVE. Reachable only on a first apply — see the header ──
 DROP TABLE IF EXISTS
   employees, ai_platforms, agents, owners, workflows,
-  employee_agent, agent_platform, dependencies, recommendations,
-  tool_ownership, tool_users, tool_backups, tool_policies, tool_spend,
+  employee_agent, agent_platform, dependencies,
+  tool_ownership, tool_users, tool_backups, tool_policies,
   workflow_dependencies, workflow_tool_dependencies, workflow_runbooks,
   workflow_failures, workflow_steps, knowledge_assets, snapshots,
   predictive_risk_scores, organizational_forecasts, forecast_findings,
-  collaboration_scores, collaboration_summary, organizational_decisions,
+  collaboration_scores, organizational_decisions,
   decision_factors, verification_actions, policy_violations,
-  workflow_orchestration, learning_snapshots, failure_patterns,
-  department_exposure, continuity_assessments, continuity_plans,
+  workflow_orchestration, learning_snapshots,
+  continuity_assessments, continuity_plans,
   governance_assessments, governance_gaps, accountability_entities,
-  accountability_links, accountability_scores, accountability_summary
+  accountability_links
 CASCADE;
 
 -- ── People, tools, agents, workflows ─────────────────────────
@@ -137,15 +137,6 @@ CREATE TABLE dependencies (
   agent_target    INTEGER
 );
 
-CREATE TABLE recommendations (
-  id             SERIAL PRIMARY KEY,
-  asset_name     TEXT,
-  asset_type     TEXT,
-  priority       TEXT,
-  recommendation TEXT,
-  status         TEXT
-);
-
 -- ── Tool metadata ────────────────────────────────────────────
 
 CREATE TABLE tool_ownership (
@@ -172,13 +163,6 @@ CREATE TABLE tool_policies (
   platform_id INTEGER,
   policy_name TEXT,
   status      TEXT
-);
-
-CREATE TABLE tool_spend (
-  id          SERIAL PRIMARY KEY,
-  platform_id INTEGER,
-  amount_usd  NUMERIC,
-  month       TEXT
 );
 
 -- ── Workflow detail tables ───────────────────────────────────
@@ -295,16 +279,6 @@ CREATE TABLE collaboration_scores (
   has_backup            BOOLEAN
 );
 
-CREATE TABLE collaboration_summary (
-  id                        SERIAL PRIMARY KEY,
-  ai_adoption_score         INTEGER,
-  adoption_level            TEXT,
-  human_dependency_score    INTEGER,
-  highest_dependency_employee TEXT,
-  collaboration_score       INTEGER,
-  collaboration_level       TEXT
-);
-
 -- ── Decisions & verification (M14–M16) ───────────────────────
 
 CREATE TABLE organizational_decisions (
@@ -367,25 +341,6 @@ CREATE TABLE learning_snapshots (
   mitigation_percentage  NUMERIC
 );
 
-CREATE TABLE failure_patterns (
-  id                SERIAL PRIMARY KEY,
-  asset_name        TEXT,
-  asset_type        TEXT,
-  appearance_count  INTEGER,
-  failure_severity  TEXT,
-  is_repeat_offender BOOLEAN,
-  reasons           TEXT[]
-);
-
-CREATE TABLE department_exposure (
-  id                     SERIAL PRIMARY KEY,
-  department             TEXT,
-  documentation_coverage NUMERIC,
-  backup_coverage        NUMERIC,
-  incident_exposure_score INTEGER,
-  incident_risk_level    TEXT
-);
-
 -- ── Continuity (M18) ─────────────────────────────────────────
 
 CREATE TABLE continuity_assessments (
@@ -444,22 +399,3 @@ CREATE TABLE accountability_links (
   raci_role   TEXT
 );
 
-CREATE TABLE accountability_scores (
-  id                 SERIAL PRIMARY KEY,
-  entity_id          INTEGER,
-  score              INTEGER,
-  status             TEXT,
-  same_r_and_a       BOOLEAN,
-  missing_responsible BOOLEAN,
-  missing_accountable BOOLEAN
-);
-
-CREATE TABLE accountability_summary (
-  id                   SERIAL PRIMARY KEY,
-  accountability_score INTEGER,
-  status               TEXT,
-  total_entities       INTEGER,
-  entities_with_links  INTEGER,
-  same_r_and_a_count   INTEGER,
-  unique_people_count  INTEGER
-);

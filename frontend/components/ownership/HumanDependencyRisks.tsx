@@ -187,7 +187,7 @@ export function HumanDependencyRisks({ dataset, riskByAgentName, dependencyRiskB
                     <div className="text-[9px] uppercase tracking-widest text-[color:var(--text-tertiary)] font-bold mb-2">Exposed Agents (No Backup)</div>
                     <div className="flex flex-wrap gap-1.5">
                       {profile.exposedAgents.map(a => {
-                        const risk = riskByAgentName.get(a.name)?.threatLevel ?? 'low';
+                        const risk = riskByAgentName.get(a.name)?.threatLevel ?? 'unknown';
                         return (
                           <span
                             key={a.id}

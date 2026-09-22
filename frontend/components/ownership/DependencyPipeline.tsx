@@ -15,7 +15,10 @@ interface DependencyPipelineProps {
   humanSpofOwners: Set<string>;
 }
 
-const TIER_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+// F-11: unknown must be a real key here, not just absent -- TIER_WEIGHT[tier]
+// on a missing key returns undefined, and `acc + undefined` is NaN, which
+// would have silently poisoned riskScore for anyone owning an unscored agent.
+const TIER_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, unknown: 0 };
 
 type PersonNode = {
   name: string;
@@ -50,7 +53,7 @@ export function DependencyPipeline({ dataset, riskByAgentName, humanSpofOwners }
       const ownedWorkflows = workflows.filter(w => w.owner === name);
       const noBackupAgents = ownedAgents.filter(a => !a.backup_owner);
       const riskScore = noBackupAgents.reduce((acc, a) => {
-        const tier = riskByAgentName.get(a.name)?.threatLevel ?? 'low';
+        const tier = riskByAgentName.get(a.name)?.threatLevel ?? 'unknown';
         return acc + TIER_WEIGHT[tier];
       }, 0);
 

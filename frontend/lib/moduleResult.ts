@@ -8,6 +8,14 @@ export interface ModuleResult<TPayload = Record<string, unknown>> {
   analysis: string;
   type: string;
   confidence: number; // 0-1
+  /** F-9: true only for a module whose headline number is built from
+   *  invented weights/thresholds (M03, M18, M43, M45) rather than a
+   *  measured structural fact -- see backend/brain/knowledge/
+   *  intelligenceExchange.js's createIntelligence(). */
+  authored?: boolean;
+  /** Section 06: one sentence naming exactly what population/computation
+   *  this module's headline number covers -- render with DefinitionInfo. */
+  definition?: string;
   payload: TPayload;
   recommendations: string[];
   dataSource: unknown;

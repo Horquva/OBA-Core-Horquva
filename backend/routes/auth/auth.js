@@ -1,10 +1,15 @@
 /*
  * OBA Core — Authentication routes (Identity Gateway, MVP).
  * Endpoints:
- *   POST /api/auth/login           { email, password }   -> { token, user }
- *   GET  /api/auth/me              (Bearer token)         -> { user }
- *   POST /api/auth/logout          (Bearer token)         -> { ok: true }
- *   POST /api/auth/change-password (Bearer token)         -> { ok: true }
+ *   POST /api/auth/login           { email, password }   -> { user } + session cookie
+ *   GET  /api/auth/me              (session)              -> { user }
+ *   POST /api/auth/logout          (session, optional)    -> { ok: true }, cookie cleared
+ *   POST /api/auth/change-password (session)              -> { ok: true }, cookie cleared
+ *
+ * SEC-2: the token is set as an httpOnly cookie (lib/authCookie.js) and is
+ * never put in a response body, so page scripts cannot read it. "session"
+ * above means that cookie, or an Authorization: Bearer header for non-browser
+ * clients.
  *
  * Registration is closed (D-13) — accounts are created with
  * backend/tools/provision-user.js, not self-service. This router is mounted
@@ -22,9 +27,11 @@ const express = require('express')
 const router = express.Router()
 const { sign } = require('../../lib/jwt')
 const password = require('../../lib/password')
-const { requireAuth } = require('../../middleware/auth')
+const { requireAuth, optionalAuth } = require('../../middleware/auth')
+const { setSessionCookie, clearSessionCookie } = require('../../lib/authCookie')
 const { rateLimit } = require('../../middleware/rateLimit')
 const { revoke } = require('../../lib/tokenBlocklist')
+const { recordAudit } = require('../../lib/audit')
 
 // 10 attempts / 15 min per IP+email — slows brute-forcing without a real
 // account-lockout system (which would need its own UX for legitimate users
@@ -79,13 +86,18 @@ function publicUser(u) {
 // -- LOGIN -----------------------------------------------------
 router.post('/login', authRateLimit, async (req, res) => {
 	const { email, password: pass } = req.body || {}
-	if (!email || !pass) return res.status(400).json({ error: 'email and password are required' })
+	if (!email || !pass) {
+		await recordAudit(req, { action: 'auth.login', outcome: 'failure', reason: 'missing_fields', actor: null })
+		return res.status(400).json({ error: 'email and password are required' })
+	}
 
 	try {
 		const user = await findUserByEmail(email)
 		if (user && password.verify(pass, user.password_hash)) {
 			const token = sign({ sub: user.id, email: user.email, role: user.role, org: user.org }, SECRET, TTL)
-			return res.json({ token, user: publicUser(user) })
+			setSessionCookie(res, token, TTL)
+			await recordAudit(req, { action: 'auth.login', outcome: 'success', targetType: 'app_user', targetId: user.id, actor: { id: user.id, email: user.email, role: user.role } })
+			return res.json({ user: publicUser(user) })
 		}
 
 		// Fallback: env admin (MVP/demo) so login works even without a DB table
@@ -93,11 +105,15 @@ router.post('/login', authRateLimit, async (req, res) => {
 		const adminPass = process.env.ADMIN_PASSWORD
 		if (adminEmail && adminPass && email === adminEmail && password.timingSafeEqualString(pass, adminPass)) {
 			const token = sign({ sub: 'admin', email: adminEmail, role: 'admin', org: process.env.ADMIN_ORG || 'horquva' }, SECRET, TTL)
-			return res.json({ token, user: { id: 'admin', email: adminEmail, name: 'Admin', role: 'admin', org: process.env.ADMIN_ORG || 'horquva' } })
+			setSessionCookie(res, token, TTL)
+			await recordAudit(req, { action: 'auth.login', outcome: 'success', targetType: 'app_user', targetId: 'admin', actor: { id: 'admin', email: adminEmail, role: 'admin' } })
+			return res.json({ user: { id: 'admin', email: adminEmail, name: 'Admin', role: 'admin', org: process.env.ADMIN_ORG || 'horquva' } })
 		}
 
+		await recordAudit(req, { action: 'auth.login', outcome: 'failure', reason: 'invalid_credentials', actor: null })
 		return res.status(401).json({ error: 'Invalid credentials' })
 	} catch (err) {
+		await recordAudit(req, { action: 'auth.login', outcome: 'failure', reason: 'internal_error', actor: null })
 		return res.status(500).json({ error: err.message })
 	}
 })
@@ -110,8 +126,13 @@ router.get('/me', requireAuth, (req, res) => {
 // -- LOGOUT ------------------------------------------------------
 // Revokes this specific token (by jti) so it can't be reused after logout,
 // without invalidating the user's other active sessions/tokens.
-router.post('/logout', requireAuth, (req, res) => {
-	revoke(req.user.jti, req.user.exp)
+// optionalAuth, not requireAuth: a user whose token already expired must still
+// be able to log out and have the cookie cleared. Revocation only happens when
+// a valid token is present.
+router.post('/logout', optionalAuth, (req, res) => {
+	if (req.user) revoke(req.user.jti, req.user.exp)
+	recordAudit(req, { action: 'auth.logout', outcome: 'success', targetType: 'session', targetId: req.user && req.user.jti })
+	clearSessionCookie(res)
 	res.json({ ok: true })
 })
 
@@ -133,15 +154,21 @@ router.post('/logout', requireAuth, (req, res) => {
 router.post('/change-password', requireAuth, changePasswordRateLimit, async (req, res) => {
 	const { currentPassword, newPassword } = req.body || {}
 	if (!currentPassword || !newPassword) {
+		await recordAudit(req, { action: 'auth.password_change', outcome: 'failure', reason: 'missing_fields', targetType: 'app_user', targetId: req.user.sub })
 		return res.status(400).json({ error: 'currentPassword and newPassword are required' })
 	}
 	if (String(newPassword).length < MIN_PASSWORD_LENGTH) {
+		await recordAudit(req, { action: 'auth.password_change', outcome: 'failure', reason: 'too_short', targetType: 'app_user', targetId: req.user.sub })
 		return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` })
 	}
 	if (String(newPassword) === String(currentPassword)) {
+		await recordAudit(req, { action: 'auth.password_change', outcome: 'failure', reason: 'same_as_current', targetType: 'app_user', targetId: req.user.sub })
 		return res.status(400).json({ error: 'New password must be different from the current one' })
 	}
-	if (!supabase) return res.status(503).json({ error: 'User store not configured. Set up the Supabase app_users table.' })
+	if (!supabase) {
+		await recordAudit(req, { action: 'auth.password_change', outcome: 'failure', reason: 'user_store_unavailable', targetType: 'app_user', targetId: req.user.sub })
+		return res.status(503).json({ error: 'User store not configured. Set up the Supabase app_users table.' })
+	}
 
 	try {
 		// Identity comes from the token, never from the body.
@@ -149,10 +176,12 @@ router.post('/change-password', requireAuth, changePasswordRateLimit, async (req
 		if (!user) {
 			// A valid token for an account that no longer exists — e.g. the
 			// env-admin fallback, which has no app_users row to update.
+			await recordAudit(req, { action: 'auth.password_change', outcome: 'failure', reason: 'account_not_found', targetType: 'app_user', targetId: req.user.sub })
 			return res.status(404).json({ error: 'This account has no stored password to change' })
 		}
 
 		if (!password.verify(currentPassword, user.password_hash)) {
+			await recordAudit(req, { action: 'auth.password_change', outcome: 'failure', reason: 'wrong_current_password', targetType: 'app_user', targetId: req.user.sub })
 			return res.status(401).json({ error: 'Current password is incorrect' })
 		}
 
@@ -165,9 +194,12 @@ router.post('/change-password', requireAuth, changePasswordRateLimit, async (req
 		// Retire the token that authorised the change. If it was stolen, the
 		// thief loses it the moment the real owner rotates their password.
 		revoke(req.user.jti, req.user.exp)
+		clearSessionCookie(res)
+		await recordAudit(req, { action: 'auth.password_change', outcome: 'success', targetType: 'app_user', targetId: req.user.sub })
 
 		return res.json({ ok: true, message: 'Password updated. Please sign in again.' })
 	} catch (err) {
+		await recordAudit(req, { action: 'auth.password_change', outcome: 'failure', reason: 'update_error', targetType: 'app_user', targetId: req.user.sub })
 		return res.status(500).json({ error: err.message })
 	}
 })

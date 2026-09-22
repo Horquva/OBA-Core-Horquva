@@ -210,7 +210,14 @@ export function CentralityGraph({ report }: Props) {
           
           <div className="absolute inset-x-4 top-4 pointer-events-none">
             <div className="inline-flex flex-col bg-[color:var(--bg-surface)]/80 backdrop-blur-sm border border-[color:var(--border-subtle)] p-3 rounded-lg shadow-sm">
-              <h4 className="text-xs font-bold text-[color:var(--text-primary)] uppercase tracking-wider mb-2">People Centrality Graph (M35)</h4>
+              {/* This renders GET /api/network/centrality (routes/network.js) --
+                  a people-only graph built from asset ownership edges, ported
+                  unchanged from the old frontend networkRisk.ts. The brain's
+                  M35 is a different computation (degree centrality across
+                  every entity type, not just people) with no endpoint wired
+                  to any page today -- see implementations.js's own IMPL.M35
+                  definition string. This heading claimed to be M35; it isn't. */}
+              <h4 className="text-xs font-bold text-[color:var(--text-primary)] uppercase tracking-wider mb-2">People Centrality Graph</h4>
               <div className="flex flex-col gap-1.5 text-[10px] text-[color:var(--text-secondary)]">
                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-fuchsia-500/20 border border-fuchsia-500/50 shadow-[0_0_8px_rgba(217,70,239,0.3)]" /> Bottleneck Person</div>
                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[color:var(--bg-card)] border border-[color:var(--border-subtle)]" /> Typical Person</div>

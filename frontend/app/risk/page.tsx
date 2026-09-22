@@ -8,18 +8,24 @@ import { RiskScoreTable } from '../../components/risk/RiskScoreTable';
 import { OrgHealthBanner } from '../../components/risk/OrgHealthBanner';
 import { PredictedRiskPanel } from '../../components/risk/PredictedRiskPanel';
 import { Agent, Dependency } from '../../types';
-import { authHeader } from '../../lib/authFetch';
-import { normalizeAgent } from '../../lib/normalize';
+import { request, predictiveApi, healthApi, ApiError } from '../../lib/api';
+import { normalizeAgent, RawAgent } from '../../lib/normalize';
 import { buildPredictiveRiskByAgentName } from '../../lib/predictiveRisk';
 
 interface RawDependency {
   source_id?: string | number;
   target_id?: string | number;
+  source_type?: string;
+  target_type?: string;
   dependency_type?: string;
 }
 
 interface RawSpof {
   agentId?: string | number;
+}
+
+interface AgentSpofsResponse {
+  spofs: RawSpof[];
 }
 
 export default function RiskPage() {
@@ -28,45 +34,38 @@ export default function RiskPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    
     Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load agents');
-        return r.json();
-      }),
-      fetch(`${base}/api/dependencies`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load dependencies');
-        return r.json();
-      }),
-      fetch(`${base}/api/dependencies/agent-spofs`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load SPOF data');
-        return r.json();
-      }),
-      fetch(`${base}/api/predictive-risk/agents`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load predictive risk scores');
-        return r.json();
-      }),
-      fetch(`${base}/api/health/summary`, { headers: authHeader() }).then(r => {
-        if (!r.ok) throw new Error('Failed to load org health');
-        return r.json();
-      })
+      request<RawAgent[]>('/api/agents'),
+      request<{ dependencies: RawDependency[] }>('/api/dependencies'),
+      request<AgentSpofsResponse>('/api/dependencies/agent-spofs'),
+      predictiveApi.agents(),
+      healthApi.summary(),
     ])
     .then(([agentsData, depsData, spofData, predictiveData, healthData]) => {
       const agents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
-      const dependencies: Dependency[] = Array.isArray(depsData.dependencies) ? depsData.dependencies.map((d: RawDependency) => ({
-        from: d.source_id?.toString() || '',
-        to: d.target_id?.toString() || '',
-        type: d.dependency_type || 'sequential',
-      })) : [];
+      // Only agent-agent edges belong in this graph -- /api/dependencies also
+      // returns workflow->agent and other cross-type edges sharing the same
+      // numeric id space, which getDownstream() would otherwise walk as if
+      // they were all agent ids (a workflow id colliding with an unrelated
+      // agent id). Same fix already applied on the Dependency Map page
+      // (app/map/page.tsx) -- this page was the one place it was missing.
+      const dependencies: Dependency[] = Array.isArray(depsData.dependencies)
+        ? depsData.dependencies
+            .filter((d: RawDependency) => d.source_type === 'agent' && d.target_type === 'agent')
+            .map((d: RawDependency) => ({
+              from: d.source_id?.toString() || '',
+              to: d.target_id?.toString() || '',
+              type: (d.dependency_type || 'normal') as Dependency['type'],
+            }))
+        : [];
 
       const spofAgentIds = new Set<string>(
         (spofData.spofs || []).map((s: RawSpof) => s.agentId?.toString() || '')
       );
       const riskByAgentName = buildPredictiveRiskByAgentName(predictiveData);
       const orgHealth = healthData
-        ? { healthIndex: healthData.healthIndex ?? null, healthStatus: healthData.healthStatus ?? null }
+        ? { healthIndex: healthData.healthIndex ?? null, healthStatus: (healthData.healthStatus ?? null) as 'STABLE' | 'WARNING' | 'CRITICAL' | null }
         : null;
       const calculatedReport = computeRiskIntelligence(
         agents,
@@ -77,8 +76,8 @@ export default function RiskPage() {
       );
       setReport(calculatedReport);
     })
-    .catch((err) => {
-      setError(err.message);
+    .catch((err: unknown) => {
+      setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to load risk intelligence data');
     })
     .finally(() => {
       setLoading(false);

@@ -213,7 +213,9 @@ export function SimulationUniverseRanking({ scenarios }: Props) {
                     <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-secondary)]">
                       <span className="font-mono">{s.baselineHealthScore}</span>
                       <ArrowRight className="w-3 h-3 text-[color:var(--text-tertiary)]" />
-                      <span className={`font-mono font-semibold ${score < 40 ? 'text-red-400' : score < 55 ? 'text-amber-400' : 'text-emerald-400'}`}>{s.simulatedHealthScore}</span>
+                      {/* Reuses the row's own survivabilityLabel() color instead of a
+                          second, separately-invented threshold pair for the same score. */}
+                      <span className={`font-mono font-semibold ${color}`}>{s.simulatedHealthScore}</span>
                     </div>
                   </td>
                 </tr>

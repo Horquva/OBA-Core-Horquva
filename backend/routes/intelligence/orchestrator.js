@@ -3,6 +3,9 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const { must, optional } = require('../../lib/supabaseQuery')
 const domain = require('../../domain')
+const signalReaders = require('../../domain/signalReaders')
+const { band } = require('../../domain/derived')
+const { requireCsrfHeader } = require('../../middleware/auth')
 
 // ─────────────────────────────────────────────
 // MODULE REGISTRY
@@ -66,62 +69,25 @@ async function readBrainCore() {
 // one live computation now — see domain/derived.js. The two that still read a
 // table (`readBrainCore`, `readExecutiveBriefing`) read snapshot tables this
 // application genuinely writes on request, so they were never frozen.
+//
+// Eight of those eleven (governance/memory/domainInt/continuity/orgHealth/
+// predictiveRisk/collaboration/accountability/aiAdoption/decisionQuality —
+// ten counting the three pillar readers together) are identical to
+// brainCore.js's own signal readers and now live once, in
+// domain/signalReaders.js, imported by both. Only executiveMemory and
+// healthTrend are genuinely specific to this registry — brainCore.js has no
+// equivalent of either.
 
-function pillar(intel, key) {
-  const found = (intel.pillars.pillars || []).find((p) => p.resultKey === key)
-  return found
-    ? { score: found.score, verified: true, source: `domain.intelligence.pillars(${key})` }
-    : { score: 0, verified: false, source: `domain.intelligence.pillars(${key})` }
-}
-
-const readGovernance = (intel) => pillar(intel, 'GI')
-const readMemory = (intel) => pillar(intel, 'MI')
-const readDomainIntelligence = (intel) => pillar(intel, 'DI')
-
-const readContinuity = (intel) => ({
-  score: intel.orgHealth.continuityScore, verified: true,
-  source: 'domain.intelligence.orgHealth',
-})
-
-const readOrgHealth = (intel) => ({
-  score: intel.orgHealth.healthIndex, verified: true,
-  source: 'domain.intelligence.orgHealth',
-})
-
-// Inverted: more CRITICAL agents means a lower score.
-function readPredictiveRisk(intel) {
-  const scores = intel.predictiveRisk.scores
-  if (!scores.length) return { score: 0, verified: false, source: 'domain.intelligence.predictiveRisk' }
-  const critical = scores.filter((p) => p.threatLevel === 'CRITICAL').length
-  return {
-    score: Math.round(((scores.length - critical) / scores.length) * 100),
-    verified: true, source: 'domain.intelligence.predictiveRisk',
-  }
-}
-
-const readCollaboration = (intel) => ({
-  score: intel.collaboration.summary.collaborationScore,
-  verified: intel.collaboration.perEmployee.length > 0,
-  source: 'domain.intelligence.collaboration',
-})
-
-const readAccountability = (intel) => ({
-  score: intel.accountability.accountabilityScore,
-  verified: intel.accountability.entitiesWithLinks > 0,
-  source: 'domain.intelligence.accountability',
-})
-
-const readDecisionQuality = (intel) => ({
-  score: intel.decisionQuality.score,
-  verified: intel.decisionQuality.evidence.sufficient,
-  source: 'domain.intelligence.decisionQuality',
-})
-
-const readAIAdoption = (intel) => ({
-  score: intel.collaboration.summary.aiAdoptionScore,
-  verified: intel.collaboration.perEmployee.length > 0,
-  source: 'domain.intelligence.collaboration',
-})
+const readGovernance = signalReaders.readGovernance
+const readMemory = signalReaders.readMemoryIntelligence
+const readDomainIntelligence = signalReaders.readDomainIntelligence
+const readContinuity = signalReaders.readContinuity
+const readOrgHealth = signalReaders.readOrgHealth
+const readPredictiveRisk = signalReaders.readPredictiveRisk
+const readCollaboration = signalReaders.readCollaboration
+const readAccountability = signalReaders.readAccountability
+const readDecisionQuality = signalReaders.readDecisionQuality
+const readAIAdoption = signalReaders.readAIAdoption
 
 // Inverted: more critical memory items means a lower memory-health score.
 function readExecutiveMemory(intel) {
@@ -461,35 +427,13 @@ async function getOrComputeOrchestration() {
 }
 
 // ─────────────────────────────────────────────
-// GET /api/intelligence/orchestrator
-// ─────────────────────────────────────────────
-
-router.get('/', async (req, res) => {
-  try {
-    const snap = await getOrComputeOrchestration()
-
-    res.json({
-      organizationalIntelligenceScore: snap.organizational_intelligence_score,
-      rating: snap.rating,
-      finalVerdict: snap.final_verdict,
-      brainPosture: snap.brain_posture,
-      trustScore: snap.trust_score,
-      generatedAt: snap.computed_at ?? new Date().toISOString(),
-      fromCache: snap.fromCache,
-      // Absent on a cache hit — a snapshot is only ever persisted when every
-      // module read cleanly, so there is no degradation to report.
-      dataIntegrity: snap.dataIntegrity ?? null
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
 // GET /api/intelligence/orchestrator/summary
 // ─────────────────────────────────────────────
 
-router.get('/summary', async (req, res) => {
+// requireCsrfHeader: caches into orchestrator_snapshots on a miss -- a GET
+// that writes, which the global CSRF guard's "GET is safe" exemption
+// doesn't cover. See middleware/auth.js.
+router.get('/summary', requireCsrfHeader, async (req, res) => {
   try {
     const snap = await getOrComputeOrchestration()
 
@@ -505,25 +449,6 @@ router.get('/summary', async (req, res) => {
       generatedAt: snap.computed_at ?? new Date().toISOString(),
       dataIntegrity: snap.dataIntegrity ?? null,
       evidence: snap.evidence ?? null
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
-// GET /api/intelligence/orchestrator/verdict
-// ─────────────────────────────────────────────
-
-router.get('/verdict', async (req, res) => {
-  try {
-    const snap = await getOrComputeOrchestration()
-
-    res.json({
-      finalVerdict: snap.final_verdict,
-      rating: snap.rating,
-      brainPosture: snap.brain_posture,
-      dataIntegrity: snap.dataIntegrity ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -574,30 +499,16 @@ router.get('/modules', async (req, res) => {
         key: m.key,
         verified: m.verified,
         score: m.score,
+        // Same band() every other STRONG/PARTIAL/WEAK/CRITICAL rating in the
+        // product uses (85/65/40) — added so consumers (e.g. FivePillarsRadar)
+        // don't have to re-threshold m.score with their own cutoffs.
+        rating: band(m.score),
         weight: `${Math.round(m.weight * 100)}%`,
         source: m.source,
         // Separates "no row seeded" from "this query failed".
         unavailable: m.unavailable,
         error: m.error
       }))
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
-// GET /api/intelligence/orchestrator/score
-// ─────────────────────────────────────────────
-
-router.get('/score', async (req, res) => {
-  try {
-    const snap = await getOrComputeOrchestration()
-
-    res.json({
-      organizationalIntelligenceScore: snap.organizational_intelligence_score,
-      rating: snap.rating,
-      dataIntegrity: snap.dataIntegrity ?? null
     })
   } catch (err) {
     res.status(500).json({ error: err.message })

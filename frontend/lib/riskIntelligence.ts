@@ -86,6 +86,22 @@ export interface RiskIntelligenceReport {
   evidence: EvidenceInfo & { sufficient: boolean };
 }
 
+// Colors keyed off healthStatus (already the canonical 70/45 band, relabeled
+// HEALTHY/AT_RISK/CRITICAL above) instead of a component re-thresholding
+// organizationalHealthScore itself — OrgHealthBanner and RiskHeader both used
+// to do that with their own 75/50 cutoff, which could disagree with this
+// same healthStatus at the boundary (e.g. score=72 is HEALTHY here but
+// rendered yellow under a 75 cutoff).
+const HEALTH_STATUS_COLOR: Record<string, { text: string; bg: string; ring: string; glow: string }> = {
+  HEALTHY:  { text: 'text-emerald-400', bg: 'bg-emerald-400', ring: 'stroke-emerald-400', glow: 'rgba(52,211,153,0.3)' },
+  AT_RISK:  { text: 'text-yellow-400',  bg: 'bg-yellow-400',  ring: 'stroke-yellow-400',  glow: 'rgba(250,204,21,0.3)' },
+  CRITICAL: { text: 'text-red-400',     bg: 'bg-red-400',     ring: 'stroke-red-400',     glow: 'rgba(248,113,113,0.3)' },
+};
+
+export function healthStatusColors(status: RiskIntelligenceReport['healthStatus']) {
+  return HEALTH_STATUS_COLOR[status ?? ''] ?? HEALTH_STATUS_COLOR.CRITICAL;
+}
+
 export interface OrgHealthSummary {
   mostOverloadedOwner: { name: string; agentCount: number; backupCount: number } | null;
   highestRisk: { name: string; score: number } | null;

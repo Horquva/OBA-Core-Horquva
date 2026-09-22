@@ -1,14 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
-
-interface AgentRow {
-  department: string;
-  criticality: 'critical' | 'high' | 'medium' | 'low';
-}
+import { useAgents } from '../../lib/useAgents';
 
 const RISK_COLORS = {
   critical: '#ef4444',
@@ -41,33 +35,18 @@ function HeatmapTooltip({ active, payload, label }: { active?: boolean; payload?
 }
 
 export function Heatmap() {
-  const [agents, setAgents] = useState<AgentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-    fetch(`${base}/api/agents`, { headers: authHeader() })
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setAgents(data.map(a => ({
-            ...a,
-            department: a.department || (a.owner && a.owner.department) || 'Unassigned',
-            criticality: resolveCriticality(a)
-          })));
-        } else {
-          setAgents([]);
-        }
-      })
-      .catch(() => setAgents([]))
-      .finally(() => setLoading(false));
-  }, []);
+  const { agents, loading, error } = useAgents();
 
   const barData = useMemo(() => {
-    const deps: Record<string, { name: string; critical: number; high: number; medium: number; low: number }> = {};
+    // This chart visualizes SCORED risk severity only -- an 'unknown'
+    // (unscored) agent has no bar series here (F-11) and is deliberately
+    // excluded from the stack rather than counted as a fifth, uncolored
+    // category; `unknown` still needs a slot on the bucket type so the `in`
+    // guard below stays type-safe against the widened RiskLevel.
+    const deps: Record<string, { name: string; critical: number; high: number; medium: number; low: number; unknown: number }> = {};
     agents.forEach(agent => {
       if (!deps[agent.department]) {
-        deps[agent.department] = { name: agent.department, critical: 0, high: 0, medium: 0, low: 0 };
+        deps[agent.department] = { name: agent.department, critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
       }
       if (agent.criticality in deps[agent.department]) {
         deps[agent.department][agent.criticality] += 1;
@@ -94,13 +73,19 @@ export function Heatmap() {
         </div>
       )}
 
-      {!loading && barData.length === 0 && (
+      {!loading && error && (
+        <div className="w-full h-[300px] flex items-center justify-center text-xs text-red-400">
+          Could not load agent data — {error}
+        </div>
+      )}
+
+      {!loading && !error && barData.length === 0 && (
         <div className="w-full h-[300px] flex items-center justify-center text-xs text-[color:var(--text-tertiary)]">
           No agent data available
         </div>
       )}
 
-      {!loading && barData.length > 0 && (
+      {!loading && !error && barData.length > 0 && (
         <div className="w-full h-[300px] min-h-0 min-w-0">
           <ResponsiveContainer width="100%" height={300} minHeight={0}>
             <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} maxBarSize={60}>

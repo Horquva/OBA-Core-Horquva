@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PlayCircle, AlertCircle, Ban } from 'lucide-react';
+import { PlayCircle, Ban } from 'lucide-react';
 
 export function AutomationStatusStrip() {
   return (
@@ -18,15 +18,11 @@ export function AutomationStatusStrip() {
           Execution Mode: <span className="text-indigo-400 font-bold uppercase tracking-wider text-xs">Advisory (Read-Only)</span>
         </h3>
         <p className="text-[11px] text-[color:var(--text-secondary)] mt-0.5 max-w-2xl truncate">
-          Automated remediation Intents are being emitted by the execution engine, but writing is disabled in the MVP.
+          Recommendations are surfaced for review; automated remediation writes are disabled in this MVP.
         </p>
       </div>
 
       <div className="hidden md:flex gap-3 text-[10px] text-[color:var(--text-secondary)] shrink-0">
-        <div className="px-3 py-1.5 rounded border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5">
-          <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-amber-400 font-semibold tracking-wide uppercase">4 Pending Resolves</span>
-        </div>
         <div className="px-3 py-1.5 rounded border border-red-500/20 bg-red-500/10 flex items-center gap-1.5">
           <Ban className="w-3.5 h-3.5 text-red-400" />
           <span className="text-red-400 font-semibold tracking-wide uppercase">Writes Blocked</span>

@@ -5,7 +5,7 @@ import { mapOrgMemoryResponse, OrgMemoryReport } from '../../lib/orgMemory';
 import { MemoryHeader } from '../../components/memory/MemoryHeader';
 import { MemoryCarriersPanel } from '../../components/memory/MemoryCarriersPanel';
 import { LostAssetsPanel } from '../../components/memory/LostAssetsPanel';
-import { authHeader } from '../../lib/authFetch';
+import { request, ApiError } from '../../lib/api';
 
 export default function MemoryPage() {
   const [report, setReport]   = useState<OrgMemoryReport | null>(null);
@@ -13,14 +13,23 @@ export default function MemoryPage() {
   const [error, setError]     = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
-    fetch(`${base}/api/memory/map`, { headers: authHeader() })
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${r.statusText}`)))
+    request<Partial<OrgMemoryReport>>('/api/memory/map')
       .then(json => setReport(mapOrgMemoryResponse(json)))
-      .catch(err => setError(err.message))
+      .catch((err: unknown) => setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to load'))
       .finally(() => setLoading(false));
   }, []);
+
+  // error must be checked before the loading/!report fallback below --
+  // a failed fetch sets loading:false but leaves report:null, so
+  // `loading || !report` alone stayed true forever and the error branch
+  // was unreachable dead code.
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 mx-6">
+        Failed to load Org Memory pipeline: {error}
+      </div>
+    );
+  }
 
   if (loading || !report) {
     return (
@@ -28,14 +37,6 @@ export default function MemoryPage() {
         <div className="h-48 w-full bg-[var(--border-subtle)] rounded-xl" />
         <div className="h-96 w-full bg-[var(--border-subtle)] rounded-xl" />
         <div className="h-64 w-full bg-[var(--border-subtle)] rounded-xl" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 mx-6">
-        Failed to load Org Memory pipeline: {error}
       </div>
     );
   }

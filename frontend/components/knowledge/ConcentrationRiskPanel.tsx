@@ -13,10 +13,12 @@ const TIER_COLORS = {
   HIGH:     { text: 'var(--risk-high-text)',      bg: 'var(--risk-high-bg)',     border: 'var(--risk-high-border)' },
   MEDIUM:   { text: 'var(--risk-medium-text)',    bg: 'var(--risk-medium-bg)',   border: 'var(--risk-medium-border)' },
   LOW:      { text: 'var(--risk-low-text)',        bg: 'var(--risk-low-bg)',      border: 'var(--risk-low-border)' },
+  // F-11: not on the low->critical scale -- nobody scored this person.
+  UNKNOWN:  { text: 'var(--risk-unknown-text)',    bg: 'var(--risk-unknown-bg)',  border: 'var(--risk-unknown-border)' },
 };
 
 function ConcentrationBar({ score, tier }: { score: number; tier: string }) {
-  const tc = TIER_COLORS[tier as keyof typeof TIER_COLORS] ?? TIER_COLORS.LOW;
+  const tc = TIER_COLORS[tier as keyof typeof TIER_COLORS] ?? TIER_COLORS.UNKNOWN;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       <div style={{

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Minus, Activity } from 'lucide-react';
 import { healthApi, HealthSummary } from '../../lib/api';
+import { healthStatusColor } from '../../lib/healthStatus';
 import { TruthBadge } from './TruthBadge';
 
 function scoreColor(score: number) {
@@ -62,7 +63,10 @@ export function EarlyWarningStrip() {
   const status = data?.healthStatus ?? (data ? data.healthStatus : 'Unavailable');
   const dims   = data?.dimensions;
 
-  const statusColor  = score >= 60 ? '#4ade80' : score >= 40 ? '#facc15' : '#f87171';
+  // Derived from the same healthStatus the backend already computed (70/45),
+  // not a local re-threshold of score — this used to use a different cutoff
+  // pair (60/40) and could show a green dot next to a "WARNING" label.
+  const statusColor  = healthStatusColor(data?.healthStatus);
   const trendLabel   = trend === 'IMPROVING' ? '↑ Improving' : trend === 'DECLINING' ? '↓ Declining' : '→ Stable';
 
   return (

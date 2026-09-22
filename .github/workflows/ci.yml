@@ -27,8 +27,8 @@ jobs:
       # Supabase-stubbed authRoutes tests) still runs on every push.
       - run: npm test
 
-  frontend-typecheck:
-    name: Frontend typecheck
+  frontend-checks:
+    name: Frontend typecheck + lint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -42,8 +42,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
-      # `npm run lint` is deliberately not run here: it currently reports 76
-      # pre-existing errors (mostly no-explicit-any) unrelated to any change
-      # this workflow is meant to gate. Wiring it in now would make CI red
-      # from day one for reasons nobody asked it to check. Add it back once
-      # that backlog is cleared, or narrowed to lint only the changed files.
+      # The 106-error pre-existing backlog `npm run lint` used to report was
+      # cleared to 0 (commit 1c10b4c) — gate it now instead of leaving CI
+      # unable to catch a regression back into that backlog.
+      - run: npm run lint

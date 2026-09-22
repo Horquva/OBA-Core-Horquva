@@ -89,45 +89,6 @@ router.get('/agents', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────
-// GET /api/predictive-risk/critical
-// ─────────────────────────────────────────────
-
-router.get('/critical', async (req, res) => {
-  try {
-    const { scores, computedAt, source } = await fetchAllPredictions()
-    const critical = scores.filter(p => p.threatLevel === 'CRITICAL')
-
-    res.json({
-      totalCritical: critical.length,
-      agents: critical.map(p => formatPrediction(p, computedAt)),
-      computedAt,
-      source
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
-// GET /api/predictive-risk/emerging
-// ─────────────────────────────────────────────
-
-router.get('/emerging', async (req, res) => {
-  try {
-    const { emergingThreats, computedAt, source } = await fetchAllPredictions()
-
-    res.json({
-      totalEmerging: emergingThreats.length,
-      agents: emergingThreats.map(p => formatPrediction(p, computedAt)),
-      computedAt,
-      source
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
 // GET /api/predictive-risk/agent/:name
 // ─────────────────────────────────────────────
 

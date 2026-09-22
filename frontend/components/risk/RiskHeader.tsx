@@ -1,6 +1,6 @@
 'use client';
 
-import { RiskIntelligenceReport } from '../../lib/riskIntelligence';
+import { RiskIntelligenceReport, healthStatusColors } from '../../lib/riskIntelligence';
 import { ShieldAlert, AlertTriangle, Activity, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { EvidenceBadge } from '../ui/EvidenceBadge';
@@ -12,10 +12,7 @@ interface RiskHeaderProps {
 export function RiskHeader({ report }: RiskHeaderProps) {
   const { organizationalHealthScore: ohs, healthStatus, criticalAgents, highAgents, totalAgents, orphanedCount } = report;
 
-  const ohsColor =
-    (ohs ?? 0) >= 75 ? { text: 'text-emerald-400', ring: 'stroke-emerald-400', glow: 'rgba(52,211,153,0.3)' } :
-    (ohs ?? 0) >= 50 ? { text: 'text-yellow-400',  ring: 'stroke-yellow-400',  glow: 'rgba(250,204,21,0.3)' } :
-                { text: 'text-red-400',     ring: 'stroke-red-400',     glow: 'rgba(248,113,113,0.3)' };
+  const ohsColor = healthStatusColors(healthStatus);
 
   // SVG gauge
   const radius = 44;

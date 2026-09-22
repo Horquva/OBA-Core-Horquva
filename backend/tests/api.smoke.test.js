@@ -12,18 +12,33 @@
  * every route sits behind the global requireAuth gate -- it could not have
  * passed a single one of its 4 checks in its previous form. Logs in first now,
  * and checks real, meaningful endpoints.
+ *
+ * SEC-2 later moved the session token out of the login response body and into
+ * an httpOnly cookie (lib/authCookie.js) -- this file still read `body.token`
+ * and sent it as `Authorization: Bearer`, so `token` stayed null forever and
+ * every check after login ran unauthenticated. It now carries the cookie from
+ * the login response's Set-Cookie header instead.
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
 
 let passed = 0
 let failed = 0
-let token = null
+let sessionCookie = null
+
+function extractSessionCookie(res) {
+	const raw = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get('set-cookie')].filter(Boolean)
+	for (const entry of raw) {
+		const pair = entry.split(';')[0]
+		if (pair.startsWith('horquva_session=')) return pair
+	}
+	return null
+}
 
 async function checkEndpoint(path, validate) {
 	try {
 		const res = await fetch(BASE_URL + path, {
-			headers: token ? { Authorization: 'Bearer ' + token } : {},
+			headers: sessionCookie ? { Cookie: sessionCookie } : {},
 		})
 		const ok = res.ok
 		let body = null
@@ -60,11 +75,11 @@ async function checkEndpoint(path, validate) {
 			body: JSON.stringify({ email: adminEmail, password: adminPassword }),
 		})
 		const body = await res.json()
-		if (!res.ok || !body.token) {
+		sessionCookie = extractSessionCookie(res)
+		if (!res.ok || !sessionCookie) {
 			console.error('  ✗ login failed:', body.error || res.status)
 			process.exit(1)
 		}
-		token = body.token
 		console.log('  ✓ authenticated as', adminEmail, '\n')
 	} catch (e) {
 		console.error('  ✗ login request failed:', e.message)

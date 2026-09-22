@@ -16,6 +16,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') })
 
 const supabase = require('../supabase')
 const password = require('../lib/password')
+const { recordAudit } = require('../lib/audit')
 
 const MIN_PASSWORD_LENGTH = 8
 const ORG = 'horquva'
@@ -47,6 +48,13 @@ async function main() {
 		process.exit(1)
 	}
 
+	await recordAudit(null, {
+		action: 'user.create',
+		outcome: 'success',
+		targetType: 'app_user',
+		targetId: data.id,
+		actor: { id: 'cli' },
+	})
 	console.log('Account created:', JSON.stringify(data, null, 2))
 }
 

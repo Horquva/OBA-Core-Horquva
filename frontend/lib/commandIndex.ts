@@ -28,23 +28,33 @@ export interface CommandTarget {
   parent?: string;
   /** Extra search terms that should hit this target. */
   keywords?: string[];
-  /** Roles allowed to see it — mirrors the sidebar's gating. Undefined = everyone. */
-  roles?: string[];
   /** Constitutional module code, when this target is a module. */
   code?: string;
   /** One-line description shown under the label. */
   hint?: string;
 }
 
-const EXEC = ["admin", "ceo", "cto", "coo"];
-const MANAGER_UP = [...EXEC, "manager"];
-const ADMIN = ["admin", "ceo", "cto"];
-
 // ─────────────────────────────────────────────────────────────
 // PAGES — mirrors Sidebar.tsx navigation, plus the routes it omits
+//
+// FE-4: this used to carry a `roles` field per entry and filter results by
+// role in searchTargets()/defaultSuggestions() below, "mirroring the
+// sidebar's gating" (D-05 already deleted requireRole() server-side, so
+// that gating only ever hid a link, never enforced one). Once the sidebar
+// itself stopped filtering by role, this became the one remaining place a
+// page could be reachable from the nav but unreachable by search for the
+// same signed-in user — removed for the same reason and at the same time.
 // ─────────────────────────────────────────────────────────────
 
 export const PAGES: CommandTarget[] = [
+  {
+    id: "p-agent",
+    label: "Agent",
+    kind: "page",
+    page: "/",
+    hint: "Ask a question, run a what-if, get pointed at the right page",
+    keywords: ["agent", "chat", "ask", "assistant", "conversation"],
+  },
   {
     id: "p-dashboard",
     label: "Dashboard",
@@ -67,7 +77,6 @@ export const PAGES: CommandTarget[] = [
     kind: "page",
     page: "/risk",
     hint: "What is risky",
-    roles: MANAGER_UP,
     keywords: ["risk", "critical", "vulnerable", "exposure", "health"],
   },
   {
@@ -84,7 +93,6 @@ export const PAGES: CommandTarget[] = [
     kind: "page",
     page: "/simulation",
     hint: "What happens if something breaks",
-    roles: EXEC,
     keywords: ["simulate", "scenario", "what if", "twin", "sandbox"],
   },
   {
@@ -93,7 +101,6 @@ export const PAGES: CommandTarget[] = [
     kind: "page",
     page: "/recommendations",
     hint: "What should be done next",
-    roles: MANAGER_UP,
     keywords: ["advice", "actions", "next steps", "advisor", "opportunity"],
   },
   {
@@ -118,7 +125,6 @@ export const PAGES: CommandTarget[] = [
     kind: "page",
     page: "/memory",
     hint: "What the organization remembers",
-    roles: MANAGER_UP,
     keywords: ["history", "past", "memory", "what happened", "timeline"],
   },
   {
@@ -127,7 +133,6 @@ export const PAGES: CommandTarget[] = [
     kind: "page",
     page: "/decision",
     hint: "How decisions are made and with what quality",
-    roles: EXEC,
     keywords: ["decision", "approve", "quality", "trail", "truth gate"],
   },
   {
@@ -136,7 +141,6 @@ export const PAGES: CommandTarget[] = [
     kind: "page",
     page: "/continuity",
     hint: "Can the organization survive disruption",
-    roles: MANAGER_UP,
     keywords: ["continuity", "governance", "compliance", "resilience", "disruption"],
   },
   {
@@ -153,7 +157,6 @@ export const PAGES: CommandTarget[] = [
     kind: "page",
     page: "/forecast",
     hint: "What the organization will look like ahead",
-    roles: MANAGER_UP,
     keywords: ["forecast", "outlook", "trend", "trajectory", "predict"],
   },
   {
@@ -162,7 +165,6 @@ export const PAGES: CommandTarget[] = [
     kind: "page",
     page: "/org-science",
     hint: "DNA, culture, maturity, benchmarks",
-    roles: EXEC,
     keywords: ["culture", "dna", "maturity", "benchmark", "behavior"],
   },
   {
@@ -187,13 +189,11 @@ export const PAGES: CommandTarget[] = [
     kind: "page",
     page: "/admin",
     hint: "Endpoint health, data freshness, automation mode",
-    roles: ADMIN,
     keywords: ["settings", "system", "health check", "endpoints", "brain"],
   },
 ];
 
 const PAGE_LABEL = new Map(PAGES.map((p) => [p.page, p.label]));
-const PAGE_ROLES = new Map(PAGES.map((p) => [p.page, p.roles]));
 
 // ─────────────────────────────────────────────────────────────
 // SECTIONS — headings verified to exist in the component tree
@@ -230,7 +230,7 @@ const SECTION_SEEDS: SectionSeed[] = [
 
   ["/simulation", "Simulation Universe Ranking", ["universe", "ranked scenarios"]],
 
-  ["/recommendations", "Decision Support Queue", ["support queue", "pending decisions"]],
+  ["/recommendations", "Recommendation Queue", ["support queue", "recommendations"]],
   ["/recommendations", "Verified Advisor Panel", ["advisor", "autonomous advice"]],
   ["/recommendations", "Opportunity Backlog", ["opportunities", "backlog"]],
 
@@ -285,14 +285,20 @@ export const SECTIONS: CommandTarget[] = SECTION_SEEDS.map(([page, heading, keyw
   match: heading,
   parent: PAGE_LABEL.get(page) ?? page,
   keywords: keywords ?? [],
-  roles: PAGE_ROLES.get(page),
 }));
 
 // ─────────────────────────────────────────────────────────────
-// MODULES — M01–M55 minus four retired (M10, M12, M17, M47; see
-// backend/brain/data/constitutional-modules.js), each pointed at the
-// surface that renders it. A module with no `match` has no dedicated
-// block on its page yet.
+// MODULES — the 23 modules still live in
+// backend/brain/data/constitutional-modules.js, each pointed at the surface
+// that renders it. A module with no `match` has no dedicated block on its
+// page yet.
+//
+// The catalog started at M01–M55 and was cut to these 23 across three
+// retirement passes (2026-08-24: M10, M12, M17, M47; 2026-09-02: M05 M06 M08
+// M09 M11 M13 M14 M15 M16 M21 M22 M23 M24 M25 M26 M27 M33 M36 M38 M46 M48
+// M50 M51 M52 M53 M54 M55, then M30) -- this list used to still carry all 28
+// codes retired in the second and third passes, so the command bar searched
+// and linked to modules that no longer exist in the backend catalog.
 // ─────────────────────────────────────────────────────────────
 
 type ModuleSeed = [code: string, name: string, page: string, match?: string];
@@ -302,53 +308,30 @@ const MODULE_SEEDS: ModuleSeed[] = [
   ["M02", "Dependency Intelligence", "/map", "Dependency Intelligence"],
   ["M03", "Risk Intelligence", "/risk", "Risk Intelligence"],
   ["M04", "Recommendation Engine", "/recommendations"],
-  ["M05", "What-If Simulation Engine", "/simulation"],
-  ["M06", "Human-Agent Dependency Map", "/ownership", "Human-Agent Dependency Pipeline"],
   ["M07", "AI Tool Intelligence", "/ai-tools"],
-  ["M08", "Workflow Intelligence", "/workflows", "Workflow Step Chains"],
-  ["M09", "Knowledge Risk Intelligence", "/knowledge"],
-  ["M11", "Predictive Risk Intelligence", "/risk", "Predictive Risk Forecast"],
-  ["M13", "Human-AI Collaboration Intelligence", "/org-science", "Collaboration Matrix"],
-  ["M14", "Decision Intelligence", "/decision"],
-  ["M15", "Verification Intelligence", "/workflows", "Verification Ledger"],
-  ["M16", "Workflow Orchestration Intelligence", "/workflows", "Collision Detection"],
   ["M18", "Organizational Continuity Intelligence", "/continuity", "Disruption Continuity"],
   ["M19", "Governance Intelligence", "/continuity", "Governance Heatmap"],
   ["M20", "Accountability Intelligence", "/continuity", "Compliance Governance"],
-  ["M21", "Executive Avatar Intelligence", "/"],
-  ["M22", "Voice Intelligence Engine", "/"],
-  ["M23", "Executive Briefing Intelligence", "/dashboard"],
-  ["M24", "Decision Support Intelligence", "/recommendations", "Decision Support Queue"],
-  ["M25", "Organizational Health Intelligence", "/risk", "Organizational Health Summary"],
-  ["M26", "Executive Memory Intelligence", "/memory"],
-  ["M27", "Executive Context Intelligence", "/memory"],
   ["M28", "Universal Dependency Graph", "/map", "Agent Continuity Matrix"],
   ["M29", "Organizational Relationship Intelligence", "/ownership", "Organizational Relationship Map"],
-  ["M30", "Knowledge Concentration Intelligence", "/knowledge", "Knowledge Concentration Gauge"],
   ["M31", "Organizational Ecosystem Intelligence", "/ai-tools", "External Vendor Ecosystem"],
   ["M32", "Dependency Impact Intelligence", "/map", "Blast Radius Simulator"],
-  ["M33", "Dependency Evolution Intelligence", "/map", "Dependency Evolution"],
   ["M34", "Hidden Dependency Intelligence", "/map", "Hidden Dependency Overlay"],
-  ["M35", "Organizational Network Intelligence", "/network", "People Centrality Graph (M35)"],
-  ["M36", "Signal Intelligence", "/notifications"],
+  // Points at Org Science's NetworkCentralityCard (GET /api/intelligence/
+  // network-centrality), not the /network page -- that page's own
+  // "People Centrality Graph" is a different, people-only computation
+  // (GET /api/network/centrality) that was never M35, despite what its
+  // legend used to claim.
+  ["M35", "Organizational Network Intelligence", "/org-science", "Network Centrality"],
   ["M37", "Pattern Intelligence", "/org-science", "Pattern Regularity"],
-  ["M38", "Opportunity Intelligence", "/recommendations", "Opportunity Backlog"],
   ["M39", "Capability Intelligence", "/org-science", "Capability Intel"],
-  ["M40", "Ownership Coverage Intelligence", "/org-science", "Ownership Coverage"],
+  ["M40", "Strategic Alignment Intelligence", "/org-science", "Ownership Coverage"],
   ["M41", "Organizational DNA Intelligence", "/org-science", "DNA Fingerprint"],
   ["M42", "Culture Intelligence", "/org-science", "Culture Health"],
   ["M43", "Organizational Maturity Intelligence", "/org-science", "Maturity Curve"],
   ["M44", "Organizational Behavior Intelligence", "/org-science", "Behavioral Profile"],
   ["M45", "Benchmark Intelligence", "/org-science", "Industry Benchmark"],
-  ["M46", "Truth Intelligence", "/decision"],
-  ["M48", "Autonomous Advisor", "/recommendations", "Verified Advisor Panel"],
   ["M49", "Digital Twin Intelligence", "/simulation"],
-  ["M50", "Organizational Brain Core Logic", "/admin"],
-  ["M51", "Self-Healing Intelligence", "/workflows", "Self-Healing Feed"],
-  ["M52", "Governance Automation Intelligence", "/admin", "Automation Mode"],
-  ["M53", "Continuity Automation Intelligence", "/continuity", "Department Disruption Map"],
-  ["M54", "Simulation Universe", "/simulation", "Simulation Universe Ranking"],
-  ["M55", "Meta-Brain Orchestrator", "/admin"],
 ];
 
 export const MODULES: CommandTarget[] = MODULE_SEEDS.map(([code, name, page, match]) => ({
@@ -360,7 +343,6 @@ export const MODULES: CommandTarget[] = MODULE_SEEDS.map(([code, name, page, mat
   match,
   parent: PAGE_LABEL.get(page) ?? page,
   keywords: [code, name],
-  roles: PAGE_ROLES.get(page),
   hint: match ? `Opens ${PAGE_LABEL.get(page)} → ${match}` : `Opens ${PAGE_LABEL.get(page)}`,
 }));
 
@@ -422,12 +404,9 @@ export function scoreTarget(target: CommandTarget, rawQuery: string): number {
 export function searchTargets(
   targets: CommandTarget[],
   query: string,
-  role: string,
   limit = 24
 ): CommandTarget[] {
-  const r = (role || "employee").toLowerCase();
   return targets
-    .filter((t) => !t.roles || t.roles.includes(r))
     .map((t) => ({ t, score: scoreTarget(t, query) }))
     .filter((x) => x.score >= 0)
     .sort((a, b) => b.score - a.score || a.t.label.length - b.t.label.length)
@@ -436,8 +415,7 @@ export function searchTargets(
 }
 
 /** Suggestions shown before the executive types anything. */
-export function defaultSuggestions(role: string): CommandTarget[] {
-  const r = (role || "employee").toLowerCase();
+export function defaultSuggestions(): CommandTarget[] {
   const wanted = [
     "p-dashboard",
     "s-risk-critical-risk-agents",
@@ -448,5 +426,5 @@ export function defaultSuggestions(role: string): CommandTarget[] {
   ];
   return wanted
     .map((id) => STATIC_TARGETS.find((t) => t.id === id))
-    .filter((t): t is CommandTarget => !!t && (!t.roles || t.roles.includes(r)));
+    .filter((t): t is CommandTarget => !!t);
 }

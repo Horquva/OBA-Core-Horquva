@@ -1,32 +1,53 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { predictiveApi, PredictiveSummary, PredictedAgent } from '../../lib/api';
-import { ShieldAlert, TrendingUp } from 'lucide-react';
+import { predictiveApi, ApiError, PredictiveSummary, PredictedAgent } from '../../lib/api';
+import { ShieldAlert, TrendingUp, AlertTriangle } from 'lucide-react';
 import { TruthBadge } from '../dashboard/TruthBadge';
 import { SignalDrilldown } from './SignalDrilldown';
 
 export function PredictedRiskPanel() {
   const [summary, setSummary] = useState<PredictiveSummary | null>(null);
   const [agents, setAgents] = useState<PredictedAgent[]>([]);
+  // Emerging Threats is read from a second, independent call
+  // (predictiveApi.agents()) — track its failure separately from the
+  // summary's, so a failed agents() fetch renders "couldn't load" instead
+  // of a silently empty (and falsely reassuring) "no emerging threats".
+  const [agentsError, setAgentsError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
-      predictiveApi.summary().catch(() => null),
-      predictiveApi.agents().catch(() => [])
-    ]).then(([sumData, agentData]) => {
-      setSummary(sumData);
-      setAgents(agentData);
-    }).finally(() => setLoading(false));
+      predictiveApi.summary(),
+      predictiveApi.agents().catch(() => { setAgentsError(true); return []; }),
+    ])
+      .then(([sumData, agentData]) => {
+        setSummary(sumData);
+        setAgents(agentData);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to fetch predictive risk data');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return <div className="h-48 rounded-xl bg-[color:var(--bg-elevated)] border border-[color:var(--border-subtle)] animate-pulse" />;
   }
 
-  if (!summary) return null;
+  if (error || !summary) {
+    return (
+      <div className="flex items-start gap-3 rounded-xl bg-[color:var(--bg-elevated)] border border-red-500/20 p-6">
+        <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm text-[color:var(--text-primary)] font-medium mb-1">Failed to load predictive risk forecast</p>
+          <p className="text-xs text-[color:var(--text-tertiary)]">{error || 'Unknown error'}</p>
+        </div>
+      </div>
+    );
+  }
 
   const emergingThreats = agents.filter(a => a.isEmergingThreat);
 
@@ -65,14 +86,23 @@ export function PredictedRiskPanel() {
         </div>
       </div>
 
-      {emergingThreats.length > 0 && (
+      {agentsError && (
+        <div className="z-10 flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+          <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-[color:var(--text-secondary)]">
+            Couldn&apos;t load emerging threats — the breakdown above is still current, but this list may be incomplete.
+          </p>
+        </div>
+      )}
+
+      {!agentsError && emergingThreats.length > 0 && (
         <div className="z-10">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-4 h-4 text-amber-400" />
             <span className="text-sm font-semibold text-[color:var(--text-primary)]">Emerging Threats</span>
             <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-xs font-medium ml-2">{emergingThreats.length} Detected</span>
           </div>
-          
+
           <div className="space-y-3">
             {emergingThreats.map((agent, i) => (
               <div key={i} className="flex flex-col gap-3 p-4 rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--bg-card)] transition-colors hover:border-amber-500/30">

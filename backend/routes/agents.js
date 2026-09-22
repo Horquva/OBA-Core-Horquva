@@ -2,6 +2,9 @@ const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
+const { requireAdmin } = require('../middleware/requireRole')
+const { recordAudit } = require('../lib/audit')
+const domain = require('../domain')
 
 /** agent_id -> is_documented, via knowledge_assets where asset_type='agent'.
  *  null when no assessment exists — never fabricate a default (matches tools.js). */
@@ -59,15 +62,109 @@ router.get('/', async (req, res) => {
   }
 })
 
-// GET /api/agents/orphaned — agents with no owner
-router.get('/orphaned', async (req, res) => {
+/**
+ * An owner change makes three caches stale that nothing else was clearing:
+ * the 30s derived.js memo (recommendations/coverage would serve a stale
+ * figure for up to 30s -- survivable), the in-memory Knowledge Graph (owns
+ * edges are graph entities, not re-read per request -- stale until someone
+ * hits the manual reload button), and today's already-cached brain-core /
+ * orchestrator / briefing rows (each caches once per UTC day, so without
+ * this a change made at 09:00 would not show up in those three surfaces
+ * until the next day). Every step here is best-effort: the owner write has
+ * already succeeded by the time this runs, and a cache that fails to clear
+ * must not turn that success into a failed response.
+ */
+async function clearCachesAfterOwnerChange() {
+  try {
+    domain.intelligence.invalidate()
+    await domain.graph.load()
+  } catch (err) {
+    console.warn(`[agents] owner-change intelligence cache reload failed: ${err.message}`)
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+  async function clearTable(label, build) {
+    try {
+      const { error } = await build()
+      if (error) console.warn(`[agents] failed to clear ${label}: ${error.message}`)
+    } catch (err) {
+      console.warn(`[agents] failed to clear ${label}: ${err.message}`)
+    }
+  }
+  await Promise.all([
+    clearTable('brain_core_snapshots', () => supabase.from('brain_core_snapshots').delete().gte('computed_at', `${today}T00:00:00`)),
+    clearTable('orchestrator_snapshots', () => supabase.from('orchestrator_snapshots').delete().gte('computed_at', `${today}T00:00:00`)),
+    clearTable('executive_briefings', () => supabase.from('executive_briefings').delete().eq('briefing_date', today)),
+  ])
+}
+
+// PATCH /api/agents/:id/owner — assign, change, or clear an agent's owner.
+//
+// DATA-1's first slice: the app has always been able to DETECT an unowned or
+// under-covered agent (orphaned list, human-SPOF checks, dependency risk) but
+// had no path to actually fix one — every recommendation it generates was
+// read-only advice with nowhere to go. This is that one write path: it does
+// not attempt the rest of the write loop (backup designation, documentation
+// flags, recommendation resolution, decision approval, automation mode —
+// each is its own decision about validation and UI, deliberately left for
+// its own pass rather than bundled in here).
+//
+// Body: { ownerId: number | null }. `null` clears ownership — a genuine
+// action (e.g. the owner left and there is no replacement yet), not an
+// error, so it is accepted, not rejected.
+//
+// SEC-3: admin-only. The global requireAuth in index.js only proves the
+// caller is signed in; without this any signed-in user could reassign
+// ownership.
+router.patch('/:id/owner', requireAdmin, async (req, res) => {
+  const agentId = Number(req.params.id)
+  if (!Number.isInteger(agentId)) {
+    return res.status(400).json({ error: 'Invalid agent id' })
+  }
+
+  const { ownerId } = req.body ?? {}
+  if (ownerId !== null && !Number.isInteger(ownerId)) {
+    return res.status(400).json({ error: 'ownerId must be an integer employee id, or null to clear ownership' })
+  }
+
+  const { data: before, error: beforeError } = await supabase
+    .from('agents')
+    .select('id, owner_id')
+    .eq('id', agentId)
+    .maybeSingle()
+  if (beforeError) return res.status(500).json({ error: beforeError.message })
+  if (!before) {
+    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_agent', targetType: 'agent', targetId: agentId })
+    return res.status(404).json({ error: `No agent with id ${agentId}` })
+  }
+
   const { data, error } = await supabase
     .from('agents')
-    .select('id, name, type, status, risk')
-    .is('owner_id', null)
+    .update({ owner_id: ownerId })
+    .eq('id', agentId)
+    .select('id, name, owner_id')
+    .maybeSingle()
 
-  if (error) return res.status(500).json({ error: error.message })
-  res.json({ total: data.length, orphanedAgents: data })
+  if (error) {
+    // Postgres foreign-key violation (agents.owner_id -> employees(id),
+    // declared in sql/05_foreign_keys.sql) — a real, expected outcome for a
+    // bad id, not a server fault.
+    if (error.code === '23503') {
+      await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_employee', targetType: 'agent', targetId: agentId, changes: { owner_id: { from: before.owner_id, to: ownerId } } })
+      return res.status(400).json({ error: `No employee with id ${ownerId}` })
+    }
+    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'update_error', targetType: 'agent', targetId: agentId })
+    return res.status(500).json({ error: error.message })
+  }
+  if (!data) {
+    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_agent', targetType: 'agent', targetId: agentId })
+    return res.status(404).json({ error: `No agent with id ${agentId}` })
+  }
+
+  await recordAudit(req, { action: 'agent.owner_update', outcome: 'success', targetType: 'agent', targetId: agentId, changes: { owner_id: { from: before.owner_id, to: ownerId } } })
+  await clearCachesAfterOwnerChange()
+
+  res.json({ ok: true, agent: data })
 })
 
 // GET /api/agents/risk-summary — risk breakdown

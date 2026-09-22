@@ -2,16 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { AlertCircle, FileText, UserPlus, ShieldAlert, Scale } from 'lucide-react';
-import { authHeader } from '../../lib/authFetch';
-import { resolveCriticality } from '../../lib/criticality';
-
-interface AgentRow {
-  id: string;
-  name: string;
-  department?: string;
-  owner?: string | null;
-  criticality?: string;
-}
+import { request, type IntelligenceResponse } from '../../lib/api';
+import { useAgents } from '../../lib/useAgents';
 
 interface RecommendationItem {
   id: string;
@@ -50,25 +42,22 @@ const CATEGORY_ICON: Record<string, React.ReactNode> = {
 };
 
 export function RiskSplit() {
-  const [agents, setAgents] = useState<AgentRow[]>([]);
+  const { agents, loading: agentsLoading, error: agentsFetchError } = useAgents();
   const [recs, setRecs] = useState<RecommendationItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [recsLoaded, setRecsLoaded] = useState(false);
+  const [recsError, setRecsError] = useState(false);
+
+  const agentsError = Boolean(agentsFetchError);
+  const loading = agentsLoading || !recsLoaded;
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
-    Promise.all([
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.json()).catch(() => []),
-      fetch(`${base}/api/intelligence/recommendations`, { headers: authHeader() }).then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([agentData, m04]) => {
-      const agentList: AgentRow[] = Array.isArray(agentData) ? agentData.map(a => ({
-        ...a,
-        department: a.department || (a.owner && a.owner.department) || 'Unassigned',
-        criticality: resolveCriticality(a),
-        owner: typeof a.owner === 'object' && a.owner ? a.owner.name : a.owner
-      })) : [];
-      setAgents(agentList);
-
+    // "No priority actions — good standing" used to be the same message a
+    // fetch failure produced, so a Supabase outage rendered as a clean bill
+    // of health. Track failure explicitly so the panel can say "couldn't
+    // load" instead of implying nothing needs attention.
+    request<IntelligenceResponse<{ recommendations: RawRecommendation[] }>>('/api/intelligence/recommendations')
+      .catch(() => { setRecsError(true); return null; })
+      .then((m04) => {
       const m04Recs: RawRecommendation[] = m04?.payload?.recommendations ?? [];
       const builtRecs: RecommendationItem[] = m04Recs.slice(0, 4).map((r) => ({
         id: r.id,
@@ -81,7 +70,7 @@ export function RiskSplit() {
       }));
 
       setRecs(builtRecs);
-    }).finally(() => setLoading(false));
+    }).finally(() => setRecsLoaded(true));
   }, []);
 
   const criticalAgents = agents.filter(a => a.criticality === 'critical').slice(0, 5);
@@ -104,7 +93,11 @@ export function RiskSplit() {
           </div>
         )}
 
-        {!loading && criticalAgents.length === 0 && (
+        {!loading && agentsError && (
+          <p className="text-xs text-red-400 py-4">Could not load agent risk data — try refreshing.</p>
+        )}
+
+        {!loading && !agentsError && criticalAgents.length === 0 && (
           <p className="text-xs text-[color:var(--text-tertiary)] py-4">No critical agents found — good standing ✓</p>
         )}
 
@@ -147,7 +140,11 @@ export function RiskSplit() {
           </div>
         )}
 
-        {!loading && recs.length === 0 && (
+        {!loading && recsError && (
+          <p className="text-xs text-red-400 py-4">Could not load recommendations — try refreshing.</p>
+        )}
+
+        {!loading && !recsError && recs.length === 0 && (
           <p className="text-xs text-[color:var(--text-tertiary)] py-4">No priority actions — good standing ✓</p>
         )}
 

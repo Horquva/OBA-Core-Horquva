@@ -18,8 +18,11 @@ export function EntitySearchPanel({ report }: Props) {
     report.profiles.forEach(p => {
       assets = assets.concat(p.ownedAgents, p.ownedWorkflows, p.ownedTools);
     });
-    // Remove duplicates safely since assets are just collected from profiles
-    const unique = Array.from(new Map(assets.map(a => [a.id, a])).values());
+    // Dedupe by type+id, not raw id -- agents/workflows/tools each have
+    // their own independent id sequence, so an agent and a workflow that
+    // happen to share the same numeric id were previously collapsing into
+    // one entry and silently dropping the other from search results.
+    const unique = Array.from(new Map(assets.map(a => [`${a.type}:${a.id}`, a])).values());
     return unique;
   }, [report.profiles]);
 

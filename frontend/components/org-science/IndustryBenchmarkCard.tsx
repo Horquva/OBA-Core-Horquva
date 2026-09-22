@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { orgScience, ApiError, type IntelligenceResponse, type BenchmarkPayload } from '../../lib/api';
 import { BarChart2, AlertTriangle } from 'lucide-react';
+import { AuthoredBadge } from '../ui/AuthoredBadge';
+import { DefinitionInfo } from '../ui/DefinitionInfo';
 import clsx from 'clsx';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
@@ -51,15 +53,19 @@ export function IndustryBenchmarkCard() {
         <div className="flex items-center gap-2.5">
           <BarChart2 className="w-4 h-4 text-emerald-400" />
           <h3 className="text-sm font-semibold text-[color:var(--text-primary)]">Industry Benchmark</h3>
+          {state === 'success' && <DefinitionInfo definition={res?.definition} />}
         </div>
         {state === 'success' && data && (
-          <span className={clsx(
-            "px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border",
-            data.passing === data.total ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-            'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-          )}>
-            {data.passing}/{data.total} PASSED
-          </span>
+          <div className="flex items-center gap-2">
+            <AuthoredBadge authored={res?.authored} />
+            <span className={clsx(
+              "px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border",
+              data.passing === data.total ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+              'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+            )}>
+              {data.passing}/{data.total} PASSED
+            </span>
+          </div>
         )}
       </div>
 

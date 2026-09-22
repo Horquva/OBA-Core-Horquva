@@ -3,6 +3,7 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
+const { computePriorityScore, priorityLabel, driverLabel } = require('../../lib/decisionPriority')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -55,37 +56,6 @@ async function fetchByType(contextType) {
 }
 
 // ─────────────────────────────────────────────
-// GET /api/context/summary
-// ─────────────────────────────────────────────
-
-router.get('/summary', async (req, res) => {
-  try {
-    const items = await fetchOpenItems()
-
-    const byType = items.reduce((acc, i) => {
-      acc[i.context_type] = (acc[i.context_type] || 0) + 1
-      return acc
-    }, {})
-
-    const byUrgency = items.reduce((acc, i) => {
-      acc[i.urgency] = (acc[i.urgency] || 0) + 1
-      return acc
-    }, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 })
-
-    const topItem = items[0]
-
-    res.json({
-      totalContextItems: items.length,
-      byType,
-      byUrgency,
-      topPriorityItem: topItem ? formatItem(topItem) : null
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
 // GET /api/context/feed
 // The ranked "What Matters Right Now" feed
 // ─────────────────────────────────────────────
@@ -99,31 +69,13 @@ router.get('/feed', async (req, res) => {
       feed: items.map((item, index) => ({
         rank: index + 1,
         ...formatItem(item)
-      }))
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ─────────────────────────────────────────────
-// GET /api/context/critical
-// ─────────────────────────────────────────────
-
-router.get('/critical', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('context_items')
-      .select('*')
-      .eq('urgency', 'CRITICAL')
-      .eq('status', 'open')
-      .order('blast_radius', { ascending: false })
-
-    if (error) throw new Error(error.message)
-
-    res.json({
-      totalCritical: data.length,
-      items: data.map(formatItem)
+      })),
+      // context_items is seeded once and written by nothing in this
+      // application — the same "genuine, never-rewritten" situation as
+      // organizational_forecasts/learning_snapshots (D-09 KEEP list),
+      // flagged here the same way so the frontend can say so instead of
+      // badging this feed "Verified" for merely being non-empty.
+      provenance: { source: 'historical', table: 'context_items' }
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -169,21 +121,27 @@ router.get('/decisions', async (req, res) => {
   try {
     const items = await fetchByType('decision')
 
-    // Pull live pending decisions from decision_support module
-    const pending = await must('pending_decisions', supabase
-      .from('pending_decisions')
-      .select('title, description, priority, source_module, raised_at')
-      .eq('status', 'pending')
-      .order('priority', { ascending: true }))
+    // Pull live pending decisions from decision_queue (merged onto it
+    // 2026-09-18, owner decision -- see
+    // sql/18_drop_superseded_pending_decisions.sql), deriving the same
+    // priority/sourceModule shape this route always returned.
+    const pending = await must('decision_queue', supabase
+      .from('decision_queue')
+      .select('title, description, impact_score, urgency_score, effort_score, blast_radius, driver, raised_at')
+      .eq('status', 'pending'))
+
+    const ranked = pending
+      .map(d => ({ ...d, priorityScore: computePriorityScore(d.impact_score, d.urgency_score, d.effort_score, d.blast_radius) }))
+      .sort((a, b) => b.priorityScore - a.priorityScore)
 
     res.json({
       totalPendingDecisions: items.length,
       contextItems: items.map(formatItem),
-      pendingDecisionQueue: pending.map(d => ({
+      pendingDecisionQueue: ranked.map(d => ({
         title:        d.title,
         description:  d.description,
-        priority:     d.priority,
-        sourceModule: d.source_module,
+        priority:     priorityLabel(d.priorityScore),
+        sourceModule: driverLabel(d.driver),
         raisedAt:     d.raised_at
       }))
     })

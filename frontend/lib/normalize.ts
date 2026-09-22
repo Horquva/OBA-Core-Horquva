@@ -6,7 +6,7 @@ interface RawOwnerRef {
   department?: string;
 }
 
-interface RawAgent {
+export interface RawAgent {
   id?: string | number;
   name?: string;
   owner?: RawOwnerRef | string | null;
@@ -57,7 +57,7 @@ interface RawWorkflowStep {
   action?: string;
 }
 
-interface RawWorkflow {
+export interface RawWorkflow {
   id?: string | number;
   name?: string;
   owner?: RawOwnerRef | string | null;
@@ -73,7 +73,13 @@ export function normalizeWorkflow(w: RawWorkflow): Workflow {
   return {
     id: w.id?.toString() || '',
     name: w.name || 'Unknown Workflow',
-    owner: typeof w.owner === 'object' && w.owner ? (w.owner.name || 'Unassigned') : (w.owner || 'Unassigned'),
+    // null, not 'Unassigned' -- matches normalizeAgent's owner above. A
+    // string fallback here was truthy, so every ownership/dependency
+    // component that does `if (w.owner) …` (DependencyPipeline,
+    // HumanDependencyRisks, OrgRelationshipMap, knowledgeRisk.ts) was
+    // silently counting "Unassigned" as a real person and building graph
+    // nodes, owned-asset lists and concentration scores around it.
+    owner: typeof w.owner === 'object' && w.owner ? (w.owner.name || null) : (w.owner || null),
     backup_owner: typeof w.backup_owner === 'object' && w.backup_owner ? (w.backup_owner.name || null) : (w.backup_owner || null),
     department: w.department || 'Unassigned',
     criticality: resolveCriticality(w),

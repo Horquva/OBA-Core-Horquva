@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { computeAIToolIntelligence, AIToolReport, ToolScoreInput } from '../../lib/aiToolIntelligence';
-import { AITool, Agent, Workflow, RiskLevel } from '../../types';
+import { computeAIToolIntelligence, AIToolReport, ToolScoreInput, PlatformImpactScenario } from '../../lib/aiToolIntelligence';
+import { AITool, Agent, Workflow } from '../../types';
+import { resolveCriticality } from '../../lib/criticality';
 import { AIToolHeader } from '../../components/ai-tools/AIToolHeader';
 import { CriticalToolPanel } from '../../components/ai-tools/CriticalToolPanel';
 import { ToolRiskTable } from '../../components/ai-tools/ToolRiskTable';
 import { OutageImpactPanel } from '../../components/ai-tools/OutageImpactPanel';
 import { DeptExposureTable } from '../../components/ai-tools/DeptExposureTable';
-import { authHeader } from '../../lib/authFetch';
-import { normalizeAgent, normalizeWorkflow } from '../../lib/normalize';
+import { request } from '../../lib/api';
+import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../lib/normalize';
 import { ExternalEcosystemTab } from '../../components/ai-tools/ExternalEcosystemTab';
 
 interface RawTool {
@@ -44,18 +45,26 @@ export default function AIToolsPage() {
   const [agents, setAgents]     = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [scoreByToolId, setScoreByToolId] = useState<Map<string, ToolScoreInput>>(new Map());
+  const [platformScenariosByToolId, setPlatformScenariosByToolId] = useState<Map<string, PlatformImpactScenario>>(new Map());
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
+    // Each of these is the page's own dataset, not a supplementary overlay —
+    // an outage here must fail the page (the existing `error` branch below),
+    // not render as zero tools / zero agents / zero workflows. The bulk
+    // platform-down scenarios are a real cascade computation layered on top
+    // of that dataset (see aiToolIntelligence.ts's buildOutageImpact()), so
+    // it keeps a soft fallback like knowledge/page.tsx's concentration
+    // overlay: losing it degrades OutageImpactPanel to "no impact detected"
+    // per tool rather than blanking the page.
     Promise.all([
-      fetch(`${base}/api/tools`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/agents`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
-      fetch(`${base}/api/workflows`, { headers: authHeader() }).then(r => r.ok ? r.json() : []),
+      request<RawTool[]>('/api/tools'),
+      request<RawAgent[]>('/api/agents'),
+      request<RawWorkflow[]>('/api/workflows'),
+      request<{ scenarios: PlatformImpactScenario[] }>('/api/simulations/platform-down').catch(() => ({ scenarios: [] })),
     ])
-    .then(([toolsData, agentsData, wData]) => {
+    .then(([toolsData, agentsData, wData, platformScenarios]) => {
       const rawTools = Array.isArray(toolsData) ? toolsData : [];
 
       // Normalize tools
@@ -69,7 +78,7 @@ export default function AIToolsPage() {
         workflows: Array.isArray(t.workflows) ? t.workflows : [],
         agents_using: Array.isArray(t.agents_using) ? t.agents_using.map(String) : [],
         monthly_cost_usd: Number(t.monthly_cost_usd ?? t.monthly_cost ?? 0),
-        criticality: (t.criticality || t.risk || 'low') as RiskLevel,
+        criticality: resolveCriticality({ risk: t.risk, criticality: t.criticality }),
         documented: Boolean(t.documented ?? t.has_policy ?? false),
         backup_tool: t.backup_tool || t.fallback_tool || null,
         access_owner: t.access_owner || t.owner || 'Unassigned',
@@ -92,10 +101,20 @@ export default function AIToolsPage() {
       const normalizedAgents: Agent[] = (Array.isArray(agentsData) ? agentsData : []).map(normalizeAgent);
       const normalizedWorkflows: Workflow[] = (Array.isArray(wData) ? wData : []).map(normalizeWorkflow);
 
+      // Keyed by platformId (an ai_platforms.id, same primary key AITool.id
+      // is normalized from) rather than name -- see buildOutageImpact()'s
+      // own comment on why the single-entity route's name matching isn't
+      // repeated here.
+      const platformScenarioMap = new Map<string, PlatformImpactScenario>(
+        (Array.isArray(platformScenarios.scenarios) ? platformScenarios.scenarios : [])
+          .map((s) => [String(s.platformId), s])
+      );
+
       setTools(normalizedTools);
       setAgents(normalizedAgents);
       setWorkflows(normalizedWorkflows);
       setScoreByToolId(scoreMap);
+      setPlatformScenariosByToolId(platformScenarioMap);
     })
     .catch(err => setError(err.message))
     .finally(() => setLoading(false));
@@ -104,8 +123,20 @@ export default function AIToolsPage() {
   const report: AIToolReport | null = useMemo(() => {
     if (tools.length === 0 && !loading) return computeAIToolIntelligence([], [], [], scoreByToolId);
     if (loading) return null;
-    return computeAIToolIntelligence(tools, workflows, agents, scoreByToolId);
-  }, [tools, agents, workflows, scoreByToolId, loading]);
+    return computeAIToolIntelligence(tools, workflows, agents, scoreByToolId, platformScenariosByToolId);
+  }, [tools, agents, workflows, scoreByToolId, platformScenariosByToolId, loading]);
+
+  // error must be checked before the loading/!report fallback below -- a
+  // failed fetch sets loading:false but leaves report:null, so
+  // `loading || !report` alone stayed true forever and the error branch
+  // was unreachable dead code.
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 mx-6">
+        Failed to load AI Tool Intelligence: {error}
+      </div>
+    );
+  }
 
   if (loading || !report) {
     return (
@@ -113,14 +144,6 @@ export default function AIToolsPage() {
         <div className="h-48 w-full bg-[var(--border-subtle)] rounded-xl" />
         <div className="h-72 w-full bg-[var(--border-subtle)] rounded-xl" />
         <div className="h-64 w-full bg-[var(--border-subtle)] rounded-xl" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 mx-6">
-        Failed to load AI Tool Intelligence: {error}
       </div>
     );
   }

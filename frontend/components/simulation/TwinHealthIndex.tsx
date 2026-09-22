@@ -2,13 +2,15 @@
 
 import { Activity, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Agent } from "../../types";
+import { healthStatusTextClass, healthStatusBgClass, normalizeHealthStatus } from "../../lib/healthStatus";
 
 interface TwinHealthIndexProps {
   agents?: Agent[];
   healthIndex?: number;
+  healthStatus?: string | null;
 }
 
-export function TwinHealthIndex({ agents = [], healthIndex = 0 }: TwinHealthIndexProps) {
+export function TwinHealthIndex({ agents = [], healthIndex = 0, healthStatus = null }: TwinHealthIndexProps) {
   const score = healthIndex;
 
   // Derive trend by comparing full-owner agents vs a "stressed" baseline
@@ -24,16 +26,13 @@ export function TwinHealthIndex({ agents = [], healthIndex = 0 }: TwinHealthInde
       ? "down"
       : "stable";
 
-  const getHealthColor = () => {
-    if (score >= 75) return "text-emerald-400";
-    if (score >= 50) return "text-amber-400";
-    return "text-red-400";
-  };
+  // Derived from the backend's own healthStatus (70/45, domain/derived.js's
+  // orgHealth()) instead of a local 75/50 re-threshold of the same score.
+  const getHealthColor = () => healthStatusTextClass(healthStatus);
 
   const getHealthLabel = () => {
-    if (score >= 75) return "Healthy";
-    if (score >= 50) return "Degraded";
-    return "Critical";
+    const status = normalizeHealthStatus(healthStatus);
+    return status === 'STABLE' ? 'Healthy' : status === 'WARNING' ? 'Degraded' : 'Critical';
   };
 
   const TrendIcon =
@@ -80,13 +79,7 @@ export function TwinHealthIndex({ agents = [], healthIndex = 0 }: TwinHealthInde
         style={{ background: "var(--border-subtle)" }}
       >
         <div
-          className={`h-full rounded-full transition-all duration-700 ${
-            score >= 75
-              ? "bg-emerald-400"
-              : score >= 50
-              ? "bg-amber-400"
-              : "bg-red-400"
-          }`}
+          className={`h-full rounded-full transition-all duration-700 ${healthStatusBgClass(healthStatus)}`}
           style={{ width: `${score}%` }}
         />
       </div>

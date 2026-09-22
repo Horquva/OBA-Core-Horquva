@@ -14,10 +14,12 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@google/genai": "^2.20.0",
     "@supabase/supabase-js": "^2.107.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "helmet": "^8.3.0",
     "pg": "^8.22.0",
     "ws": "^8.21.3"
   }

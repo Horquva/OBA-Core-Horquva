@@ -116,7 +116,7 @@ export function MemoryHeader({ report }: Props) {
       color: 'var(--risk-high-text)',
       bg: 'var(--risk-high-bg)',
       border: 'var(--risk-high-border)',
-      sublabel: 'Documented, no backup',
+      sublabel: 'No backup coverage',
     },
     {
       label: 'AT RISK',

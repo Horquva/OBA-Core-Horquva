@@ -24,8 +24,6 @@ begin
       ('agents',                     'owner_id'),
       ('owners',                     'employee_id'),
       ('knowledge_assets',           'owner_id'),
-      ('collaboration_scores',       'employee_id'),
-      ('predictive_risk_scores',     'agent_id'),
 
       ('dependencies',               'agent_source'),
       ('dependencies',               'agent_target'),
@@ -34,7 +32,6 @@ begin
       ('tool_users',                 'employee_id'),
       ('tool_ownership',             'platform_id'),
       ('tool_ownership',             'employee_id'),
-      ('tool_spend',                 'platform_id'),
       ('tool_policies',              'platform_id'),
       ('tool_backups',               'primary_platform'),
       ('tool_backups',               'backup_platform'),
@@ -54,10 +51,7 @@ begin
       ('verification_actions',       'workflow_id'),
 
       ('accountability_links',       'entity_id'),
-      ('accountability_scores',      'entity_id'),
-      ('truth_claims',               'entity_id'),
-      ('governance_gaps',            'assessment_id'),
-      ('continuity_plans',           'assessment_id')
+      ('truth_claims',               'entity_id')
     ) as t(tbl, col)
   loop
     execute format(

@@ -12,6 +12,45 @@
  * Run from backend/:  node tests/routeEvidence.unit.test.js
  */
 
+// truth.js, decisionIntelligence.js and orchestrator.js (required below, one
+// of them lazily further down this file) each construct the Supabase client
+// at module load time and throw if SUPABASE_URL/KEY are unset. This file
+// asserts pure, extracted logic (trustStatusFor/dqiVerdictFor take plain
+// arrays, no I/O) plus orchestrateFrom()'s evidence short-circuit -- but
+// orchestrateFrom() ALSO reads MODULE_REGISTRY's other signals (brainCore,
+// executiveBriefing, etc.) live from Supabase regardless of the intel bundle
+// passed in, which used to mean this file's placeholder SUPABASE_URL/KEY
+// were dialed for real on every run (observed as "TypeError: fetch failed"
+// warnings) despite this file's own claim to "never call Supabase for real".
+// Stubbed the same way authRoutes.test.js does: pre-seed require.cache with
+// an in-memory fake before any router is required, so this runs offline and
+// deterministically. None of this test's assertions depend on what these
+// reads return -- orgScore's insufficient evidence short-circuits before
+// `results`/`dataIntegrity` are used -- so a fake that resolves every query
+// to "nothing on record" is sufficient.
+process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co'
+process.env.SUPABASE_KEY = process.env.SUPABASE_KEY || 'placeholder-key'
+// Stubbing supabase.js below (rather than requiring the real module) skips
+// its own `dotenv.config()` call, which is what used to put JWT_SECRET in
+// process.env for this file as a side effect -- orchestrator.js requires
+// middleware/auth.js -> lib/authSecret.js, which refuses to load at all
+// without one. Set directly, same pattern authRoutes.test.js already uses.
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-for-route-evidence'
+
+const path = require('path')
+class FakeQuery {
+	select() { return this }
+	eq() { return this }
+	gte() { return this }
+	order() { return this }
+	limit() { return this }
+	maybeSingle() { return Promise.resolve({ data: null, error: null }) }
+	single() { return Promise.resolve({ data: null, error: { message: 'not seeded (offline test stub)' } }) }
+	then(resolve, reject) { return Promise.resolve({ data: [], error: null }).then(resolve, reject) }
+}
+const supabasePath = require.resolve(path.join(__dirname, '..', 'supabase.js'))
+require.cache[supabasePath] = { id: supabasePath, filename: supabasePath, loaded: true, exports: { from: () => new FakeQuery() } }
+
 const truthRouter = require('../routes/truth/truth')
 const decisionIntelligenceRouter = require('../routes/decisionIntelligence')
 

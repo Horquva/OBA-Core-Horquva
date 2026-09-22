@@ -5,7 +5,7 @@ import { mapContinuityResponse, ContinuityReport } from '../../lib/continuityRis
 import { AutomationStatusStrip } from '../../components/continuity/AutomationStatusStrip';
 import { ContinuityTab, ContinuityPayload } from '../../components/continuity/ContinuityTab';
 import { GovernanceTab, GovernancePayload } from '../../components/continuity/GovernanceTab';
-import { authHeader } from '../../lib/authFetch';
+import { request } from '../../lib/api';
 import { ModuleResult } from '../../lib/moduleResult';
 
 export default function ContinuityPage() {
@@ -16,25 +16,35 @@ export default function ContinuityPage() {
   const [error, setError]       = useState<string | null>(null);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
-
     Promise.all([
       // D-61 -- the per-asset heuristic (Department Disruption Map,
       // Must-Protect/Worst-Offenders lists), now computed server-side.
-      fetch(`${base}/api/continuity`, { headers: authHeader() }).then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${r.statusText}`))),
+      request<Partial<ContinuityReport>>('/api/continuity'),
       // M18/M19 -- real brain modules, org/department aggregates over a
       // different formula (see assetContinuity()'s own header comment).
-      fetch(`${base}/api/intelligence/continuity`, { headers: authHeader() }).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${base}/api/intelligence/governance`, { headers: authHeader() }).then(r => r.ok ? r.json() : null).catch(() => null),
+      request<ModuleResult<ContinuityPayload>>('/api/intelligence/continuity').catch(() => null),
+      request<ModuleResult<GovernancePayload>>('/api/intelligence/governance').catch(() => null),
     ])
     .then(([continuityJson, continuityData, governanceData]) => {
       setReport(mapContinuityResponse(continuityJson));
       setContinuityModule(continuityData);
       setGovernanceModule(governanceData);
     })
-    .catch(err => setError(err.message))
+    .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load'))
     .finally(() => setLoading(false));
   }, []);
+
+  // error must be checked before the loading/!report fallback below -- a
+  // failed fetch sets loading:false but leaves report:null, so
+  // `loading || !report` alone stayed true forever and the error branch
+  // was unreachable dead code.
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 max-w-7xl mx-auto">
+        Failed to load Continuity Intelligence pipeline: {error}
+      </div>
+    );
+  }
 
   if (loading || !report) {
     return (
@@ -44,14 +54,6 @@ export default function ContinuityPage() {
            <div className="flex-1 h-96 bg-[var(--border-subtle)] rounded-xl" />
            <div className="flex-1 h-96 bg-[var(--border-subtle)] rounded-xl" />
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 max-w-7xl mx-auto">
-        Failed to load Continuity Intelligence pipeline: {error}
       </div>
     );
   }

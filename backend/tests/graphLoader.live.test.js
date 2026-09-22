@@ -14,7 +14,12 @@
  *   3. `owns` edges carried no provenance, leaving D1 nothing to rank on.
  */
 
-require('../supabase') // loads backend/.env
+// Load backend/.env for the SUPABASE_URL check below. This used to be
+// `require('../supabase')`, which loaded the same .env as a side effect but
+// also constructed the Supabase client at import — throwing before the skip
+// check 20 lines down could ever run. The skip was always intended (see the
+// header); the require order defeated it.
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') })
 
 let passed = 0
 let failed = 0

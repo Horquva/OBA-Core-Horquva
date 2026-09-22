@@ -19,6 +19,8 @@ const RISK_META = {
   HIGH:     { label: 'High',     color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', bar: 'bg-amber-400' },
   MEDIUM:   { label: 'Medium',   color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20', bar: 'bg-yellow-400' },
   LOW:      { label: 'Low',      color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', bar: 'bg-emerald-400' },
+  // F-11: not on the low->critical scale -- nobody scored this vendor's tool.
+  UNKNOWN:  { label: 'Unknown',  color: 'text-[color:var(--text-tertiary)] bg-[var(--border-subtle)] border-[var(--border-default)]', bar: 'bg-[var(--text-tertiary)]' },
 };
 
 function vendorEmoji(vendor: string): string {

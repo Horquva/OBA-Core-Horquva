@@ -91,9 +91,6 @@ export function SelfHealingFeed() {
                 <span className="text-sm font-medium text-[color:var(--text-primary)]">{issue.type}</span>
               </div>
               <p className="text-xs text-[color:var(--text-primary)]">{issue.description}</p>
-              <p className="text-[10px] text-[color:var(--text-tertiary)] mt-1">
-                Detected: {new Date(issue.detectedAt).toLocaleString()}
-              </p>
             </div>
           ))}
         </div>

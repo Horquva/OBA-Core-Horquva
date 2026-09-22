@@ -3,6 +3,8 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const domain = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
+const { requireCsrfHeader } = require('../../middleware/auth')
+const voiceEngine = require('../voice/voice')
 
 // ─────────────────────────────────────────────
 // Every puller below returns `null` for "genuinely nothing on record" and
@@ -52,41 +54,41 @@ function detectQuestionType(question) {
 // INTELLIGENCE PULLERS (one per question type)
 // ─────────────────────────────────────────────
 
+// Delegates to voice.js's own selection logic (see the comment on that
+// module's exports) instead of running a second, independent query — this
+// used to pick the first CRITICAL-threat agent in whatever order
+// predictiveRisk.scores came back in, which is a different (and
+// array-order-dependent) answer from "biggest risk" than voice.js's actual
+// highest-score selection.
 async function answerRisk() {
-  const intel = await domain.intelligence.all()
-  const top = intel.predictiveRisk.scores.find(p => p.threatLevel === 'CRITICAL')
+  const brain = await voiceEngine.buildBrain()
+  const top = voiceEngine.topRiskAgent(brain)
   if (!top) return null
-  const data = {
-    predicted_score: top.predictedScore,
-    reasons: top.reasons,
-    agents: { name: top.agentName, risk: top.recordedRisk },
-  }
 
   return {
-    answer: `Your biggest risk is ${data.agents?.name} — a ${data.agents?.risk} agent with a predicted risk score of ${data.predicted_score}. Key reasons: ${data.reasons?.join(', ')}.`,
-    entityName: data.agents?.name,
+    answer: voiceEngine.orgBiggestRisk(brain),
+    entityName: top.name,
     responsiblePerson: null,
     dataSources: ['agents', 'owners', 'dependencies', 'workflows', 'knowledge_assets']
   }
 }
 
+// Delegates to voice.js's own selection logic instead of running a second,
+// independent query — this used to rank every employee by
+// collaboration.perEmployee's dependencyScore, a genuinely different metric
+// from voice.js's hero-risk-based "most overloaded person" (2+ critical
+// assets, no named backup). Two real but disagreeing answers to "who is most
+// overloaded" collapse onto one here.
 async function answerOwnership() {
-  const intel = await domain.intelligence.all()
-  const people = intel.collaboration.perEmployee
-  if (!people.length) return null
-  const top = people.reduce((a, b) => (b.dependencyScore > a.dependencyScore ? b : a))
-  const data = {
-    dependency_score: top.dependencyScore,
-    critical_agents_owned: top.criticalAgentsOwned,
-    has_backup: top.hasBackup,
-    employees: { name: top.name, department: top.department, role: null },
-  }
+  const brain = await voiceEngine.buildBrain()
+  const top = voiceEngine.mostLoadedPerson(brain)
+  if (!top) return null
 
   return {
-    answer: `${data.employees?.name} is your most overloaded person. They own ${data.critical_agents_owned} critical agents, have a dependency score of ${data.dependency_score}/100, and ${data.has_backup ? 'have' : 'have no'} backup coverage assigned.`,
-    entityName: data.employees?.name,
-    responsiblePerson: data.employees?.name,
-    dataSources: ['employees', 'tool_users', 'employee_agent', 'agents', 'owners']
+    answer: voiceEngine.orgOverloaded(brain),
+    entityName: top.name,
+    responsiblePerson: top.name,
+    dataSources: ['agents', 'workflows', 'employees', 'owners']
   }
 }
 
@@ -102,10 +104,13 @@ async function answerContinuity() {
   const top = data[0]
 
   return {
-    answer: `${data.length} workflows have no documentation or backup: ${names}. The highest risk is ${top.workflows?.name}, owned solely by ${top.employees?.name}.`,
+    // This query only checks is_documented -- it never joins to `owners` to
+    // check backup_owner, so "no backup" was an unverified claim tacked onto
+    // a genuinely-checked "no documentation" finding.
+    answer: `${data.length} workflows have no documentation: ${names}. The highest risk is ${top.workflows?.name}, owned solely by ${top.employees?.name}.`,
     entityName: top.workflows?.name,
     responsiblePerson: top.employees?.name,
-    dataSources: ['workflow_runbooks', 'workflow_failures', 'workflows']
+    dataSources: ['workflow_runbooks', 'workflows', 'employees']
   }
 }
 
@@ -125,7 +130,8 @@ async function answerPredictive() {
     answer: `${data.length} agents are emerging threats predicted to escalate: ${names}. These agents are not yet critical but are trending toward HIGH or CRITICAL risk.`,
     entityName: data[0]?.agents?.name,
     responsiblePerson: null,
-    dataSources: ['agents', 'owners', 'dependencies']
+    // Same predictiveRisk() computation answerRisk() uses -- same table set.
+    dataSources: ['agents', 'owners', 'dependencies', 'workflows', 'knowledge_assets']
   }
 }
 
@@ -171,25 +177,42 @@ async function answerAccountability() {
     answer: `Your Accountability Score is ${summary.accountability_score}/100 (${summary.status}). ${summary.same_r_and_a_count} of ${summary.total_entities} entities have the same person as Responsible and Accountable — a separation-of-duties violation. Only ${summary.unique_people_count} unique people appear across all responsibility chains, indicating high concentration.`,
     entityName: null,
     responsiblePerson: null,
-    dataSources: ['accountability_summary', 'accountability_links']
+    // accountability_summary was a frozen pre-aggregate table (see the
+    // comment above this function) -- the score is computed live from these
+    // two now, same as accountability() itself reads.
+    dataSources: ['accountability_entities', 'accountability_links']
   }
 }
 
 async function answerKnowledge() {
-  const data = await must('knowledge_assets', supabase
+  const rows = await must('knowledge_assets', supabase
     .from('knowledge_assets')
     .select('criticality, is_documented, owner_id, employees(name, department)')
     .eq('is_documented', false)
-    .eq('criticality', 'critical')
-    .limit(1)
-    .maybeSingle())
+    .eq('criticality', 'critical'))
 
-  if (!data) return null
+  if (!rows.length) return null
+
+  // No `ORDER BY` here has a real ranking to fall back on -- criticality and
+  // documentation are already filtered to one value each, so a bare
+  // `.limit(1)` just returned whichever row Postgres happened to return
+  // first, not "the highest risk" the answer text claimed. The person
+  // holding the MOST undocumented-critical assets is a genuine ranking.
+  const byOwner = new Map()
+  for (const row of rows) {
+    if (row.owner_id == null) continue
+    const entry = byOwner.get(row.owner_id) || { count: 0, employee: row.employees }
+    entry.count++
+    byOwner.set(row.owner_id, entry)
+  }
+  if (!byOwner.size) return null
+
+  const top = [...byOwner.values()].reduce((a, b) => (b.count > a.count ? b : a))
 
   return {
-    answer: `${data.employees?.name} carries the highest knowledge risk. They own critical undocumented assets. If they leave, this knowledge is unrecoverable with no backup path documented.`,
-    entityName: data.employees?.name,
-    responsiblePerson: data.employees?.name,
+    answer: `${top.employee?.name} carries the highest knowledge risk: ${top.count} critical, undocumented asset${top.count === 1 ? '' : 's'}. If they leave, this knowledge is unrecoverable with no backup path documented.`,
+    entityName: top.employee?.name,
+    responsiblePerson: top.employee?.name,
     dataSources: ['knowledge_assets', 'employees']
   }
 }
@@ -204,7 +227,12 @@ async function answerGeneral() {
     weaknesses: weakest[0].weaknesses,
   }
 
-  if (!orgScore) {
+  // `orgScore` is always a freshly-built object here, so `if (!orgScore)`
+  // never fired -- the real "nothing to report" case is evidence.sufficient
+  // being false on pillars.orgScore, which leaves .score/.rating `null` and
+  // used to print "Your overall ... Score is null/100 (null)" straight
+  // through to the answer text.
+  if (orgScore.score == null) {
     return {
       answer: 'I could not find a matching intelligence answer for that question. Try asking about risk, ownership, continuity, governance, or accountability.',
       entityName: null,
@@ -217,7 +245,12 @@ async function answerGeneral() {
     answer: `Your overall Organizational Intelligence Score is ${orgScore.score}/100 (${orgScore.rating}). Key weaknesses: ${orgScore.weaknesses?.join(', ')}.`,
     entityName: null,
     responsiblePerson: null,
-    dataSources: ['intelligence_results']
+    // domain.intelligence.all()'s pillars() computation -- see its own
+    // provenance.inputs for the full table set (workflows, workflow_runbooks,
+    // ai_platforms, tool_policies, policy_violations, owners,
+    // knowledge_assets, truth_claims, accountability_links/_entities).
+    // 'intelligence_results' was never a real table.
+    dataSources: ['workflows', 'workflow_runbooks', 'ai_platforms', 'tool_policies', 'policy_violations', 'owners', 'knowledge_assets', 'truth_claims', 'accountability_entities', 'accountability_links']
   }
 }
 
@@ -236,7 +269,10 @@ const ANSWERERS = {
 // GET /api/executive/ask?q=What+is+my+biggest+risk
 // ─────────────────────────────────────────────
 
-router.get('/ask', async (req, res) => {
+// requireCsrfHeader: logs to executive_sessions on every answered call, a
+// GET that writes, which the global CSRF guard's "GET is safe" exemption
+// doesn't cover. See middleware/auth.js.
+router.get('/ask', requireCsrfHeader, async (req, res) => {
   try {
     const question = req.query.q
     if (!question) return res.status(400).json({ error: 'Provide a question using ?q=' })

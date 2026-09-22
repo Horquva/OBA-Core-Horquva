@@ -227,22 +227,6 @@ INSERT INTO dependencies (source_id, target_id, source_type, target_type, depend
 (10, 8, 'workflow', 'agent', 'critical', 88, NULL, NULL);  -- Compliance Review → ComplianceChecker
 
 -- ────────────────────────────────────────────────
--- 9. RECOMMENDATIONS
--- ────────────────────────────────────────────────
-
-INSERT INTO recommendations (asset_name, asset_type, priority, recommendation, status) VALUES
-('SecurityScanner',      'agent',    'critical', 'Assign backup owner — Sarah Mitchell is the sole owner with no backup',            'open'),
-('KnowledgeIndexer',     'agent',    'critical', 'Agent is in FAILED state — investigate root cause and restore',                    'open'),
-('Employee Offboarding', 'workflow', 'high',     'Workflow is degraded — update runbook and assign proper ownership',                 'open'),
-('DataRobot',            'platform', 'high',     'Deprecated tool still incurring $5500/mo — migrate remaining users and shut down', 'in_progress'),
-('DeployBot',            'agent',    'high',     'Single DevOps owner (Yuki) is a SPOF — cross-train Omar Hassan',                  'open'),
-('Perplexity Pro',       'platform', 'medium',   'Inactive with only 12% adoption — evaluate ROI or cancel subscription',            'open'),
-('Incident Response',    'workflow', 'critical', 'No documented runbook — create and validate with engineering team',                'open'),
-('Rebecca Stone',        'employee', 'high',     'Owns 2 critical agents with no backup owner — assign backup for Sales agents',     'open'),
-('Data Ingestion',       'workflow', 'high',     'Single tool dependency on Tableau AI — add backup data pipeline tool',             'open'),
-('Victoria Adams',       'employee', 'critical', 'CFO has no backup owner designated — critical governance gap',                      'open');
-
--- ────────────────────────────────────────────────
 -- 10. TOOL OWNERSHIP
 -- ────────────────────────────────────────────────
 
@@ -323,48 +307,6 @@ INSERT INTO tool_policies (platform_id, policy_name, status) VALUES
 (9,  'Content Governance',       'active'),
 (10, 'Communication Standards',  'active');
 -- Note: Gemini, Midjourney, Jasper, Perplexity, DataRobot have NO policies
-
--- ────────────────────────────────────────────────
--- 14. TOOL SPEND (6 months)
--- ────────────────────────────────────────────────
-
-INSERT INTO tool_spend (platform_id, amount_usd, month) VALUES
--- ChatGPT
-(1, 4200.00, '2026-01'), (1, 4350.00, '2026-02'), (1, 4400.00, '2026-03'),
-(1, 4450.00, '2026-04'), (1, 4500.00, '2026-05'), (1, 4500.00, '2026-06'),
--- Claude
-(2, 2200.00, '2026-01'), (2, 2400.00, '2026-02'), (2, 2500.00, '2026-03'),
-(2, 2600.00, '2026-04'), (2, 2700.00, '2026-05'), (2, 2800.00, '2026-06'),
--- Copilot
-(3, 1600.00, '2026-01'), (3, 1700.00, '2026-02'), (3, 1750.00, '2026-03'),
-(3, 1800.00, '2026-04'), (3, 1850.00, '2026-05'), (3, 1900.00, '2026-06'),
--- Gemini
-(4, 800.00, '2026-01'), (4, 900.00, '2026-02'), (4, 1000.00, '2026-03'),
-(4, 1100.00, '2026-04'), (4, 1150.00, '2026-05'), (4, 1200.00, '2026-06'),
--- Midjourney
-(5, 600.00, '2026-01'), (5, 600.00, '2026-02'), (5, 600.00, '2026-03'),
-(5, 600.00, '2026-04'), (5, 600.00, '2026-05'), (5, 600.00, '2026-06'),
--- Jasper
-(6, 850.00, '2026-01'), (6, 850.00, '2026-02'), (6, 850.00, '2026-03'),
-(6, 850.00, '2026-04'), (6, 850.00, '2026-05'), (6, 850.00, '2026-06'),
--- Cursor
-(7, 640.00, '2026-01'), (7, 720.00, '2026-02'), (7, 800.00, '2026-03'),
-(7, 880.00, '2026-04'), (7, 920.00, '2026-05'), (7, 960.00, '2026-06'),
--- Tableau AI
-(8, 2200.00, '2026-01'), (8, 2200.00, '2026-02'), (8, 2200.00, '2026-03'),
-(8, 2200.00, '2026-04'), (8, 2200.00, '2026-05'), (8, 2200.00, '2026-06'),
--- Notion AI
-(9, 650.00, '2026-01'), (9, 700.00, '2026-02'), (9, 720.00, '2026-03'),
-(9, 750.00, '2026-04'), (9, 770.00, '2026-05'), (9, 780.00, '2026-06'),
--- Grammarly
-(10, 400.00, '2026-01'), (10, 420.00, '2026-02'), (10, 430.00, '2026-03'),
-(10, 440.00, '2026-04'), (10, 445.00, '2026-05'), (10, 450.00, '2026-06'),
--- Perplexity
-(11, 300.00, '2026-01'), (11, 300.00, '2026-02'), (11, 300.00, '2026-03'),
-(11, 300.00, '2026-04'), (11, 0.00, '2026-05'), (11, 0.00, '2026-06'),
--- DataRobot
-(12, 5500.00, '2026-01'), (12, 5500.00, '2026-02'), (12, 5500.00, '2026-03'),
-(12, 5500.00, '2026-04'), (12, 5500.00, '2026-05'), (12, 5500.00, '2026-06');
 
 -- ────────────────────────────────────────────────
 -- 15. WORKFLOW DEPENDENCIES (agent + tool)
@@ -646,9 +588,6 @@ INSERT INTO collaboration_scores (employee_id, adoption_score, dependency_score,
 (37, 50, 55, 48, 2, 1, 0, false),
 (38, 55, 30, 60, 2, 1, 0, false);
 
-INSERT INTO collaboration_summary (ai_adoption_score, adoption_level, human_dependency_score, highest_dependency_employee, collaboration_score, collaboration_level) VALUES
-(64, 'MODERATE', 62, 'Yuki Tanaka', 58, 'FAIR');
-
 -- ────────────────────────────────────────────────
 -- 24. ORGANIZATIONAL DECISIONS
 -- ────────────────────────────────────────────────
@@ -756,25 +695,6 @@ INSERT INTO workflow_orchestration (workflow_id, current_step, total_steps, stat
 
 INSERT INTO learning_snapshots (learning_maturity_score, learning_maturity_level, total_known_risks, mitigated_risks, unmitigated_risks, mitigation_percentage) VALUES
 (42, 'DEVELOPING', 28, 12, 16, 42.86);
-
-INSERT INTO failure_patterns (asset_name, asset_type, appearance_count, failure_severity, is_repeat_offender, reasons) VALUES
-('KnowledgeIndexer',     'agent',    5, 'critical', true,  ARRAY['Out of memory errors','API rate limits','Unhandled edge cases']),
-('DataPipeline',         'agent',    3, 'high',     true,  ARRAY['Tableau AI rate limiting','Schema changes in source']),
-('Incident Response',    'workflow', 4, 'critical', true,  ARRAY['No documented playbook','Single responder bottleneck']),
-('Employee Offboarding', 'workflow', 3, 'high',     true,  ARRAY['Knowledge transfer step skipped','Access revocation delayed']),
-('DeployBot',            'agent',    2, 'medium',   false, ARRAY['Copilot outage dependency']),
-('SecurityScanner',      'agent',    2, 'high',     false, ARRAY['Third-party scan gaps']),
-('Data Ingestion',       'workflow', 2, 'high',     false, ARRAY['Tableau rate limits','Manual QA bottleneck']),
-('LogAnalyzer',          'agent',    1, 'medium',   false, ARRAY['Became inactive due to config drift']),
-('Content Publishing',   'workflow', 1, 'low',      false, ARRAY['Minor formatting errors in AI output']);
-
-INSERT INTO department_exposure (department, documentation_coverage, backup_coverage, incident_exposure_score, incident_risk_level) VALUES
-('Engineering',  72.5,  65.0, 78, 'HIGH'),
-('Data',         60.0,  55.0, 72, 'HIGH'),
-('Operations',   80.0,  70.0, 45, 'MEDIUM'),
-('Sales',        55.0,  35.0, 38, 'MEDIUM'),
-('Product',      85.0,  75.0, 25, 'LOW'),
-('Finance',      68.0,  40.0, 55, 'MEDIUM');
 
 -- ────────────────────────────────────────────────
 -- 28. CONTINUITY ASSESSMENTS
@@ -937,23 +857,6 @@ INSERT INTO accountability_links (entity_id, person_name, raci_role) VALUES
 (12, 'Lisa Wang',       'Accountable'),
 (12, 'Robert Chen',     'Consulted'),
 (12, 'Rebecca Stone',   'Informed');
-
-INSERT INTO accountability_scores (entity_id, score, status, same_r_and_a, missing_responsible, missing_accountable) VALUES
-(1,  90, 'COMPLETE', false, false, false),
-(2,  45, 'PARTIAL',  true,  false, false),    -- Same R and A
-(3,  85, 'COMPLETE', false, false, false),
-(4,  88, 'COMPLETE', false, false, false),
-(5,  35, 'CRITICAL', true,  false, false),    -- Same R and A + critical workflow
-(6,  92, 'COMPLETE', false, false, false),
-(7,  40, 'PARTIAL',  true,  false, false),    -- Same R and A
-(8,  82, 'COMPLETE', false, false, false),
-(9,  80, 'COMPLETE', false, false, false),
-(10, 85, 'COMPLETE', false, false, false),
-(11, 78, 'COMPLETE', false, false, false),
-(12, 82, 'COMPLETE', false, false, false);
-
-INSERT INTO accountability_summary (accountability_score, status, total_entities, entities_with_links, same_r_and_a_count, unique_people_count) VALUES
-(74, 'PARTIAL', 12, 12, 3, 18);
 
 -- ────────────────────────────────────────────────
 -- DONE — Dataset loaded!

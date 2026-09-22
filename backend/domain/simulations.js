@@ -13,7 +13,7 @@
  */
 
 const derived = require('./derived')
-const { entityCriticality, atOrAbove } = require('./definitions')
+const { entityCriticality, atOrAbove, spofVerdict } = require('./definitions')
 
 // ─── Cascade ─────────────────────────────────────────────────────────────────
 
@@ -107,6 +107,21 @@ function healthDelta(baselineRoots, mutatedRoots) {
   return before - after
 }
 
+/**
+ * Bands a health index into the same STABLE/WARNING/CRITICAL thresholds
+ * orgHealth() itself uses (>=70 / >=45 / below), lowercased to match this
+ * module's existing scenario vocabulary. Every simulation route used to
+ * hardcode `healthBefore: 'stable'` regardless of the org's real state, and
+ * derived `healthAfter` from cascade blast-radius severity -- a different
+ * axis entirely, not a health status. Both now go through this one function
+ * so before/after describe the same real health score the rest of the app
+ * shows, not two unrelated fabrications.
+ */
+function healthStatusFor(healthIndex) {
+  if (healthIndex == null) return null
+  return healthIndex >= 70 ? 'stable' : healthIndex >= 45 ? 'warning' : 'critical'
+}
+
 // ─── Scenarios ───────────────────────────────────────────────────────────────
 
 function impactedEntitiesFor(agentIds, workflows) {
@@ -148,6 +163,21 @@ function employeeLeaves(employeeId, roots) {
   const mutated = cloneRoots(roots)
   mutated.employees = mutated.employees.filter((e) => e.id !== employeeId)
   mutated.agents = mutated.agents.map((a) => (a.owner_id === employeeId ? { ...a, owner_id: null } : a))
+  // Anyone who named the departing employee as a backup loses that coverage
+  // -- owners.backup_owner is a name string (see backupIndex()'s own
+  // comment), not an employee_id, so this is a name match. The employee's
+  // OWN owners row is kept, not deleted: same reasoning as agentFails()
+  // (owner decision, 2026-09-18) -- deleting it used to shrink both the
+  // numerator and denominator of continuityScore's pct(ownersWithBackup,
+  // owners.length) at once (the row disappearing removed it from
+  // owners.length, and if it had no backup_owner it also wasn't in the
+  // ownersWithBackup count), which could make an unbacked owner leaving
+  // score as an IMPROVEMENT. The role stays in the population -- whatever
+  // backup coverage it already had (or didn't) still counts -- until
+  // something reassigns it; only the person disappears (mutated.employees
+  // above), not the ownership slot itself.
+  mutated.owners = mutated.owners
+    .map((o) => (o.backup_owner === employee.name ? { ...o, backup_owner: null } : o))
   recount(mutated)
 
   return {
@@ -160,6 +190,120 @@ function employeeLeaves(employeeId, roots) {
     impactedPeople: [employee],
     severity: severityFor(entities),
     healthDelta: healthDelta(roots, mutated),
+  }
+}
+
+/**
+ * Succession: employeeId leaves, successorId inherits their agents and
+ * workflow ownership. Unlike employeeLeaves(), nothing is orphaned — but
+ * per D-70, coverage does NOT ride along with the transfer:
+ *
+ *   - agents.owner_id and workflow_runbooks.owner_id move to successorId.
+ *   - documentation (knowledge_assets.is_documented / workflow_runbooks.
+ *     is_documented) is untouched either way — it was never owner-linked.
+ *   - the departing employee's own `owners` row (and therefore their
+ *     backup_owner) is removed, same as employeeLeaves().
+ *   - any OTHER owners row whose backup_owner named the departing employee
+ *     is cleared — a backup pointing at someone who just left is not real
+ *     coverage and must not be carried forward silently.
+ *   - the successor's own backup_owner is left exactly as it was. It is
+ *     NOT inherited from the departing employee — the successor's coverage
+ *     is whatever they already had, nothing more.
+ *
+ * TODO(D-70): the rules above are written per the plan's stated intent but
+ * are pending explicit sign-off. Confirm before this ships.
+ */
+function employeeLeavesWithSuccessor(employeeId, successorId, roots) {
+  const employee = roots.employees.find((e) => e.id === employeeId)
+  const successor = roots.employees.find((e) => e.id === successorId)
+  if (!employee || !successor) return null
+
+  const ownedAgents = roots.agents.filter((a) => a.owner_id === employeeId)
+  const ownedRunbooks = roots.workflow_runbooks.filter((r) => r.owner_id === employeeId)
+  const index = buildDependencyIndex(roots)
+
+  const impactedAgentIds = new Set(ownedAgents.map((a) => a.id))
+  for (const agent of ownedAgents) {
+    for (const hit of cascadeFrom('agent', agent.id, index)) {
+      if (hit.type === 'agent') impactedAgentIds.add(hit.id)
+    }
+  }
+
+  const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
+  const impactedWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
+  const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  // ── Mutation: reassign, don't orphan ────────────────────────────────────
+  const mutated = cloneRoots(roots)
+
+  mutated.agents = mutated.agents.map((a) =>
+    a.owner_id === employeeId ? { ...a, owner_id: successorId } : a)
+
+  mutated.workflow_runbooks = mutated.workflow_runbooks.map((r) =>
+    r.owner_id === employeeId ? { ...r, owner_id: successorId } : r)
+
+  mutated.employees = mutated.employees.filter((e) => e.id !== employeeId)
+
+  mutated.owners = mutated.owners
+    .filter((o) => o.employee_id !== employeeId) // their own backup slot leaves with them
+    .map((o) => (o.backup_owner === employee.name ? { ...o, backup_owner: null } : o)) // stale backups pointing at them are cleared
+
+  recount(mutated)
+
+  // ── Residual risk on the successor, post-transfer ───────────────────────
+  const successorAgentsAfter = mutated.agents.filter((a) => a.owner_id === successorId)
+  const successorRunbooksAfter = mutated.workflow_runbooks.filter((r) => r.owner_id === successorId)
+  const successorConcentrationAfter = successorAgentsAfter.length + successorRunbooksAfter.length
+
+  // Local, not derived.backupIndex() — that helper isn't part of derived.js's
+  // exported surface, so this mirrors its one-line lookup rather than
+  // reaching into another module's internals.
+  const successorOwnerRow = mutated.owners.find((o) => o.employee_id === successorId)
+  const successorHasBackup = Boolean(successorOwnerRow?.backup_owner)
+
+  const assetsWithoutBackup = successorHasBackup ? 0 : successorConcentrationAfter
+
+  const transferredAgentIds = new Set(ownedAgents.map((a) => a.id))
+  const transferredWorkflowIds = new Set(ownedRunbooks.map((r) => r.workflow_id))
+  const undocumentedTransferredAgents = roots.knowledge_assets.filter(
+    (ka) => ka.asset_type === 'agent' && transferredAgentIds.has(ka.asset_id) && !ka.is_documented,
+  ).length
+  const undocumentedTransferredWorkflows = ownedRunbooks.filter((r) => !r.is_documented).length
+  const assetsUndocumented = undocumentedTransferredAgents + undocumentedTransferredWorkflows
+
+  const successorBecomesSpof = [...successorAgentsAfter].some((a) => {
+    const criticality = entityCriticality('agent', a)
+    return spofVerdict({ criticality, ownerCount: 1, hasBackup: successorHasBackup }).status === 'spof'
+  }) || [...successorRunbooksAfter].some((r) => {
+    const workflow = roots.workflows.find((w) => w.id === r.workflow_id)
+    const criticality = workflow ? entityCriticality('workflow', workflow) : 'unknown'
+    return spofVerdict({ criticality, ownerCount: 1, hasBackup: successorHasBackup }).status === 'spof'
+  })
+
+  const noSuccessor = employeeLeaves(employeeId, roots)
+
+  return {
+    scenario: `If ${employee.name} leaves and ${successor.name} takes over`,
+    targetType: 'employee',
+    targetId: employeeId,
+    targetName: employee.name,
+    successorId,
+    successorName: successor.name,
+    impactedAgents,
+    impactedWorkflows,
+    impactedPeople: [employee],
+    severity: severityFor(entities),
+    healthDelta: healthDelta(roots, mutated),
+    residualRisk: {
+      assetsWithoutBackup,
+      assetsUndocumented,
+      successorConcentrationAfter,
+      successorBecomesSpof,
+    },
+    comparedToNoSuccessor: {
+      healthDelta: noSuccessor ? noSuccessor.healthDelta : null,
+      severity: noSuccessor ? noSuccessor.severity : null,
+    },
   }
 }
 
@@ -177,8 +321,20 @@ function agentFails(agentId, roots) {
   const impactedWorkflows = workflowsUsingAgents(new Set([agentId, ...impactedAgentIds]), roots)
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
+  // A failed agent is still counted in the org -- it doesn't cease to exist --
+  // so ownershipSpreadScore's per-owner counts and criticalSafetyScore's
+  // agents.length denominator don't shrink. Removing it from the array used
+  // to make both drop out of the population at once (numerator AND
+  // denominator), which could make a CRITICAL agent failing look like an
+  // IMPROVEMENT (0 critical / fewer agents can score better than 1 critical /
+  // more agents). Marking it `status: 'failed'` instead feeds
+  // predictiveRisk()'s existing STATUS_FAILED factor (see its header
+  // comment: "an already-failing agent is not a risk, it is an incident, and
+  // should outrank anything merely fragile") -- the population stays the
+  // same size, and the failure itself is what raises the threat level, not a
+  // shrinking denominator. Owner decision, 2026-09-18.
   const mutated = cloneRoots(roots)
-  mutated.agents = mutated.agents.filter((a) => a.id !== agentId)
+  mutated.agents = mutated.agents.map((a) => (a.id === agentId ? { ...a, status: 'failed' } : a))
   recount(mutated)
 
   return {
@@ -214,8 +370,19 @@ function platformDown(platformId, roots) {
   const impactedWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
+  // A platform going down is still a platform the org has to account for --
+  // it doesn't cease to exist -- so ai_platforms.length (continuityScore's
+  // pct(platformsWithBackup, ai_platforms.length) denominator) doesn't
+  // shrink. platformsWithBackup comes from tool_backups, an entirely
+  // separate table this mutation never touches, so removing the platform
+  // from the array only ever shrank the denominator, never the numerator --
+  // taking an UNBACKED platform down always inflated continuityScore, the
+  // same shrinking-population failure mode agentFails() was fixed for.
+  // Marking it down instead keeps the population the same size; only an
+  // actual backup relationship should move this ratio. Owner decision,
+  // 2026-09-18.
   const mutated = cloneRoots(roots)
-  mutated.ai_platforms = mutated.ai_platforms.filter((p) => p.id !== platformId)
+  mutated.ai_platforms = mutated.ai_platforms.map((p) => (p.id === platformId ? { ...p, status: 'down' } : p))
   recount(mutated)
 
   return {
@@ -255,8 +422,21 @@ function workflowDisruption(workflowId, roots) {
   ]
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
+  // A disrupted workflow is still a workflow the org has to account for --
+  // it doesn't cease to exist -- so workflows.length (continuityScore's
+  // pct(documentedRunbooks, workflows.length) denominator, and
+  // incidentLoadScore's failuresPerWorkflow denominator) doesn't shrink.
+  // documentedRunbooks comes from workflow_runbooks and failuresPerWorkflow's
+  // numerator from workflow_failures -- both entirely separate tables this
+  // mutation never touches, so removing the workflow from the array only
+  // ever shrank the denominator, never the numerator -- disrupting an
+  // UNDOCUMENTED workflow always inflated continuityScore, the same
+  // shrinking-population failure mode agentFails() was fixed for. Marking it
+  // disrupted instead keeps the population the same size; only an actual
+  // runbook/failure record should move these ratios. Owner decision,
+  // 2026-09-18.
   const mutated = cloneRoots(roots)
-  mutated.workflows = mutated.workflows.filter((w) => w.id !== workflowId)
+  mutated.workflows = mutated.workflows.map((w) => (w.id === workflowId ? { ...w, status: 'disrupted' } : w))
   recount(mutated)
 
   return {
@@ -312,7 +492,9 @@ module.exports = {
   recount,
   healthDelta,
   baselineHealthScore,
+  healthStatusFor,
   employeeLeaves,
+  employeeLeavesWithSuccessor,
   agentFails,
   platformDown,
   workflowDisruption,
