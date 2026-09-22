@@ -70,11 +70,11 @@ user agent live in `audit_log` only. For an owner change, the two can be joined 
 
 ## 4. Table schema
 
-Migration number: the next free one when this lands. SEC-4 has claimed `17_`, so
-this assumes `18_change_impact.sql`.
+Migration number: the next free one when this lands. `17_` and `18_` are both
+taken upstream, so this is `19_change_impact.sql`.
 
 ```sql
--- backend/sql/18_change_impact.sql — AI-6
+-- backend/sql/19_change_impact.sql — AI-6
 
 -- One append-only row per detected change and its computed impact.
 create table if not exists change_events (
@@ -269,13 +269,13 @@ the event back.
 
 ## 11. Decisions
 
-Open until reviewed.
+Decided by Aleesha Minahil, 2026-09-21.
 
 | # | Question | Recommendation | Decision |
 |---|---|---|---|
-| D1 | What triggers a scan? | Manual script + admin endpoint this pass (§6 option A) | |
-| D2 | Scan cadence — who runs it, how often? | Weekly to start, since AI-7's resolution depends on it (§7) | |
-| D3 | Who can read the change history? | Any authenticated user, per D-05; the scan endpoint admin-only | |
-| D4 | Retention? | Keep indefinitely — AI-7 calibrates "normal" against long history, and at tens of rows a month the size is negligible | |
-| D5 | Migration number? | Next free after SEC-4's `17_`, assumed `18_` | |
-| D6 | Store an `audit_log` id on owner-change rows? | No for now — `audit_log` isn't built yet; join on target when it exists | |
+| D1 | What triggers a scan? | Manual script + admin endpoint this pass (§6 option A) | **A.** Accepting the §7 resolution limit this pass rather than adding scope. |
+| D2 | Scan cadence — who runs it, how often? | Weekly to start, since AI-7's resolution depends on it (§7) | **Weekly.** |
+| D3 | Who can read the change history? | Any authenticated user, per D-05; the scan endpoint admin-only | **Any authenticated user**, per D-05. Scan endpoint admin-only. |
+| D4 | Retention? | Keep indefinitely — AI-7 calibrates "normal" against long history, and at tens of rows a month the size is negligible | **Keep indefinitely.** |
+| D5 | Migration number? | Next free after SEC-4's `17_`, assumed `18_` | **`19_`.** Checked upstream before committing: `17_` and `18_` are both taken. |
+| D6 | Store an `audit_log` id on owner-change rows? | No for now — `audit_log` isn't built yet; join on target when it exists | **No for now.** `17_audit_log.sql` has since landed upstream; revisit once WD-3 writes to it. |
