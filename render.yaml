@@ -40,7 +40,10 @@ services:
       - key: AGENT_PROVIDER
         value: gemini
       - key: AGENT_MODEL
-        value: gemini-3.7-flash
+        # gemini-3.7-flash 503'd consistently as of 2026-09-22; gemini-2.5-flash
+        # (stable, GA) worked immediately on the same key. Re-verify before
+        # changing -- see backend/.env.example's note on this same variable.
+        value: gemini-2.5-flash
       - key: GEMINI_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
