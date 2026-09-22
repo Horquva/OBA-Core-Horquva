@@ -22,7 +22,15 @@ const provider = envString('AGENT_PROVIDER', 'gemini').toLowerCase()
 const config = Object.freeze({
   enabled: envBoolean('AGENT_ENABLED', false),
   provider,
-  model: envString('AGENT_MODEL', 'gemini-3.7-flash'),
+  // Kept in sync with backend/.env.example and render.yaml's own default --
+  // gemini-3.7-flash returned a consistent 503 "high demand" from Google as
+  // of 2026-09-22 (see commit 9916a3b), which that commit fixed in both
+  // documented places but missed this third, code-level fallback. This
+  // field itself isn't read by agent/providers/gemini.js (which reads
+  // process.env.AGENT_MODEL directly), so it had no live effect -- but a
+  // stale default here is exactly the kind of thing a future change re-reads
+  // and silently reintroduces the outage from.
+  model: envString('AGENT_MODEL', 'gemini-2.5-flash'),
 
   geminiApiKey: envString('GEMINI_API_KEY', ''),
   anthropicApiKey: envString('ANTHROPIC_API_KEY', ''),

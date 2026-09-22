@@ -7,12 +7,15 @@
  * Stubs the real '../domain' module (intelligence.compute.* + graph.source),
  * matching the actual merged T10.2/graph contract — not a guessed path.
  *
- * NOTE on Suite 2: the FAKE_INTELLIGENCE/FAKE_ROOTS shapes below are hand-shaped
- * to match pageContext.js's own extract() functions, not to the real output of
- * domain.intelligence.compute.allFromRoots() — pageContext.js is known to read
- * an intel shape that doesn't match production (flagged in commit 04964f3, not
- * yet fixed). Suite 2 verifies pageContext.js's internal wiring/logic in
- * isolation; it does not verify the real domain-to-page integration.
+ * NOTE on Suite 2: FAKE_INTELLIGENCE/FAKE_ROOTS below are shaped to match the
+ * REAL output of domain/derived.js's computeAllFromRoots()/loadRoots() (read
+ * back from derived.js itself). They used to be hand-shaped to match
+ * pageContext.js's own (buggy) extract() functions instead — which meant this
+ * suite verified the tool's internal wiring against itself, not against
+ * production, and never could have caught pageContext.js reading an intel
+ * shape that doesn't exist outside this test (flagged in commit 04964f3, fixed
+ * for real this pass). Live-checked against Supabase: every SUPPORTED_SLUGS
+ * page now returns real, non-null metrics.
  *
  * Run from the backend/ folder:
  *   node tests/agentData.unit.test.js
@@ -33,29 +36,36 @@ function check(name, cond) {
 const domainPath = require.resolve('../domain')
 
 const FAKE_ROOTS = {
-  people:               [{ name: 'Alice', risk_score: 92 }, { name: 'Bob', risk_score: 55 }],
-  agents:               [{ name: 'Agent-X', owned_count: 12 }, { name: 'Agent-Y', owned_count: 4 }],
-  workflows:            [{ id: 'wf-1', criticality: 'HIGH', documented: false }, { id: 'wf-2', criticality: 'LOW', documented: true }],
-  criticalAgents:       [{ name: 'Agent-X' }],
-  agentsWithNoBackup:   3,
-  singleOwnerWorkflows: 1,
+  agents:            [{ id: 1, name: 'Agent-X', risk: 'critical' }, { id: 2, name: 'Agent-Y', risk: 'low' }],
+  workflows:         [{ id: 'wf-1', name: 'Deploy', risk: 'high' }, { id: 'wf-2', name: 'Onboarding', risk: 'low' }],
+  knowledge_assets:  [
+    { asset_type: 'workflow', asset_id: 'wf-1', is_documented: false },
+    { asset_type: 'workflow', asset_id: 'wf-2', is_documented: true },
+  ],
+  policy_violations: [{ severity: 'high' }, { severity: 'low' }],
 }
 
 const FAKE_INTELLIGENCE = {
-  orchestrator:      { score: 74, rating: 'MODERATELY INTELLIGENT', trustScore: 68, recommendations: ['Reduce key-person risk'] },
-  brainCore:         { brainIndex: 70, posture: 'STRAINED' },
-  governance:        { score: 61, violations: 2 },
-  continuity:        { score: 55 },
-  orgHealth:         { score: 63 },
-  predictiveRisk:    { score: 48 },
-  memory:            { score: 72 },
-  collaboration:     { score: 58 },
-  accountability:    { score: 66 },
-  domainInt:         { score: 70 },
-  decisionQuality:   { score: 77 },
-  aiAdoption:        { score: 50 },
-  executiveBriefing: { score: 60 },
-  healthTrend:       { score: 65 },
+  pillars: {
+    pillars: [
+      { resultKey: 'GI', score: 61, components: {} },
+      { resultKey: 'MI', score: 72, components: { backupCoverage: 70, ownershipCoverage: 90 } },
+      { resultKey: 'DI', score: 70, components: {} },
+    ],
+    orgScore: { score: 74, rating: 'PARTIAL' },
+  },
+  predictiveRisk: {
+    scores: [{ agentId: 1, agentName: 'Agent-X', predictedScore: 92, threatLevel: 'CRITICAL' }],
+    emergingThreats: [{ agentId: 1 }],
+  },
+  humanDependencyRisk: [
+    { employeeId: 1, name: 'Alice', ownedAgentCount: 3, ownedWorkflowCount: 2, totalRiskScore: 88, tier: 'CRITICAL' },
+  ],
+  orgHealth:       { healthIndex: 63, healthStatus: 'WARNING', continuityScore: 55, documentationScore: 60 },
+  accountability:  { accountabilityScore: 66 },
+  decisionQuality: { score: 77 },
+  collaboration:   { summary: { collaborationScore: 58, aiAdoptionScore: 50 } },
+  executiveMemory: { items: [{ title: 'Deploy has failed 3 times' }] },
 }
 
 let loadRootsCalls = 0
@@ -107,14 +117,14 @@ async function runTests() {
     check('graphStale is boolean',                typeof ctx.graphStale === 'boolean')
     check('fresh graph is not stale',             ctx.graphStale === false)
 
-    check('roots.people is populated',            Array.isArray(ctx.roots.people) && ctx.roots.people.length === 2)
-    check('intel.brainCore is present',           !!ctx.intel.brainCore)
+    check('roots.agents is populated',            Array.isArray(ctx.roots.agents) && ctx.roots.agents.length === 2)
+    check('intel.pillars is present',             !!ctx.intel.pillars)
 
     // Top-level context is frozen (real implementation uses shallow freeze)
     check('context object is frozen',             Object.isFrozen(ctx))
     check('reassigning ctx.roots is blocked', (() => {
       try { ctx.roots = {}; } catch (_) { /* strict mode throws */ }
-      return ctx.roots.people.length === 2   // unchanged
+      return ctx.roots.agents.length === 2   // unchanged
     })())
 
     // One organizational read per turn — the T10.2 invariant
@@ -177,20 +187,20 @@ async function runTests() {
     check('result has title field',                   typeof risksResult.title === 'string' && risksResult.title.length > 0)
     check('result has metrics object',                typeof risksResult.metrics === 'object')
     check('result has summary string',                typeof risksResult.summary === 'string')
-    check('predictiveRiskScore is present',           risksResult.metrics.predictiveRiskScore === 48)
-    check('topKeyPersonRisk is an array',              Array.isArray(risksResult.metrics.topKeyPersonRisk))
-    check('topKeyPersonRisk sorted highest first',     risksResult.metrics.topKeyPersonRisk[0].name === 'Alice')
+    check('topPredictedThreats is present',            risksResult.metrics.topPredictedThreats[0].predictedScore === 92)
+    check('topPeopleAtRisk is an array',                Array.isArray(risksResult.metrics.topPeopleAtRisk))
+    check('topPeopleAtRisk sourced from humanDependencyRisk', risksResult.metrics.topPeopleAtRisk[0].name === 'Alice')
     check('isStale propagated from ctx.graphStale',    risksResult.isStale === false)
 
     const contResult = pageContext.getPageContext('continuity', mockCtx)
     check('continuity page works',                   contResult.slug === 'continuity')
     check('continuityScore is present',              contResult.metrics.continuityScore === 55)
-    check('agentsWithNoBackup is present',           contResult.metrics.agentsWithNoBackup === 3)
+    check('backupCoverage is present',               contResult.metrics.backupCoverage === 70)
 
     const dashResult = pageContext.getPageContext('dashboard', mockCtx)
     check('dashboard page works',                    dashResult.slug === 'dashboard')
-    check('organizationalIntelligenceScore present', dashResult.metrics.organizationalIntelligenceScore === 74)
-    check('brainPosture present',                    dashResult.metrics.brainPosture === 'STRAINED')
+    check('organizationalScore present',             dashResult.metrics.organizationalScore === 74)
+    check('memoryIntelligence present',              dashResult.metrics.memoryIntelligence === 72)
 
     const wfResult = pageContext.getPageContext('workflows', mockCtx)
     check('workflows page works',                    wfResult.slug === 'workflows')

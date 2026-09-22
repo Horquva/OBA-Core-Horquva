@@ -10,17 +10,7 @@ export function ValidatorWarning({ status }: ValidatorWarningProps) {
   }
 
   return (
-    <div
-      style={{
-        padding: '8px 12px',
-        background: 'rgba(239, 68, 68, 0.1)',
-        border: '1px solid rgba(239, 68, 68, 0.3)',
-        borderRadius: '8px',
-        color: 'rgb(239, 68, 68)',
-        fontSize: '13px',
-        marginTop: '8px',
-      }}
-    >
+    <div className="mt-2 rounded-lg border border-[var(--risk-critical-border)] bg-[var(--risk-critical-bg)] px-3 py-2 text-[13px] text-[var(--risk-critical-text)]">
       ⚠️ This answer may contain unverified figures.
     </div>
   );

@@ -1,25 +1,9 @@
-import AgentPanel from '@/components/agent/AgentPanel';
+import { redirect } from 'next/navigation';
 
-const AGENT_ENABLED = process.env.NEXT_PUBLIC_AGENT_ENABLED === 'true';
-
-// Holds no conversation state of its own -- that lives in AgentProvider,
-// mounted once in AppShell so it survives navigation away from here (D-77).
-// This route only supplies the fullscreen container.
+// AgentPanel now mounts once, globally, from AppShell and opens as its own
+// full-screen takeover from any route (no longer a route-specific
+// "fullscreen at /" special case -- see AgentPanel.tsx). "/" doesn't need to
+// host it any more, so this goes back to being a normal landing redirect.
 export default function HomePage() {
-  if (!AGENT_ENABLED) {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
-            OBA Agent
-          </h1>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            The agent is not enabled for this environment yet.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  return <AgentPanel slot="route" />;
+  redirect('/dashboard');
 }

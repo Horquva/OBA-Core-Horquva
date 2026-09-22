@@ -72,21 +72,24 @@ function summarize(result) {
 }
 
 /**
- * The navigation offer surfaced in the `done` event (Appendix B). The model
- * proposes a destination by calling propose_navigation; this pulls the last
- * successful call's result out of the trace rather than having chat.js (or
- * the model) construct the offer itself, so the offered route always traces
- * back to a real tool result (I-3) and is never null just because nobody
- * wired it through.
+ * The navigation offers surfaced in the `done` event (Appendix B). The model
+ * proposes a destination by calling propose_navigation, possibly more than
+ * once when an answer spans several pages (e.g. a finding that touches both
+ * the Risk Dashboard and Executive Command Center) -- this pulls every
+ * successful call's result out of the trace, in call order, deduped by slug
+ * (last reason wins for a repeated slug), rather than having chat.js (or the
+ * model) construct the offer itself. That way the offered routes always
+ * trace back to real tool results (I-3) and a multi-page answer isn't
+ * silently collapsed down to whichever call happened to run last.
  */
-function navigationOfferFrom(toolTrace) {
-  for (let i = toolTrace.length - 1; i >= 0; i--) {
-    const call = toolTrace[i]
+function navigationOffersFrom(toolTrace) {
+  const bySlug = new Map()
+  for (const call of toolTrace) {
     if (call.name === 'propose_navigation' && !call.toolError && call.result && call.result.data) {
-      return call.result.data
+      bySlug.set(call.result.data.slug, call.result.data)
     }
   }
-  return null
+  return [...bySlug.values()]
 }
 
 /**
@@ -190,13 +193,13 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
         text += roundText
         if (signal && signal.aborted) {
           // Client disconnected. Nobody is listening; stop quietly (§14).
-          return { text, toolTrace, usage, iterations, finishReason: 'ABORTED', navigationOffer: navigationOfferFrom(toolTrace) }
+          return { text, toolTrace, usage, iterations, finishReason: 'ABORTED', navigationOffers: navigationOffersFrom(toolTrace) }
         }
         send('warning', {
           code: 'TURN_TIMEOUT',
           message: 'The turn exceeded its time limit. This answer is partial.',
         })
-        return { text, toolTrace, usage, iterations, finishReason: 'TIMEOUT', navigationOffer: navigationOfferFrom(toolTrace) }
+        return { text, toolTrace, usage, iterations, finishReason: 'TIMEOUT', navigationOffers: navigationOffersFrom(toolTrace) }
       }
 
       if (providerError) {
@@ -216,7 +219,7 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
           message: providerError.error ? providerError.error.message : 'The model is unavailable',
           retryable: Boolean(providerError.retryable),
         })
-        return { text, toolTrace, usage, iterations, finishReason: 'ERROR', navigationOffer: navigationOfferFrom(toolTrace) }
+        return { text, toolTrace, usage, iterations, finishReason: 'ERROR', navigationOffers: navigationOffersFrom(toolTrace) }
       }
 
       text += roundText
@@ -276,10 +279,10 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
       finishReason = 'ITERATION_CAP'
     }
 
-    return { text, toolTrace, usage, iterations, finishReason, navigationOffer: navigationOfferFrom(toolTrace) }
+    return { text, toolTrace, usage, iterations, finishReason, navigationOffers: navigationOffersFrom(toolTrace) }
   } finally {
     clearTimeout(timer)
   }
 }
 
-module.exports = { runTurn, labelFor, summarize, volatileBlock, navigationOfferFrom }
+module.exports = { runTurn, labelFor, summarize, volatileBlock, navigationOffersFrom }

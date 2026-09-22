@@ -112,7 +112,15 @@ function truncate(data) {
   const json = JSON.stringify(walked)
   if (json.length > MAX_RESULT_BYTES) {
     notes.push(`result exceeded ${MAX_RESULT_BYTES} bytes and was size-capped`)
-    return { data: { note: 'result too large to include in full', keys: Object.keys(walked || {}) }, notes }
+    // Object.keys() on an array returns numeric index strings ("0", "1", …)
+    // -- meaningless to the model. Report a count for arrays, real key
+    // names for objects, so a capped result still tells the model
+    // something it can act on (e.g. "call again with a smaller limit")
+    // instead of just giving up.
+    const shape = Array.isArray(walked)
+      ? { note: 'result too large to include in full', itemCount: walked.length }
+      : { note: 'result too large to include in full', keys: Object.keys(walked || {}) }
+    return { data: shape, notes }
   }
   return { data: walked, notes }
 }

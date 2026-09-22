@@ -18,7 +18,16 @@ const { getMetricDefinition } = require('../domain/metricGlossary')
 const { spofVerdict } = require('../domain/definitions')
 const domain = require('../domain')
 
-const VALID_DEPARTMENTS = new Set(['ENGINEERING', 'PRODUCT', 'DESIGN', 'MARKETING', 'SALES', 'OPERATIONS'])
+// Real distinct values of employees.department, live-checked against
+// Supabase -- the previous list ('ENGINEERING'/'PRODUCT'/'DESIGN'/
+// 'MARKETING'/'SALES'/'OPERATIONS', all uppercase) matched no real row at
+// all: department is free text and every real value here is Capitalized,
+// not upper case, and 'Design'/'Marketing' don't exist while 'Data' and
+// 'Finance' do. Combined with the exact-match filter below, that meant
+// every department-filtered list_entities call silently returned zero
+// results, which reads as "no employees in that department" (a false
+// negative) rather than the tool being broken.
+const VALID_DEPARTMENTS = new Set(['Engineering', 'Product', 'Operations', 'Data', 'Sales', 'Finance'])
 const VALID_ENTITY_TYPES = new Set(['EMPLOYEE', 'AGENT', 'WORKFLOW', 'PLATFORM'])
 
 // assetContinuity()/ownedAssetBase() (domain/derived.js) tag each asset with
@@ -234,7 +243,13 @@ const listEntitiesTool = {
     let flat = flattenEntities(ctx)
     const notes = []
     if (args.type) flat = flat.filter((e) => e.type === args.type)
-    if (args.department) flat = flat.filter((e) => e.department === args.department)
+    // Case-insensitive on purpose: department is free text on the real
+    // tables, so this is defense against the next casing drift, not just
+    // today's ENGINEERING/Engineering mismatch.
+    if (args.department) {
+      const wanted = args.department.toLowerCase()
+      flat = flat.filter((e) => (e.department || '').toLowerCase() === wanted)
+    }
     return { data: flat.map((e) => ({ id: e.id, type: e.type, name: e.name })), notes }
   },
 }
