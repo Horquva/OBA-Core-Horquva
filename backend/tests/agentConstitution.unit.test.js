@@ -93,19 +93,19 @@ console.log('\nCONSTITUTION rules and tools:')
 	check('includes Rule 5 (refer to tool context)', CONSTITUTION.includes('REFER TO CONTEXT FROM TOOLS'))
 	check('includes Rule 6 (multi-turn awareness)', CONSTITUTION.includes('MULTI-TURN AWARENESS'))
 
-	// All 12 tools that are actually registered in backend/tools/ today —
-	// the original list omitted simulate_reassignment (13.2) entirely
-	// while still telling the model "use only these 13" and listing 11.
+	// All 13 tools that are actually registered in backend/routes/agent/chat.js's
+	// ALL_TOOLS today (Task 12.7's get_page_context was wired in during the
+	// integration/backend-team reconciliation, alongside the other 12).
 	const tools = [
 		'resolve_entity', 'get_org_snapshot', 'get_entity_profile', 'list_entities',
 		'get_intelligence', 'run_brain_analysis', 'get_metric_definition',
 		'run_simulation', 'rank_scenarios', 'compare_scenarios', 'simulate_reassignment',
-		'propose_navigation',
+		'get_page_context', 'propose_navigation',
 	]
 	for (const t of tools) {
 		check(`lists tool "${t}"`, CONSTITUTION.includes(t))
 	}
-	check('the tool count in the prose matches the list actually given', CONSTITUTION.includes('12 total') && CONSTITUTION.includes('Use only these 12'), true)
+	check('the tool count in the prose matches the list actually given', CONSTITUTION.includes('13 total') && CONSTITUTION.includes('Use only these 13'), true)
 }
 
 console.log('\nestimateTokens():')
