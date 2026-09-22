@@ -14,7 +14,8 @@
  *     risk panels)
  *   - governance shares /continuity (GovernanceTab is a tab on that page,
  *     not a separate route)
- *   - dashboard/briefing share / (the root page renders DailyBriefingCard)
+ *   - dashboard/briefing share /dashboard (W-L Phase 3 moved the dashboard
+ *     off root -- / is now the agent's own fullscreen route, per D-77)
  *   - dependencies -> /ownership (Ownership Intelligence), not /map --
  *     /map is a dependency graph visualization, a different thing from the
  *     ownership-concentration metrics PAGE_CATALOG['dependencies'] extracts
@@ -32,14 +33,14 @@
 'use strict'
 
 const NAVIGATION_CATALOG = {
-  dashboard:     { route: '/',            label: 'Executive Command Center' },
+  dashboard:     { route: '/dashboard',   label: 'Executive Command Center' },
   risks:         { route: '/risk',        label: 'Risk Dashboard' },
   continuity:    { route: '/continuity',  label: 'Continuity & Succession' },
   governance:    { route: '/continuity',  label: 'Governance Intelligence' },
   dependencies:  { route: '/ownership',   label: 'Dependencies & Ownership' },
   workflows:     { route: '/workflows',   label: 'Workflows' },
   health:        { route: '/risk',        label: 'Organizational Health' },
-  briefing:      { route: '/',            label: 'Executive Briefing' },
+  briefing:      { route: '/dashboard',   label: 'Executive Briefing' },
   predictive:    { route: '/forecast',    label: 'Predictive Risk' },
   collaboration: { route: '/org-science', label: 'Human-Agent Collaboration' },
 }
