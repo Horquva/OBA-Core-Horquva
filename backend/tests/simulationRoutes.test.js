@@ -78,6 +78,19 @@ const server = app.listen(0, async () => {
 	const j3 = await r3.json()
 	check('rank 200s', r3.status === 200, r3.status)
 	check('rank returns a scenarios array', Array.isArray(j3.scenarios), j3)
+        check(
+           'rank scenarios have numeric blastRadius',
+           j3.scenarios.every((s) => typeof s.blastRadius === 'number'),
+           j3.scenarios.map((s) => s.blastRadius)
+          )
+
+        check(
+          'rank scenarios are sorted by blastRadius descending',
+          j3.scenarios.every(
+          (s, i) => i === 0 || j3.scenarios[i - 1].blastRadius >=   s.blastRadius
+  ),
+  j3.scenarios.map((s) => s.blastRadius)
+)
 
 	console.log('\n========================================')
 	console.log(`${passed} passed, ${failed} failed`)
