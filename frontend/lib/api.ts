@@ -1245,6 +1245,78 @@ export const decisionSupportApi = {
   drivers: () => request<DecisionDriverGroup[]>('/api/decision-support/drivers'),
 };
 
+// ─── AI-6 Change Impact & Intelligence Briefing (/api/change-impact) ────────
+
+export interface ChangeEventImpactAgent {
+  agentId: number;
+  agentName: string;
+  before: { score: number; threatLevel: string; spof: string };
+  after: { score: number; threatLevel: string; spof: string };
+  delta: number;
+  direction: 'worse' | 'better' | 'unchanged' | 'unknown';
+  factorsAdded: string[];
+  factorsRemoved: string[];
+  becameSpof: boolean;
+  stoppedBeingSpof: boolean;
+}
+
+export interface ChangeEventImpactPerson {
+  employeeId: number;
+  name: string;
+  before: { score: number; tier: string };
+  after: { score: number; tier: string };
+  delta: number;
+  direction: 'worse' | 'better' | 'unchanged' | 'unknown';
+}
+
+export interface ChangeEventSpofChange {
+  agentId: number;
+  agentName: string;
+  before: string;
+  after: string;
+}
+
+export interface ChangeEventImpact {
+  note: string | null;
+  agents?: ChangeEventImpactAgent[];
+  people?: ChangeEventImpactPerson[];
+  spofChanges?: ChangeEventSpofChange[];
+  downstream?: {
+    agents?: Array<{ id: number; name: string }>;
+    workflows?: Array<{ id: number; name: string }>;
+  };
+}
+
+export interface ChangeEvent {
+  id: number;
+  scan_id: string;
+  change_type: 'owner_changed' | 'backup_removed' | 'tool_backup_removed' | 'model_swapped' | 'vendor_changed';
+  target_type: 'agent' | 'employee' | 'platform';
+  target_id: string;
+  change: Record<string, unknown>;
+  description: string;
+  priced: boolean;
+  health_before: number | null;
+  health_after: number | null;
+  health_delta: number | null;
+  impact: ChangeEventImpact;
+  dedup_key: string;
+  detected_at: string;
+}
+
+export interface ChangeEventsResponse {
+  events: ChangeEvent[];
+  next_before_id: number | null;
+  baseline_taken_at: string | null;
+}
+
+export const changeImpactApi = {
+  events: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params).toString()}` : '';
+    return request<ChangeEventsResponse>(`/api/change-impact/events${query}`);
+  },
+};
+
 // ─── Health Check Utility ────────────────────────────────────────────────────
 
 export const API_BASE = BASE;

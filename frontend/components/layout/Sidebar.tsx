@@ -24,6 +24,7 @@ import {
   Search,
   LogOut,
   KeyRound,
+  Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
@@ -42,6 +43,7 @@ type NavItem = { name: string; href: string; icon: LucideIcon };
 // (see FE-4 in the decision log) — a client-side nav filter is not it.
 const navigation: NavItem[] = [
   { name: 'Dashboard',              href: '/',                icon: LayoutDashboard },
+  { name: 'Weekly Briefing',       href: '/briefing',         icon: Sparkles },
   { name: 'Ownership',              href: '/ownership',       icon: Users },
   { name: 'Risk Intelligence',      href: '/risk',            icon: ShieldAlert },
   { name: 'Dependency Map',         href: '/map',             icon: GitFork },
