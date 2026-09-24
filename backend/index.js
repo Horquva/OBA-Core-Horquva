@@ -3,6 +3,13 @@ console.log("1. File started")
 const path = require('path')
 const express = require('express')
 const cors = require('cors')
+
+// --- Naye Packages ---
+const multer = require('multer');
+const xlsx = require('xlsx');
+const upload = multer({ storage: multer.memoryStorage() });
+// ---------------------
+
 // Load backend/.env no matter where the process is started from.
 require('dotenv').config({ path: path.join(__dirname, '.env') })
 
@@ -10,13 +17,6 @@ console.log("2. Packages loaded")
 
 const app = express()
 
-// Every /api route below requires a bearer token, but a default cors() sends
-// Access-Control-Allow-Origin: * on every response — any site can then read
-// an authenticated response from a browser holding a token (e.g. leaked via
-// an unrelated XSS bug, or pasted into devtools). Restrict to the frontend's
-// own origin(s) instead. CORS_ORIGINS is a comma-separated allowlist; unset
-// falls back to the local dev ports so `npm run dev` keeps working out of
-// the box — a production deployment must set it to its real frontend origin.
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3001,http://localhost:3000')
   .split(',')
   .map((s) => s.trim())
@@ -24,23 +24,18 @@ const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3001,http
 
 app.use(cors({
   origin(origin, callback) {
-    // No Origin header — server-to-server, curl, health checks. Not a browser
-    // CORS scenario, so there is nothing to restrict.
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true)
     callback(new Error('Not allowed by CORS'))
   },
 }))
 app.use(express.json())
 
-// Root route — friendly service metadata (prevents "Cannot GET /")
+// Root route
 app.get('/', (req, res) => {
   res.json({
     name: 'Horquva OBA Core API',
     status: 'running',
     message: 'Organizational Brain backend is live. This is a JSON API, not a web page.',
-    // D-40: the brain is a library, not a service (see backend/brain/README.md)
-    // -- there is no /api/brain mount, so this used to point at 3 endpoints
-    // that never existed.
     endpoints: {
       health: '/api/health/summary',
       authLogin: 'POST /api/auth/login',
@@ -54,19 +49,37 @@ console.log("3. Middlewares added")
 
 app.use(requestLogger)
 
+// ─── WD-01: Spreadsheet Upload Route ───
+// Isey auth se pehle rakha hai taake bina login test ho sake
+app.post('/api/upload', upload.single('file'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: "Koi file upload nahi hui!" });
+        }
+
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        console.log("Uploaded Spreadsheet Data:", sheetData);
+
+        res.json({
+            message: "File successfully parse ho gayi!",
+            totalRows: sheetData.length,
+            data: sheetData
+        });
+
+    } catch (error) {
+        console.error("Error processing file:", error);
+        res.status(500).json({ error: "File process karne mein masla aaya." });
+    }
+});
+// ───────────────────────────────────────
+
 const { requireAuth } = require('./middleware/auth')
 
-// Auth endpoints stay reachable without a token — register and login have to
-// be. Everything else in that router gates itself per-route (GET /me, POST
-// /logout, POST /change-password all name requireAuth), because mounting here
-// puts the whole router above the global gate below.
 app.use('/api/auth', require('./routes/auth/auth'))
 
-// OBA Core is single-tenant and no business table carries an org column, so a
-// second organization in app_users would silently share one dataset. D-01:
-// this is now a hard boot failure, not a warning — see the gate on
-// app.listen() at the bottom of this file, and lib/orgGuard.js for why the
-// check itself still only reports rather than exiting.
 const orgGuardCheck = require('./lib/orgGuard').assertSingleTenant()
 
 // Everything else under /api touches real org data — require a valid bearer token.
@@ -121,12 +134,6 @@ app.use('/api/avatar', require('./routes/avatar'))
 app.use('/api/self-healing', require('./routes/selfHealing'))
 app.use('/api/automation', require('./routes/automation'))
 
-// ─── Organizational Brain: the M01–M55 analyses over the Knowledge Graph ───
-// The brain is a library, not a service — nothing is mounted. Routes call
-// brain.run(code) directly (see routes/intelligence/prediction.js). The graph
-// loads asynchronously so the server does not block on Supabase; until it
-// lands, brain.isReady() is false and those routes answer 503 rather than
-// serving a synthetic stand-in.
 require('./brain').loadGraph()
   .then((stats) => console.log('Organizational Brain: graph loaded from Supabase —', JSON.stringify(stats)))
   .catch((err) => {
