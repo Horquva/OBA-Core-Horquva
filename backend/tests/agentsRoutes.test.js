@@ -11,10 +11,17 @@
  * with an in-memory fixture, same require.cache pattern as
  * simulationRoutes.test.js, so this runs offline.
  *
+ * SEC-3: the route is admin-only. The router is mounted behind the real
+ * requireAuth (as index.js does) and every call carries a signed token, so
+ * the role gate is exercised exactly as in production.
+ *
  * Run from backend/:  node tests/agentsRoutes.test.js
  */
 
 const path = require('path')
+
+// Must be set before lib/authSecret is required.
+process.env.JWT_SECRET = 'test-secret-for-agents-routes'
 
 let passed = 0
 let failed = 0
@@ -32,6 +39,8 @@ const agentsTable = [
 ]
 const validEmployeeIds = new Set([1, 2, 3])
 
+const clearedTables = []
+
 const supabasePath = require.resolve(path.join(__dirname, '..', 'supabase.js'))
 require.cache[supabasePath] = {
 	id: supabasePath,
@@ -39,8 +48,41 @@ require.cache[supabasePath] = {
 	loaded: true,
 	exports: {
 		from(table) {
-			if (table !== 'agents') throw new Error(`agentsRoutes.test.js: unexpected table '${table}'`)
+			if (table === 'audit_log') {
+				return { insert: async () => ({ data: null, error: null }) }
+			}
+			if (table !== 'agents' && !['brain_core_snapshots', 'orchestrator_snapshots', 'executive_briefings'].includes(table)) {
+				throw new Error(`agentsRoutes.test.js: unexpected table '${table}'`)
+			}
+			if (table !== 'agents') {
+				return {
+					delete() {
+						return {
+							gte(column, val) {
+								clearedTables.push({ table, column, val })
+								return Promise.resolve({ data: null, error: null })
+							},
+							eq(column, val) {
+								clearedTables.push({ table, column, val })
+								return Promise.resolve({ data: null, error: null })
+							},
+						}
+					},
+				}
+			}
 			return {
+				select() {
+					return {
+						eq(col, val) {
+							return {
+								async maybeSingle() {
+									const agent = agentsTable.find((a) => a.id === val)
+									return { data: agent ? { id: agent.id, owner_id: agent.owner_id } : null, error: null }
+								},
+							}
+						},
+					}
+				},
 				update(patch) {
 					return {
 						eq(col, val) {
@@ -69,9 +111,19 @@ require.cache[supabasePath] = {
 
 const express = require('express')
 const agentsRoute = require('../routes/agents')
+const { requireAuth } = require('../middleware/auth')
+const { sign } = require('../lib/jwt')
+
+const SECRET = process.env.JWT_SECRET
+// Same payload shape routes/auth/auth.js signs for the ADMIN_EMAIL env-fallback
+// login — the only account that holds the admin role today.
+const adminToken = sign({ sub: 'admin', email: 'admin@horquva.com', role: 'admin', org: 'horquva' }, SECRET, 300)
+const memberToken = sign({ sub: 'u-7', email: 'member@example.com', role: 'member', org: 'horquva' }, SECRET, 300)
+const noRoleToken = sign({ sub: 'u-8', email: 'norole@example.com', org: 'horquva' }, SECRET, 300)
 
 const app = express()
 app.use(express.json())
+app.use('/api', requireAuth)
 app.use('/api/agents', agentsRoute)
 
 async function main() {
@@ -79,10 +131,12 @@ async function main() {
 	await new Promise((r) => server.once('listening', r))
 	const base = 'http://127.0.0.1:' + server.address().port
 
-	async function patch(p, body) {
+	async function patch(p, body, token = adminToken) {
+		const headers = { 'Content-Type': 'application/json' }
+		if (token) headers.Authorization = 'Bearer ' + token
 		const res = await fetch(base + p, {
 			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
+			headers,
 			body: JSON.stringify(body),
 		})
 		const json = await res.json().catch(() => ({}))
@@ -90,6 +144,29 @@ async function main() {
 	}
 
 	console.log('\n=== OBA Core — Agent Ownership Write Route Test ===\n')
+
+	// ── SEC-3: admin-only role gate ─────────────────────────────────────────
+	console.log('Role gate (SEC-3):')
+	{
+		const r = await patch('/api/agents/10/owner', { ownerId: 3 }, null)
+		check('no token — 401', r.status === 401, r.status)
+	}
+	{
+		const r = await patch('/api/agents/10/owner', { ownerId: 3 }, memberToken)
+		check('authenticated non-admin (role member) — 403', r.status === 403, r.status)
+		check('...error names the required role', /admin/.test(r.json.error || ''), r.json)
+	}
+	{
+		const r = await patch('/api/agents/10/owner', { ownerId: 3 }, noRoleToken)
+		check('authenticated token with no role — 403', r.status === 403, r.status)
+	}
+	check('rejected calls left agent 10 unchanged', agentsTable.find((a) => a.id === 10).owner_id === 1, agentsTable)
+	{
+		const r = await patch('/api/agents/10/owner', { ownerId: 1 }, adminToken)
+		check('env-fallback admin account — 200', r.status === 200, r.status)
+	}
+
+	console.log('\nWrite behaviour (as admin):')
 
 	{
 		const r = await patch('/api/agents/10/owner', { ownerId: 2 })
@@ -128,6 +205,25 @@ async function main() {
 	{
 		const r = await patch('/api/agents/10/owner', { ownerId: 'two' })
 		check('non-integer ownerId — 400', r.status === 400, r.status)
+	}
+
+	console.log('\nCache invalidation on successful owner change (post-diagnostic fix):')
+	{
+		clearedTables.length = 0
+		const today = new Date().toISOString().split('T')[0]
+		const r = await patch('/api/agents/10/owner', { ownerId: 2 })
+		check('owner change still succeeds — 200', r.status === 200, r.status)
+
+		const cleared = (table) => clearedTables.find((c) => c.table === table)
+		check('brain_core_snapshots cleared for today', cleared('brain_core_snapshots')?.val === `${today}T00:00:00`, clearedTables)
+		check('orchestrator_snapshots cleared for today', cleared('orchestrator_snapshots')?.val === `${today}T00:00:00`, clearedTables)
+		check('executive_briefings cleared for today', cleared('executive_briefings')?.val === today, clearedTables)
+	}
+
+	{
+		clearedTables.length = 0
+		const r = await patch('/api/agents/999999/owner', { ownerId: 1 })
+		check('nonexistent agent — 404, no cache clear attempted', r.status === 404 && clearedTables.length === 0, { status: r.status, clearedTables })
 	}
 
 	server.close()

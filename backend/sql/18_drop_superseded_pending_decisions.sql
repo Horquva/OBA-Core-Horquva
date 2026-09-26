@@ -1,0 +1,47 @@
+-- 18_drop_superseded_pending_decisions.sql — owner decision, 2026-09-18:
+-- merge the two decision queues, following the exact pattern
+-- 13_drop_frozen_aggregates.sql and 16_drop_superseded_decision_and_intent_
+-- tables.sql already established for this class of table.
+--
+-- WHY THIS EXISTS
+--
+-- pending_decisions and decision_queue answered the exact same question
+-- ("what needs a decision right now?"), seeded independently into two
+-- different schemas. The correspondence is exact, not approximate -- checked
+-- row by row against sql/04_fizza_modules_seed.sql:
+--   pending_decisions: 'Backup owner assignment for SecurityScanner'
+--     <-> decision_queue: 'Assign backup owner for SecurityScanner'
+--   pending_decisions: 'Restore KnowledgeIndexer'
+--     <-> decision_queue: 'Restore KnowledgeIndexer from FAILED state'
+--   pending_decisions: 'Document Incident Response runbook'
+--     <-> decision_queue: 'Document Incident Response runbook' (exact title)
+--   pending_decisions: 'CFO backup designation'
+--     <-> decision_queue: 'Assign CFO backup designation'
+--   pending_decisions: 'Tableau AI backup pipeline'
+--     <-> decision_queue: 'Implement Tableau AI backup pipeline'
+--   pending_decisions: 'DataRobot migration completion'
+--     <-> decision_queue: 'Complete DataRobot migration and cancel subscription'
+--   pending_decisions: 'Employee Offboarding runbook'
+--     <-> decision_queue: 'Create Employee Offboarding runbook'
+-- All 7 of pending_decisions' rows have a decision_queue counterpart;
+-- decision_queue additionally carries 3 decisions (deployment cross-training,
+-- Customer Onboarding docs, Compliance Review automation) pending_decisions
+-- never had. decision_queue is the strict superset -- richer scoring
+-- (impact/urgency/effort/blast_radius -> a real priority_score, see
+-- lib/decisionPriority.js) where pending_decisions only carried a
+-- hand-picked priority label, and the two hand-picked label sets weren't
+-- even consistent with each other's ranking.
+--
+-- Every former reader of pending_decisions (briefing.js's
+-- getPendingDecisionsCount()/'/pending-decisions', voice.js's buildBrain(),
+-- automation/index.js's '/governance', context.js's '/decisions') now reads
+-- decision_queue instead, deriving the same priority/source-module-shaped
+-- fields their response contracts already promised from decision_queue's
+-- richer columns (see lib/decisionPriority.js's priorityLabel()/
+-- driverLabel()). Zero code anywhere reads pending_decisions after that
+-- migration -- same "seeded once, superseded, never cleaned up" shape as
+-- every table sql/13 and sql/16 already dropped for this exact reason.
+
+drop table if exists pending_decisions cascade;
+
+notify pgrst, 'reload schema';

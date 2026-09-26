@@ -58,7 +58,7 @@ export interface WorkflowStep {
 export interface Workflow {
   id: string;
   name: string;
-  owner: string;
+  owner: string | null;
   backup_owner: string | null;
   department: string;
   criticality: RiskLevel;

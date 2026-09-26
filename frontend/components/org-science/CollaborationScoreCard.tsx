@@ -7,6 +7,24 @@ import clsx from 'clsx';
 
 type FetchState = 'loading' | 'success' | 'error' | 'empty';
 
+// Colors keyed off the backend's own canonical band (derived.js's band(),
+// 85/65/40) for each field instead of re-thresholding the raw scores here —
+// this card used to use a third set of cutoffs (75/50, and an inverted
+// 30/70 for dependency) for numbers the backend already bands.
+const GOOD_COLOR = 'text-emerald-400';
+const OK_COLOR = 'text-yellow-400';
+const BAD_COLOR = 'text-red-400';
+
+const COLLAB_LEVEL_COLOR: Record<string, string> = {
+  STRONG: GOOD_COLOR, GOOD: GOOD_COLOR, FAIR: OK_COLOR, POOR: BAD_COLOR,
+};
+const ADOPTION_LEVEL_COLOR: Record<string, string> = {
+  HIGH: GOOD_COLOR, MODERATE: OK_COLOR, LOW: BAD_COLOR, MINIMAL: BAD_COLOR,
+};
+const DEPENDENCY_LEVEL_COLOR: Record<string, string> = {
+  LOW: GOOD_COLOR, MODERATE: OK_COLOR, HIGH: BAD_COLOR, SEVERE: BAD_COLOR,
+};
+
 function MetricRow({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="flex items-center justify-between text-sm py-1.5 border-b border-[var(--border-subtle)] last:border-0">
@@ -53,8 +71,8 @@ export function CollaborationScoreCard() {
         {state === 'success' && data && (
           <span className={clsx(
             "px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border",
-            data.collaborationScore > 75 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-            data.collaborationScore < 50 ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+            COLLAB_LEVEL_COLOR[data.collaborationLevel] === GOOD_COLOR ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+            COLLAB_LEVEL_COLOR[data.collaborationLevel] === BAD_COLOR ? 'bg-red-500/10 text-red-400 border-red-500/20' :
             'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
           )}>
             {data.collaborationLevel}
@@ -102,15 +120,15 @@ export function CollaborationScoreCard() {
             </div>
 
             <div>
-              <MetricRow 
-                label="AI Adoption" 
-                value={data.aiAdoptionScore} 
-                color={data.aiAdoptionScore > 75 ? 'text-emerald-400' : data.aiAdoptionScore < 50 ? 'text-red-400' : 'text-yellow-400'} 
+              <MetricRow
+                label="AI Adoption"
+                value={data.aiAdoptionScore}
+                color={ADOPTION_LEVEL_COLOR[data.adoptionLevel ?? ''] ?? OK_COLOR}
               />
-              <MetricRow 
-                label="Human Dependency" 
-                value={data.humanDependencyScore} 
-                color={data.humanDependencyScore < 30 ? 'text-emerald-400' : data.humanDependencyScore > 70 ? 'text-red-400' : 'text-yellow-400'} 
+              <MetricRow
+                label="Human Dependency"
+                value={data.humanDependencyScore}
+                color={DEPENDENCY_LEVEL_COLOR[data.dependencyLevel ?? ''] ?? OK_COLOR}
               />
             </div>
 

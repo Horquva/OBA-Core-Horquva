@@ -5,10 +5,26 @@ const express = require('express')
 const cors = require('cors')
 // Load backend/.env no matter where the process is started from.
 require('dotenv').config({ path: path.join(__dirname, '.env') })
+const agentConfig = require('./agent/config')
 
 console.log("2. Packages loaded")
 
 const app = express()
+
+// Render (and any platform fronting this app with a reverse proxy) terminates
+// the client connection itself and forwards the real client IP in
+// X-Forwarded-For. Express ignores that header by default, so req.ip resolves
+// to the proxy's own IP for every single request -- every caller landed in
+// the same rate-limit bucket (middleware/rateLimit.js keys on req.ip), so one
+// abusive client could exhaust the shared bucket and lock out everyone else
+// behind the same proxy. `1` trusts exactly one hop (Render's edge), which is
+// also correct locally: with no proxy in front, there is no X-Forwarded-For
+// to trust and req.ip falls back to the direct socket address as before.
+app.set('trust proxy', 1)
+
+// SEC-1: security headers first, so every response — including CORS
+// rejections and errors — carries them.
+app.use(require('./middleware/securityHeaders'))
 
 // Every /api route below requires a bearer token, but a default cors() sends
 // Access-Control-Allow-Origin: * on every response — any site can then read
@@ -29,6 +45,10 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true)
     callback(new Error('Not allowed by CORS'))
   },
+  // SEC-2: the session is an httpOnly cookie, so the browser must be allowed
+  // to send it cross-origin. Safe only because `origin` above is an allowlist,
+  // never '*'.
+  credentials: true,
 }))
 app.use(express.json())
 
@@ -55,6 +75,28 @@ console.log("3. Middlewares added")
 app.use(requestLogger)
 
 const { requireAuth } = require('./middleware/auth')
+function reportAgentBootState() {
+  if (!agentConfig.enabled) {
+    console.log('Organizational Agent: disabled by AGENT_ENABLED=false')
+    return
+  }
+
+  const readinessError = agentConfig.readinessError()
+
+  if (readinessError) {
+    console.error('='.repeat(78))
+    console.error('Organizational Agent: PROVIDER NOT READY')
+    console.error(readinessError)
+    console.error('Agent routes will remain unmounted.')
+    console.error('The rest of the API will continue normally.')
+    console.error('='.repeat(78))
+    return
+  }
+
+  console.log('Organizational Agent: provider configuration ready')
+}
+
+reportAgentBootState()
 
 // Auth endpoints stay reachable without a token — register and login have to
 // be. Everything else in that router gates itself per-route (GET /me, POST
@@ -71,7 +113,9 @@ const orgGuardCheck = require('./lib/orgGuard').assertSingleTenant()
 
 // Everything else under /api touches real org data — require a valid bearer token.
 app.use('/api', requireAuth)
+app.use('/api/agent', require('./routes/agent'))
 
+app.use('/api/audit-log', require('./routes/auditLog'))
 app.use('/api/agents', require('./routes/agents'))
 app.use('/api/employees', require('./routes/employees'))
 app.use('/api/ownership', require('./routes/ownership'))
@@ -88,10 +132,8 @@ app.use('/api/simulations/rank',            require('./routes/simulations/rank')
 app.use('/api/human-agent-map',             require('./routes/humanAgentMap'))
 app.use('/api/tools',             require('./routes/tools'))
 app.use('/api/tool-intelligence', require('./routes/toolIntelligence'))
-app.use('/api/tool-impact',       require('./routes/toolImpact'))
 app.use('/api/workflows', require('./routes/workflows/index'))
 app.use('/api/knowledge/intelligence', require('./routes/knowledge/intelligence'))
-app.use('/api/knowledge/impact',       require('./routes/knowledge/impact'))
 app.use('/api/knowledge/gaps',         require('./routes/knowledge/gaps'))
 app.use('/api/memory', require('./routes/memory/memory'))
 app.use('/api/continuity', require('./routes/continuity/continuity'))
@@ -152,3 +194,5 @@ orgGuardCheck.then((result) => {
     console.log("Server running on port", PORT)
   })
 })
+
+

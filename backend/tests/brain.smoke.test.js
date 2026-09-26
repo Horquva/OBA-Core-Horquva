@@ -118,8 +118,9 @@ function check(name, condition, detail) {
 		check('Knowledge graph valid', g.validate().valid === true)
 
 		const errors = []
+		const testSource = { live: true, stats: g.stats(), loadedAt: new Date().toISOString(), error: null }
 		for (const m of MODULES) {
-			try { await IMPL[m.code]({ graph: g }, {}) } catch (e) { errors.push(`${m.code}: ${e.message}`) }
+			try { await IMPL[m.code]({ graph: g, source: testSource }, {}) } catch (e) { errors.push(`${m.code}: ${e.message}`) }
 		}
 		check('all 23 analyses run without error', errors.length === 0,
 			errors.length ? errors.slice(0, 3).join(' | ') : '23/23')

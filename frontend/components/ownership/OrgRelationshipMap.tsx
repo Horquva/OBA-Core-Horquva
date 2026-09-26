@@ -48,7 +48,6 @@ export function OrgRelationshipMap({ dataset }: OrgRelationshipMapProps) {
     });
     ai_tools.forEach(t => {
       if (t.access_owner) names.add(t.access_owner);
-      t.users.forEach(u => names.add(u));
     });
     workflows.forEach(w => { if (w.owner) names.add(w.owner); });
 

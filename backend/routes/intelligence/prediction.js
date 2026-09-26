@@ -91,10 +91,15 @@ router.get('/digital-twin', moduleEndpoint('digital-twin')) // M49, DigitalTwinC
 // ── Graph lifecycle (D-14) ───────────────────────────────────────
 // loadGraph() otherwise runs exactly once, at backend/index.js boot — nothing
 // ever calls it again, so a Supabase edit after boot is invisible until the
-// process restarts. No admin gate: D-05 deleted requireRole, and a reload is
-// idempotent and non-destructive (loadGraph() only swaps the graph in on
-// success, so the previous one keeps answering every other route here if
-// this fails) — any authenticated user triggering it is acceptable.
+// process restarts. No admin gate: D-05 removed role gating from every
+// read-only surface as theatre in a single-org executive tool ("do not
+// re-raise it"). middleware/requireRole.js was later reintroduced, but only
+// for the one route with a real data consequence (PATCH /api/agents/:id/owner,
+// SEC-3) -- it was never applied here, and this reload stays out of scope for
+// the same reason D-05 gave: it is idempotent and non-destructive
+// (loadGraph() only swaps the graph in on success, so the previous one keeps
+// answering every other route here if this fails) — any authenticated user
+// triggering it is acceptable.
 
 // GET /api/intelligence/graph/status — current provenance, no analysis run.
 router.get('/graph/status', (req, res) => {

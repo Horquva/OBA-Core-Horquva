@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink, Zap, ServerCrash } from 'lucide-react';
 import { contextApi, ContextFeedItem } from '../../lib/api';
-import { TruthBadge } from './TruthBadge';
+import { ProvenanceBadge } from '../ui/ProvenanceBadge';
 
 const URGENCY_CONFIG = {
   CRITICAL: { bg: 'var(--risk-critical-bg)', text: 'var(--risk-critical-text)', border: 'var(--risk-critical-border)' },
@@ -34,10 +34,11 @@ export function WhatMattersNowFeed() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [provenance, setProvenance] = useState<{ source: string; table: string } | null>(null);
 
   useEffect(() => {
     contextApi.feed()
-      .then(d => { setItems(d.feed ?? []); setTotal(d.totalItems ?? 0); })
+      .then(d => { setItems(d.feed ?? []); setTotal(d.totalItems ?? 0); setProvenance(d.provenance ?? null); })
       .catch((e) => setError(e?.message ?? 'Context feed unavailable'))
       .finally(() => setLoading(false));
   }, []);
@@ -57,7 +58,7 @@ export function WhatMattersNowFeed() {
         </div>
         <div className="flex items-center gap-2">
           {total > 0 && <span className="text-xs text-[color:var(--text-tertiary)]">{total} items</span>}
-          <TruthBadge verified={!error && items.length > 0} />
+          {!loading && !error && provenance && <ProvenanceBadge provenance={provenance} />}
         </div>
       </div>
 

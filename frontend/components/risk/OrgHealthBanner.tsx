@@ -1,6 +1,6 @@
 'use client';
 
-import { RiskIntelligenceReport } from '../../lib/riskIntelligence';
+import { RiskIntelligenceReport, healthStatusColors } from '../../lib/riskIntelligence';
 import clsx from 'clsx';
 import { EvidenceBadge } from '../ui/EvidenceBadge';
 
@@ -45,10 +45,7 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
   const gradient = '';
   const borderColor = 'border-[var(--border-subtle)]';
 
-  const ohsTextColor =
-    (ohs ?? 0) >= 75 ? 'text-emerald-400' :
-    (ohs ?? 0) >= 50 ? 'text-yellow-400' :
-                'text-red-400';
+  const ohsTextColor = healthStatusColors(healthStatus).text;
 
   return (
     <div className={clsx('card overflow-hidden border animate-fade-up delay-500', borderColor)}>
@@ -86,11 +83,8 @@ export function OrgHealthBanner({ report }: OrgHealthBannerProps) {
             <div className="mt-4">
               <div className="w-full h-2 bg-[var(--border-subtle)] rounded-full overflow-hidden">
                 <div
-                  className={clsx(
-                    'h-full rounded-full transition-all duration-1000',
-                    (ohs ?? 0) >= 75 ? 'bg-emerald-400' : (ohs ?? 0) >= 50 ? 'bg-yellow-400' : 'bg-red-400'
-                  )}
-                  style={{ width: `${ohs ?? 0}%`, boxShadow: `0 0 8px ${(ohs ?? 0) >= 75 ? 'rgba(52,211,153,0.4)' : (ohs ?? 0) >= 50 ? 'rgba(250,204,21,0.4)' : 'rgba(248,113,113,0.4)'}` }}
+                  className={clsx('h-full rounded-full transition-all duration-1000', healthStatusColors(healthStatus).bg)}
+                  style={{ width: `${ohs ?? 0}%`, boxShadow: `0 0 8px ${healthStatusColors(healthStatus).glow.replace('0.3', '0.4')}` }}
                 />
               </div>
               <div className="flex justify-between mt-1.5">

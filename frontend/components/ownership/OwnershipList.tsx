@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Agent, Employee } from '../../types';
 import { PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { RiskBadge } from '../ui/RiskBadge';
-import { AlertCircle, CheckCircle2, ShieldAlert, XCircle, ChevronRight, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ShieldAlert, XCircle, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 
 interface OwnershipListProps {
@@ -239,13 +239,7 @@ export function OwnershipList({ agents, riskByAgentName, humanSpofOwners, employ
                         <RiskBadge level={risk} />
                       </td>
                       <td className="px-6 py-4 text-right">
-                         {group.isOrphaned ? (
-                           <AssignOwnerControl agentId={agent.id} employees={employees} onAssign={onAssignOwner} />
-                         ) : (
-                           <button className="text-[color:var(--text-tertiary)] hover:text-[color:var(--text-primary)] transition-colors opacity-0 group-hover/row:opacity-100">
-                             <ChevronRight className="w-4 h-4" />
-                           </button>
-                         )}
+                         <AssignOwnerControl agentId={agent.id} employees={employees} onAssign={onAssignOwner} />
                       </td>
                     </tr>
                   );

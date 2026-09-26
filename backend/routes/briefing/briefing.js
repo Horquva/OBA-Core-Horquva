@@ -3,6 +3,8 @@ const router = express.Router()
 const supabase = require('../../supabase')
 const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
+const { requireCsrfHeader } = require('../../middleware/auth')
+const { computePriorityScore, priorityLabel, driverLabel } = require('../../lib/decisionPriority')
 
 // ─────────────────────────────────────────────
 // HELPERS — pull live signals from existing modules
@@ -20,6 +22,12 @@ async function getTopSPOF() {
   return {
     predicted_score: top.predictedScore,
     agents: { name: top.agentName, risk: top.recordedRisk, owner_id: null },
+    // predictiveRisk()'s single_owner factor is only present when the agent
+    // has no owner AT ALL, or has an owner with no backup (derived.js's
+    // predictiveRisk(), lines ~510-516) -- absent when the owner has a real
+    // backup. Previously this route asserted "no backup owner" for whichever
+    // agent happened to be top-CRITICAL, whether or not that was true.
+    hasNoBackupOwner: 'single_owner' in top.contributingFactors,
   }
 }
 
@@ -70,11 +78,11 @@ async function getDocTrend() {
 
 async function getPendingDecisionsCount() {
   const { count, error } = await supabase
-    .from('pending_decisions')
+    .from('decision_queue')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'pending')
 
-  if (error) throw new Error(`pending_decisions: ${error.message}`)
+  if (error) throw new Error(`decision_queue: ${error.message}`)
   return count ?? 0
 }
 
@@ -82,8 +90,15 @@ function buildSummaryPoints({ spof, overloaded, incident, docTrend, pendingCount
   const points = []
 
   if (spof) {
+    // Only call it a SPOF alert, and only claim "no backup owner", when
+    // that's actually true -- an agent with real backup coverage isn't a
+    // single point of failure by this app's own definition (definitions.js's
+    // spofVerdict: sole owner AND no backup AND criticality >= high), even
+    // if it's still the org's top predicted-risk CRITICAL agent.
+    const label = spof.hasNoBackupOwner ? 'SPOF ALERT' : 'CRITICAL RISK ALERT'
+    const backupClause = spof.hasNoBackupOwner ? 'has no backup owner' : 'has backup coverage'
     points.push(
-      `SPOF ALERT: ${spof.agents?.name} has no backup owner. It is rated CRITICAL with a predicted risk score of ${spof.predicted_score}.`
+      `${label}: ${spof.agents?.name} ${backupClause}. It is rated CRITICAL with a predicted risk score of ${spof.predicted_score}.`
     )
   }
 
@@ -121,7 +136,10 @@ function buildSummaryPoints({ spof, overloaded, incident, docTrend, pendingCount
 // GET /api/briefing/today
 // ─────────────────────────────────────────────
 
-router.get('/today', async (req, res) => {
+// requireCsrfHeader: this route caches its computed result into
+// executive_briefings on a miss -- a GET that writes, which the global CSRF
+// guard's "GET is safe" exemption doesn't cover. See middleware/auth.js.
+router.get('/today', requireCsrfHeader, async (req, res) => {
   try {
     // Try to serve today's cached briefing first
     const today = new Date().toISOString().split('T')[0]
@@ -262,26 +280,37 @@ router.get('/documentation-trend', async (req, res) => {
 
 router.get('/pending-decisions', async (req, res) => {
   try {
+    // Reads decision_queue (merged onto it 2026-09-18, owner decision -- see
+    // sql/18_drop_superseded_pending_decisions.sql) and derives the same
+    // priority/sourceModule shape this route always returned, from
+    // decision_queue's real impact/urgency/effort/blast_radius score instead
+    // of a hand-picked label.
     const { data, error } = await supabase
-      .from('pending_decisions')
+      .from('decision_queue')
       .select('*')
       .eq('status', 'pending')
-      .order('priority', { ascending: true })
 
     if (error) throw new Error(error.message)
 
-    const critical = data.filter(d => d.priority === 'critical').length
-    const high = data.filter(d => d.priority === 'high').length
+    const withPriority = data
+      .map(d => {
+        const score = computePriorityScore(d.impact_score, d.urgency_score, d.effort_score, d.blast_radius)
+        return { ...d, priorityScore: score, priority: priorityLabel(score) }
+      })
+      .sort((a, b) => b.priorityScore - a.priorityScore)
+
+    const critical = withPriority.filter(d => d.priority === 'critical').length
+    const high = withPriority.filter(d => d.priority === 'high').length
 
     res.json({
-      totalPending: data.length,
+      totalPending: withPriority.length,
       criticalCount: critical,
       highCount: high,
-      decisions: data.map(d => ({
+      decisions: withPriority.map(d => ({
         title: d.title,
         description: d.description,
         priority: d.priority,
-        sourceModule: d.source_module,
+        sourceModule: driverLabel(d.driver),
         raisedAt: d.raised_at
       }))
     })
@@ -325,3 +354,4 @@ router.get('/top-risks', async (req, res) => {
 })
 
 module.exports = router
+module.exports.buildSummaryPoints = buildSummaryPoints

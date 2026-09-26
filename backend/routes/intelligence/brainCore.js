@@ -4,6 +4,7 @@ const supabase = require('../../supabase')
 const { optional } = require('../../lib/supabaseQuery')
 const domain = require('../../domain')
 const signalReaders = require('../../domain/signalReaders')
+const { requireCsrfHeader } = require('../../middleware/auth')
 
 // ─────────────────────────────────────────────
 // SIGNAL WEIGHTS  (must sum to 1.0)
@@ -319,7 +320,11 @@ async function getOrComputeSnapshot() {
 // GET /api/intelligence/brain-core
 // ─────────────────────────────────────────────
 
-router.get('/', async (req, res) => {
+// requireCsrfHeader on this route and /summary, /posture below: all three
+// call getOrComputeSnapshot(), which caches into brain_core_snapshots on a
+// miss -- a GET that writes, which the global CSRF guard's "GET is safe"
+// exemption doesn't cover. See middleware/auth.js.
+router.get('/', requireCsrfHeader, async (req, res) => {
   try {
     const snapshot = await getOrComputeSnapshot()
 
@@ -342,7 +347,7 @@ router.get('/', async (req, res) => {
 // GET /api/intelligence/brain-core/summary
 // ─────────────────────────────────────────────
 
-router.get('/summary', async (req, res) => {
+router.get('/summary', requireCsrfHeader, async (req, res) => {
   try {
     const snapshot = await getOrComputeSnapshot()
 
@@ -363,7 +368,7 @@ router.get('/summary', async (req, res) => {
 // GET /api/intelligence/brain-core/posture
 // ─────────────────────────────────────────────
 
-router.get('/posture', async (req, res) => {
+router.get('/posture', requireCsrfHeader, async (req, res) => {
   try {
     const snapshot = await getOrComputeSnapshot()
 

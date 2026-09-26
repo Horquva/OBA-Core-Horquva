@@ -1,7 +1,16 @@
 'use client';
 
 import { RecommendationEngineOutput } from '../../lib/recommendations';
+import { normalizeHealthStatus } from '../../lib/healthStatus';
 import { Building2, Star, TrendingUp, AlertTriangle, Users, Shield } from 'lucide-react';
+
+// Colors/labels keyed off the canonical healthStatus (70/45) instead of a
+// local 60/75 re-threshold of healthScore.
+const STATUS_META: Record<string, { label: string; color: string }> = {
+  STABLE:   { label: 'HEALTHY', color: 'var(--risk-low-text)' },
+  WARNING:  { label: 'CAUTION', color: 'var(--risk-high-text)' },
+  CRITICAL: { label: 'AT RISK', color: 'var(--risk-critical-text)' },
+};
 
 interface Props {
   output: RecommendationEngineOutput;
@@ -9,11 +18,10 @@ interface Props {
   agentCount: number;
 }
 
-function ScoreRing({ score }: { score: number }) {
+function ScoreRing({ score, color }: { score: number; color: string }) {
   const radius = 40;
   const circ = 2 * Math.PI * radius;
   const filled = (score / 100) * circ;
-  const color = score < 60 ? 'var(--risk-critical-text)' : score < 75 ? 'var(--risk-high-text)' : 'var(--risk-low-text)';
 
   return (
     <div style={{ position: 'relative', width: '108px', height: '108px', flexShrink: 0 }}>
@@ -49,10 +57,11 @@ interface FindingItem {
 }
 
 export default function DemoSummary({ output, company, agentCount }: Props) {
-  const { healthScore, criticalCount, highCount, mediumCount, ownerConcentrationWarning, orphanedAgentCount, undocumentedCriticalCount } = output;
+  const { healthScore, healthStatus, criticalCount, highCount, mediumCount, ownerConcentrationWarning, orphanedAgentCount, undocumentedCriticalCount } = output;
 
-  const statusLabel = healthScore < 60 ? 'AT RISK' : healthScore < 75 ? 'CAUTION' : 'HEALTHY';
-  const statusColor = healthScore < 60 ? 'var(--risk-critical-text)' : healthScore < 75 ? 'var(--risk-high-text)' : 'var(--risk-low-text)';
+  const status = normalizeHealthStatus(healthStatus);
+  const needsIntervention = status !== 'STABLE';
+  const { label: statusLabel, color: statusColor } = STATUS_META[status];
 
   const findings: FindingItem[] = [
     orphanedAgentCount > 0
@@ -64,7 +73,7 @@ export default function DemoSummary({ output, company, agentCount }: Props) {
     undocumentedCriticalCount > 0
       ? { icon: AlertTriangle, color: 'var(--risk-high-text)', text: `${undocumentedCriticalCount} CRITICAL/HIGH agent${undocumentedCriticalCount > 1 ? 's are' : ' is'} undocumented — zero recovery path exists` }
       : { icon: Shield, color: 'var(--risk-low-text)', text: 'All critical agents have documentation coverage' },
-    { icon: TrendingUp, color: healthScore < 60 ? 'var(--risk-critical-text)' : 'var(--risk-medium-text)', text: `Organizational Health Score: ${healthScore}/100 — ${healthScore < 60 ? 'immediate intervention required' : 'recovery plan in progress'}` },
+    { icon: TrendingUp, color: needsIntervention ? 'var(--risk-critical-text)' : 'var(--risk-medium-text)', text: `Organizational Health Score: ${healthScore}/100 — ${needsIntervention ? 'immediate intervention required' : 'recovery plan in progress'}` },
     { icon: Star, color: 'var(--accent)', text: `${output.recommendations.length} prioritized recommendations generated: ${criticalCount} CRITICAL · ${highCount} HIGH · ${mediumCount} MEDIUM` },
   ];
 
@@ -99,7 +108,7 @@ export default function DemoSummary({ output, company, agentCount }: Props) {
         marginBottom: '1.5rem',
         flexWrap: 'wrap',
       }}>
-        <ScoreRing score={healthScore} />
+        <ScoreRing score={healthScore} color={statusColor} />
         <div style={{ flex: 1, minWidth: '200px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <span style={{

@@ -1,6 +1,7 @@
 'use client';
 
 import { ScenarioResult, ScenarioType } from '../../lib/simulation';
+import { healthStatusColor } from '../../lib/healthStatus';
 import { RiskLevel } from '../../types';
 import {
   Activity, ArrowRight, ShieldAlert, Info,
@@ -47,11 +48,9 @@ export function ImpactSummary({ scenario }: Props) {
   const severity = SEVERITY_META[scenario.severity];
 
   const afterScore = scenario.simulatedHealthScore;
-  const afterColor =
-    afterScore < 50 ? 'var(--risk-critical-text)' :
-    afterScore < 65 ? 'var(--risk-high-text)'     :
-    afterScore < 80 ? 'var(--risk-medium-text)'   :
-                      'var(--risk-low-text)';
+  // Derived from the scenario's own healthAfter (backend's healthStatusFor(),
+  // 70/45) instead of a local 50/65/80 re-threshold of the same score.
+  const afterColor = healthStatusColor(scenario.healthAfter);
 
   return (
     <div className="animate-fade-up" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

@@ -169,7 +169,11 @@ router.get('/dimensions', async (req, res) => {
         weight: '20%',
         score: snapshot.critical_safety_score,
         status: healthStatus(snapshot.critical_safety_score),
-        description: 'Percentage of agents not predicted at CRITICAL threat level'
+        // derived.js's criticalSafetyScore is 100 minus 1.5x the percentage of
+        // agents at CRITICAL predicted threat level, not that percentage's
+        // plain complement -- the 1.5x penalty means this score reads lower
+        // than "percentage not critical" once any agents are critical.
+        description: '100 minus 1.5x the percentage of agents predicted at CRITICAL threat level'
       },
       {
         name: 'Continuity',
@@ -177,7 +181,11 @@ router.get('/dimensions', async (req, res) => {
         weight: '20%',
         score: snapshot.continuity_score,
         status: healthStatus(snapshot.continuity_score),
-        description: 'Percentage of workflows that are documented with backup coverage'
+        // derived.js's continuityScore averages three separate coverage
+        // rates -- documented workflow runbooks, owners with a backup, and
+        // (only when platforms exist) platforms with a backup -- not a
+        // single "workflows documented with backup coverage" ratio.
+        description: 'Average coverage across three signals: documented workflow runbooks, owners with a backup, and platforms with a backup'
       },
       {
         name: 'Documentation',
@@ -201,7 +209,11 @@ router.get('/dimensions', async (req, res) => {
         weight: '20%',
         score: snapshot.incident_load_score,
         status: healthStatus(snapshot.incident_load_score),
-        description: 'Inverse of the proportion of critical-severity workflow failures'
+        // derived.js's incidentLoadScore counts every recorded workflow
+        // failure regardless of severity (failures per workflow x 25-point
+        // penalty), not a "critical-severity" subset -- there is no severity
+        // filter in the formula.
+        description: '100 minus 25 points per failure recorded per workflow, across all workflow failures regardless of severity'
       }
     ].sort((a, b) => a.score - b.score)
 

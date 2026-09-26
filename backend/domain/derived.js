@@ -854,7 +854,11 @@ function knowledgeConcentration(roots) {
  * this module's own "memory carrier" framing (would this survive the owner
  * leaving?) rather than a general risk-exposure question mislabeled as
  * memory status. Ported verbatim: same 4-status rules, same carrier-tier
- * weights (undocumented*2 + noBackup), same IMHS weights (1.0/0.5/0.25/0).
+ * weights (undocumented*2 + noBackup). The IMHS weights were ALSO ported
+ * verbatim at 1.0/0.5/0.25/0 for PRESERVED/VULNERABLE/AT_RISK/LOST — later
+ * corrected to 1.0/0.25/0.5/0 (see calcIMHS()'s own comment): the port
+ * carried over an inversion from the original formula, not a fact about
+ * which status is worse.
  *
  * Two deliberate departures from a byte-for-byte port, both display-only
  * fields that never feed the status/tier logic above:
@@ -885,8 +889,15 @@ function memoryCarrierTier(undocumentedCount, noBackupCount) {
   return 'LOW'
 }
 
+// D-60 ported these weights verbatim from the old frontend formula (1.0 /
+// 0.5 / 0.25 for PRESERVED / VULNERABLE / AT_RISK). That ordering scored
+// VULNERABLE (owned, no backup, and — per memoryStatus() above — possibly
+// also undocumented) twice the credit of AT_RISK (undocumented but a real
+// backup exists), even though AT_RISK is the better-covered situation of
+// the two: it has a real fallback person, VULNERABLE never does. Swapped so
+// the score agrees with which bucket is actually worse.
 function calcIMHS(preserved, vulnerable, atRisk, total) {
-  return round(((preserved * 1.0 + vulnerable * 0.5 + atRisk * 0.25) / total) * 100)
+  return round(((preserved * 1.0 + vulnerable * 0.25 + atRisk * 0.5) / total) * 100)
 }
 
 /**
@@ -940,7 +951,14 @@ function ownedAssetBase(roots) {
     const hasOwner = a.owner_id != null
     const ownerBackup = hasOwner ? backups.get(a.owner_id) : null
     assets.push({
-      id: a.id, name: a.name, type: 'agent',
+      // Type-prefixed: agents/workflows/platforms are three independently-
+      // numbered id sequences merged into one array below, so the same raw
+      // number (e.g. agent 3 and workflow 3) collided once combined. Every
+      // frontend consumer of this list (ContinuityTab's must-protect,
+      // GovernanceTab's worst-offenders, MemoryCarriersPanel, LostAssetsPanel)
+      // keys its rows off this `id`, and React warned "two children with the
+      // same key" for exactly that reason.
+      id: `agent-${a.id}`, name: a.name, type: 'agent',
       ownerEmployeeId: hasOwner ? a.owner_id : null,
       owner: ownerName(a.owner_id),
       backup_owner: ownerBackup?.backupOwner ?? null,
@@ -955,7 +973,7 @@ function ownedAssetBase(roots) {
     const hasOwner = rb?.owner_id != null
     const ownerBackup = hasOwner ? backups.get(rb.owner_id) : null
     assets.push({
-      id: w.id, name: w.name, type: 'workflow',
+      id: `workflow-${w.id}`, name: w.name, type: 'workflow',
       ownerEmployeeId: hasOwner ? rb.owner_id : null,
       owner: hasOwner ? ownerName(rb.owner_id) : null,
       backup_owner: ownerBackup?.backupOwner ?? null,
@@ -968,7 +986,7 @@ function ownedAssetBase(roots) {
   for (const p of roots.ai_platforms) {
     const ownerEmployeeId = platformOwnerEmployeeId.get(p.id) ?? null
     assets.push({
-      id: p.id, name: p.name, type: 'tool',
+      id: `tool-${p.id}`, name: p.name, type: 'tool',
       ownerEmployeeId,
       owner: ownerName(ownerEmployeeId),
       backup_owner: platformBackupName.get(p.id) ?? null,
@@ -1596,10 +1614,24 @@ function orgHealth(roots, { accountability: acc, predictiveRisk: risk }) {
 
   const documentedRunbooks = roots.workflow_runbooks.filter((r) => r.is_documented).length
   const ownersWithBackup = roots.owners.filter((o) => o.backup_owner).length
-  const continuityScore = clamp(round(mean([
+  // Platforms carried zero weight in org health until now -- taking one down
+  // in a what-if simulation always showed Δ0, no matter how critical it was.
+  // Backup coverage is the same continuity question tool_backups already
+  // answers for /api/tool-impact and the Ownership page; folding it in here
+  // means removing a platform from the roots (domain/simulations.js's
+  // platformDown()) actually moves this score, the same way removing an
+  // agent already moves ownershipSpreadScore. Only added as a term when
+  // platforms exist at all -- a population of zero (a fixture, or a
+  // genuinely tool-free department slice) must not silently drag continuity
+  // toward 0 for having nothing to score, the same reasoning the other
+  // pct() terms already follow when their own population is empty.
+  const platformsWithBackup = new Set(roots.tool_backups.map((b) => b.primary_platform)).size
+  const continuityTerms = [
     pct(documentedRunbooks, roots.workflows.length),
     pct(ownersWithBackup, roots.owners.length),
-  ])))
+  ]
+  if (roots.ai_platforms.length) continuityTerms.push(pct(platformsWithBackup, roots.ai_platforms.length))
+  const continuityScore = clamp(round(mean(continuityTerms)))
 
   // Ownership SPREAD, not coverage: concentration is the risk. One person
   // holding many assets scores worse than the same assets spread thin.
@@ -1833,9 +1865,7 @@ function departmentExposure(roots) {
  * Neither recomputes them, so MI and the health index cannot drift from the
  * accountability figure shown elsewhere in the same response.
  */
-async function computeAll(supabase) {
-  const roots = await loadRoots(supabase)
-
+function computeAllFromRoots(roots) {
   const accountabilityResult = accountability(roots)
   const collaborationResult = collaboration(roots)
   const predictiveRiskResult = predictiveRisk(roots)
@@ -1857,12 +1887,6 @@ async function computeAll(supabase) {
     orgHealth: orgHealthResult,
     orgHealthByDepartment: orgHealthByDepartment(roots),
     departmentExposure: departmentExposure(roots),
-    // Added so dashboard.js/ownership.js/continuity.js/knowledge/intelligence.js
-    // (and memory.js) can go through computeAllCached()'s 30-second memo
-    // instead of each calling loadRoots() + their own compute function
-    // directly -- a dashboard mounting several of these at once used to cost
-    // one full 18-query root read per component instead of one shared read.
-    // All four are pure functions of `roots` alone, same as everything above.
     humanDependencyRisk: humanDependencyRisk(roots),
     knowledgeConcentration: knowledgeConcentration(roots),
     orgMemory: orgMemory(roots),
@@ -1871,6 +1895,10 @@ async function computeAll(supabase) {
     source: 'live',
     rootCounts: roots._counts,
   }
+}
+
+async function computeAll(supabase) {
+  return computeAllFromRoots(await loadRoots(supabase))
 }
 
 // ─── Short-lived memo ────────────────────────────────────────────────────────
@@ -1889,14 +1917,24 @@ async function computeAll(supabase) {
  */
 const MEMO_TTL_MS = 30_000
 let memo = null
+let inFlight = null
 
 async function computeAllCached(supabase, { force = false } = {}) {
   const now = Date.now()
   if (!force && memo && now - memo.at < MEMO_TTL_MS) {
     return { ...memo.value, fromMemo: true }
   }
-  const value = await computeAll(supabase)
-  memo = { at: now, value }
+  // Cold-start stampede: a dashboard mounting several components at once (or
+  // any burst of concurrent requests) used to arrive here while `memo` is
+  // still null/expired and each independently call computeAll() -- 18 root
+  // reads per caller, so 8 concurrent requests meant 144+ table reads instead
+  // of 18. Callers that land while a computation is already in flight now
+  // share that same promise instead of starting their own.
+  if (!inFlight) {
+    inFlight = computeAll(supabase).finally(() => { inFlight = null })
+  }
+  const value = await inFlight
+  memo = { at: Date.now(), value }
   return { ...value, fromMemo: false }
 }
 
@@ -1908,6 +1946,7 @@ function invalidate() {
 module.exports = {
   ROOT_TABLES,
   loadRoots,
+  band,
   dependencyIndex,
   cascadeReach,
   computeAllCached,
@@ -1927,6 +1966,7 @@ module.exports = {
   orgHealth,
   orgHealthByDepartment,
   departmentExposure,
+  computeAllFromRoots,
   computeAll,
   // Exported so tests can assert against the definitions rather than
   // hard-coding the same magic numbers a second time.

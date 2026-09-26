@@ -1,0 +1,155 @@
+// backend/tools/simulation-tools.js
+//
+// Task 11.3 — Simulation tools (run_simulation, rank_scenarios, compare_scenarios).
+// Thin wrappers around backend/domain/simulations.js — no simulation math
+// lives here, only dispatch, packaging into the tool envelope shape, and
+// (for compare_scenarios) the diff calculation Invariant I-3 requires the
+// model never do itself.
+//
+// NOTE: assumes ctx.roots holds the frozen per-turn data bundle (11.6).
+// Matches the naming convention used throughout derived.js/simulations.js
+// ("roots"), confirmed in the T10.1/T10.2 handoff doc §4.1 and Quick Start
+// Checklist. If 11.6 lands it under a different property name, update the
+// three `ctx.roots` references below.
+
+const {
+  employeeLeaves, agentFails, platformDown, workflowDisruption,
+  rankAllScenarios,
+} = require('../domain/simulations')
+
+const SCENARIO_DISPATCH = {
+  employee_leaves: employeeLeaves,
+  agent_fails: agentFails,
+  platform_down: platformDown,
+  workflow_disruption: workflowDisruption,
+}
+
+// employees/agents/workflows/ai_platforms are all SERIAL PRIMARY KEY (a JS
+// number, via supabase-js) — so every id resolve_entity/get_entity_profile
+// hands the model is a number. But Gemini's function-calling schema below
+// declares targetId as a STRING (its id may be typed either way depending
+// on how the model echoes it back), and domain/simulations.js's lookups use
+// strict `===` against the numeric roots ids. "9" === 9 is false in JS, so
+// without this coercion every real call from a live model silently resolved
+// to "no entity found" — invisible in tests, which always called these
+// dispatch functions directly with matching numeric literals.
+function toEntityId(value) {
+  if (typeof value === 'number') return value
+  const n = Number(value)
+  return Number.isFinite(n) ? n : value
+}
+
+function diffEntitySets(listA = [], listB = []) {
+  const idsB = new Set(listB.map((e) => e.id))
+  const idsA = new Set(listA.map((e) => e.id))
+  return {
+    intersection: listA.filter((e) => idsB.has(e.id)),
+    onlyInA: listA.filter((e) => !idsB.has(e.id)),
+    onlyInB: listB.filter((e) => !idsA.has(e.id)),
+  }
+}
+
+const runSimulationTool = {
+  name: 'run_simulation',
+  description: 'Call when the user asks a what-if question about ONE specific scenario — e.g. "what happens if X leaves/fails/goes down". Requires a resolved entity id (use resolve_entity first).',
+  parameters: {
+    type: 'object',
+    properties: {
+      scenario: { type: 'string', enum: Object.keys(SCENARIO_DISPATCH) },
+      targetId: { type: 'string' },
+    },
+    required: ['scenario', 'targetId'],
+  },
+  run(ctx, args) {
+    const fn = SCENARIO_DISPATCH[args.scenario]
+    const result = fn(toEntityId(args.targetId), ctx.roots)
+    if (!result) {
+      return { data: null, notes: [`No entity found for id "${args.targetId}" under scenario "${args.scenario}".`] }
+    }
+    return { data: result, notes: [] }
+  },
+}
+
+// An unbounded rank_scenarios() on a real org (40 employees -> 48 ranked
+// scenarios) serialises to ~33KB, well past registry.js's 20KB envelope
+// cap. Once that cap trips, truncate() throws away the ENTIRE array --
+// including item [0], the single worst scenario, which is exactly what
+// "what's our biggest risk" needs -- and the model is left with nothing
+// to answer from. DEFAULT_LIMIT keeps a no-args call comfortably inside
+// the cap (~15 items is ~10KB on real data) so the common query always
+// gets a real, usable, worst-first answer instead of hitting that wall.
+const DEFAULT_LIMIT = 15
+
+const rankScenariosTool = {
+  name: 'rank_scenarios',
+  description: `Call when the user asks for the biggest risk, worst-case scenario, or "what should we worry about" org-wide, without naming a specific person/agent/tool. Returns the top ${DEFAULT_LIMIT} worst-first by default -- pass a larger limit explicitly if the user wants more than that.`,
+  parameters: {
+    type: 'object',
+    properties: { limit: { type: 'integer' } },
+    required: [],
+  },
+  run(ctx, args) {
+    const all = rankAllScenarios(ctx.roots)
+    const limit = args.limit ?? DEFAULT_LIMIT
+    const limited = all.slice(0, limit)
+    const notes = limited.length < all.length
+      ? [`Showing the top ${limited.length} of ${all.length} ranked scenarios, worst-first. Pass a larger "limit" to see more.`]
+      : []
+    return { data: limited, notes }
+  },
+}
+
+const compareScenariosTool = {
+  name: 'compare_scenarios',
+  description: 'Call when the user wants two specific scenarios compared side by side — e.g. "what if X leaves vs if Y takes over instead". Never subtract the two results yourself; this tool does that.',
+  parameters: {
+    type: 'object',
+    properties: {
+      scenarioA: {
+        type: 'object',
+        properties: {
+          scenario: { type: 'string', enum: Object.keys(SCENARIO_DISPATCH) },
+          targetId: { type: 'string' },
+        },
+        required: ['scenario', 'targetId'],
+      },
+      scenarioB: {
+        type: 'object',
+        properties: {
+          scenario: { type: 'string', enum: Object.keys(SCENARIO_DISPATCH) },
+          targetId: { type: 'string' },
+        },
+        required: ['scenario', 'targetId'],
+      },
+    },
+    required: ['scenarioA', 'scenarioB'],
+  },
+  run(ctx, args) {
+    const fnA = SCENARIO_DISPATCH[args.scenarioA.scenario]
+    const fnB = SCENARIO_DISPATCH[args.scenarioB.scenario]
+    const resultA = fnA(toEntityId(args.scenarioA.targetId), ctx.roots)
+    const resultB = fnB(toEntityId(args.scenarioB.targetId), ctx.roots)
+
+    if (!resultA || !resultB) {
+      return {
+        data: null,
+        notes: [
+          !resultA ? `Scenario A: no entity found for "${args.scenarioA.targetId}".` : null,
+          !resultB ? `Scenario B: no entity found for "${args.scenarioB.targetId}".` : null,
+        ].filter(Boolean),
+      }
+    }
+
+    const agentsDiff = diffEntitySets(resultA.impactedAgents, resultB.impactedAgents)
+    const workflowsDiff = diffEntitySets(resultA.impactedWorkflows, resultB.impactedWorkflows)
+    const bothHaveDelta = resultA.healthDelta != null && resultB.healthDelta != null
+    const healthDeltaDifference = bothHaveDelta ? resultA.healthDelta - resultB.healthDelta : null
+
+    return {
+      data: { scenarioA: resultA, scenarioB: resultB, healthDeltaDifference, agentsOverlap: agentsDiff, workflowsOverlap: workflowsDiff },
+      notes: bothHaveDelta ? [] : ['Health delta could not be compared for one or both scenarios — insufficient evidence.'],
+    }
+  },
+}
+
+module.exports = [runSimulationTool, rankScenariosTool, compareScenariosTool]

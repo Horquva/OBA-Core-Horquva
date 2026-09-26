@@ -13,6 +13,7 @@ import { normalizeAgent, normalizeWorkflow, RawAgent, RawWorkflow } from '../../
 import { AITool, Dataset, Employee } from '../../types';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { DependencyRiskProfile } from '../../components/ownership/HumanDependencyRisks';
+import { invalidateAgentsCache } from '../../lib/useAgents';
 
 interface RawOwnerRow {
   name?: string;
@@ -72,11 +73,14 @@ export default function OwnershipPage() {
       const agents = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
       setEmployees(Array.isArray(employeesData) ? employeesData : []);
 
+      // backup_tool and users already come through correctly via the `...t`
+      // spread (GET /api/tools sends both) -- the two lines below used to
+      // override them with a `backupAssigned` field the API never sends
+      // (always falsy, so "no backup" for every tool) and a hardcoded empty
+      // users array. Only access_owner genuinely needs a UI-level default.
       const ai_tools = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
         ...t,
         access_owner: t.owner || t.access_owner || 'Unassigned',
-        backup_tool: t.backupAssigned ? 'Yes' : null,
-        users: [],
       } as unknown as AITool)) : [];
 
       const workflows = Array.isArray(wfsData) ? wfsData.map(normalizeWorkflow) : [];
@@ -105,9 +109,14 @@ export default function OwnershipPage() {
   // DATA-1's first write path: assign an owner, then reload the page's own
   // dataset so every derived view (coverage score, human-SPOF set, dependency
   // risk) reflects the change immediately instead of only the one row that
-  // changed.
+  // changed. Also drops useAgents' module-level cache -- AgentTable/Heatmap/
+  // RiskSplit on the dashboard mount that hook independently of this page's
+  // own fetch, and it only ever cleared itself on a failed request, so an
+  // owner reassignment here left the dashboard showing the previous owner
+  // until a full page reload.
   async function handleAssignOwner(agentId: string, ownerId: number) {
     await agentsApi.assignOwner(Number(agentId), ownerId);
+    invalidateAgentsCache();
     await loadOwnershipData();
   }
 

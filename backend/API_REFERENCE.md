@@ -18,10 +18,8 @@ All responses are JSON. Errors return `{ "error": "..." }` with a 4xx/5xx status
 | GET | `/api/risks` | Risk intelligence (M03) |
 | GET | `/api/tools` | AI tool inventory (M07) |
 | GET | `/api/tool-intelligence` | AI tool intelligence (M07) |
-| GET | `/api/tool-impact` | Tool impact analysis |
 | GET | `/api/workflows` | Workflow intelligence (M08) |
 | GET | `/api/knowledge/intelligence` | Knowledge intelligence |
-| GET | `/api/knowledge/impact` | Knowledge impact |
 | GET | `/api/knowledge/gaps` | Knowledge gaps |
 | GET | `/api/memory` | Organizational memory |
 | GET | `/api/agents` | Agent registry |
@@ -129,7 +127,6 @@ survive a Supabase outage.
 | GET | `/api/intelligence/truth` | Truth claims (served by `routes/truth/truth.js`) |
 | GET | `/api/intelligence/advisor` | Playbook advice — only for claims that verified |
 | GET | `/api/intelligence/brain-core` | M50 Brain Core Logic |
-| GET | `/api/intelligence/simulation-universe` | Resilience scenarios — what each shock costs |
 | GET | `/api/intelligence/orchestrator` | M55 Intelligence Orchestrator (runs last) |
 | GET | `/api/intelligence` | Index of all Phase 6 endpoints |
 

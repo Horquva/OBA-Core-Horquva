@@ -15,11 +15,9 @@ export function DigitalTwinCard() {
       toView={(data) => ({
         headline: data.digitalTwin.entities.length,
         headlineLabel: 'Entities Mirrored',
-        badge: data.synchronized
-          ? { text: 'SYNCED', tone: 'good' }
-          : { text: 'OUT OF SYNC', tone: 'bad' },
         rows: [
           { label: 'Relationships Mirrored', value: data.digitalTwin.relationships.length },
+          { label: 'Graph Loaded', value: new Date(data.digitalTwin.syncedAt).toLocaleString() },
           {
             label: 'Simulation Ready',
             value: data.simulationReady ? 'Yes' : 'No',

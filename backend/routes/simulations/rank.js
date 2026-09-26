@@ -1,4 +1,4 @@
-const express = require('express')
+﻿const express = require('express')
 const router = express.Router()
 const domain = require('../../domain')
 
@@ -9,26 +9,21 @@ router.get('/', async (req, res) => {
 
     const scenarios = domain.simulations
       .rankAllScenarios(roots)
-      .map((s) => ({
-        ...s,
-        blastRadius:
-          (s.impactedAgents?.length || 0) +
-          (s.impactedWorkflows?.length || 0) +
-          (s.impactedPeople?.length || 0),
-        healthBefore: 'stable',
-        healthAfter:
-          s.severity === 'critical'
-            ? 'critical'
-            : s.severity === 'low'
-              ? 'stable'
-              : 'degraded',
-        riskLevel: s.severity,
-        baselineHealthScore: baseline,
-        simulatedHealthScore:
-          baseline != null && s.healthDelta != null
-            ? baseline - s.healthDelta
-            : null,
-      }))
+      .map((s) => {
+        const simulated = baseline != null && s.healthDelta != null ? baseline - s.healthDelta : null
+        return {
+          ...s,
+          blastRadius:
+            (s.impactedAgents?.length || 0) +
+            (s.impactedWorkflows?.length || 0) +
+            (s.impactedPeople?.length || 0),
+          healthBefore: domain.simulations.healthStatusFor(baseline),
+          healthAfter: domain.simulations.healthStatusFor(simulated),
+          riskLevel: s.severity,
+          baselineHealthScore: baseline,
+          simulatedHealthScore: simulated,
+        }
+      })
       .sort((a, b) => b.blastRadius - a.blastRadius)
 
     res.json({ scenarios })

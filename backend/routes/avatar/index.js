@@ -48,6 +48,13 @@ router.get('/escalations', async (req, res) => {
 })
 
 // POST /api/avatar/check — gate check + auto-escalate if fails
+//
+// No admin gate: this writes an escalation_logs row, not a business record --
+// same category as voice_history/executive_sessions/executive_briefings,
+// none of which are admin-gated either. D-05 removed role gating everywhere
+// except the one route with a real data consequence (PATCH
+// /api/agents/:id/owner, SEC-3); an audit-trail insert here doesn't rise to
+// that bar.
 router.post('/check', async (req, res) => {
   try {
     const { workflow_id } = req.body

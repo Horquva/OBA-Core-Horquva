@@ -167,32 +167,8 @@ function playbookAdvice(d) {
 }
 
 // ── Resilience scenarios: what each shock costs ──
-function resilienceScenarios(d) {
-  const assets = assetsOf(d)
-  const total = assets.length || 1
-  const baseline = Math.round((100 * (0.5 * assets.filter(a => a.documented).length + 0.5 * assets.filter(a => a.backup_owner).length)) / total)
-  const scenarios = []
-  const owners = {}
-  assets.forEach(a => { if (a.owner) (owners[a.owner] = owners[a.owner] || []).push(a) })
-  Object.entries(owners).sort((a, b) => b[1].length - a[1].length).slice(0, 3).forEach(([owner, owned]) => {
-    const lostCrit = owned.filter(a => (a.criticality || '').toLowerCase() === 'critical' && !a.backup_owner).length
-    scenarios.push({ scenario: `Key person leaves: ${owner}`, assetsHit: owned.length, unrecoverable: lostCrit, resilienceDrop: Math.round((100 * lostCrit) / total) })
-  })
-  ;(d.ai_tools || []).forEach(t => {
-    if ((t.criticality || '').toLowerCase() === 'critical' && !t.backup_tool) {
-      const dep = (t.workflows || []).length + (t.agents_using || []).length
-      scenarios.push({ scenario: `Critical tool outage: ${t.name}`, assetsHit: dep, unrecoverable: dep, resilienceDrop: Math.min(100, dep * 8) })
-    }
-  })
-  const undocCrit = assets.filter(a => !a.documented && atOrAbove(a.criticality, 'high'))
-  scenarios.push({ scenario: 'Documentation loss shock', assetsHit: undocCrit.length, unrecoverable: undocCrit.length, resilienceDrop: Math.min(100, undocCrit.length * 10) })
-  scenarios.sort((a, b) => b.resilienceDrop - a.resilienceDrop)
-  const worst = scenarios[0] || null
-  return { baseline, survivability: Math.max(0, baseline - (worst ? worst.resilienceDrop : 0)), worst, scenarios }
-}
-
 module.exports = {
   assetsOf, pct,
   trendSignals, improvementOpportunities, departmentCapability,
-  alignmentChecklist, standardClaimChecks, playbookAdvice, resilienceScenarios,
+  alignmentChecklist, standardClaimChecks, playbookAdvice,
 }

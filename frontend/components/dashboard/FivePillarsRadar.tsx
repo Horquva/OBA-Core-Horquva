@@ -11,6 +11,7 @@ interface Pillar {
   score: number;
   fullLabel: string;
   href: string;
+  rating: string;
 }
 
 // Labels match domain/derived.js's canonical pillar definitions (MI =
@@ -39,11 +40,19 @@ const DRAGGING_PAIRS = [
   { from: 'GI', to: 'DI', label: 'Governance gaps are weakening Data coverage' },
 ];
 
-function ratingColor(score: number) {
-  if (score >= 80) return '#4ade80';
-  if (score >= 60) return '#818cf8';
-  if (score >= 40) return '#facc15';
-  return '#f87171';
+// Colors keyed off the canonical rating band (derived.js's band(), 85/65/40 —
+// STRONG/PARTIAL/WEAK/CRITICAL) the backend now attaches to each module,
+// instead of re-thresholding the raw score with a fourth, different cutoff
+// pair here.
+const RATING_COLOR: Record<string, string> = {
+  STRONG:   '#4ade80',
+  PARTIAL:  '#818cf8',
+  WEAK:     '#facc15',
+  CRITICAL: '#f87171',
+};
+
+function ratingColor(rating: string | undefined) {
+  return RATING_COLOR[rating ?? ''] ?? RATING_COLOR.PARTIAL;
 }
 
 // Custom tooltip
@@ -54,7 +63,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
     <div className="px-3 py-2 rounded-lg text-xs max-w-[220px]"
       style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
       <p className="font-semibold text-[color:var(--text-primary)]">{d.fullLabel}</p>
-      <p style={{ color: ratingColor(d.score) }}>{d.score}/100</p>
+      <p style={{ color: ratingColor(d.rating) }}>{d.score}/100</p>
       {d.label === 'Governance' && (
         <p className="text-[10px] text-[color:var(--text-tertiary)] mt-1">
           A weighted composite (runbooks + policy + violations) — different from /continuity&apos;s raw &quot;Governance Coverage (M19)&quot; ratio.
@@ -76,7 +85,7 @@ export function FivePillarsRadar() {
     // report }) has neither a `pillars` nor a `results` array, so the fallback's
     // `if (!built.length) throw` fired on every single use — it was unreachable
     // dead code that only ever produced the same error the primary fetch already had.
-    request<{ modules?: { key: string; score: number }[] }>('/api/intelligence/orchestrator/modules')
+    request<{ modules?: { key: string; score: number; rating: string }[] }>('/api/intelligence/orchestrator/modules')
       .then((data) => {
         if (!data.modules?.length) throw new Error('no modules');
 
@@ -96,6 +105,7 @@ export function FivePillarsRadar() {
               fullLabel: PILLAR_META[metaKey].fullLabel,
               href: PILLAR_META[metaKey].href,
               score: m.score,
+              rating: m.rating,
             });
           }
         });
@@ -112,10 +122,18 @@ export function FivePillarsRadar() {
     ? Math.round(pillars.reduce((s, p) => s + p.score, 0) / pillars.length)
     : 0;
 
+  // Every pillar's own label matches its own PILLAR_META entry, so the
+  // inner `.find()` used to be satisfied by that label match alone before
+  // it ever reached the `k === p.from`/`k === p.to` branch -- the outer
+  // `.find()` then always returned pillars[0], so `from`/`to` never varied
+  // with which pair was being checked. Look up the meta key for a pillar's
+  // label first, then compare THAT key to p.from/p.to.
+  const keyForLabel = (label: string) => Object.keys(PILLAR_META).find(k => PILLAR_META[k].label === label);
+
   const activeDraggingPairs = pillars.length
     ? DRAGGING_PAIRS.filter(p => {
-        const from = pillars.find(x => Object.keys(PILLAR_META).find(k => PILLAR_META[k].label === x.label || k === p.from));
-        const to   = pillars.find(x => Object.keys(PILLAR_META).find(k => PILLAR_META[k].label === x.label || k === p.to));
+        const from = pillars.find(x => keyForLabel(x.label) === p.from);
+        const to   = pillars.find(x => keyForLabel(x.label) === p.to);
         return (from?.score ?? 100) < 60 && (to?.score ?? 100) < 75;
       })
     : [];
@@ -172,7 +190,7 @@ export function FivePillarsRadar() {
                     x={x} y={y}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    style={{ fontSize: 11, fill: ratingColor(pillar?.score ?? 50), fontWeight: 600, cursor: 'pointer' }}
+                    style={{ fontSize: 11, fill: ratingColor(pillar?.rating), fontWeight: 600, cursor: 'pointer' }}
                   >
                     {payload.value}
                   </text>

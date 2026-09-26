@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { DecisionRecord } from '@/lib/decisionIntelligence';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { TruthGateBadge } from './TruthGateBadge';
 
 interface Props {
   decisions: DecisionRecord[];
@@ -99,13 +98,6 @@ function DecisionRow({ d }: { d: DecisionRecord }) {
           </span>
         </td>
 
-        {/* Verification */}
-        <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>
-          {/* Mocking verification state: HIGH/CRITICAL criticality decisions without a fix are unverified as a demo heuristic, 
-              since the real DecisionRecord doesn't have a verified flag natively. */}
-          <TruthGateBadge verified={!(d.criticality !== 'low' && !d.fix)} />
-        </td>
-
         {/* Score bar */}
         <td style={{ padding: '12px', minWidth: 130 }}>
           <ScoreBar score={d.score} quality={d.quality} />
@@ -126,7 +118,7 @@ function DecisionRow({ d }: { d: DecisionRecord }) {
       {/* Expanded detail row */}
       {expanded && (
         <tr>
-          <td colSpan={7} style={{ padding: 0, backgroundColor: 'var(--bg-base)' }}>
+          <td colSpan={6} style={{ padding: 0, backgroundColor: 'var(--bg-base)' }}>
             <div style={{ padding: '16px 20px 20px 48px', display: 'flex', gap: 32, flexWrap: 'wrap' }}>
 
               {/* Trail */}
@@ -250,7 +242,7 @@ export function DecisionTrailTable({ decisions }: Props) {
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
               <th style={{ width: 28 }} />
-              {['Decision', 'Category', 'Criticality', 'Verification', 'Score', 'Quality'].map(h => (
+              {['Decision', 'Category', 'Criticality', 'Score', 'Quality'].map(h => (
                 <th
                   key={h}
                   style={{
@@ -267,7 +259,7 @@ export function DecisionTrailTable({ decisions }: Props) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>
+                <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>
                   No decisions match the selected filters.
                 </td>
               </tr>

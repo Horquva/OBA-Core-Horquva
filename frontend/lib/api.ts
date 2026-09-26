@@ -1,9 +1,13 @@
 import type { RiskLevel } from '../types';
-import { authHeader, TOKEN_KEY, USER_KEY } from './authFetch';
+import { clientHeaders, LEGACY_TOKEN_KEY, USER_KEY } from './authFetch';
 import type { EvidenceInfo } from '../components/ui/EvidenceBadge';
 
 // ─── Base ────────────────────────────────────────────────────────────────────
 
+// NEXT_PUBLIC_API_URL="/" (deployed) strips to "", so every request goes to
+// this app's own /api/*, which next.config.ts rewrites to the backend. That
+// keeps the SEC-2 session cookie first-party. Unset (local dev) falls back to
+// calling the backend directly.
 const BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ?? 'http://localhost:3000';
 
@@ -22,7 +26,7 @@ const BASE =
 function handleUnauthorized() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
   } catch {}
   if (window.location.pathname !== '/login') {
@@ -42,8 +46,10 @@ function handleUnauthorized() {
  */
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...authHeader(), ...init?.headers },
     ...init,
+    // SEC-2: send the httpOnly session cookie cross-origin.
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...clientHeaders(), ...init?.headers },
   });
 
   if (res.status === 401) handleUnauthorized();
@@ -125,6 +131,11 @@ export interface SpofWorkflow {
   is_documented: boolean;
   agentCount: number;
   toolCount: number;
+  /** Informational only -- a recorded workflow_failures row, not part of the
+   *  SPOF gate itself (see backend/routes/workflows/spof.js). */
+  humanSpofRecorded: boolean;
+  /** From domain/definitions.js's spofVerdict(): sole_owner / no_backup_owner /
+   *  criticality_<level>. */
   spofReasons: string[];
   spofDetected: true;
 }
@@ -410,6 +421,7 @@ export interface LearningSummary {
     department: string;
     exposureScore: number;
   } | null;
+  provenance: { source: string; table: string };
 }
 
 export interface FailureProneAsset {
@@ -507,7 +519,12 @@ export interface CollaborationScoreResponse {
   collaborationScore: number;
   collaborationLevel: string;
   aiAdoptionScore: number;
+  /** derived.js's band() of aiAdoptionScore: MINIMAL/LOW/MODERATE/HIGH. */
+  adoptionLevel: string | null;
   humanDependencyScore: number;
+  /** derived.js's band() of (100 - humanDependencyScore), inverted so LOW
+   *  reads as good: SEVERE/HIGH/MODERATE/LOW. */
+  dependencyLevel: string | null;
   weakestCollaborationAreas: string[];
   computedAt: string;
 }
@@ -587,10 +604,12 @@ export const selfHealing = {
 };
 
 // ─── Dataset-derived organizational analyses ─────────────────────────────────
-// All seven ARE mounted — index.js mounts routes/intelligence/constitutional.js
+// All six ARE mounted — index.js mounts routes/intelligence/constitutional.js
 // at /api/intelligence. The previous "NOT MOUNTED" comments on signals,
-// opportunities, capability, alignment, advisor and simulation-universe were
-// stale and wrong.
+// opportunities, capability, alignment and advisor were stale and wrong.
+// simulation-universe (resilienceScenarios()) was removed entirely -- zero
+// real consumers, only ever reached by the admin health-check ping; see
+// docs/superpowers/specs/2026-09-18-duplicate-simulation-engines-design.md.
 //
 // ⚠ These come from backend/domain/analyses.js (the company dataset), NOT from the
 // brain. `capability` and `alignment` here are different analyses from
@@ -630,9 +649,6 @@ export const intelligence = {
 
   advisor: () =>
     request<Record<string, unknown>>('/api/intelligence/advisor'),
-
-  simulationUniverse: () =>
-    request<Record<string, unknown>>('/api/intelligence/simulation-universe'),
 };
 
 // ─── Org Science Predictions (M37, M39-M45) ──────────────────────────────────
@@ -846,7 +862,6 @@ export interface DigitalTwinPayload {
     stats: Record<string, unknown>;
     layers: { structure: number; systems: number; workflows: number; knowledge: number };
   };
-  synchronized: boolean;
   simulationReady: boolean;
 }
 
@@ -959,6 +974,7 @@ export interface ContextFeedItem {
 export interface ContextFeedResponse {
   totalItems: number;
   feed: ContextFeedItem[];
+  provenance: { source: string; table: string };
 }
 
 export const contextApi = {
@@ -1217,6 +1233,10 @@ export interface DecisionQueueItem {
   description: string;
   driver: string;
   priorityScore: number;
+  /** critical / high / medium / low — backend/lib/decisionPriority.js's
+   *  priorityLabel(), the same band briefing/context/automation already use
+   *  for this exact score. */
+  priorityLabel: string;
   impactScore: number;
   urgencyScore: number;
   effortScore: number;
@@ -1265,7 +1285,8 @@ export async function pingEndpoint(path: string): Promise<PingResult> {
     const res = await fetch(`${BASE}${path}`, {
       method: 'GET',
       signal: controller.signal,
-      headers: { ...authHeader() },
+      credentials: 'include',
+      headers: { ...clientHeaders() },
     });
     clearTimeout(timeoutId);
     return {

@@ -24,6 +24,7 @@ export default function SimulationPage() {
   const [tools, setTools] = useState<AITool[]>([]);
   const [scenarios, setScenarios] = useState<ScenarioResult[]>([]);
   const [healthIndex, setHealthIndex] = useState<number>(0);
+  const [healthStatus, setHealthStatus] = useState<string | null>(null);
   const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
   const [spofIds, setSpofIds] = useState<Set<string>>(new Set());
   const [predictiveRiskUnavailable, setPredictiveRiskUnavailable] = useState(false);
@@ -51,14 +52,15 @@ export default function SimulationPage() {
     ])
     .then(([agentsData, spofsData, toolsData, rankData, healthData, predictiveData]) => {
       setHealthIndex(healthData.healthIndex ?? 0);
+      setHealthStatus(healthData.healthStatus ?? null);
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
+      // Same fix as ownership/page.tsx: backup_tool/users already arrive
+      // correctly via the `...t` spread -- stop overriding them.
       const mappedTools: AITool[] = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
         ...t,
         access_owner: t.owner || t.access_owner || 'Unassigned',
-        backup_tool: t.backupAssigned ? 'Yes' : null,
-        users: [],
       } as unknown as AITool)) : [];
 
       setAgents(mappedAgents);
@@ -112,7 +114,7 @@ export default function SimulationPage() {
 
       {/* Twin Controls */}
       <div className="px-6 md:px-10 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-        <TwinHealthIndex agents={agents} healthIndex={healthIndex} />
+        <TwinHealthIndex agents={agents} healthIndex={healthIndex} healthStatus={healthStatus} />
         <TwinSyncStatus agents={agents} tools={tools} />
         <ScenarioSandbox agents={agents} tools={tools} riskByAgentName={riskByAgentName} spofIds={spofIds} />
       </div>

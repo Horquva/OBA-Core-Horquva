@@ -92,7 +92,7 @@ async function main() {
 		{ path: '/api/intelligence/dependency-impact', code: 'M32', payloadKeys: ['impactCount', 'impacts', 'highestImpact'] },
 		{ path: '/api/intelligence/hidden-dependencies', code: 'M34', payloadKeys: ['hiddenDependencyCount', 'hiddenDependencies'] },
 		{ path: '/api/intelligence/network-centrality', code: 'M35', payloadKeys: ['centralActors', 'mostConnected', 'averageDegree'] },
-		{ path: '/api/intelligence/digital-twin', code: 'M49', payloadKeys: ['digitalTwin', 'synchronized', 'simulationReady'] },
+		{ path: '/api/intelligence/digital-twin', code: 'M49', payloadKeys: ['digitalTwin', 'simulationReady'] },
 	]
 
 	console.log('\nOnce the graph is loaded, each endpoint runs its real analysis:')

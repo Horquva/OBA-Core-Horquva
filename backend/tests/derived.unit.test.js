@@ -426,15 +426,18 @@ console.log('\nOrg memory — backup_owner + documentation status, per-asset and
 
 	check('4 status buckets partition all 4 assets', report.preserved.length === 1 && report.atRisk.length === 1 && report.vulnerable.length === 1 && report.lost.length === 1, report)
 
-	// IMHS = (1*1.0 + 1*0.5 + 1*0.25) / 4 * 100 = 43.75 -> rounds to 44.
-	check('IMHS = round((preserved*1.0 + vulnerable*0.5 + atRisk*0.25) / total * 100)', report.imhs === 44, report.imhs)
+	// IMHS = (1*1.0 + 1*0.25 + 1*0.5) / 4 * 100 = 43.75 -> rounds to 44 (same
+	// total as before the vulnerable/atRisk weight swap, since this fixture
+	// has exactly one of each -- 0.25+0.5 sums the same as 0.5+0.25 did).
+	check('IMHS = round((preserved*1.0 + vulnerable*0.25 + atRisk*0.5) / total * 100)', report.imhs === 44, report.imhs)
 	check('44 lands below the 45 AT_RISK floor -> CRITICAL', report.imhsVerdict === 'CRITICAL', report.imhsVerdict)
 
 	const carriers = Object.fromEntries(report.carriers.map((c) => [c.name, c]))
 	check('Alice: fully preserved, no undocumented/unbacked load -> LOW tier', carriers.Alice.tier === 'LOW', carriers.Alice)
 	check('Bob: 1 undocumented (weight 2) but backed -> MEDIUM tier, not a critical carrier', carriers.Bob.tier === 'MEDIUM' && !carriers.Bob.isCriticalCarrier, carriers.Bob)
 	check('Cara: 1 unbacked (weight 1) but documented -> stays LOW, below the MEDIUM floor', carriers.Cara.tier === 'LOW', carriers.Cara)
-	check('carrier healthScore uses the same IMHS formula, scoped to their own assets', carriers.Bob.healthScore === 25, carriers.Bob.healthScore)
+	// Bob owns exactly 1 asset (FlowB, AT_RISK) -> calcIMHS(0, 0, 1, 1) = round(1*0.5/1*100) = 50.
+	check('carrier healthScore uses the same IMHS formula, scoped to their own assets', carriers.Bob.healthScore === 50, carriers.Bob.healthScore)
 	check('sorted worst tier first: MEDIUM (Bob) before the two LOWs', report.carriers[0].name === 'Bob', report.carriers.map((c) => c.name))
 	check('evidence is sufficient over 4 real assets', report.evidence.sufficient === true, report.evidence)
 }
@@ -497,6 +500,27 @@ console.log('\nAsset continuity — per-asset survival status + governance score
 	check('worstOffenders sorts lowest score first', report.worstOffenders[0].name === 'LowOrphan', report.worstOffenders.map((a) => a.name))
 
 	check('evidence is sufficient over 5 real assets', report.evidence.sufficient === true, report.evidence)
+}
+
+console.log('\nAsset continuity — id is type-prefixed so agents/workflows/tools sharing a raw id never collide:')
+{
+	// Agent, workflow, and platform all use id 3 -- three independently-
+	// numbered sequences. ownedAssetBase() used to copy the raw table id
+	// through unchanged, so all three collapsed to the same React key (`3`)
+	// wherever a frontend list mixed types (ContinuityTab's must-protect,
+	// GovernanceTab's worst-offenders, MemoryCarriersPanel, LostAssetsPanel) --
+	// "Encountered two children with the same key" in the browser console.
+	const r = roots({
+		agents: [{ id: 3, name: 'AgentThree', risk: 'critical', owner_id: null }],
+		workflows: [{ id: 3, name: 'WorkflowThree', risk: 'critical', department: 'Eng' }],
+		ai_platforms: [{ id: 3, name: 'ToolThree' }],
+	})
+	const report = d.assetContinuity(r)
+	const ids = report.assets.map((a) => a.id)
+	check('three different entities sharing raw id 3 produce three distinct, type-prefixed ids', new Set(ids).size === ids.length, ids)
+	check('agent id is prefixed', report.assets.find((a) => a.name === 'AgentThree').id === 'agent-3')
+	check('workflow id is prefixed', report.assets.find((a) => a.name === 'WorkflowThree').id === 'workflow-3')
+	check('tool id is prefixed', report.assets.find((a) => a.name === 'ToolThree').id === 'tool-3')
 }
 
 // ── Executive memory ─────────────────────────────────────────────────────────
@@ -968,8 +992,66 @@ console.log('\nNo route computes a second Organizational Intelligence Score (D-0
 	}
 }
 
-console.log('\n----------------------------------------')
-console.log('passed: ' + passed + '   failed: ' + failed)
-console.log(failed === 0 ? 'DERIVED INTELLIGENCE TESTS PASSED ✅' : 'DERIVED INTELLIGENCE TESTS FAILED ❌')
-console.log('----------------------------------------\n')
-process.exit(failed === 0 ? 0 : 1)
+console.log('\ncomputeAll / computeAllFromRoots parity:')
+
+;(async () => {
+  const parityRoots = roots()
+
+  const fakeSupabase = {
+    from(table) {
+      return {
+        async select() {
+          return {
+            data: parityRoots[table],
+            error: null,
+          }
+        },
+      }
+    },
+  }
+
+  const fromRoots = d.computeAllFromRoots(parityRoots)
+  const fromLegacy = await d.computeAll(fakeSupabase)
+
+  const normalize = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(normalize)
+  }
+
+  if (value && typeof value === 'object') {
+    const result = {}
+
+    for (const [key, entry] of Object.entries(value)) {
+      if (key === 'computedAt') continue
+      result[key] = normalize(entry)
+    }
+
+    return result
+  }
+
+  return value
+}
+
+  check(
+    'computeAllFromRoots matches computeAll apart from computedAt',
+    JSON.stringify(normalize(fromRoots)) === JSON.stringify(normalize(fromLegacy)),
+    {
+      fromRoots: normalize(fromRoots),
+      fromLegacy: normalize(fromLegacy),
+    },
+  )
+
+  console.log('\n----------------------------------------')
+  console.log('passed: ' + passed + '   failed: ' + failed)
+  console.log(
+    failed === 0
+      ? 'DERIVED INTELLIGENCE TESTS PASSED ✅'
+      : 'DERIVED INTELLIGENCE TESTS FAILED ❌',
+  )
+  console.log('----------------------------------------\n')
+
+  process.exit(failed === 0 ? 0 : 1)
+})().catch((err) => {
+  console.error('\nDerived parity test threw:', err)
+  process.exit(1)
+})

@@ -5,6 +5,7 @@ const domain = require('../../domain')
 const { loadDataset: loadOrgDataset } = domain
 const { atOrAbove } = require('../../domain/definitions')
 const { must } = require('../../lib/supabaseQuery')
+const { requireCsrfHeader } = require('../../middleware/auth')
 
 // ─────────────────────────────────────────────
 // LIVE ORGANIZATIONAL BRAIN
@@ -33,7 +34,10 @@ async function buildBrain() {
     { data: orchestration, error: e4 },
   ] = await Promise.all([
     loadOrgDataset(),
-    supabase.from('pending_decisions').select('*'),
+    // decision_queue merged onto it 2026-09-18 (owner decision) -- see
+    // sql/18_drop_superseded_pending_decisions.sql. Only .length is read
+    // below, so no field mapping is needed here.
+    supabase.from('decision_queue').select('*').eq('status', 'pending'),
     supabase.from('workflow_orchestration').select('*, workflows ( name )'),
   ])
   if (e3 || e4) throw new Error((e3 || e4).message)
@@ -313,9 +317,19 @@ function greeting() {
 
 function dailySummary(brain) {
   const parts = []
-  if (brain.org.spof) parts.push(`${brain.org.spof} has no backup owner (CRITICAL SPOF).`)
+  if (brain.org.spof) {
+    // Same real backup lookup orgSpof() already uses correctly a few lines
+    // above in this file -- this branch used to assert "no backup owner"
+    // unconditionally, true today only because SecurityScanner (the current
+    // top risk) genuinely has none; it silently becomes false the day a
+    // backup is assigned.
+    const s = brain.agents.find((a) => a.name === brain.org.spof)
+    const backupClause = s?.backup ? `has backup coverage from ${s.backup}` : 'has no backup owner'
+    const label = s?.backup ? 'CRITICAL RISK' : 'CRITICAL SPOF'
+    parts.push(`${brain.org.spof} ${backupClause} (${label}).`)
+  }
   const top = mostLoadedPerson(brain)
-  if (top) parts.push(`${top.name} carries the most key-person risk, owning ${top.criticalAgents} critical asset(s) with no backup.`)
+  if (top) parts.push(`${top.name} carries the most key-person risk, owning ${top.criticalAgents} critical asset(s).`)
   if (brain.org.failing) {
     const f = brain.agents.find((a) => a.name === brain.org.failing)
     parts.push(`${brain.org.failing} remains in a FAILED state${f?.onlyRestorer ? ` — ${f.onlyRestorer} is the only person who can restore it` : ''}.`)
@@ -425,8 +439,10 @@ function respond(res, query, r) {
 // ROUTES
 // ─────────────────────────────────────────────
 
-// GET /api/voice/ask?q=...
-router.get('/ask', async (req, res) => {
+// GET /api/voice/ask?q=... — requireCsrfHeader: logs to voice_history on
+// every call, a GET that writes, which the global CSRF guard's "GET is
+// safe" exemption doesn't cover. See middleware/auth.js.
+router.get('/ask', requireCsrfHeader, async (req, res) => {
   try {
     const query = req.query.q
     if (!query) return res.status(400).json({ error: 'Provide a query using ?q=' })
@@ -525,3 +541,16 @@ router.get('/daily-summary', async (req, res) => {
 })
 
 module.exports = router
+
+// Consolidation onto one Q&A engine (diagnostic item C, 2026-09-20): executive.js's
+// biggest-risk / most-overloaded-person answerers used to run their own separate
+// queries and could disagree with this engine's answer to the same question (its
+// old "biggest risk" pick was an unordered `.find()` for the first CRITICAL agent —
+// array-order-dependent, not actually "biggest"). executive.js now delegates those
+// two questions to this module's own selection logic instead of maintaining a
+// second implementation. Everything else exported here stays private to this file.
+module.exports.buildBrain = buildBrain
+module.exports.topRiskAgent = topRiskAgent
+module.exports.mostLoadedPerson = mostLoadedPerson
+module.exports.orgBiggestRisk = orgBiggestRisk
+module.exports.orgOverloaded = orgOverloaded

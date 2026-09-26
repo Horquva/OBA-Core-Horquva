@@ -86,7 +86,34 @@ router.get('/', async (req, res) => {
   })
 
   result.sort((a, b) => b.knowledgeRiskScore - a.knowledgeRiskScore)
-  res.json({ total: result.length, employees: result, concentration })
+
+  // Bus factor + HHI (Herfindahl-Hirschman Index) over the same
+  // criticality-weighted shares `concentration` above already computes --
+  // one definition of "how concentrated is knowledge" on this page, not two.
+  // Was KnowledgeConcentrationGauge.tsx's own client-side formula, computed
+  // over raw asset counts instead of this route's weighted shares (an
+  // unweighted duplicate of the concentration metric already sitting next to
+  // it in the same response).
+  const sortedByShare = [...concentration].sort((a, b) => b.concentrationScore - a.concentrationScore)
+  let busFactor = 0
+  let cumulativeShare = 0
+  for (const c of sortedByShare) {
+    busFactor++
+    cumulativeShare += c.concentrationScore
+    if (cumulativeShare > 50) break
+  }
+  const hhi = Math.round(concentration.reduce((sum, c) => sum + (c.concentrationScore * c.concentrationScore), 0))
+  const hhiTier =
+    hhi > 4000 ? 'SEVERE' :
+    hhi > 2500 ? 'HIGH' :
+    hhi > 1500 ? 'MODERATE' : 'HEALTHY'
+
+  res.json({
+    total: result.length,
+    employees: result,
+    concentration,
+    orgConcentration: { busFactor, hhi, hhiTier }
+  })
 })
 
 module.exports = router
