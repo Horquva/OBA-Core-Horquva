@@ -452,6 +452,100 @@ function workflowDisruption(workflowId, roots) {
   }
 }
 
+// ─── Compound (multi-node) scenario ─────────────────────────────────────────
+
+const SINGLE_SCENARIO_BY_TYPE = {
+  employee: employeeLeaves,
+  agent: agentFails,
+  platform: platformDown,
+  workflow: workflowDisruption,
+}
+
+/** Applies ONE removal to an already-cloned roots bundle — the same mutation each single-node scenario makes. */
+function applyRemoval(mutated, type, id) {
+  if (type === 'employee') {
+    mutated.employees = mutated.employees.filter((e) => e.id !== id)
+    mutated.agents = mutated.agents.map((a) => (a.owner_id === id ? { ...a, owner_id: null } : a))
+  } else if (type === 'agent') {
+    mutated.agents = mutated.agents.filter((a) => a.id !== id)
+  } else if (type === 'platform') {
+    mutated.ai_platforms = mutated.ai_platforms.filter((p) => p.id !== id)
+  } else if (type === 'workflow') {
+    mutated.workflows = mutated.workflows.filter((w) => w.id !== id)
+  }
+}
+
+/**
+ * Several nodes removed at the same time, e.g. "Ahmed leaves AND this agent
+ * fails". `removals` is an array of { type, id } where type is one of
+ * 'employee' | 'agent' | 'platform' | 'workflow'.
+ *
+ * Reach is the union of each removal's own cascade — forward reachability from
+ * a set of start nodes is exactly the union of reachability from each one, so
+ * this reuses the existing single-node traversal rather than a second one.
+ * A node reached by two removals is counted once.
+ *
+ * Health is NOT the sum of the individual deltas: all removals are applied to
+ * one mutated snapshot and orgHealth() is computed once on that, because
+ * removing two things together is not the same as removing each in turn.
+ *
+ * Returns null if `removals` is empty or any target is unknown, matching the
+ * single-node functions' not-found convention. Duplicate removals are ignored.
+ */
+function compoundScenario(removals, roots) {
+  if (!Array.isArray(removals) || removals.length === 0) return null
+
+  const seenTargets = new Set()
+  const singles = []
+  for (const r of removals) {
+    const run = r && SINGLE_SCENARIO_BY_TYPE[r.type]
+    if (!run) return null
+    const key = `${r.type}:${r.id}`
+    if (seenTargets.has(key)) continue
+    seenTargets.add(key)
+    const single = run(r.id, roots)
+    if (!single) return null
+    singles.push({ removal: { type: r.type, id: r.id }, single })
+  }
+
+  const agentIds = new Set()
+  const workflowIds = new Set()
+  const peopleIds = new Set()
+  for (const { single } of singles) {
+    for (const a of single.impactedAgents) agentIds.add(a.id)
+    for (const w of single.impactedWorkflows) workflowIds.add(w.id)
+    for (const p of single.impactedPeople) peopleIds.add(p.id)
+  }
+
+  const impactedAgents = roots.agents.filter((a) => agentIds.has(a.id))
+  const impactedWorkflows = roots.workflows.filter((w) => workflowIds.has(w.id))
+  const impactedPeople = roots.employees.filter((e) => peopleIds.has(e.id))
+  const entities = resolveCriticality(impactedEntitiesFor(agentIds, impactedWorkflows), roots)
+
+  const mutated = cloneRoots(roots)
+  for (const { removal } of singles) applyRemoval(mutated, removal.type, removal.id)
+  recount(mutated)
+
+  return {
+    scenario: 'If ' + singles.map(({ single }) => single.scenario.replace(/^If /, '')).join(' and '),
+    targetType: 'compound',
+    targetId: null,
+    targetName: singles.map(({ single }) => single.targetName).join(' + '),
+    targets: singles.map(({ removal, single }) => ({
+      type: removal.type,
+      id: removal.id,
+      name: single.targetName,
+      severity: single.severity,
+      healthDelta: single.healthDelta,
+    })),
+    impactedAgents,
+    impactedWorkflows,
+    impactedPeople,
+    severity: severityFor(entities),
+    healthDelta: healthDelta(roots, mutated),
+  }
+}
+
 /**
  * Every employee, every high/critical-criticality agent, and every
  * high/critical-criticality tool (ai_platforms row), ranked worst-first by
@@ -498,5 +592,6 @@ module.exports = {
   agentFails,
   platformDown,
   workflowDisruption,
+  compoundScenario,
   rankAllScenarios,
 }

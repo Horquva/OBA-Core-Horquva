@@ -672,6 +672,103 @@ function humanDependencyRisk(roots) {
 }
 
 /**
+ * Non-human concentration: identifies AI Agents, Vendor platforms, and
+ * Systems acting as overloaded single points of failure -- many things
+ * depend on them, and no fallback/alternative exists.
+ *
+ * Mirrors humanDependencyRisk()'s shape and reuses the same scale
+ * (RISK_FACTORS, threatLevel()'s 35/55/75 bands) rather than inventing new
+ * weights, per the AI-4 audit finding. Where humanDependencyRisk() looks at
+ * what an employee OWNS, this looks at what DEPENDS ON a node -- the
+ * relation is inverted, the scoring discipline is not.
+ *
+ * Roots: ai_platforms (vendors/systems), agents, tool_backups, plus
+ * whatever root expresses "X depends on hub Y" -- TODO: confirm exact
+ * table/field names before merging.
+ */
+function nonHumanDependencyRisk(roots) {
+  const risk = predictiveRisk(roots)
+  const scoreByAgentId = new Map(risk.scores.map((s) => [s.agentId, s.predictedScore]))
+
+  const usersByPlatformId = new Map()
+  for (const use of roots.tool_users) {
+    const list = usersByPlatformId.get(use.platform_id) ?? []
+    list.push(use)
+    usersByPlatformId.set(use.platform_id, list)
+  }
+
+  const workflowsByOwnerId = new Map()
+  for (const r of roots.workflow_runbooks) {
+    const list = workflowsByOwnerId.get(r.owner_id) ?? []
+    list.push(r.workflow_id)
+    workflowsByOwnerId.set(r.owner_id, list)
+  }
+  const workflowById = new Map(roots.workflows.map((w) => [w.id, w]))
+  const backedPlatformIds = new Set(roots.tool_backups.map((b) => b.primary_platform))
+
+  // --- Agents: reuse predictiveRisk() directly, same as agentRisk for humans ---
+  const agentProfiles = roots.agents.map((a) => {
+    const totalRiskScore = clamp(round(scoreByAgentId.get(a.id) ?? 0))
+    return {
+      hubId: a.id,
+      type: 'agent',
+      name: a.name ?? null,
+      totalRiskScore,
+      tier: threatLevel(totalRiskScore),
+      finding: totalRiskScore >= 55
+        ? `${a.name} carries a high predictive risk score with no distinct backup logic.`
+        : null,
+    }
+  })
+
+  // --- Platforms: volume + criticality of dependent employees' workflows + backup ---
+  const platformProfiles = roots.ai_platforms.map((p) => {
+    const users = usersByPlatformId.get(p.id) ?? []
+    const volume = users.length
+
+    const dependentWorkflows = users
+      .flatMap((u) => workflowsByOwnerId.get(u.employee_id) ?? [])
+      .map((wfId) => workflowById.get(wfId))
+      .filter(Boolean)
+
+    const criticalDependents = dependentWorkflows.filter((w) => atOrAbove(w.risk, 'high')).length
+    const criticalityExposure = dependentWorkflows.length
+      ? pct(criticalDependents, dependentWorkflows.length) / 100 * RISK_FACTORS.CRITICAL_WORKFLOW
+      : 0
+
+    const hasBackup = backedPlatformIds.has(p.id)
+    const backupExposure = (volume > 0 && !hasBackup) ? RISK_FACTORS.SINGLE_OWNER : 0
+
+    const totalRiskScore = clamp(round(criticalityExposure + backupExposure))
+
+    return {
+      hubId: p.id,
+      type: 'platform',
+      name: p.name ?? null,
+      dependentUserCount: volume,
+      criticalDependentCount: criticalDependents,
+      hasBackup,
+      totalRiskScore,
+      tier: threatLevel(totalRiskScore),
+      finding: (volume > 0 && !hasBackup)
+      ? `${p.name} is used by ${volume} employee${volume === 1 ? '' : 's'} (${criticalDependents} critical workflows) with no backup platform.`
+      : null,
+    }
+  })
+
+  return [...agentProfiles, ...platformProfiles].sort((a, b) => b.totalRiskScore - a.totalRiskScore)
+}
+
+function concentrationIntelligence(roots) {
+  const human = humanDependencyRisk(roots).map((p) => ({ ...p, category: 'human' }))
+  const nonHuman = nonHumanDependencyRisk(roots).map((p) => ({ ...p, category: 'non-human' }))
+
+  return {
+    findings: [...human, ...nonHuman].sort((a, b) => b.totalRiskScore - a.totalRiskScore),
+  }
+}
+
+/**
  * Per-employee knowledge CONCENTRATION -- criticality-weighted share of
  * org-wide assets (agents + workflows + tools) one person owns. Was
  * frontend/lib/knowledgeRisk.ts's concentrationScore, computed client-side.
@@ -1859,6 +1956,7 @@ module.exports = {
   collaboration,
   predictiveRisk,
   humanDependencyRisk,
+  nonHumanDependencyRisk,
   knowledgeConcentration,
   orgMemory,
   assetContinuity,

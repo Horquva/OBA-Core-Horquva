@@ -299,6 +299,52 @@ console.log('\nHuman dependency risk — real predictedScore + RISK_FACTORS-scal
 	check('sorted worst-first', profiles[0].totalRiskScore >= profiles[1].totalRiskScore, profiles)
 }
 
+// ── Non-Human Dependency Risk ────────────────────────────────────────────────────
+
+{
+	const r = roots({
+		agents: [
+			{ id: 1, name: 'HighRiskAgent', risk: 'high', status: 'active', owner_id: 1 },
+		],
+		ai_platforms: [
+			{ id: 1, name: 'BackedPlatform' },
+			{ id: 2, name: 'UnbackedPlatform' },
+			{ id: 3, name: 'UnusedPlatform' },
+		],
+		tool_users: [
+			{ id: 1, platform_id: 2, employee_id: 1, usage_level: 'primary' },
+			{ id: 2, platform_id: 2, employee_id: 2, usage_level: 'primary' },
+		],
+		employees: [
+			{ id: 1, name: 'Emp1' },
+			{ id: 2, name: 'Emp2' },
+		],
+		workflow_runbooks: [
+			{ workflow_id: 1, owner_id: 1, is_documented: true },
+			{ workflow_id: 2, owner_id: 2, is_documented: true },
+		],
+		workflows: [
+			{ id: 1, name: 'CritFlow', risk: 'critical' },
+			{ id: 2, name: 'LowFlow', risk: 'low' },
+		],
+		tool_backups: [{ primary_platform: 1, backup_platform: 3 }],
+	})
+	const hubs = d.nonHumanDependencyRisk(r)
+	const byName = Object.fromEntries(hubs.map((p) => [p.name, p]))
+
+	check('every platform and agent gets a profile', hubs.length === 4, hubs.map((p) => p.name))
+	check('unused platform contributes no risk', byName.UnusedPlatform.totalRiskScore === 0, byName.UnusedPlatform)
+	check('unbacked platform with 1 of 2 dependents critical -> flagged',
+		byName.UnbackedPlatform.hasBackup === false && byName.UnbackedPlatform.criticalDependentCount === 1,
+		byName.UnbackedPlatform)
+	check('backed platform has hasBackup true', byName.BackedPlatform.hasBackup === true, byName.BackedPlatform)
+	check('unbacked platform produces a named finding string',
+		typeof byName.UnbackedPlatform.finding === 'string' && byName.UnbackedPlatform.finding.length > 0,
+		byName.UnbackedPlatform.finding)
+	check('unused platform has no finding', byName.UnusedPlatform.finding === null, byName.UnusedPlatform.finding)
+	check('sorted worst-first', hubs[0].totalRiskScore >= hubs[hubs.length - 1].totalRiskScore, hubs)
+}
+
 // ── Knowledge concentration ────────────────────────────────────────────────────
 console.log('\nKnowledge concentration — criticality-weighted share across agents/workflows/tools:')
 {
