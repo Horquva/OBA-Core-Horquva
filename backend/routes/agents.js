@@ -165,6 +165,10 @@ router.patch('/:id/owner', requireAdmin, async (req, res) => {
 
   await recordAudit(req, { action: 'agent.owner_update', outcome: 'success', targetType: 'agent', targetId: agentId, changes: { owner_id: { from: before.owner_id, to: ownerId } } })
   await clearCachesAfterOwnerChange()
+  // Phase 1.7: the Knowledge Graph is a snapshot — after a mutation, refresh
+  // it in the background (debounced) so analysis routes see the new owner
+  // without waiting for a restart or a manual /graph/reload.
+  require('../brain').scheduleReload()
 
   res.json({ ok: true, agent: data })
 })

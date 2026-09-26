@@ -43,6 +43,7 @@ const tests = [
 	'realityRoutes.test.js', // HTTP-level; real brain + fixture graph, so it runs offline (M02/M03/M07/M28/M29/M31/M32/M34/M35/M49 wire-up)
 	'simulationRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-I)
 	'reassignRoute.test.js', // HTTP-level; stubs Supabase; the D-70 succession route (Phase 1.6)
+	'brainResilience.unit.test.js', // stubs graphLoader; retry/breaker/debounce (Phase 1.7)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
 	'agentData.unit.test.js', // Tasks 10.6 and 12.7 - turn context and page context
 	'navigationCatalog.unit.test.js', // W-L 12.2 navigation catalog

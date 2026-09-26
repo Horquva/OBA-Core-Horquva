@@ -183,6 +183,24 @@ require('./brain').loadGraph()
     console.error('Every /api/intelligence analysis endpoint will answer 503 until this')
     console.error('succeeds. Nothing is served from stand-in data.')
     console.error('='.repeat(78))
+    // Phase 1.7: transient failures retry inside loadGraph already; a total
+    // boot failure self-retries in the background instead of staying down
+    // until a human restarts the container.
+    const brain = require('./brain')
+    let bootRetries = 0
+    const retryBootLoad = () => {
+      if (bootRetries >= 5) {
+        console.error('Organizational Brain: giving up after 5 boot retries — use POST /api/intelligence/prediction/graph/reload once Supabase is reachable.')
+        return
+      }
+      bootRetries++
+      setTimeout(() => {
+        brain.loadGraph()
+          .then((stats) => console.log('Organizational Brain: graph loaded on boot retry', bootRetries, '—', JSON.stringify(stats)))
+          .catch(retryBootLoad)
+      }, 30_000 * bootRetries)
+    }
+    retryBootLoad()
   })
 
 app.use(errorHandler)

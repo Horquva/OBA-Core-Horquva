@@ -50,30 +50,91 @@ function toCode(idOrSlug) {
 let graph = null
 let source = { live: false, stats: null, loadedAt: null, error: null }
 
+// ── Resilient loading (Phase 1.7) ───────────────────────────────────────────
+//
+// Two failure modes this used to have:
+//   1. a transient Supabase error at boot left the brain at 503 until a human
+//      restarted the container (the load ran exactly once);
+//   2. a slow/hung Supabase hung every inbound request behind the load.
+//
+// The load now runs through a Nodeshift opossum circuit breaker (fail fast
+// with a clear error once the database is demonstrably down, half-open probe
+// after a cooldown) and retries with exponential backoff + jitter while the
+// breaker allows attempts. On total failure the error lands on `source` as
+// before — callers checking graphSource() still get the truth.
+
+const BREAKER_OPTS = {
+  timeout: 30_000,             // a hung load fails after 30s instead of forever
+  errorThresholdPercentage: 50,
+  // One loadGraph call fires up to `attempts` (default 4) failures through
+  // the breaker — a single request's bounded retry loop must never open the
+  // breaker by itself. Ten failures means multiple exhausted calls in a row:
+  // the database is demonstrably down, so fail fast until the half-open probe.
+  volumeThreshold: 10,
+  resetTimeout: 30_000,        // half-open probe after 30s
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function buildAndValidateGraph() {
+  const next = new KnowledgeGraph()
+  await loadFromSupabase(next)
+  const validation = next.validate()
+  if (!validation.valid) {
+    throw new Error(
+      'refusing to swap in an invalid graph — ' +
+      validation.entities.errors.concat(validation.relationships.errors).join('; '),
+    )
+  }
+  return next
+}
+
+const loadBreaker = new (require('opossum'))(buildAndValidateGraph, BREAKER_OPTS)
+
+/** Debounced background reload — fired after mutations so the graph reflects
+ *  the new reality without blocking the write response. Coalesces bursts. */
+let reloadTimer = null
+function scheduleReload(delayMs = 2_000) {
+  if (reloadTimer) clearTimeout(reloadTimer)
+  reloadTimer = setTimeout(() => {
+    reloadTimer = null
+    loadGraph({ attempts: 1 }).catch(() => { /* recorded on source; next mutation retries */ })
+  }, delayMs)
+  return true
+}
+
 /**
  * Build the graph from Supabase and swap it in atomically. A failure leaves any
  * previously-loaded graph in place and is recorded on `source` — a caller that
  * only logs the rejection would otherwise leave the brain answering from a
  * stale graph with nothing saying so.
+ *
+ * Retries transient failures (bounded, backoff + jitter); an OPEN breaker
+ * fails immediately rather than burning the retry budget against a database
+ * that is known-down.
  */
-async function loadGraph() {
-  const next = new KnowledgeGraph()
-  try {
-    await loadFromSupabase(next)
-    const validation = next.validate()
-    if (!validation.valid) {
-      throw new Error(
-        'refusing to swap in an invalid graph — ' +
-        validation.entities.errors.concat(validation.relationships.errors).join('; '),
-      )
+async function loadGraph({ attempts = 4 } = {}) {
+  let lastErr = null
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (loadBreaker.opened) {
+      lastErr = new Error('graph load circuit breaker is open — Supabase is failing consistently')
+      break
     }
-    graph = next
-    source = { live: true, stats: next.stats(), loadedAt: new Date().toISOString(), error: null }
-    return source.stats
-  } catch (err) {
-    source = { ...source, live: false, error: err.message, failedAt: new Date().toISOString() }
-    throw err
+    if (attempt > 1) {
+      const backoff = 500 * Math.pow(2, attempt - 2)
+      await sleep(backoff + Math.floor(Math.random() * 250))
+    }
+    try {
+      const next = await loadBreaker.fire()
+      graph = next
+      source = { live: true, stats: next.stats(), loadedAt: new Date().toISOString(), error: null }
+      return source.stats
+    } catch (err) {
+      lastErr = err
+    }
   }
+  source = { ...source, live: false, error: lastErr ? lastErr.message : 'unknown load failure', failedAt: new Date().toISOString() }
+  throw lastErr || new Error('graph load failed')
 }
 
 function getGraph() {
@@ -215,7 +276,8 @@ async function runMany(ids, context = {}) {
 }
 
 module.exports = {
-  loadGraph, getGraph, setGraph, isReady, graphSource,
+  loadGraph, scheduleReload, getGraph, setGraph, isReady, graphSource,
   run, runMany, resolveOrder, toCode,
   MODULES,
+  _loadBreaker: loadBreaker, // test hook — lets suites reset breaker state
 }
