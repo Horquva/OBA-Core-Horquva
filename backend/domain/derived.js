@@ -569,37 +569,35 @@ function predictiveRisk(roots, ctx) {
 
 /**
  * Per-employee aggregate exposure across everything they own (agents,
- * workflows, tools) -- was independently computed by two frontend
- * components (HumanDependencyRisks.tsx, DependencyPipeline.tsx) with two
- * different, invented sets of point weights (12/8/10, and a raw 4/3/2/1
- * tier-count sum), neither grounded in anything. This reuses RISK_FACTORS'
- * existing scale instead of inventing new numbers, and threatLevel()'s
- * existing 35/55/75 bands instead of a third tier scheme (the frontend used
- * 50/25/10).
+ * workflows, tools).
  *
- * agentRisk (mean of predictiveRisk()'s real predictedScore over owned
- * agents) is the dominant term. Workflow backup coverage is deliberately
- * NOT counted as its own factor: a workflow's backup_owner is resolved from
- * its owner's OWN backup_owner row (see routes/workflows/index.js), the same
- * fact predictiveRisk()'s SINGLE_OWNER factor for their agents already
- * prices in -- counting it twice would double-weight one signal, not add a
- * second one. Critical-workflow load and tool-backup coverage ARE
- * independent real facts, so they contribute as a fraction of owned
- * workflows/tools (not a raw count, so one person having many workflows
- * doesn't mechanically inflate the score) times the matching existing
- * RISK_FACTORS weight.
+ * v2 — Phase 1.5: the employee is scored by Engine B directly. The old form
+ * summed the mean Bayesian agent score with two crude ratios times authored
+ * constants (WORKFLOW_EXPOSURE_SCALE = 27, TOOL_EXPOSURE_SCALE = 30) — the
+ * exact linear-heuristic pattern the two-engine rework removed everywhere
+ * else. Now the employee's portfolio (owned agents + workflow runbooks +
+ * tool ownership) is aggregated into one O/D/S/U evidence tuple and pushed
+ * through the SAME 81-configuration CPT the asset pipeline uses — one
+ * authored model, zero new scales. The aggregation rules (majority-fragile
+ * reads 0, worst-case runtime, mean cascade exposure) and their honesty
+ * note live in riskEngine/index.js's scoreEmployee().
+ *
+ * Workflow backup coverage is deliberately priced once: a workflow's
+ * backup_owner is resolved from its owner's OWN backup_owner row (see
+ * routes/workflows/index.js), so portfolio O reads that fact per asset
+ * rather than adding a second, correlated factor.
+ *
+ * The legacy output contract (employeeId, name, the counts, totalRiskScore,
+ * tier) is preserved field-for-field; each profile now also carries the
+ * glass-box evidence tuple, counterfactual attribution and reasons — the
+ * same shape predictiveRisk() exposes per agent.
  *
  * Roots: employees, agents, workflows, workflow_runbooks, ai_platforms,
- * tool_ownership, tool_backups (plus predictiveRisk()'s own roots).
+ * tool_ownership, tool_backups, knowledge_assets, dependencies,
+ * workflow_failures (Engine A context).
  */
-const WORKFLOW_EXPOSURE_SCALE = 27
-const TOOL_EXPOSURE_SCALE = 30
-
 function humanDependencyRisk(roots, ctx) {
-  const risk = predictiveRisk(roots, ctx)
-  const scoreByAgentId = new Map(risk.scores.map((s) => [s.agentId, s.predictedScore]))
-  const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
-  const backedPlatformIds = new Set(roots.tool_backups.map((b) => b.primary_platform))
+  const context = ctx || riskEngine.buildEngine(roots)
 
   const employeeIds = new Set([
     ...roots.agents.map((a) => a.owner_id),
@@ -607,47 +605,25 @@ function humanDependencyRisk(roots, ctx) {
     ...roots.tool_ownership.map((t) => t.employee_id),
   ].filter((id) => id != null))
 
-  const workflowById = new Map(roots.workflows.map((w) => [w.id, w]))
-  const platformById = new Map(roots.ai_platforms.map((p) => [p.id, p]))
-
   const profiles = [...employeeIds].map((employeeId) => {
-    const employee = employeeById.get(employeeId)
-    const ownedAgents = roots.agents.filter((a) => a.owner_id === employeeId)
-    const ownedWorkflows = roots.workflow_runbooks
-      .filter((r) => r.owner_id === employeeId)
-      .map((r) => workflowById.get(r.workflow_id))
-      .filter(Boolean)
-    const ownedTools = roots.tool_ownership
-      .filter((t) => t.employee_id === employeeId)
-      .map((t) => platformById.get(t.platform_id))
-      .filter(Boolean)
-
-    const agentRisk = mean(ownedAgents.map((a) => scoreByAgentId.get(a.id) ?? 0))
-
-    const criticalWorkflows = ownedWorkflows.filter((w) => atOrAbove(w.risk, 'high')).length
-    const workflowExposure = ownedWorkflows.length
-      ? pct(criticalWorkflows, ownedWorkflows.length) / 100 * WORKFLOW_EXPOSURE_SCALE
-      : 0
-
-    const unbackedTools = ownedTools.filter((p) => !backedPlatformIds.has(p.id)).length
-    const toolExposure = ownedTools.length
-      ? pct(unbackedTools, ownedTools.length) / 100 * TOOL_EXPOSURE_SCALE
-      : 0
-
-    const totalRiskScore = clamp(round(agentRisk + workflowExposure + toolExposure))
-
+    const scored = riskEngine.scoreEmployee(roots, context, employeeId)
+    if (!scored) return null
     return {
       employeeId,
-      name: employee ? employee.name : null,
-      ownedAgentCount: ownedAgents.length,
-      ownedWorkflowCount: ownedWorkflows.length,
-      criticalWorkflowCount: criticalWorkflows,
-      ownedToolCount: ownedTools.length,
-      unbackedToolCount: unbackedTools,
-      totalRiskScore,
-      tier: threatLevel(totalRiskScore),
+      name: scored.employeeName,
+      ownedAgentCount: scored.portfolio.ownedAgents,
+      ownedWorkflowCount: scored.portfolio.ownedWorkflows,
+      criticalWorkflowCount: scored.portfolio.criticalWorkflows,
+      ownedToolCount: scored.portfolio.ownedTools,
+      unbackedToolCount: scored.portfolio.unbackedTools,
+      totalRiskScore: scored.predictedScore,
+      tier: scored.threatLevel,
+      evidence: scored.evidence,
+      attribution: scored.attribution,
+      reasons: scored.reasons,
+      portfolio: scored.portfolio,
     }
-  })
+  }).filter(Boolean)
 
   profiles.sort((a, b) => b.totalRiskScore - a.totalRiskScore)
   return profiles
@@ -1861,7 +1837,6 @@ module.exports = {
     USAGE_WEIGHT, AGENT_ENGAGEMENT_WEIGHT, ADOPTION_SATURATION,
     DEPENDENCY_PER_CRITICAL_ASSET, DEPENDENCY_NO_BACKUP,
     riskEngine: riskEngine.constants,
-    WORKFLOW_EXPOSURE_SCALE, TOOL_EXPOSURE_SCALE,
     HERO_CRITICAL_ASSET_THRESHOLD,
     PILLAR_WEIGHTS, VIOLATION_SEVERITY_PENALTY,
   },

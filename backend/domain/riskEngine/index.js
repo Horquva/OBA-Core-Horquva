@@ -98,6 +98,155 @@ function agentEvidence(roots, agent, precomputed = {}) {
   }
 }
 
+// ─── Employee portfolio scoring (Phase 1.5) ─────────────────────────────────
+
+// Portfolio evidence aggregation thresholds. [AUTHORED, same footing as the
+// CPT coefficients — see the honesty note in bayes.js.]
+//   O/D: a portfolio reads as fully resilient (2) only when EVERY asset in
+//   the relevant dimension is resilient; a majority-fragile portfolio reads
+//   as 0; anything in between as 1. Majority, not any-single-asset, so one
+//   weak asset among many solid ones does not dominate the whole tuple (S
+//   below already carries the worst-case runtime signal).
+const PORTFOLIO_MAJORITY = 0.5
+
+/**
+ * Engine B evaluated at the PERSON level: one employee's owned portfolio
+ * (agents + workflow runbooks + tool ownership) is aggregated into a single
+ * O/D/S/U evidence tuple and pushed through the SAME 81-configuration CPT
+ * used per asset — no second authored model, no linear scale factors. This
+ * replaces derived.js's humanDependencyRisk constants (27/30), which summed
+ * a calibrated posterior with two crude ratios.
+ *
+ * Aggregation rules (documented, authored):
+ *   O — fragile share of the portfolio (agent unowned-or-unbacked, tool
+ *       without a hot backup, workflow whose runbook owner lacks a backup);
+ *       >50% fragile → 0, any fragile → 1, none → 2.
+ *   D — documented share over doc-able assets (agents via knowledge_assets,
+ *       workflows via runbooks); all-documented → 2, partial → 1, none → 0.
+ *       A portfolio with nothing doc-able reads 2 (vacuous, not failing).
+ *   S — worst observed runtime state across the portfolio (0 failed, 1
+ *       inactive, 2 active).
+ *   U — mean Engine A upstream exposure across the portfolio's graph nodes
+ *       (assets absent from the dependency graph contribute nothing);
+ *       mean keeps one hot node from erasing a well-spread portfolio —
+ *       worst-case already lives in S.
+ *
+ * Pure: no I/O. `context` is the shared buildEngine(roots) context.
+ */
+function scoreEmployee(roots, context, employeeId) {
+  const backups = ownerBackupMap(roots)
+  const employees = new Map((roots.employees || []).map((e) => [e.id, e]))
+
+  const ownedAgents = (roots.agents || []).filter((a) => a.owner_id === employeeId)
+  const workflowById = new Map((roots.workflows || []).map((w) => [w.id, w]))
+  const ownedWorkflows = (roots.workflow_runbooks || [])
+    .filter((r) => r.owner_id === employeeId)
+    .map((r) => workflowById.get(r.workflow_id))
+    .filter(Boolean)
+  const backedPlatformIds = new Set((roots.tool_backups || []).map((b) => b.primary_platform))
+  const ownedTools = (roots.tool_ownership || [])
+    .filter((t) => t.employee_id === employeeId)
+    .map((t) => (roots.ai_platforms || []).find((p) => p.id === t.platform_id))
+    .filter(Boolean)
+
+  const total = ownedAgents.length + ownedWorkflows.length + ownedTools.length
+  if (total === 0) return null
+
+  // O — ownership resilience across the portfolio. Workflows ride on the
+  // runbook owner (this person): fragile iff this person has no backup —
+  // the same fact the agent term reads, so it is priced once per asset,
+  // not double-weighted (the legacy code's guard, kept).
+  const personHasBackup = backups.get(employeeId) ?? false
+  const fragileAgents = personHasBackup ? 0 : ownedAgents.filter((a) => a.owner_id != null).length
+  const fragileTools = ownedTools.filter((p) => !backedPlatformIds.has(p.id)).length
+  const fragileWorkflows = personHasBackup ? 0 : ownedWorkflows.length
+  const fragileShare = (fragileAgents + fragileTools + fragileWorkflows) / total
+  const ownership = fragileShare > PORTFOLIO_MAJORITY ? 0 : fragileShare > 0 ? 1 : 2
+
+  // D — documentation coverage over the doc-able assets (platforms carry no
+  // knowledge rows and are excluded from the denominator, not counted as
+  // undocumented).
+  const docByAgentId = new Map()
+  for (const ka of roots.knowledge_assets || []) {
+    if (ka.asset_type !== 'agent') continue
+    const cur = docByAgentId.get(ka.asset_id) || { total: 0, documented: 0 }
+    cur.total++
+    if (ka.is_documented) cur.documented++
+    docByAgentId.set(ka.asset_id, cur)
+  }
+  const runbookByWorkflowId = new Map((roots.workflow_runbooks || []).map((r) => [r.workflow_id, r]))
+  let docTotal = 0
+  let docDocumented = 0
+  for (const a of ownedAgents) {
+    const d = docByAgentId.get(a.id)
+    if (!d) { docTotal += 1; continue } // no knowledge rows reads as undocumented — P17 conjunction rule
+    docTotal += d.total
+    docDocumented += d.documented
+  }
+  for (const w of ownedWorkflows) {
+    const r = runbookByWorkflowId.get(w.id)
+    if (!r) continue
+    docTotal++
+    if (r.is_documented) docDocumented++
+  }
+  const documentedShare = docTotal === 0 ? 0 : docDocumented / docTotal
+  const documentation = docTotal === 0
+    ? 2 // nothing doc-able: the dimension is vacuous, not failing
+    : documentedShare >= 1 ? 2 : documentedShare > 0 ? 1 : 0
+
+  // S — worst observed runtime state across the portfolio.
+  let runtime_state = 2
+  for (const a of ownedAgents) {
+    if (a.status === 'failed') runtime_state = 0
+    else if (a.status === 'inactive' && runtime_state > 0) runtime_state = 1
+  }
+  for (const w of ownedWorkflows) {
+    if (w.status === 'failed') runtime_state = 0
+    else if (w.status === 'inactive' && runtime_state > 0) runtime_state = 1
+  }
+  for (const p of ownedTools) {
+    if (p.status === 'failed') runtime_state = 0
+    else if (p.status === 'inactive' && runtime_state > 0) runtime_state = 1
+  }
+
+  // U — upstream cascade exposure, averaged over the portfolio's Engine A
+  // nodes (assets absent from the dependency graph contribute nothing; a
+  // portfolio with no graph presence reads as protected).
+  let uSum = 0
+  let uCount = 0
+  for (const a of ownedAgents) { uSum += context.uState('agent', a.id); uCount++ }
+  for (const w of ownedWorkflows) { uSum += context.uState('workflow', w.id); uCount++ }
+  const cascade_exposure = uCount === 0 ? 2 : Math.max(0, Math.min(2, Math.round(uSum / uCount)))
+
+  const ev = { ownership, documentation, runtime_state, cascade_exposure }
+  const posterior = bayes.scoreAgent(ev)
+
+  return {
+    evidence: ev,
+    pNominal: posterior.pNominal,
+    pElevated: posterior.pElevated,
+    pCritical: posterior.pCritical,
+    predictedScore: posterior.predictedScore,
+    threatLevel: posterior.threatLevel,
+    attribution: posterior.attribution,
+    reasons: bayes.reasonsFor(ev),
+    portfolio: {
+      ownedAgents: ownedAgents.length,
+      ownedWorkflows: ownedWorkflows.length,
+      ownedTools: ownedTools.length,
+      fragileAgents,
+      fragileTools,
+      fragileWorkflows,
+      fragileShare,
+      unbackedTools: fragileTools,
+      docTotal,
+      docDocumented,
+      criticalWorkflows: ownedWorkflows.filter((w) => w.risk === 'critical' || w.risk === 'high').length,
+    },
+    employeeName: employees.get(employeeId)?.name ?? null,
+  }
+}
+
 // ─── Org-scan distress seeds (SPEC-1) ────────────────────────────────────────
 
 // Observed-state distress weights. Only things that HAVE ALREADY failed or
@@ -248,6 +397,8 @@ module.exports = {
   ownerBackupMap,
   agentDocumentation,
   orgScanSeeds,
+  scoreEmployee,
+  PORTFOLIO_MAJORITY,
   KAPPA,
   DISTRESS_FAILED,
   DISTRESS_INACTIVE,

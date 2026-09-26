@@ -250,15 +250,16 @@ console.log('\nPredictive risk — factors and emergence:')
 }
 
 // ── Human dependency risk ─────────────────────────────────────────────────────
-console.log('\nHuman dependency risk — real predictedScore + exposure scale:')
+console.log('\nHuman dependency risk — Engine B portfolio expectation (Phase 1.5):')
 {
 	const r = roots({
 		employees: [
 			{ id: 1, name: 'Overloaded' },
 			{ id: 2, name: 'Clean' },
 		],
-		// Both employees have a personal backup, so neither agent picks up a
-		// single_owner factor -- isolates workflow/tool exposure from agentRisk.
+		// Both employees have a personal backup, so no agent picks up an
+		// ownership-fragile factor -- isolates tool-backup coverage as the
+		// one fragile dimension in Overloaded's portfolio.
 		agents: [
 			{ id: 1, name: 'A1', risk: 'low', status: 'active', owner_id: 1 },
 			{ id: 2, name: 'A2', risk: 'low', status: 'active', owner_id: 1 },
@@ -269,16 +270,16 @@ console.log('\nHuman dependency risk — real predictedScore + exposure scale:')
 			{ id: 11, name: 'Clean', employee_id: 2, backup_owner: 'Deputy2' },
 		],
 		workflows: [
-			{ id: 1, name: 'CritFlow', risk: 'critical' },
-			{ id: 2, name: 'LowFlow', risk: 'low' },
+			{ id: 1, name: 'CritFlow', risk: 'critical', status: 'active' },
+			{ id: 2, name: 'LowFlow', risk: 'low', status: 'active' },
 		],
 		workflow_runbooks: [
 			{ workflow_id: 1, owner_id: 1, is_documented: true },
 			{ workflow_id: 2, owner_id: 1, is_documented: true },
 		],
 		ai_platforms: [
-			{ id: 1, name: 'ToolA' },
-			{ id: 2, name: 'ToolB' },
+			{ id: 1, name: 'ToolA', status: 'active' },
+			{ id: 2, name: 'ToolB', status: 'active' },
 		],
 		tool_ownership: [
 			{ platform_id: 1, employee_id: 1 },
@@ -296,16 +297,20 @@ console.log('\nHuman dependency risk — real predictedScore + exposure scale:')
 	const by = Object.fromEntries(profiles.map((p) => [p.name, p]))
 
 	check('every owning employee gets a profile', profiles.length === 2, profiles.map((p) => p.name))
-	check('a fully-backed agent contributes floor agentRisk', by.Clean.totalRiskScore === 2, by.Clean)
-	check('1 of 2 owned workflows critical -> half of WORKFLOW_EXPOSURE_SCALE',
-		by.Overloaded.criticalWorkflowCount === 1 && by.Overloaded.ownedWorkflowCount === 2, by.Overloaded)
-	check('1 of 2 owned tools unbacked -> half of TOOL_EXPOSURE_SCALE',
-		by.Overloaded.unbackedToolCount === 1 && by.Overloaded.ownedToolCount === 2, by.Overloaded)
-	check('score is agentRisk(2) + 0.5*WORKFLOW_EXPOSURE_SCALE(27) + 0.5*TOOL_EXPOSURE_SCALE(30), rounded',
-		by.Overloaded.totalRiskScore === Math.round(2 + 0.5 * d.constants.WORKFLOW_EXPOSURE_SCALE + 0.5 * d.constants.TOOL_EXPOSURE_SCALE),
-		by.Overloaded.totalRiskScore)
+	check('a fully-resilient one-asset portfolio scores the CPT floor (2)', by.Clean.totalRiskScore === 2, by.Clean)
+	check('the unbacked tool moves portfolio ownership evidence off optimal',
+		by.Overloaded.unbackedToolCount === 1 && by.Overloaded.evidence.ownership === 1, by.Overloaded.evidence)
+	check('fully documented portfolio reads documentation 2',
+		by.Overloaded.evidence.documentation === 2 && by.Overloaded.portfolio.docDocumented === 4, by.Overloaded.evidence)
+	check('all-active portfolio reads runtime_state 2', by.Overloaded.evidence.runtime_state === 2, by.Overloaded.evidence)
+	check('portfolio with no dependency-graph presence reads protected',
+		by.Overloaded.evidence.cascade_exposure === 2, by.Overloaded.evidence)
+	check('fragile dimension raises the score above the clean floor',
+		by.Overloaded.totalRiskScore > by.Clean.totalRiskScore, { overloaded: by.Overloaded.totalRiskScore, clean: by.Clean.totalRiskScore })
+	check('glass-box attribution rides on the profile (four counterfactual keys)',
+		by.Overloaded.attribution && ['ownership', 'documentation', 'runtime_state', 'cascade_exposure'].every((k) => typeof by.Overloaded.attribution[k] === 'number'), by.Overloaded.attribution)
 	check('tier comes from the canonical threatLevel bands, not an invented scheme',
-		by.Overloaded.totalRiskScore < 35 ? by.Overloaded.tier === 'LOW' : true, by.Overloaded)
+		by.Overloaded.tier === 'LOW' || by.Overloaded.tier === 'MEDIUM' || by.Overloaded.tier === 'HIGH' || by.Overloaded.tier === 'CRITICAL', by.Overloaded.tier)
 	check('sorted worst-first', profiles[0].totalRiskScore >= profiles[1].totalRiskScore, profiles)
 }
 

@@ -38,7 +38,7 @@ const metrics = [
   {
     metric: 'humanDependencyRisk',
     label: 'Human Dependency Risk',
-    definition: "Per-employee score dominated by the mean predicted risk of the agents they own. Adds critical-workflow load and tool-backup coverage as fractional factors (not raw counts), so owning many workflows doesn't mechanically inflate the score. Decoupled from the legacy point table via dedicated WORKFLOW_EXPOSURE_SCALE (27) and TOOL_EXPOSURE_SCALE (30) constants.",
+    definition: "Engine B (the same 81-configuration Bayesian CPT used per asset) evaluated at the person level: the employee's owned portfolio (agents + workflow runbooks + tool ownership) is aggregated into one O/D/S/U evidence tuple — majority-fragile ownership, documented share, worst runtime state, mean cascade exposure — and scored as an exact posterior (100*P(Critical) + 45*P(Elevated)). No linear scale factors; every profile carries its counterfactual attribution.",
     range: '0-100',
     authored: true,
     authoredNote: 'Combines multiple weighted factors chosen by the team; not a direct measurement.',
