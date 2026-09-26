@@ -22,12 +22,10 @@ async function getTopSPOF() {
   return {
     predicted_score: top.predictedScore,
     agents: { name: top.agentName, risk: top.recordedRisk, owner_id: null },
-    // predictiveRisk()'s single_owner factor is only present when the agent
-    // has no owner AT ALL, or has an owner with no backup (derived.js's
-    // predictiveRisk(), lines ~510-516) -- absent when the owner has a real
-    // backup. Previously this route asserted "no backup owner" for whichever
-    // agent happened to be top-CRITICAL, whether or not that was true.
-    hasNoBackupOwner: 'single_owner' in top.contributingFactors,
+    // predictiveRisk()'s ownership evidence indicates lack of backup coverage
+    // when ownership !== 2 (0 = unowned, 1 = single owner with no backup, 2 = backed up).
+    // On the BBN engine, evidence.ownership !== 2 accurately reflects unbacked status.
+    hasNoBackupOwner: top.evidence ? top.evidence.ownership !== 2 : false,
   }
 }
 

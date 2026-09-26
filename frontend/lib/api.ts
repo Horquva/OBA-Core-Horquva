@@ -1112,6 +1112,8 @@ export interface PredictedAgent {
   threatLevel: string;
   isEmergingThreat: boolean;
   contributingFactors: Record<string, number>;
+  blastRadius?: number;
+  evidence?: { O: number; D: number; S: number; U: number };
   reasons: string[];
   computedAt: string;
 }

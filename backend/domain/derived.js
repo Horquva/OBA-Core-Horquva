@@ -60,6 +60,7 @@
  */
 
 const { atOrAbove, evidenceGate, combineEvidence, entityCriticality } = require('./definitions')
+const riskEngine = require('./riskEngine')
 
 const ROOT_TABLES = [
   'employees', 'agents', 'owners', 'workflows', 'workflow_failures',
@@ -421,71 +422,72 @@ function collaboration(roots) {
 /**
  * Replaces the 15 `predictive_risk_scores` rows.
  *
- * DEFINITION. Each agent accumulates penalty points from independently
- * observable conditions; the total is its predicted score. The factor names and
- * the {name -> points} shape are kept from the frozen table's
- * `contributing_factors` JSON so existing consumers keep working.
+ * v2 — THE TWO-ENGINE PIPELINE (2026-09). The authored point-penalty table
+ * that lived here (RISK_FACTORS: single_owner 30, critical_workflow 27, …)
+ * is gone. It summed uncorrelated penalty points across distinct dimensions,
+ * clamped at 100, and read the agent's own recorded `risk` label back into
+ * its own score (+20 for 'critical') — an additive fiction with a built-in
+ * feedback loop. In its place:
  *
- * The factors, and why each is weighted where it is:
+ *   Engine B (backend/domain/riskEngine/bayes.js) — a discrete Bayesian
+ *   belief network over four evidence variables per agent: Ownership
+ *   resilience (O), Documentation coverage (D), Runtime state (S), and
+ *   upstream Cascading exposure (U). predictedScore = 100·P(Critical) +
+ *   45·P(Elevated), an exact posterior from an 81-configuration CPT.
  *
- *   single_owner (30)          one named owner, no backup. The largest single
- *                              factor because it is the only one where the
- *                              organization loses the asset outright.
- *   high_dependency_count (25) three or more things break with it (12 for one
- *                              or two). Blast radius, not fragility.
- *   critical_workflow (27)     a workflow rated high or critical depends on it.
- *   undocumented (18)          its knowledge assets are not written down, so
- *                              recovery depends on a person being reachable.
- *   unstable (25/10)           status `failed` / `inactive`. Observed, not
- *                              predicted — an already-failing agent is not a
- *                              risk, it is an incident, and should outrank
- *                              anything merely fragile.
- *   intrinsic_risk (20/12)     the risk level already recorded on the agent.
+ *   Engine A (backend/domain/riskEngine/eirwr.js) — the eIRWR random walk
+ *   (arXiv:2608.08073, Algorithm 1) replaces the unweighted BFS as the
+ *   probability model: it supplies U, and each row's new `blastRadius`
+ *   (continuous 0-100 impact of losing that agent). The legacy `cascadeReach`
+ *   TRANSITIVE COUNT is still computed and returned — routes/dependencies.js
+ *   and the Dependency Map's "largest downstream chain" label read it, and a
+ *   count is a different (still true) statement than a probability.
  *
- * `isEmergingThreat` means the computed score lands in a HIGHER band than the
- * agent's own recorded `risk` label — i.e. the data has moved and the label has
- * not. That makes the flag say something the score alone doesn't, which is the
- * only reason to keep a boolean next to a number.
+ * Glass-box attribution: `contributingFactors` values are now counterfactual
+ * attributions — the score the asset would shed if that evidence variable
+ * were restored to its optimal state. They are NOT additive and do not sum
+ * to predictedScore; the legacy sum-identity was the bug. Keys are
+ * { ownership, documentation, runtime_state, cascade_exposure } (consumers
+ * patched accordingly: routes/briefing/briefing.js's `single_owner` check,
+ * metricGlossary). Every agent also carries its raw `evidence` states.
  *
- * Roots: agents, owners, dependencies, workflows, knowledge_assets.
+ * Provenance: the DAG shape follows the BBN literature (arXiv:0906.3968,
+ * arXiv:2505.06281). All CPT values, thresholds and weights are AUTHORED
+ * design values — see the honesty notes in riskEngine/bayes.js and the
+ * anchor table in docs/risk_engine_research/IMPLEMENTATION_PLAN_EXPANDED.md.
+ *
+ * `recordedRisk` no longer feeds the score (circularity removed); it remains
+ * the comparison label for `isEmergingThreat`, whose definition is unchanged:
+ * the computed band outruns the recorded label.
+ *
+ * Roots: agents, owners, employees, dependencies, knowledge_assets,
+ * workflow_failures (org-scan distress only).
+ *
+ * `ctx` is the shared engine context from riskEngine.buildEngine(roots);
+ * callers holding one (computeAllFromRoots, the simulations) pass it so the
+ * graph walk and blast radii are computed once per roots bundle, not once
+ * per call.
  */
-const RISK_FACTORS = {
-  NO_OWNER: 35,
-  SINGLE_OWNER: 30,
-  DEPENDENTS_MANY: 25,
-  DEPENDENTS_FEW: 12,
-  CRITICAL_WORKFLOW: 27,
-  UNDOCUMENTED: 18,
-  STATUS_FAILED: 25,
-  STATUS_INACTIVE: 10,
-  INTRINSIC_CRITICAL: 20,
-  INTRINSIC_HIGH: 12,
-}
-const MANY_DEPENDENTS = 3
-
-function threatLevel(score) {
-  if (score >= 75) return 'CRITICAL'
-  if (score >= 55) return 'HIGH'
-  if (score >= 35) return 'MEDIUM'
-  return 'LOW'
-}
-
 const THREAT_ORDER = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 }
 const RECORDED_RISK_AS_THREAT = { low: 'LOW', medium: 'MEDIUM', high: 'HIGH', critical: 'CRITICAL' }
 
-function predictiveRisk(roots) {
+// Bands the shared 0-100 risk score onto LOW/MEDIUM/HIGH/CRITICAL. The
+// thresholds' canonical home is riskEngine/bayes.js (THREAT_BANDS) — this
+// delegate exists so humanDependencyRisk and any other in-file scorer keep
+// one vocabulary without a second copy of the numbers.
+function threatLevel(score) {
+  return riskEngine.threatLevelFor(score)
+}
+
+function predictiveRisk(roots, ctx) {
+  const context = ctx || riskEngine.buildEngine(roots)
   const depIndex = dependencyIndex(roots)
-  const backups = backupIndex(roots)
   // agents.owner_id references employees.id directly, NOT owners.id (see
   // routes/ownership.js's header comment — both id spaces start at 1, so a
   // join on the wrong one never errors, it silently returns a different,
-  // plausible person). owners is a small subset of employees carrying
-  // role/backup/risk, so a declared-owner row is looked up by employee_id,
-  // falling back to the employees table for the name when no such row exists
-  // (7 of 15 seeded agents are owned by employees absent from owners).
-  const ownerRowByEmployeeId = new Map(roots.owners.filter((o) => o.employee_id != null).map((o) => [o.employee_id, o]))
+  // plausible person).
   const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
-  const workflowById = new Map(roots.workflows.map((w) => [w.id, w]))
+  const ownerBackup = new Map(roots.owners.filter((o) => o.employee_id != null).map((o) => [o.employee_id, Boolean(o.backup_owner)]))
 
   const docByAgent = new Map()
   for (const ka of roots.knowledge_assets) {
@@ -495,81 +497,51 @@ function predictiveRisk(roots) {
     if (ka.is_documented) current.documented++
     docByAgent.set(ka.asset_id, current)
   }
+  // Per-agent documentation state in one pass over knowledge_assets. The
+  // no-rows case reads as Undocumented (0) — the same conjunction rule
+  // ownedAssetBase() applies, unifying the two readings the legacy code
+  // disagreed on (expanded plan P17).
+  const docStateByAgent = new Map()
+  for (const agent of roots.agents) {
+    const docs = docByAgent.get(agent.id) || { total: 0, documented: 0 }
+    docStateByAgent.set(agent.id, (docs.total === 0 || docs.documented === 0)
+      ? { state: 0, total: docs.total, documented: docs.documented }
+      : docs.documented === docs.total
+        ? { state: 2, total: docs.total, documented: docs.documented }
+        : { state: 1, total: docs.total, documented: docs.documented })
+  }
 
   const scores = roots.agents.map((agent) => {
-    const factors = {}
-    const reasons = []
+    const ev = riskEngine.agentEvidence(roots, agent, { ownerBackup, employeeById })
+    // Override documentation with the precomputed state (same rule, one pass).
+    const docs = docStateByAgent.get(agent.id)
+    ev.documentation = docs.state
+    ev.docTotal = docs.total
+    ev.docDocumented = docs.documented
+    ev.cascade_exposure = context.uState('agent', agent.id)
 
-    const ownerEmployee = agent.owner_id != null ? employeeById.get(agent.owner_id) : null
-    const ownerBackup = agent.owner_id != null ? backups.get(agent.owner_id) : null
-    const ownerName = ownerEmployee ? ownerEmployee.name : (ownerRowByEmployeeId.get(agent.owner_id) || {}).name
-    // No owner at all is a worse condition than an owner with no backup — there
-    // is no single point of failure to name, there is no coverage whatsoever —
-    // so it must not score lower on this dimension than the owned-and-unbacked
-    // case just because the `owner &&` guard made it fall through to nothing.
-    if (agent.owner_id == null) {
-      factors.single_owner = RISK_FACTORS.NO_OWNER
-      reasons.push('has no named owner at all')
-    } else if (!(ownerBackup && ownerBackup.hasBackup)) {
-      factors.single_owner = RISK_FACTORS.SINGLE_OWNER
-      reasons.push(`${ownerName || 'the owner'} is the only named owner and has no backup`)
-    }
-
-    const directDependents = (depIndex.dependentsOf.get(depIndex.key('agent', agent.id)) || [])
-    if (directDependents.length >= MANY_DEPENDENTS) {
-      factors.high_dependency_count = RISK_FACTORS.DEPENDENTS_MANY
-      reasons.push(`${directDependents.length} things depend on it directly`)
-    } else if (directDependents.length > 0) {
-      factors.high_dependency_count = RISK_FACTORS.DEPENDENTS_FEW
-      reasons.push(`${directDependents.length} thing(s) depend on it directly`)
-    }
-
-    const criticalWorkflows = directDependents
-      .filter((d) => d.type === 'workflow')
-      .map((d) => workflowById.get(d.id))
-      .filter((w) => w && atOrAbove(w.risk, 'high'))
-    if (criticalWorkflows.length) {
-      factors.critical_workflow = RISK_FACTORS.CRITICAL_WORKFLOW
-      reasons.push(`supports ${criticalWorkflows.length} high-risk workflow(s): ${criticalWorkflows.map((w) => w.name).join(', ')}`)
-    }
-
-    const docs = docByAgent.get(agent.id)
-    if (docs && docs.documented < docs.total) {
-      factors.undocumented = RISK_FACTORS.UNDOCUMENTED
-      reasons.push(`${docs.total - docs.documented} of ${docs.total} knowledge asset(s) undocumented`)
-    }
-
-    if (agent.status === 'failed') {
-      factors.unstable = RISK_FACTORS.STATUS_FAILED
-      reasons.push('currently in a failed state')
-    } else if (agent.status === 'inactive') {
-      factors.unstable = RISK_FACTORS.STATUS_INACTIVE
-      reasons.push('currently inactive')
-    }
-
-    if (agent.risk === 'critical') {
-      factors.intrinsic_risk = RISK_FACTORS.INTRINSIC_CRITICAL
-      reasons.push('recorded risk level is critical')
-    } else if (agent.risk === 'high') {
-      factors.intrinsic_risk = RISK_FACTORS.INTRINSIC_HIGH
-      reasons.push('recorded risk level is high')
-    }
-
-    const predictedScore = clamp(Object.values(factors).reduce((a, b) => a + b, 0))
-    const level = threatLevel(predictedScore)
+    const posterior = riskEngine.scoreAgent(ev)
+    const level = posterior.threatLevel
     const recorded = RECORDED_RISK_AS_THREAT[agent.risk] || 'LOW'
 
     return {
       agentId: agent.id,
       agentName: agent.name,
-      predictedScore,
+      predictedScore: posterior.predictedScore,
       threatLevel: level,
       recordedRisk: agent.risk,
       // The data has outrun the label.
       isEmergingThreat: THREAT_ORDER[level] > THREAT_ORDER[recorded],
-      contributingFactors: factors,
-      reasons,
+      contributingFactors: posterior.attribution,
+      reasons: riskEngine.reasonsFor(ev),
+      evidence: {
+        ownership: ev.ownership,
+        documentation: ev.documentation,
+        runtime_state: ev.runtime_state,
+        cascade_exposure: ev.cascade_exposure,
+      },
       cascadeReach: cascadeReach('agent', agent.id, depIndex),
+      blastRadius: context.blastRadius('agent', agent.id),
     }
   })
 
@@ -578,6 +550,7 @@ function predictiveRisk(roots) {
   return {
     scores,
     emergingThreats: scores.filter((s) => s.isEmergingThreat),
+    engines: { bayes: 'authored-CPT-v1', eirwr: 'paper-param-v1' },
     ...provenance({
       agents: roots._counts.agents,
       owners: roots._counts.owners,
@@ -613,8 +586,11 @@ function predictiveRisk(roots) {
  * Roots: employees, agents, workflows, workflow_runbooks, ai_platforms,
  * tool_ownership, tool_backups (plus predictiveRisk()'s own roots).
  */
-function humanDependencyRisk(roots) {
-  const risk = predictiveRisk(roots)
+const WORKFLOW_EXPOSURE_SCALE = 27
+const TOOL_EXPOSURE_SCALE = 30
+
+function humanDependencyRisk(roots, ctx) {
+  const risk = predictiveRisk(roots, ctx)
   const scoreByAgentId = new Map(risk.scores.map((s) => [s.agentId, s.predictedScore]))
   const employeeById = new Map(roots.employees.map((e) => [e.id, e]))
   const backedPlatformIds = new Set(roots.tool_backups.map((b) => b.primary_platform))
@@ -644,12 +620,12 @@ function humanDependencyRisk(roots) {
 
     const criticalWorkflows = ownedWorkflows.filter((w) => atOrAbove(w.risk, 'high')).length
     const workflowExposure = ownedWorkflows.length
-      ? pct(criticalWorkflows, ownedWorkflows.length) / 100 * RISK_FACTORS.CRITICAL_WORKFLOW
+      ? pct(criticalWorkflows, ownedWorkflows.length) / 100 * WORKFLOW_EXPOSURE_SCALE
       : 0
 
     const unbackedTools = ownedTools.filter((p) => !backedPlatformIds.has(p.id)).length
     const toolExposure = ownedTools.length
-      ? pct(unbackedTools, ownedTools.length) / 100 * RISK_FACTORS.SINGLE_OWNER
+      ? pct(unbackedTools, ownedTools.length) / 100 * TOOL_EXPOSURE_SCALE
       : 0
 
     const totalRiskScore = clamp(round(agentRisk + workflowExposure + toolExposure))
@@ -1769,9 +1745,10 @@ function departmentExposure(roots) {
  * accountability figure shown elsewhere in the same response.
  */
 function computeAllFromRoots(roots) {
+  const ctx = riskEngine.buildEngine(roots)
   const accountabilityResult = accountability(roots)
   const collaborationResult = collaboration(roots)
-  const predictiveRiskResult = predictiveRisk(roots)
+  const predictiveRiskResult = predictiveRisk(roots, ctx)
   const executiveMemoryResult = executiveMemory(roots)
   const pillarsResult = pillars(roots, accountabilityResult)
   const decisionQualityResult = decisionQuality(roots)
@@ -1790,7 +1767,7 @@ function computeAllFromRoots(roots) {
     orgHealth: orgHealthResult,
     orgHealthByDepartment: orgHealthByDepartment(roots),
     departmentExposure: departmentExposure(roots),
-    humanDependencyRisk: humanDependencyRisk(roots),
+    humanDependencyRisk: humanDependencyRisk(roots, ctx),
     knowledgeConcentration: knowledgeConcentration(roots),
     orgMemory: orgMemory(roots),
     assetContinuity: assetContinuity(roots),
@@ -1858,6 +1835,7 @@ module.exports = {
   accountability,
   collaboration,
   predictiveRisk,
+  threatLevel,
   humanDependencyRisk,
   knowledgeConcentration,
   orgMemory,
@@ -1876,7 +1854,8 @@ module.exports = {
     RACI_BOTH_SEPARATE, RACI_BOTH_SAME_PERSON, RACI_ONE_ONLY,
     USAGE_WEIGHT, AGENT_ENGAGEMENT_WEIGHT, ADOPTION_SATURATION,
     DEPENDENCY_PER_CRITICAL_ASSET, DEPENDENCY_NO_BACKUP,
-    RISK_FACTORS, MANY_DEPENDENTS,
+    riskEngine: riskEngine.constants,
+    WORKFLOW_EXPOSURE_SCALE, TOOL_EXPOSURE_SCALE,
     HERO_CRITICAL_ASSET_THRESHOLD,
     PILLAR_WEIGHTS, VIOLATION_SEVERITY_PENALTY,
   },

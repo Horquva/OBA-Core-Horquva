@@ -55,6 +55,26 @@ router.get('/drilldown/:entityName', async (req, res) => {
           description: `Model predicts a risk score of ${prs.predictedScore}.`,
           impactWeight: prs.predictedScore >= 70 ? 'HIGH' : 'MEDIUM',
         })
+
+        if (Array.isArray(prs.reasons)) {
+          prs.reasons.forEach((r, idx) => {
+            reasons.push({
+              id: `causal-reason-${idx}`,
+              factor: 'Causal Risk Driver (BBN)',
+              description: r,
+              impactWeight: 'HIGH',
+            })
+          })
+        }
+
+        if (typeof prs.blastRadius === 'number' && prs.blastRadius > 0.05) {
+          reasons.push({
+            id: 'blast-radius',
+            factor: 'Cascade Failure Mass (eIRWR)',
+            description: `Downstream cascade blast radius affects ${(prs.blastRadius * 100).toFixed(1)}% of organizational agent capacity.`,
+            impactWeight: prs.blastRadius > 0.2 ? 'HIGH' : 'MEDIUM',
+          })
+        }
       }
     }
 

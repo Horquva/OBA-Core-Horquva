@@ -167,7 +167,7 @@ IMPL.M03 = (rt) => {
   return {
     type: 'risk',
     authored: true, // riskScore/riskLevel are built from SPOF_SEVERITY_WEIGHT/CRITICAL_DEP_SEVERITY_WEIGHT (authored, not measured) — singlePointsOfFailure/criticalDependencyCount themselves are real counts
-    definition: 'SPOF and critical-dependency severity across every asset type in the graph, fixed-weight scored (not diluted by unrelated healthy assets). GET /api/risks scores agents.risk alone; GET /api/dashboard averages predictiveRisk’s per-agent score — three genuinely different "risk" numbers, each correctly scoped to its own population.',
+    definition: 'SPOF and critical-dependency severity across every asset type in the graph, fixed-weight scored (not diluted by unrelated healthy assets). GET /api/risks scores agents.risk alone; GET /api/dashboard averages predictiveRisk’s Bayesian per-agent score — three genuinely different "risk" numbers, each correctly scoped to its own population.',
     payload: {
       riskScore,
       riskLevel: riskScore > 0.66 ? 'high' : riskScore > 0.33 ? 'medium' : 'low',

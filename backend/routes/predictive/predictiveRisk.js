@@ -31,6 +31,8 @@ function formatPrediction(p, computedAt) {
     contributingFactors: p.contributingFactors,
     reasons: p.reasons,
     cascadeReach: p.cascadeReach,
+    blastRadius: typeof p.blastRadius === 'number' ? p.blastRadius : 0,
+    evidence: p.evidence || null,
     computedAt
   }
 }

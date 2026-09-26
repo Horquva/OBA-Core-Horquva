@@ -218,12 +218,10 @@ console.log('\nagentFails:')
 
 console.log('\nagentFails no longer improves health by shrinking the population (owner decision, 2026-09-18):')
 {
-	// Agent 1 is pushed to CRITICAL threat level by construction (NO_OWNER 35 +
-	// DEPENDENTS_MANY 25 + INTRINSIC_CRITICAL 20 = 80, >= threatLevel's 75 cutoff
-	// -- the 3 dependency rows below don't need real agent rows behind their
-	// source ids, predictiveRisk() only counts the edges). Under the old
-	// filter()-based removal, failing agent 1 would drop BOTH the numerator
-	// (0 critical left) and the denominator (1 agent left) of
+	// Agent 1 is pushed to CRITICAL threat level by construction (unowned +
+	// undocumented anchor (0,0,2,2) produces P(Critical)=0.88, score 92 >= 75
+	// cutoff). Under the old filter()-based removal, failing agent 1 would drop
+	// BOTH the numerator (0 critical left) and the denominator (1 agent left) of
 	// criticalSafetyScore's pct(criticalThreats, agents.length) at once,
 	// scoring a perfect 100 -- a critical agent failing looked like the org
 	// getting healthier.
@@ -239,7 +237,7 @@ console.log('\nagentFails no longer improves health by shrinking the population 
 			{ source_id: 91, target_id: 1, source_type: 'agent', target_type: 'agent', dependency_type: 'normal' },
 			{ source_id: 92, target_id: 1, source_type: 'agent', target_type: 'agent', dependency_type: 'normal' },
 		],
-		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 1, is_documented: true }],
+		knowledge_assets: [{ id: 1, asset_type: 'agent', asset_id: 1, is_documented: false }],
 		workflows: [{ id: 1, name: 'Wf', status: 'active', risk: 'low' }],
 	})
 

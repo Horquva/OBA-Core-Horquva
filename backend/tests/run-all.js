@@ -1,4 +1,4 @@
-﻿/*
+/*
  * OBA Core — Run all MVP tests in sequence.
  * Run from the backend/ folder:  node tests/run-all.js
  * To include the live API test:   BASE_URL=https://horquva-oba-core.vercel.app node tests/run-all.js
@@ -17,6 +17,7 @@ const tests = [
 	'graphLoader.live.test.js', // self-skips when SUPABASE_URL is unset
 	'intelligence.verify.test.js',
 	'auth.unit.test.js',
+	'riskEngine.unit.test.js', // pure; asserts Engine A (eIRWR) and Engine B (BBN)
 	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
 	'simulations.unit.test.js', // pure; asserts cascade/severity/health-delta (W-I)
 	'simulationsReassign.unit.test.js', // pure; asserts the succession mutation policy (W-L 13.1, D-70)

@@ -39,6 +39,23 @@ export interface AgentRiskProfile {
 
   /** How many downstream agents this one can cascade into */
   downstreamCount: number;
+
+  /** eIRWR continuous failure mass / blast radius (0.0 to 1.0) */
+  blastRadius: number;
+
+  /** BBN discrete state tuple (O, D, S, U) */
+  evidence: {
+    ownership: number;
+    documentation: number;
+    runtime_state: number;
+    cascade_exposure: number;
+  } | null;
+
+  /** Plain-English causal reasons */
+  reasons: string[];
+
+  /** BBN counterfactual attribution */
+  contributingFactors: Record<string, number>;
 }
 
 // ─── Factor list for an agent ─────────────────────────────────────────────────
@@ -200,6 +217,10 @@ export function computeRiskIntelligence(
       isSPOF,
       factors,
       downstreamCount,
+      blastRadius: risk?.blastRadius ?? 0,
+      evidence: risk?.evidence ?? null,
+      reasons: risk?.reasons ?? [],
+      contributingFactors: risk?.contributingFactors ?? {},
     };
   });
 

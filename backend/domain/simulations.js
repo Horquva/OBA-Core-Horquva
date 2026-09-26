@@ -13,6 +13,7 @@
  */
 
 const derived = require('./derived')
+const riskEngine = require('./riskEngine')
 const { entityCriticality, atOrAbove, spofVerdict } = require('./definitions')
 
 // ─── Cascade ─────────────────────────────────────────────────────────────────
@@ -52,18 +53,44 @@ function workflowsUsingAgents(agentIds, roots) {
 // ─── Severity ────────────────────────────────────────────────────────────────
 
 /**
- * One shared severity rule, built on definitions.js's LEVELS/atOrAbove rather
- * than a new bucket scheme. `impacted` is an array of { criticality } —
- * already-resolved via entityCriticality(), not raw rows.
+ * One shared severity rule. When probability mass is provided from an eIRWR
+ * seeded cascade walk, uses continuous mass thresholds (arXiv:2608.08073):
+ *   mass >= 0.50 -> 'critical'
+ *   mass >= 0.25 -> 'high'
+ *   mass >= 0.10 -> 'medium'
+ *   else         -> 'low'
+ *
+ * When mass is omitted, falls back to the discrete criticality/count heuristic
+ * for backward compatibility.
  */
-function severityFor(impacted) {
-  const count = impacted.length
-  const hasCritical = impacted.some((e) => atOrAbove(e.criticality, 'critical'))
-  const hasHigh = impacted.some((e) => atOrAbove(e.criticality, 'high'))
+function severityFor(impacted, mass) {
+  if (typeof mass === 'number' && !Number.isNaN(mass)) {
+    if (mass >= 0.50) return 'critical'
+    if (mass >= 0.25) return 'high'
+    if (mass >= 0.10) return 'medium'
+    return 'low'
+  }
+  const count = impacted ? impacted.length : 0
+  const hasCritical = impacted && impacted.some((e) => atOrAbove(e.criticality, 'critical'))
+  const hasHigh = impacted && impacted.some((e) => atOrAbove(e.criticality, 'high'))
   if (hasCritical || count >= 5) return 'critical'
   if (hasHigh || count >= 2) return 'high'
   if (count >= 1) return 'medium'
   return 'low'
+}
+
+/**
+ * Calculates continuous failure mass absorbed across impacted entities:
+ *   mass = Σ_{impacted j} r_j · κ_j
+ */
+function cascadeMass(context, r, entities) {
+  if (!context || !r || !entities || !entities.length) return 0
+  let mass = 0
+  for (const ent of entities) {
+    const idx = context.engine.indexByKey.get(`${ent.type}:${ent.id}`)
+    if (idx !== undefined) mass += r[idx] * context.kappaArr[idx]
+  }
+  return mass
 }
 
 // ─── Health delta ────────────────────────────────────────────────────────────
@@ -84,9 +111,9 @@ function recount(roots) {
   return roots
 }
 
-function healthScore(roots) {
+function healthScore(roots, ctx) {
   const acc = derived.accountability(roots)
-  const risk = derived.predictiveRisk(roots)
+  const risk = derived.predictiveRisk(roots, ctx)
   return derived.orgHealth(roots, { accountability: acc, predictiveRisk: risk }).healthIndex
 }
 
@@ -95,13 +122,13 @@ function healthScore(roots) {
  * Routes use this alongside healthDelta to show a before/after pair without
  * a second health formula: simulatedHealthScore = baselineHealthScore - healthDelta.
  */
-function baselineHealthScore(roots) {
-  return healthScore(roots)
+function baselineHealthScore(roots, ctx) {
+  return healthScore(roots, ctx)
 }
 
 /** Positive = health drops after the mutation. Null if either side lacks evidence. */
-function healthDelta(baselineRoots, mutatedRoots) {
-  const before = healthScore(baselineRoots)
+function healthDelta(baselineRoots, mutatedRoots, baselineCtx) {
+  const before = healthScore(baselineRoots, baselineCtx)
   const after = healthScore(mutatedRoots)
   if (before == null || after == null) return null
   return before - after
@@ -142,10 +169,11 @@ function resolveCriticality(entities, roots) {
   }))
 }
 
-function employeeLeaves(employeeId, roots) {
+function employeeLeaves(employeeId, roots, ctx) {
   const employee = roots.employees.find((e) => e.id === employeeId)
   if (!employee) return null
 
+  const context = ctx || riskEngine.buildEngine(roots)
   const ownedAgents = roots.agents.filter((a) => a.owner_id === employeeId)
   const index = buildDependencyIndex(roots)
 
@@ -159,6 +187,10 @@ function employeeLeaves(employeeId, roots) {
   const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
   const impactedWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  const seedPairs = ownedAgents.map((a) => ({ type: 'agent', id: a.id, weight: 1.0 }))
+  const r = seedPairs.length ? context.runSeeded(seedPairs) : null
+  const mass = cascadeMass(context, r, entities)
 
   const mutated = cloneRoots(roots)
   mutated.employees = mutated.employees.filter((e) => e.id !== employeeId)
@@ -188,8 +220,8 @@ function employeeLeaves(employeeId, roots) {
     impactedAgents,
     impactedWorkflows,
     impactedPeople: [employee],
-    severity: severityFor(entities),
-    healthDelta: healthDelta(roots, mutated),
+    severity: severityFor(entities, mass),
+    healthDelta: healthDelta(roots, mutated, context),
   }
 }
 
@@ -213,11 +245,12 @@ function employeeLeaves(employeeId, roots) {
  * TODO(D-70): the rules above are written per the plan's stated intent but
  * are pending explicit sign-off. Confirm before this ships.
  */
-function employeeLeavesWithSuccessor(employeeId, successorId, roots) {
+function employeeLeavesWithSuccessor(employeeId, successorId, roots, ctx) {
   const employee = roots.employees.find((e) => e.id === employeeId)
   const successor = roots.employees.find((e) => e.id === successorId)
   if (!employee || !successor) return null
 
+  const context = ctx || riskEngine.buildEngine(roots)
   const ownedAgents = roots.agents.filter((a) => a.owner_id === employeeId)
   const ownedRunbooks = roots.workflow_runbooks.filter((r) => r.owner_id === employeeId)
   const index = buildDependencyIndex(roots)
@@ -232,6 +265,10 @@ function employeeLeavesWithSuccessor(employeeId, successorId, roots) {
   const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
   const impactedWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  const seedPairs = ownedAgents.map((a) => ({ type: 'agent', id: a.id, weight: 1.0 }))
+  const r = seedPairs.length ? context.runSeeded(seedPairs) : null
+  const mass = cascadeMass(context, r, entities)
 
   // ── Mutation: reassign, don't orphan ────────────────────────────────────
   const mutated = cloneRoots(roots)
@@ -280,7 +317,7 @@ function employeeLeavesWithSuccessor(employeeId, successorId, roots) {
     return spofVerdict({ criticality, ownerCount: 1, hasBackup: successorHasBackup }).status === 'spof'
   })
 
-  const noSuccessor = employeeLeaves(employeeId, roots)
+  const noSuccessor = employeeLeaves(employeeId, roots, context)
 
   return {
     scenario: `If ${employee.name} leaves and ${successor.name} takes over`,
@@ -292,8 +329,8 @@ function employeeLeavesWithSuccessor(employeeId, successorId, roots) {
     impactedAgents,
     impactedWorkflows,
     impactedPeople: [employee],
-    severity: severityFor(entities),
-    healthDelta: healthDelta(roots, mutated),
+    severity: severityFor(entities, mass),
+    healthDelta: healthDelta(roots, mutated, context),
     residualRisk: {
       assetsWithoutBackup,
       assetsUndocumented,
@@ -307,10 +344,11 @@ function employeeLeavesWithSuccessor(employeeId, successorId, roots) {
   }
 }
 
-function agentFails(agentId, roots) {
+function agentFails(agentId, roots, ctx) {
   const agent = roots.agents.find((a) => a.id === agentId)
   if (!agent) return null
 
+  const context = ctx || riskEngine.buildEngine(roots)
   const index = buildDependencyIndex(roots)
   const impactedAgentIds = new Set()
   for (const hit of cascadeFrom('agent', agentId, index)) {
@@ -320,6 +358,9 @@ function agentFails(agentId, roots) {
   const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
   const impactedWorkflows = workflowsUsingAgents(new Set([agentId, ...impactedAgentIds]), roots)
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  const r = context.runSeeded([{ type: 'agent', id: agentId, weight: 1.0 }])
+  const mass = cascadeMass(context, r, entities)
 
   // A failed agent is still counted in the org -- it doesn't cease to exist --
   // so ownershipSpreadScore's per-owner counts and criticalSafetyScore's
@@ -345,15 +386,16 @@ function agentFails(agentId, roots) {
     impactedAgents,
     impactedWorkflows,
     impactedPeople: [],
-    severity: severityFor(entities),
-    healthDelta: healthDelta(roots, mutated),
+    severity: severityFor(entities, mass),
+    healthDelta: healthDelta(roots, mutated, context),
   }
 }
 
-function platformDown(platformId, roots) {
+function platformDown(platformId, roots, ctx) {
   const platform = roots.ai_platforms.find((p) => p.id === platformId)
   if (!platform) return null
 
+  const context = ctx || riskEngine.buildEngine(roots)
   const directAgentIds = new Set(
     roots.agent_platform.filter((ap) => ap.platform_id === platformId).map((ap) => ap.agent_id),
   )
@@ -369,6 +411,10 @@ function platformDown(platformId, roots) {
   const impactedAgents = roots.agents.filter((a) => impactedAgentIds.has(a.id))
   const impactedWorkflows = workflowsUsingAgents(impactedAgentIds, roots)
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  const seedPairs = [...directAgentIds].map((id) => ({ type: 'agent', id, weight: 1.0 }))
+  const r = seedPairs.length ? context.runSeeded(seedPairs) : null
+  const mass = cascadeMass(context, r, entities)
 
   // A platform going down is still a platform the org has to account for --
   // it doesn't cease to exist -- so ai_platforms.length (continuityScore's
@@ -393,15 +439,16 @@ function platformDown(platformId, roots) {
     impactedAgents,
     impactedWorkflows,
     impactedPeople: [],
-    severity: severityFor(entities),
-    healthDelta: healthDelta(roots, mutated),
+    severity: severityFor(entities, mass),
+    healthDelta: healthDelta(roots, mutated, context),
   }
 }
 
-function workflowDisruption(workflowId, roots) {
+function workflowDisruption(workflowId, roots, ctx) {
   const workflow = roots.workflows.find((w) => w.id === workflowId)
   if (!workflow) return null
 
+  const context = ctx || riskEngine.buildEngine(roots)
   const directAgentIds = new Set(
     roots.workflow_dependencies.filter((wd) => wd.workflow_id === workflowId).map((wd) => wd.agent_id),
   )
@@ -421,6 +468,13 @@ function workflowDisruption(workflowId, roots) {
     ...siblingWorkflows.filter((w) => w.id !== workflowId),
   ]
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
+
+  const hasWorkflowNode = context.engine.indexByKey.has(`workflow:${workflowId}`)
+  const seedPairs = hasWorkflowNode
+    ? [{ type: 'workflow', id: workflowId, weight: 1.0 }]
+    : [...directAgentIds].map((id) => ({ type: 'agent', id, weight: 1.0 }))
+  const r = seedPairs.length ? context.runSeeded(seedPairs) : null
+  const mass = cascadeMass(context, r, entities)
 
   // A disrupted workflow is still a workflow the org has to account for --
   // it doesn't cease to exist -- so workflows.length (continuityScore's
@@ -447,8 +501,8 @@ function workflowDisruption(workflowId, roots) {
     impactedAgents,
     impactedWorkflows,
     impactedPeople: [],
-    severity: severityFor(entities),
-    healthDelta: healthDelta(roots, mutated),
+    severity: severityFor(entities, mass),
+    healthDelta: healthDelta(roots, mutated, context),
   }
 }
 
@@ -458,24 +512,25 @@ function workflowDisruption(workflowId, roots) {
  * health impact. Criticality is entityCriticality() — never the raw,
  * disputed agents.risk column read directly.
  */
-function rankAllScenarios(roots) {
+function rankAllScenarios(roots, ctx) {
+  const context = ctx || riskEngine.buildEngine(roots)
   const results = []
 
   for (const employee of roots.employees) {
-    const r = employeeLeaves(employee.id, roots)
+    const r = employeeLeaves(employee.id, roots, context)
     if (r) results.push(r)
   }
 
   for (const agent of roots.agents) {
     if (!atOrAbove(entityCriticality('agent', agent), 'high')) continue
-    const r = agentFails(agent.id, roots)
+    const r = agentFails(agent.id, roots, context)
     if (r) results.push(r)
   }
 
   for (const platform of roots.ai_platforms) {
     const criticality = entityCriticality('platform', platform, { knowledgeAssets: roots.knowledge_assets })
     if (!atOrAbove(criticality, 'high')) continue
-    const r = platformDown(platform.id, roots)
+    const r = platformDown(platform.id, roots, context)
     if (r) results.push(r)
   }
 
