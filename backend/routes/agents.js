@@ -4,6 +4,7 @@ const supabase = require('../supabase')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { requireAdmin } = require('../middleware/requireRole')
 const { recordAudit } = require('../lib/audit')
+const { isUuid } = require('../lib/uuid')
 const domain = require('../domain')
 
 /** agent_id -> is_documented, via knowledge_assets where asset_type='agent'.
@@ -109,7 +110,7 @@ async function clearCachesAfterOwnerChange() {
 // each is its own decision about validation and UI, deliberately left for
 // its own pass rather than bundled in here).
 //
-// Body: { ownerId: number | null }. `null` clears ownership — a genuine
+// Body: { ownerId: uuid | null }. `null` clears ownership — a genuine
 // action (e.g. the owner left and there is no replacement yet), not an
 // error, so it is accepted, not rejected.
 //
@@ -117,14 +118,14 @@ async function clearCachesAfterOwnerChange() {
 // caller is signed in; without this any signed-in user could reassign
 // ownership.
 router.patch('/:id/owner', requireAdmin, async (req, res) => {
-  const agentId = Number(req.params.id)
-  if (!Number.isInteger(agentId)) {
+  const agentId = req.params.id
+  if (!isUuid(agentId)) {
     return res.status(400).json({ error: 'Invalid agent id' })
   }
 
   const { ownerId } = req.body ?? {}
-  if (ownerId !== null && !Number.isInteger(ownerId)) {
-    return res.status(400).json({ error: 'ownerId must be an integer employee id, or null to clear ownership' })
+  if (ownerId !== null && !isUuid(ownerId)) {
+    return res.status(400).json({ error: 'ownerId must be an employee uuid, or null to clear ownership' })
   }
 
   const { data: before, error: beforeError } = await supabase

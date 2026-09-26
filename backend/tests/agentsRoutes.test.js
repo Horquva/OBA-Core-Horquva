@@ -32,12 +32,20 @@ function check(name, cond, detail) {
 
 // ── Fake supabase — an in-memory `agents` table + a set of valid employee
 // ids, enough to exercise the update/FK-violation/not-found paths without a
-// real database. ──────────────────────────────────────────────────────────
+// real database. Ids are uuids since sql/19_uuid_primary_keys.sql. ─────────
+const AGENT_10 = 'a0000000-0000-4000-8000-00000000000a'
+const AGENT_11 = 'a0000000-0000-4000-8000-00000000000b'
+const AGENT_MISSING = 'a0000000-0000-4000-8000-0000000000ff'
+const EMP_1 = 'e0000000-0000-4000-8000-000000000001'
+const EMP_2 = 'e0000000-0000-4000-8000-000000000002'
+const EMP_3 = 'e0000000-0000-4000-8000-000000000003'
+const EMP_MISSING = 'e0000000-0000-4000-8000-0000000000fe'
+
 const agentsTable = [
-	{ id: 10, name: 'DeployBot', owner_id: 1 },
-	{ id: 11, name: 'SecurityScanner', owner_id: null },
+	{ id: AGENT_10, name: 'DeployBot', owner_id: EMP_1 },
+	{ id: AGENT_11, name: 'SecurityScanner', owner_id: null },
 ]
-const validEmployeeIds = new Set([1, 2, 3])
+const validEmployeeIds = new Set([EMP_1, EMP_2, EMP_3])
 
 const clearedTables = []
 
@@ -148,70 +156,70 @@ async function main() {
 	// ── SEC-3: admin-only role gate ─────────────────────────────────────────
 	console.log('Role gate (SEC-3):')
 	{
-		const r = await patch('/api/agents/10/owner', { ownerId: 3 }, null)
+		const r = await patch('/api/agents/' + AGENT_10 + '/owner', { ownerId: EMP_3 }, null)
 		check('no token — 401', r.status === 401, r.status)
 	}
 	{
-		const r = await patch('/api/agents/10/owner', { ownerId: 3 }, memberToken)
+		const r = await patch('/api/agents/' + AGENT_10 + '/owner', { ownerId: EMP_3 }, memberToken)
 		check('authenticated non-admin (role member) — 403', r.status === 403, r.status)
 		check('...error names the required role', /admin/.test(r.json.error || ''), r.json)
 	}
 	{
-		const r = await patch('/api/agents/10/owner', { ownerId: 3 }, noRoleToken)
+		const r = await patch('/api/agents/' + AGENT_10 + '/owner', { ownerId: EMP_3 }, noRoleToken)
 		check('authenticated token with no role — 403', r.status === 403, r.status)
 	}
-	check('rejected calls left agent 10 unchanged', agentsTable.find((a) => a.id === 10).owner_id === 1, agentsTable)
+	check('rejected calls left agent unchanged', agentsTable.find((a) => a.id === AGENT_10).owner_id === EMP_1, agentsTable)
 	{
-		const r = await patch('/api/agents/10/owner', { ownerId: 1 }, adminToken)
+		const r = await patch('/api/agents/' + AGENT_10 + '/owner', { ownerId: EMP_1 }, adminToken)
 		check('env-fallback admin account — 200', r.status === 200, r.status)
 	}
 
 	console.log('\nWrite behaviour (as admin):')
 
 	{
-		const r = await patch('/api/agents/10/owner', { ownerId: 2 })
+		const r = await patch('/api/agents/' + AGENT_10 + '/owner', { ownerId: EMP_2 })
 		check('assigning a valid employee — 200', r.status === 200, r.status)
-		check('response echoes the updated agent', r.json.ok === true && r.json.agent?.owner_id === 2, r.json)
+		check('response echoes the updated agent', r.json.ok === true && r.json.agent?.owner_id === EMP_2, r.json)
 	}
 
 	{
-		const r = await patch('/api/agents/11/owner', { ownerId: 3 })
+		const r = await patch('/api/agents/' + AGENT_11 + '/owner', { ownerId: EMP_3 })
 		check('assigning a previously-orphaned agent — 200', r.status === 200, r.status)
-		check('agent 11 now has owner 3', r.json.agent?.owner_id === 3, r.json)
+		check('orphaned agent now has the new owner', r.json.agent?.owner_id === EMP_3, r.json)
 	}
 
 	{
-		const r = await patch('/api/agents/10/owner', { ownerId: null })
+		const r = await patch('/api/agents/' + AGENT_10 + '/owner', { ownerId: null })
 		check('clearing ownership (ownerId: null) — 200, not a validation error', r.status === 200, r.status)
 		check('owner_id is cleared to null', r.json.agent?.owner_id === null, r.json)
 	}
 
 	{
-		const r = await patch('/api/agents/10/owner', { ownerId: 999 })
+		const r = await patch('/api/agents/' + AGENT_10 + '/owner', { ownerId: EMP_MISSING })
 		check('assigning a nonexistent employee — 400, not a 500', r.status === 400, r.status)
-		check('error names the bad id, not a raw Postgres FK message', /999/.test(r.json.error || ''), r.json.error)
+		check('error names the bad id, not a raw Postgres FK message', r.json.error?.includes(EMP_MISSING), r.json.error)
 	}
 
 	{
-		const r = await patch('/api/agents/999999/owner', { ownerId: 1 })
+		const r = await patch('/api/agents/' + AGENT_MISSING + '/owner', { ownerId: EMP_1 })
 		check('patching a nonexistent agent — 404', r.status === 404, r.status)
 	}
 
 	{
-		const r = await patch('/api/agents/not-a-number/owner', { ownerId: 1 })
-		check('non-numeric agent id — 400', r.status === 400, r.status)
+		const r = await patch('/api/agents/not-a-uuid/owner', { ownerId: EMP_1 })
+		check('non-uuid agent id — 400', r.status === 400, r.status)
 	}
 
 	{
-		const r = await patch('/api/agents/10/owner', { ownerId: 'two' })
-		check('non-integer ownerId — 400', r.status === 400, r.status)
+		const r = await patch('/api/agents/' + AGENT_10 + '/owner', { ownerId: 'not-a-uuid' })
+		check('non-uuid ownerId — 400', r.status === 400, r.status)
 	}
 
 	console.log('\nCache invalidation on successful owner change (post-diagnostic fix):')
 	{
 		clearedTables.length = 0
 		const today = new Date().toISOString().split('T')[0]
-		const r = await patch('/api/agents/10/owner', { ownerId: 2 })
+		const r = await patch('/api/agents/' + AGENT_10 + '/owner', { ownerId: EMP_2 })
 		check('owner change still succeeds — 200', r.status === 200, r.status)
 
 		const cleared = (table) => clearedTables.find((c) => c.table === table)
@@ -222,7 +230,7 @@ async function main() {
 
 	{
 		clearedTables.length = 0
-		const r = await patch('/api/agents/999999/owner', { ownerId: 1 })
+		const r = await patch('/api/agents/' + AGENT_MISSING + '/owner', { ownerId: EMP_1 })
 		check('nonexistent agent — 404, no cache clear attempted', r.status === 404 && clearedTables.length === 0, { status: r.status, clearedTables })
 	}
 

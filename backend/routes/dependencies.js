@@ -45,7 +45,9 @@ router.get('/', async (req, res) => {
     .sort((a, b) => b[1] - a[1])
     .map(([key, count]) => {
       const [type, id] = key.split(':')
-      return { type, id: parseInt(id), connectionCount: count }
+      // ids are opaque strings (uuid since sql/19_uuid_primary_keys.sql) —
+      // never coerce to a number, the type prefix is the namespace.
+      return { type, id, connectionCount: count }
     })
 
   res.json({

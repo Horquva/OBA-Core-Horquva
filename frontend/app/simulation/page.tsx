@@ -14,7 +14,7 @@ import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/p
 import { UnavailableBanner } from '../../components/ui/UnavailableBanner';
 
 interface AgentSpofsResponse {
-  spofs: { agentId: number; name: string; victimsCount: number }[];
+  spofs: { agentId: string; name: string; victimsCount: number }[];
   spofCount: number;
   maxCascadeRisk: number;
 }

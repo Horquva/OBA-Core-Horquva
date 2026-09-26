@@ -44,15 +44,13 @@ export default function RiskPage() {
     .then(([agentsData, depsData, spofData, predictiveData, healthData]) => {
       const agents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
-      // Only agent-agent edges belong in this graph -- /api/dependencies also
-      // returns workflow->agent and other cross-type edges sharing the same
-      // numeric id space, which getDownstream() would otherwise walk as if
-      // they were all agent ids (a workflow id colliding with an unrelated
-      // agent id). Same fix already applied on the Dependency Map page
-      // (app/map/page.tsx) -- this page was the one place it was missing.
+      // No type filter: ids are globally-unique uuids (sql/19_uuid_primary_keys.sql),
+      // so cross-type edges are unambiguous. The agent–agent filter this used to
+      // apply existed only to dodge pre-uuid SERIAL id collisions across tables,
+      // and it blinded every downstream-count here to workflows, tools and
+      // platforms — the exact dependencies that break when an agent fails.
       const dependencies: Dependency[] = Array.isArray(depsData.dependencies)
         ? depsData.dependencies
-            .filter((d: RawDependency) => d.source_type === 'agent' && d.target_type === 'agent')
             .map((d: RawDependency) => ({
               from: d.source_id?.toString() || '',
               to: d.target_id?.toString() || '',

@@ -19,10 +19,10 @@ interface OwnershipListProps {
   /** DATA-1's first write path: PATCH /api/agents/:id/owner, then reload the
    *  page's dataset. Rejects on failure -- the control below surfaces that
    *  inline rather than swallowing it. */
-  onAssignOwner: (agentId: string, ownerId: number) => Promise<void>;
+  onAssignOwner: (agentId: string, ownerId: string) => Promise<void>;
 }
 
-function AssignOwnerControl({ agentId, employees, onAssign }: { agentId: string; employees: Employee[]; onAssign: (agentId: string, ownerId: number) => Promise<void> }) {
+function AssignOwnerControl({ agentId, employees, onAssign }: { agentId: string; employees: Employee[]; onAssign: (agentId: string, ownerId: string) => Promise<void> }) {
   const [selected, setSelected] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ function AssignOwnerControl({ agentId, employees, onAssign }: { agentId: string;
     if (!selected) return;
     setSubmitting(true);
     setError(null);
-    onAssign(agentId, Number(selected))
+    onAssign(agentId, selected)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to assign owner'))
       .finally(() => setSubmitting(false));
   };

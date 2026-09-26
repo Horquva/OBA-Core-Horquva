@@ -143,19 +143,24 @@ function orgScanSeeds(engine, roots) {
 const KAPPA = { critical: 1.0, high: 0.7, normal: 0.4, medium: 0.4, low: 0.2, unknown: 0.4 }
 
 function kappaFor(roots) {
-  const agentsById = new Map((roots.agents || []).map((a) => [a.id, a]))
-  const workflowsById = new Map((roots.workflows || []).map((w) => [w.id, w]))
-  const platformsById = new Map((roots.ai_platforms || []).map((p) => [p.id, p]))
+  // Node keys come from eirwr's `type:<id>` strings, entity rows carry the
+  // raw id (a uuid since sql/19_uuid_primary_keys.sql). Keying the maps on
+  // String(id) keeps the lookup correct for both representations — and means
+  // no caller may coerce an entity id through Number(), which would turn a
+  // uuid into NaN and silently drop every weight to KAPPA.unknown.
+  const agentsById = new Map((roots.agents || []).map((a) => [String(a.id), a]))
+  const workflowsById = new Map((roots.workflows || []).map((w) => [String(w.id), w]))
+  const platformsById = new Map((roots.ai_platforms || []).map((p) => [String(p.id), p]))
   return (type, id) => {
     let level = 'unknown'
     if (type === 'agent') {
-      const row = agentsById.get(id)
+      const row = agentsById.get(String(id))
       if (row) level = entityCriticality('agent', row)
     } else if (type === 'workflow') {
-      const row = workflowsById.get(id)
+      const row = workflowsById.get(String(id))
       if (row) level = entityCriticality('workflow', row)
     } else if (type === 'platform') {
-      const row = platformsById.get(id)
+      const row = platformsById.get(String(id))
       if (row) level = entityCriticality('platform', row, { knowledgeAssets: roots.knowledge_assets || [] })
     }
     return KAPPA[level] ?? KAPPA.unknown
@@ -181,7 +186,7 @@ function buildEngine(roots) {
   const kappaArr = new Float64Array(engine.nodes.length)
   for (let i = 0; i < engine.nodes.length; i++) {
     const [type, id] = engine.nodes[i].split(':')
-    kappaArr[i] = kappa(type, Number(id))
+    kappaArr[i] = kappa(type, id)
   }
 
   const seedArr = orgScanSeeds(engine, roots)

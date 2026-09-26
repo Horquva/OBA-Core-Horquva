@@ -1,11 +1,13 @@
 const supabase = require('../../supabase')
+const { isUuid } = require('../../lib/uuid')
 
 // M15 Verification + M16 Orchestration gate for the Executive Avatar.
 //
 // This used to read `verification_logs` and `orchestration_state` — the 2-row
 // shadow tables from schema.sql, keyed by text ids like 'wf_001'. Live workflows
-// are integer-keyed, so no real workflow ever matched: every check pushed
-// no_orchestration_record and forced can_act:false. Now reads the populated
+// are uuid-keyed (sql/19_uuid_primary_keys.sql), so no real workflow ever
+// matched the old text ids: every check pushed no_orchestration_record and
+// forced can_act:false. Now reads the populated
 // tables (verification_actions, workflow_orchestration, workflow_steps).
 //
 // `workflow_orchestration` has no collision_detected column, so collision is
@@ -64,15 +66,14 @@ async function detectActorCollision(orchState) {
 }
 
 async function checkGate(workflow_id) {
-  const id = Number(workflow_id)
-  if (!Number.isInteger(id)) {
-    throw new Error(`workflow_id must be an integer workflow id, got '${workflow_id}'`)
+  if (!isUuid(workflow_id)) {
+    throw new Error(`workflow_id must be a workflow uuid, got '${workflow_id}'`)
   }
 
   const { data: verifications, error: vErr } = await supabase
     .from('verification_actions')
     .select('*')
-    .eq('workflow_id', id)
+    .eq('workflow_id', workflow_id)
     .order('created_at', { ascending: false })
     .limit(1)
 
@@ -81,7 +82,7 @@ async function checkGate(workflow_id) {
   const { data: orchestration, error: oErr } = await supabase
     .from('workflow_orchestration')
     .select('*')
-    .eq('workflow_id', id)
+    .eq('workflow_id', workflow_id)
     .order('updated_at', { ascending: false })
     .limit(1)
 

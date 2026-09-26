@@ -114,8 +114,8 @@ export default function OwnershipPage() {
   // own fetch, and it only ever cleared itself on a failed request, so an
   // owner reassignment here left the dashboard showing the previous owner
   // until a full page reload.
-  async function handleAssignOwner(agentId: string, ownerId: number) {
-    await agentsApi.assignOwner(Number(agentId), ownerId);
+  async function handleAssignOwner(agentId: string, ownerId: string) {
+    await agentsApi.assignOwner(agentId, ownerId);
     invalidateAgentsCache();
     await loadOwnershipData();
   }

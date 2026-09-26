@@ -1197,7 +1197,7 @@ export const agentsApi = {
    * approval, automation mode) is deliberately not built here — this is one
    * narrow, complete slice, not the start of a bigger form.
    */
-  assignOwner: (agentId: number, ownerId: number | null) =>
+  assignOwner: (agentId: string, ownerId: string | null) =>
     request<AssignOwnerResponse>(`/api/agents/${agentId}/owner`, {
       method: 'PATCH',
       body: JSON.stringify({ ownerId }),

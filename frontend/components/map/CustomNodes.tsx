@@ -76,3 +76,53 @@ export function AgentNode({ data }: { data: AgentNodeData }) {
     </div>
   );
 }
+
+/**
+ * Generic node for non-agent graph endpoints (workflows, platforms).
+ * Bare uuid ids are globally unique since sql/19_uuid_primary_keys.sql, so
+ * these nodes key on the same id space as agent nodes and edges can connect
+ * any entity type without collision. Rendered when the Dependency Map
+ * stopped filtering edges to agent–agent pairs only.
+ */
+export interface EntityNodeData extends Record<string, unknown> {
+  label: string;
+  kind: string;
+  isFailed?: boolean;
+  isImpacted?: boolean;
+}
+
+export function EntityNode({ data }: { data: EntityNodeData }) {
+  const { label, kind, isFailed, isImpacted } = data;
+
+  return (
+    <div
+      className={clsx(
+        'card px-4 py-3 min-w-[200px] border-2 transition-all duration-300',
+        isFailed ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]'
+          : isImpacted ? 'border-orange-500 bg-orange-500/10'
+          : 'border-[var(--border-subtle)]'
+      )}
+    >
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="w-2 h-2 border-0 bg-[var(--text-tertiary)]"
+      />
+      <div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-0.5">
+        {kind}
+      </div>
+      <div className="text-sm font-semibold text-[var(--text-primary)]">{label}</div>
+      {isFailed && (
+        <div className="mt-1 text-xs font-bold text-red-400 animate-pulse">[ SIMULATING FAILURE ]</div>
+      )}
+      {isImpacted && (
+        <div className="mt-1 text-xs font-bold text-orange-400">[ CASCADE IMPACT ]</div>
+      )}
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="w-2 h-2 border-0 bg-[var(--text-tertiary)]"
+      />
+    </div>
+  );
+}

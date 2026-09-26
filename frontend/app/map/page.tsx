@@ -11,10 +11,11 @@ import { request, predictiveApi, ApiError } from '../../lib/api';
 import { normalizeAgent, RawAgent } from '../../lib/normalize';
 import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
 import { Agent, Dependency } from '../../types';
+import { EntityLabels } from '../../components/map/FlowCanvas';
 import { UnavailableBanner } from '../../components/ui/UnavailableBanner';
 
 interface AgentSpofsResponse {
-  spofs: { agentId: number; name: string; victimsCount: number }[];
+  spofs: { agentId: string; name: string; victimsCount: number }[];
   spofCount: number;
   maxCascadeRisk: number;
 }
@@ -27,16 +28,42 @@ interface RawDependency {
   dependency_type?: string;
 }
 
+/** Minimal label sources for non-agent graph endpoints. */
+interface RawNamedEntity {
+  id?: string | number;
+  name?: string;
+}
+
+/** id → { name, kind } for every entity type that can appear as an edge
+ *  endpoint. Bare uuids are globally unique (sql/19_uuid_primary_keys.sql),
+ *  so one map serves agents, workflows and platforms alike. */
+function buildEntityLabels(
+  agents: Agent[],
+  workflows: RawNamedEntity[],
+  tools: RawNamedEntity[],
+): EntityLabels {
+  const labels: EntityLabels = {};
+  for (const a of agents) labels[a.id] = { name: a.name, kind: 'agent' };
+  for (const w of workflows) if (w.id != null) labels[w.id.toString()] = { name: w.name ?? 'Workflow', kind: 'workflow' };
+  for (const t of tools) if (t.id != null) labels[t.id.toString()] = { name: t.name ?? 'Tool', kind: 'platform' };
+  return labels;
+}
+
 export default function DependencyMapPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [spofData, setSpofData] = useState<AgentSpofsResponse | null>(null);
   const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
+  const [entityLabels, setEntityLabels] = useState<EntityLabels>({});
   const [predictiveRiskUnavailable, setPredictiveRiskUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Soft label sources: names for non-agent graph endpoints. Losing them
+    // degrades labels to shortened ids, never the page.
+    const workflowsReq = request<RawNamedEntity[]>('/api/workflows').catch(() => []);
+    const toolsReq = request<RawNamedEntity[]>('/api/tools').catch(() => []);
     Promise.all([
       request<RawAgent[]>('/api/agents'),
       request<{ dependencies: RawDependency[] }>('/api/dependencies'),
@@ -55,14 +82,19 @@ export default function DependencyMapPage() {
         setPredictiveRiskUnavailable(true);
         return [];
       }),
+      workflowsReq,
+      toolsReq,
     ])
-    .then(([agentsData, depsData, spofsData, predictiveData]) => {
+    .then(([agentsData, depsData, spofsData, predictiveData, workflowsData, toolsData]) => {
       setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
       const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
 
+      // No type filter: ids are globally-unique uuids, so cross-type edges
+      // (agent→workflow, workflow→platform, …) are unambiguous and the map
+      // shows the full topology. The agent–agent filter this used to apply
+      // existed only to dodge pre-uuid SERIAL id collisions across tables.
       const mappedDeps: Dependency[] = Array.isArray(depsData.dependencies)
         ? depsData.dependencies
-          .filter((d: RawDependency) => d.source_type === 'agent' && d.target_type === 'agent')
           .map((d: RawDependency) => ({
             from: d.source_id?.toString() || '',
             to: d.target_id?.toString() || '',
@@ -77,6 +109,11 @@ export default function DependencyMapPage() {
       setAgents(mappedAgents);
       setDependencies(mappedDeps);
       setSpofData(spofsData);
+      setEntityLabels(buildEntityLabels(
+        mappedAgents,
+        Array.isArray(workflowsData) ? workflowsData : [],
+        Array.isArray(toolsData) ? toolsData : [],
+      ));
     })
     .catch((err: unknown) => {
       setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to load dependency map data');
@@ -136,7 +173,7 @@ export default function DependencyMapPage() {
       />
 
       <div className="animate-fade-up delay-300 mb-8">
-        <FlowCanvas agents={agents} dependencies={dependencies} spofIds={spofIds} />
+        <FlowCanvas agents={agents} dependencies={dependencies} spofIds={spofIds} entityLabels={entityLabels} />
       </div>
 
       {/* Blast Radius Simulator — click any agent, see impact cascade */}
@@ -155,7 +192,7 @@ export default function DependencyMapPage() {
       </div>
 
       <div className="animate-fade-up delay-400">
-        <DependencyTable agents={agents} dependencies={dependencies} spofIds={spofIds} />
+        <DependencyTable agents={agents} dependencies={dependencies} spofIds={spofIds} entityLabels={entityLabels} />
       </div>
     </div>
   );
