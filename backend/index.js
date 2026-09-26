@@ -104,15 +104,20 @@ reportAgentBootState()
 // puts the whole router above the global gate below.
 app.use('/api/auth', require('./routes/auth/auth'))
 
-// OBA Core is single-tenant and no business table carries an org column, so a
-// second organization in app_users would silently share one dataset. D-01:
-// this is now a hard boot failure, not a warning — see the gate on
-// app.listen() at the bottom of this file, and lib/orgGuard.js for why the
-// check itself still only reports rather than exiting.
-const orgGuardCheck = require('./lib/orgGuard').assertSingleTenant()
+// Tenant health at boot (Phase 1.2): with org_id on every business table and
+// per-request scoping in lib/tenant.js, a second organization is now SUPPORTED,
+// not a boot failure. assertSingleTenant() is kept as a loud informational
+// report — multi-org data isolation is real, so the old process.exit(1) is gone.
+require('./lib/orgGuard').assertSingleTenant()
 
-// Everything else under /api touches real org data — require a valid bearer token.
+// Everything else under /api touches real org data — require a valid bearer token,
+// then bind the request to its tenant (Phase 1.2): runWithTenant resolves the
+// token's org slug to an orgs.id, stores it in the AsyncLocalStorage request
+// context that lib/tenant.js's applyOrgScope() reads everywhere, and mirrors it
+// on req.orgId. An unknown org slug is a hard 403; an unreachable orgs table
+// degrades to unscoped single-tenant mode with a warning.
 app.use('/api', requireAuth)
+app.use('/api', require('./lib/tenant').runWithTenant)
 app.use('/api/agent', require('./routes/agent'))
 
 app.use('/api/audit-log', require('./routes/auditLog'))
@@ -184,11 +189,18 @@ app.use(errorHandler)
 console.log("4. Routes loaded")
 
 const PORT = process.env.PORT || 3000
+// Phase 1.2: multi-org data is now isolated per request, so a second org in
+// app_users is a supported state, not a refusal to boot. The guard's report
+// is logged when it resolves; the server listens regardless.
 orgGuardCheck.then((result) => {
-  if (!result.ok) {
-    console.error('Refusing to start — see the SINGLE-TENANT ASSUMPTION VIOLATED banner above.')
-    process.exit(1)
+  if (result.ok && result.orgs.length > 1) {
+    console.log(`Tenant mode: ${result.orgs.length} organizations served with per-request isolation.`)
   }
+  app.listen(PORT, () => {
+    console.log("Server running on port", PORT)
+  })
+}).catch(() => {
+  // The report is best-effort; never let it block listening.
   app.listen(PORT, () => {
     console.log("Server running on port", PORT)
   })

@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { loadEnrichedAgents } = require('./agents')
 const { loadEnrichedTools } = require('./tools')
@@ -28,8 +29,8 @@ const { normalizeLevel, evidenceGate } = require('../domain/definitions')
 // "backup coverage" is derived through the owner's `owners` row instead.
 async function loadWorkflowsForDecisions() {
   const [{ data: workflows, error: wErr }, { data: runbooks, error: rErr }, backupByEmployee] = await Promise.all([
-    supabase.from('workflows').select('id, name, department, risk'),
-    supabase.from('workflow_runbooks').select('workflow_id, owner_id, is_documented, employees ( name )'),
+    applyOrgScope(supabase.from('workflows').select('id, name, department, risk')),
+    applyOrgScope(supabase.from('workflow_runbooks').select('workflow_id, owner_id, is_documented, employees ( name )')),
     loadOwnerBackupByEmployee(),
   ])
   if (wErr) throw new Error(`workflows: ${wErr.message}`)

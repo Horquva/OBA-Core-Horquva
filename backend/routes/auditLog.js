@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { requireAdmin } = require('../middleware/requireRole')
 const { auditHealth } = require('../lib/audit')
 
@@ -33,7 +34,7 @@ router.get('/', requireAdmin, async (req, res) => {
 	}
 
 	try {
-		let request = supabase.from('audit_log').select('*').order('id', { ascending: false }).limit(limit)
+		let request = applyOrgScope(supabase.from('audit_log').select('*')).order('id', { ascending: false }).limit(limit)
 		for (const [field, value] of [['actor_id', query.actor_id], ['action', query.action], ['target_type', query.target_type], ['target_id', query.target_id]]) {
 			if (value !== undefined) request = request.eq(field, value)
 		}

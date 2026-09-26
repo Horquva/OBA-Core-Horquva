@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { optional } = require('../lib/supabaseQuery')
 const { maxLevel } = require('../domain/definitions')
 
@@ -40,7 +41,7 @@ async function loadPlatformUsers() {
 
 /** platform_id -> owner name, via tool_ownership -> employees */
 async function loadPlatformOwners() {
-  const data = await optional('tool_ownership', supabase.from('tool_ownership').select('platform_id, employees ( name )'), [])
+  const data = await optional('tool_ownership', applyOrgScope(supabase.from('tool_ownership').select('platform_id, employees ( name )')), [])
   const byPlatform = {}
   for (const r of data) {
     if (r.employees?.name) byPlatform[r.platform_id] = r.employees.name
@@ -50,7 +51,7 @@ async function loadPlatformOwners() {
 
 /** platform_id -> backup tool name, via tool_backups -> ai_platforms */
 async function loadPlatformBackups(platforms) {
-  const backups = await optional('tool_backups', supabase.from('tool_backups').select('primary_platform, backup_platform'), [])
+  const backups = await optional('tool_backups', applyOrgScope(supabase.from('tool_backups').select('primary_platform, backup_platform')), [])
   const nameById = Object.fromEntries(platforms.map((p) => [p.id, p.name]))
   const byPlatform = {}
   for (const b of backups) byPlatform[b.primary_platform] = nameById[b.backup_platform] || null
@@ -59,7 +60,7 @@ async function loadPlatformBackups(platforms) {
 
 /** platform_id -> { documented, criticality }, via knowledge_assets where asset_type='platform' */
 async function loadPlatformKnowledge() {
-  const data = await optional('knowledge_assets(platform)', supabase.from('knowledge_assets').select('*').eq('asset_type', 'platform'), [])
+  const data = await optional('knowledge_assets(platform)', applyOrgScope(supabase.from('knowledge_assets').select('*')).eq('asset_type', 'platform'), [])
 
   // A platform can have several knowledge assets. The previous version assigned
   // on every iteration, so it kept whichever row the database returned last --
@@ -80,7 +81,7 @@ async function loadPlatformKnowledge() {
 
 /** platform_id -> [agent name], via agent_platform -> agents */
 async function loadPlatformAgents() {
-  const links = await optional('agent_platform', supabase.from('agent_platform').select('platform_id, agents ( name )'), [])
+  const links = await optional('agent_platform', applyOrgScope(supabase.from('agent_platform').select('platform_id, agents ( name )')), [])
   const byPlatform = {}
   for (const l of links) {
     if (!l.agents?.name) continue
@@ -91,7 +92,7 @@ async function loadPlatformAgents() {
 
 /** platform_id -> [workflow name], via workflow_tool_dependencies -> workflows */
 async function loadPlatformWorkflows() {
-  const links = await optional('workflow_tool_dependencies', supabase.from('workflow_tool_dependencies').select('platform_id, workflows ( name )'), [])
+  const links = await optional('workflow_tool_dependencies', applyOrgScope(supabase.from('workflow_tool_dependencies').select('platform_id, workflows ( name )')), [])
   const byPlatform = {}
   for (const l of links) {
     if (!l.workflows?.name) continue
@@ -169,7 +170,7 @@ function toolRiskTier(score) {
 /** The enriched tool list — pulled out so other routes (decisionIntelligence.js)
  *  can reuse this exact computation instead of re-deriving it. */
 async function loadEnrichedTools() {
-  const { data: platforms, error } = await supabase.from('ai_platforms').select('*')
+  const { data: platforms, error } = await applyOrgScope(supabase.from('ai_platforms').select('*'))
   if (error) throw new Error(`ai_platforms: ${error.message}`)
 
   const [users, owners, backups, knowledge, agentsUsing, workflowsUsing] = await Promise.all([

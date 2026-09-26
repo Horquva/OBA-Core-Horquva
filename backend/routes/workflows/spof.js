@@ -1,6 +1,7 @@
 const express  = require('express')
 const router   = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { spofVerdict } = require('../../domain/definitions')
 const { loadOwnerBackupByEmployee } = require('../../lib/ownerBackups')
 
@@ -32,11 +33,11 @@ router.get('/', async (req, res) => {
     { data: toolLinks, error: tlErr },
     backupByEmployee,
   ] = await Promise.all([
-    supabase.from('workflows').select('id, name, status, risk'),
-    supabase.from('workflow_runbooks').select('workflow_id, owner_id, is_documented, employees ( id, name, role )'),
-    supabase.from('workflow_failures').select('workflow_id, failure_type, severity'),
-    supabase.from('workflow_dependencies').select('workflow_id, agent_id'),
-    supabase.from('workflow_tool_dependencies').select('workflow_id, platform_id'),
+    applyOrgScope(supabase.from('workflows').select('id, name, status, risk')),
+    applyOrgScope(supabase.from('workflow_runbooks').select('workflow_id, owner_id, is_documented, employees ( id, name, role )')),
+    applyOrgScope(supabase.from('workflow_failures').select('workflow_id, failure_type, severity')),
+    applyOrgScope(supabase.from('workflow_dependencies').select('workflow_id, agent_id')),
+    applyOrgScope(supabase.from('workflow_tool_dependencies').select('workflow_id, platform_id')),
     loadOwnerBackupByEmployee(),
   ])
 

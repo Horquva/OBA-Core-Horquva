@@ -19,6 +19,7 @@ const tests = [
 	'auth.unit.test.js',
 	'riskEngine.unit.test.js', // pure; asserts Engine A (eIRWR) and Engine B (BBN)
 	'uuidIds.unit.test.js', // pure; asserts opaque-string id handling after sql/19 (uuid PKs)
+	'tenant.unit.test.js', // pure + HTTP-level; asserts lib/tenant.js resolution modes and scoping (Phase 1.2)
 	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
 	'simulations.unit.test.js', // pure; asserts cascade/severity/health-delta (W-I)
 	'simulationsReassign.unit.test.js', // pure; asserts the succession mutation policy (W-L 13.1, D-70)

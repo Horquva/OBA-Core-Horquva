@@ -29,7 +29,14 @@ function safeChanges(action, changes) {
 
 function auditRow(req, event) {
 	const actor = event.actor === undefined ? (req && req.user) : event.actor
+	// Tenant context (Phase 1.2): audit rows carry the org they happened in.
+	// Nullable — infra/startup actions and pre-tenant rows stay null.
+	let orgId = req && req.orgId
+	if (!orgId) {
+		try { orgId = require('./tenant').currentOrgId() } catch (_) { /* tenant lib unavailable */ }
+	}
 	return {
+		org_id: orgId ?? null,
 		actor_id: actor ? safeText(actor.id ?? actor.sub) : null,
 		actor_email: actor ? safeText(actor.email) : null,
 		actor_role: actor ? safeText(actor.role) : null,

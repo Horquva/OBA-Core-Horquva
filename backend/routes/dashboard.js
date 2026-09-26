@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const domain = require('../domain')
 
 /*
@@ -30,11 +31,11 @@ const domain = require('../domain')
 router.get('/', async (req, res) => {
   try {
     const [agents, deps, employees, workflows, platforms] = await Promise.all([
-      supabase.from('agents').select('id, owner_id, risk, status'),
-      supabase.from('dependencies').select('dependency_type'),
-      supabase.from('employees').select('id, workload'),
-      supabase.from('workflows').select('id, status, risk'),
-      supabase.from('ai_platforms').select('id, status'),
+      applyOrgScope(supabase.from('agents').select('id, owner_id, risk, status')),
+      applyOrgScope(supabase.from('dependencies').select('dependency_type')),
+      applyOrgScope(supabase.from('employees').select('id, workload')),
+      applyOrgScope(supabase.from('workflows').select('id, status, risk')),
+      applyOrgScope(supabase.from('ai_platforms').select('id, status')),
     ])
 
     const firstError = agents.error || deps.error || employees.error || workflows.error || platforms.error

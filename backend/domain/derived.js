@@ -107,9 +107,15 @@ function provenance(inputs) {
  * failure mode for this particular product.
  */
 async function loadRoots(supabase) {
+  // Tenant scoping (Phase 1.2): inside a request context every root
+  // table read filters to the caller's org; outside one (offline tests,
+  // jobs) the read is unscoped — the legacy single-tenant behavior. The
+  // org id itself is NOT stored on the bundle: consumers iterate its keys
+  // (simulations.js's cloneRoots) and expect row arrays only.
+  const { applyOrgScope } = require('../lib/tenant')
   const results = await Promise.all(
     ROOT_TABLES.map(async (table) => {
-      const { data, error } = await supabase.from(table).select('*')
+      const { data, error } = await applyOrgScope(supabase.from(table).select('*'))
       if (error) throw new Error(`derived: could not read root table "${table}" — ${error.message}`)
       return [table, data || []]
     }),

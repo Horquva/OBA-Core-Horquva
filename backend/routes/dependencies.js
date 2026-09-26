@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { spofVerdict } = require('../domain/definitions')
 const { dependencyIndex, cascadeReach } = require('../domain/derived')
@@ -89,8 +90,8 @@ router.get('/', async (req, res) => {
 router.get('/agent-spofs', async (req, res) => {
   try {
     const [agentsRes, depsRes, backupByEmployee] = await Promise.all([
-      supabase.from('agents').select('id, name, risk, owner_id'),
-      supabase.from('dependencies').select('source_id, target_id, source_type, target_type').eq('source_type', 'agent').eq('target_type', 'agent'),
+      applyOrgScope(supabase.from('agents').select('id, name, risk, owner_id')),
+      applyOrgScope(supabase.from('dependencies').select('source_id, target_id, source_type, target_type')).eq('source_type', 'agent').eq('target_type', 'agent'),
       // "backup coverage" belongs to the agent's owner, not the agent — see
       // ownership.js's header comment. Same derivation as agents.js.
       loadOwnerBackupByEmployee(),

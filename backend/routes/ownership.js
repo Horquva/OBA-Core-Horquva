@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { loadOwners } = require('../lib/ownerBackups')
 const domain = require('../domain')
 
@@ -30,8 +31,8 @@ router.get('/', async (req, res) => {
       // callers -- one query behind lib/ownerBackups.js, not a second
       // hand-rolled copy.
       loadOwners(),
-      supabase.from('agents').select('id, name, status, risk, owner_id'),
-      supabase.from('employees').select('id, name, role'),
+      applyOrgScope(supabase.from('agents').select('id, name, status, risk, owner_id')),
+      applyOrgScope(supabase.from('employees').select('id, name, role')),
       domain.intelligence.all(),
     ])
 

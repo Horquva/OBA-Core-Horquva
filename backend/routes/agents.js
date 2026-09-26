@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { requireAdmin } = require('../middleware/requireRole')
 const { recordAudit } = require('../lib/audit')
@@ -10,7 +11,7 @@ const domain = require('../domain')
 /** agent_id -> is_documented, via knowledge_assets where asset_type='agent'.
  *  null when no assessment exists — never fabricate a default (matches tools.js). */
 async function loadAgentDocumentation() {
-  const { data } = await supabase.from('knowledge_assets').select('asset_id, is_documented').eq('asset_type', 'agent')
+  const { data } = await applyOrgScope(supabase.from('knowledge_assets').select('asset_id, is_documented')).eq('asset_type', 'agent')
   const byAgent = {}
   for (const k of data || []) byAgent[k.asset_id] = k.is_documented
   return byAgent
@@ -93,9 +94,9 @@ async function clearCachesAfterOwnerChange() {
     }
   }
   await Promise.all([
-    clearTable('brain_core_snapshots', () => supabase.from('brain_core_snapshots').delete().gte('computed_at', `${today}T00:00:00`)),
-    clearTable('orchestrator_snapshots', () => supabase.from('orchestrator_snapshots').delete().gte('computed_at', `${today}T00:00:00`)),
-    clearTable('executive_briefings', () => supabase.from('executive_briefings').delete().eq('briefing_date', today)),
+    clearTable('brain_core_snapshots', () => applyOrgScope(supabase.from('brain_core_snapshots').delete()).gte('computed_at', `${today}T00:00:00`)),
+    clearTable('orchestrator_snapshots', () => applyOrgScope(supabase.from('orchestrator_snapshots').delete()).gte('computed_at', `${today}T00:00:00`)),
+    clearTable('executive_briefings', () => applyOrgScope(supabase.from('executive_briefings').delete()).eq('briefing_date', today)),
   ])
 }
 
