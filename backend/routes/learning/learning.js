@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const domain = require('../../domain')
 
 // ─────────────────────────────────────────────
@@ -12,9 +13,9 @@ function formatLevel(level) {
 }
 
 async function fetchLatestSnapshot() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('learning_snapshots')
-    .select('*')
+    .select('*'))
     .order('created_at', { ascending: false })
     .limit(1)
     .single()

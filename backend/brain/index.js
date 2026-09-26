@@ -76,17 +76,35 @@ const BREAKER_OPTS = {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+/**
+ * The graph singleton is the PRIMARY-org graph. Every load — boot, reload
+ * endpoint, post-mutation scheduleReload — is scoped to the deployment's
+ * primary org (env PRIMARY_ORG_SLUG, else the bootstrap slug), so orgs can
+ * never mix inside one graph and a request-scoped caller cannot swap the
+ * global graph to their own org. Per-org graph caches are the deferred
+ * multi-org workstream; until then the deployment serves one org's graph.
+ * When the orgs table is unavailable (pre-20 database), the load runs
+ * unscoped — the legacy single-tenant behavior.
+ */
 async function buildAndValidateGraph() {
-  const next = new KnowledgeGraph()
-  await loadFromSupabase(next)
-  const validation = next.validate()
-  if (!validation.valid) {
-    throw new Error(
-      'refusing to swap in an invalid graph — ' +
-      validation.entities.errors.concat(validation.relationships.errors).join('; '),
-    )
+  const tenant = require('../lib/tenant')
+  const supabase = require('../supabase')
+  const slug = process.env.PRIMARY_ORG_SLUG || tenant.BOOTSTRAP_ORG_SLUG
+  const { mode, orgId } = await tenant.resolveOrgId(supabase, slug)
+  const load = async () => {
+    const next = new KnowledgeGraph()
+    await loadFromSupabase(next)
+    const validation = next.validate()
+    if (!validation.valid) {
+      throw new Error(
+        'refusing to swap in an invalid graph — ' +
+        validation.entities.errors.concat(validation.relationships.errors).join('; '),
+      )
+    }
+    return next
   }
-  return next
+  if (mode === 'resolved' && orgId) return tenant.runAsOrg(orgId, load)
+  return load()
 }
 
 const loadBreaker = new (require('opossum'))(buildAndValidateGraph, BREAKER_OPTS)

@@ -1,9 +1,10 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 
 router.get('/', async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('employees')
     .select(`
       id, name, role, department, risk,
@@ -20,7 +21,7 @@ router.get('/', async (req, res) => {
           )
         )
       )
-    `)
+    `))
 
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)

@@ -3,7 +3,7 @@
 > **Objective**: Build everything a connector needs *except* the connectors themselves: staging storage, identity resolution, authenticated+idempotent mutation APIs, a hardened webhook receiver, a CSV roster importer, and the agent prompt-caching fix. After this phase, connector work (Jira/GitHub/Slack/Zapier/n8n/Agentforce/HR) is adapter-writing only.
 > **Exit criteria**: staging tables live; HMAC-verified receiver stores raw payloads; identity bridge resolves external IDs; full CRUD with RBAC + idempotency + audit; prompt caching active.
 
-## 4.1 Ingestion Schema (`backend/sql/29_ingestion_staging.sql`)
+## 4.1 Ingestion Schema (`backend/sql/24_ingestion_staging.sql`)
 
 ```sql
 create table raw_vendor_payloads (

@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { optional } = require('../../lib/supabaseQuery')
 const domain = require('../../domain')
 const signalReaders = require('../../domain/signalReaders')
@@ -257,9 +258,9 @@ async function getOrComputeSnapshot() {
   // `optional`, which logs the real error instead of discarding it.
   const today = new Date().toISOString().split('T')[0]
 
-  const cached = await optional('brain_core_snapshots (cache read)', supabase
+  const cached = await optional('brain_core_snapshots (cache read)', applyOrgScope(supabase
     .from('brain_core_snapshots')
-    .select('*')
+    .select('*'))
     .gte('computed_at', `${today}T00:00:00`)
     .order('computed_at', { ascending: false })
     .limit(1)

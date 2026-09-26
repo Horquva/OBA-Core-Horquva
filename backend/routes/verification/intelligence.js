@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -8,9 +9,9 @@ const supabase = require('../../supabase')
 
 // High-risk / SPOF owners — pulled dynamically, not hardcoded
 async function getHighRiskActorNames() {
-  const { data: employees, error } = await supabase
+  const { data: employees, error } = await applyOrgScope(supabase
     .from('employees')
-    .select('name, risk')
+    .select('name, risk'))
     .in('risk', ['high', 'critical'])
 
   if (error) throw new Error(error.message)
@@ -34,7 +35,7 @@ function isFlagged(action, highRiskNames) {
 }
 
 async function fetchActionsWithWorkflow() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('verification_actions')
     .select(`
       id,
@@ -47,7 +48,7 @@ async function fetchActionsWithWorkflow() {
       policy_compliant,
       created_at,
       workflows ( name, department )
-    `)
+    `))
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -55,9 +56,9 @@ async function fetchActionsWithWorkflow() {
 }
 
 async function fetchAllViolations() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('policy_violations')
-    .select('id, action_id, violation_reason, severity, created_at')
+    .select('id, action_id, violation_reason, severity, created_at'))
 
   if (error) throw new Error(error.message)
   return data
@@ -163,7 +164,7 @@ router.get('/actor/:name', async (req, res) => {
   try {
     const { name } = req.params
 
-    const { data: actorActions, error } = await supabase
+    const { data: actorActions, error } = await applyOrgScope(supabase
       .from('verification_actions')
       .select(`
         id,
@@ -176,7 +177,7 @@ router.get('/actor/:name', async (req, res) => {
         policy_compliant,
         created_at,
         workflows ( name, department )
-      `)
+      `))
       .ilike('actor_name', name)
       .order('created_at', { ascending: false })
 

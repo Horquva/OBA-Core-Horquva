@@ -24,9 +24,9 @@ const { maxLevel } = require('../domain/definitions')
 
 /** platform_id -> { users: [name], departments: Set<dept> }, via tool_users -> employees */
 async function loadPlatformUsers() {
-  const links = await optional('tool_users', supabase
+  const links = await optional('tool_users', applyOrgScope(supabase
     .from('tool_users')
-    .select('platform_id, employees ( name, department )'), [])
+    .select('platform_id, employees ( name, department )')), [])
 
   const byPlatform = {}
   for (const l of links) {

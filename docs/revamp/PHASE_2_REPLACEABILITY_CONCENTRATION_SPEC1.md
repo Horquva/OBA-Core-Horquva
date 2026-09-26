@@ -53,7 +53,7 @@ For each class C ∈ {humans, models, vendors/platforms}:
 
 ## 2.3 Spec 1 — Score History & Evidence Ledger
 
-**Schema** (`backend/sql/26_score_history.sql` — number assigned after Phase 1's 22/23):
+**Schema** (`backend/sql/21_score_history.sql` — number assigned after Phase 1's 22/23):
 ```sql
 create table score_history (
   id uuid pk default gen_random_uuid(), org_id uuid not null,

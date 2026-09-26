@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { must, optional } = require('../../lib/supabaseQuery')
 const domain = require('../../domain')
 
@@ -51,9 +52,9 @@ function groupByType(items) {
 // ─────────────────────────────────────────────
 
 async function detectRepeatOffenders() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('workflow_failures')
-    .select('severity, description, workflow_id, workflows(name, department)')
+    .select('severity, description, workflow_id, workflows(name, department)'))
     .in('severity', ['critical', 'high'])
 
   if (error) throw new Error(error.message)
@@ -196,9 +197,9 @@ router.get('/lessons', async (req, res) => {
     const data = await memoryItemsOfType('lesson')
 
     // Pull live high/critical failures to surface additional context
-    const failures = await optional('workflow_failures(critical/high)', supabase
+    const failures = await optional('workflow_failures(critical/high)', applyOrgScope(supabase
       .from('workflow_failures')
-      .select('failure_type, severity, description, workflows(name)')
+      .select('failure_type, severity, description, workflows(name)'))
       .in('severity', ['critical', 'high'])
       .limit(5), [])
 
@@ -309,9 +310,9 @@ router.get('/bad-decisions', async (req, res) => {
     const memoryItems = await memoryItemsOfType('bad_decision')
 
     // Pull historical decisions flagged for revisit from decision_history
-    const historical = await must('decision_history(should_revisit)', supabase
+    const historical = await must('decision_history(should_revisit)', applyOrgScope(supabase
       .from('decision_history')
-      .select('*')
+      .select('*'))
       .eq('should_revisit', true)
       .order('decided_at', { ascending: true }))
 

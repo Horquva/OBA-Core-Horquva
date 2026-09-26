@@ -22,9 +22,9 @@ router.get('/governance', async (req, res) => {
   // title, description, priority, raised_at, status) is preserved by
   // deriving `priority` from decision_queue's real score instead of a
   // hand-picked label.
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('decision_queue')
-    .select('*')
+    .select('*'))
     .order('raised_at', { ascending: false })
 
   if (error) return res.status(500).json({ error: error.message })

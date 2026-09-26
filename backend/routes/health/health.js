@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const domain = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
 
@@ -47,9 +48,9 @@ async function getCurrentSnapshot() {
 }
 
 async function fetchAllSnapshots() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('org_health_snapshots')
-    .select('*')
+    .select('*'))
     .order('snapshot_month', { ascending: true })
 
   if (error) throw new Error(error.message)
@@ -347,9 +348,9 @@ router.get('/critical', async (req, res) => {
           agents: { name: p.agentName, risk: p.recordedRisk },
         }))),
 
-      must('workflow_runbooks', supabase
+      must('workflow_runbooks', applyOrgScope(supabase
         .from('workflow_runbooks')
-        .select('workflows(name, department), employees(name)')
+        .select('workflows(name, department), employees(name)'))
         .eq('is_documented', false)),
 
       domain.intelligence.all().then(intel => ({

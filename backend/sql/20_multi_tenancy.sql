@@ -176,6 +176,17 @@ end $$;
 create index if not exists idx_audit_log_org on public.audit_log (org_id, occurred_at desc);
 create index if not exists idx_app_users_org_id on public.app_users (org_id);
 
+-- app_users holds password hashes and was created WITHOUT row-level security
+-- (auth_schema.sql) — any direct anon/authenticated data-API path could read
+-- every account. Give it the same tenant policy as the business tables; the
+-- backend's service-role key (used by the login/register routes) bypasses
+-- RLS, so authentication is unaffected.
+alter table public.app_users enable row level security;
+drop policy if exists tenant_isolation on public.app_users;
+create policy tenant_isolation on public.app_users
+  using (org_id = current_setting('app.current_org', true)::uuid);
+revoke all on public.app_users from anon, authenticated;
+
 notify pgrst, 'reload schema';
 
 COMMIT;

@@ -1,18 +1,19 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const domain = require('../../domain')
 
 router.get('/', async (req, res) => {
   const [{ data, error }, intel] = await Promise.all([
-    supabase
+    applyOrgScope(supabase
       .from('knowledge_assets')
       .select(`
         owner_id,
         is_documented,
         criticality,
         employees ( id, name, role, department )
-      `),
+      `)),
     domain.intelligence.all(),
   ])
 

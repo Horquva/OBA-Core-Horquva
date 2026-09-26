@@ -1,6 +1,7 @@
 const express  = require('express')
 const router   = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 
 // helpers
 function calcRiskScore({ is_documented, humanSpofFailure, toolCount, failures }) {
@@ -20,7 +21,7 @@ function calcRiskScore({ is_documented, humanSpofFailure, toolCount, failures })
 
 router.get('/', async (req, res) => {
   // 1 — fetch all workflows with runbook + failures
-  const { data: workflows, error: wfErr } = await supabase
+  const { data: workflows, error: wfErr } = await applyOrgScope(supabase
     .from('workflows')
     .select(`
       id, name, status, risk,
@@ -28,21 +29,21 @@ router.get('/', async (req, res) => {
         employees ( id, name, role, department )
       ),
       workflow_failures ( failure_type, severity, description )
-    `)
+    `))
 
   if (wfErr) return res.status(500).json({ error: wfErr.message })
 
   // 2 — fetch agent links
-  const { data: agentLinks, error: agErr } = await supabase
+  const { data: agentLinks, error: agErr } = await applyOrgScope(supabase
     .from('workflow_dependencies')
-    .select('workflow_id, agents ( id, name, status, risk )')
+    .select('workflow_id, agents ( id, name, status, risk )'))
 
   if (agErr) return res.status(500).json({ error: agErr.message })
 
   // 3 — fetch tool links
-  const { data: toolLinks, error: tlErr } = await supabase
+  const { data: toolLinks, error: tlErr } = await applyOrgScope(supabase
     .from('workflow_tool_dependencies')
-    .select('workflow_id, ai_platforms ( id, name, type, status )')
+    .select('workflow_id, ai_platforms ( id, name, type, status )'))
 
   if (tlErr) return res.status(500).json({ error: tlErr.message })
 

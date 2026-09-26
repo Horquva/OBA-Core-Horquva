@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
 const { requireCsrfHeader } = require('../../middleware/auth')
@@ -47,9 +48,9 @@ async function getMostOverloaded() {
 // available proxy, not an actual "latest" guarantee; do not present this as
 // time-ordered without adding a real timestamp column first.
 async function getLatestIncident() {
-  return must('workflow_failures', supabase
+  return must('workflow_failures', applyOrgScope(supabase
     .from('workflow_failures')
-    .select('failure_type, severity, description, workflow_id, workflows(name)')
+    .select('failure_type, severity, description, workflow_id, workflows(name)'))
     .eq('severity', 'critical')
     .order('workflow_id', { ascending: false })
     .limit(1)
@@ -57,9 +58,9 @@ async function getLatestIncident() {
 }
 
 async function getDocTrend() {
-  const data = await must('documentation_trend', supabase
+  const data = await must('documentation_trend', applyOrgScope(supabase
     .from('documentation_trend')
-    .select('*')
+    .select('*'))
     .order('recorded_month', { ascending: false })
     .limit(2))
 
@@ -75,9 +76,9 @@ async function getDocTrend() {
 }
 
 async function getPendingDecisionsCount() {
-  const { count, error } = await supabase
+  const { count, error } = await applyOrgScope(supabase
     .from('decision_queue')
-    .select('*', { count: 'exact', head: true })
+    .select('*', { count: 'exact', head: true }))
     .eq('status', 'pending')
 
   if (error) throw new Error(`decision_queue: ${error.message}`)
@@ -143,9 +144,9 @@ router.get('/today', requireCsrfHeader, async (req, res) => {
     const today = new Date().toISOString().split('T')[0]
     // A failed cache read is non-fatal — computing live is the right fallback —
     // but log the real error rather than silently treating it as "no cache".
-    const cached = await optional('executive_briefings (cache read)', supabase
+    const cached = await optional('executive_briefings (cache read)', applyOrgScope(supabase
       .from('executive_briefings')
-      .select('*')
+      .select('*'))
       .eq('briefing_date', today)
       .maybeSingle())
 
@@ -195,9 +196,9 @@ router.get('/today', requireCsrfHeader, async (req, res) => {
 
 router.get('/summary', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('executive_briefings')
-      .select('briefing_date, summary_points, doc_trend_status, most_overloaded_owner, top_spof')
+      .select('briefing_date, summary_points, doc_trend_status, most_overloaded_owner, top_spof'))
       .order('briefing_date', { ascending: false })
       .limit(1)
       .single()
@@ -222,9 +223,9 @@ router.get('/summary', async (req, res) => {
 
 router.get('/history', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('executive_briefings')
-      .select('*')
+      .select('*'))
       .order('briefing_date', { ascending: false })
       .limit(30)
 
@@ -241,9 +242,9 @@ router.get('/history', async (req, res) => {
 
 router.get('/documentation-trend', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('documentation_trend')
-      .select('*')
+      .select('*'))
       .order('recorded_month', { ascending: true })
 
     if (error) throw new Error(error.message)
@@ -283,9 +284,9 @@ router.get('/pending-decisions', async (req, res) => {
     // priority/sourceModule shape this route always returned, from
     // decision_queue's real impact/urgency/effort/blast_radius score instead
     // of a hand-picked label.
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('decision_queue')
-      .select('*')
+      .select('*'))
       .eq('status', 'pending')
 
     if (error) throw new Error(error.message)

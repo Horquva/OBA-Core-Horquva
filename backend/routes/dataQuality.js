@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { must } = require('../lib/supabaseQuery')
 
 // GET /api/data-quality — comprehensive data integrity checks
@@ -17,9 +18,9 @@ router.get('/', async (req, res) => {
     const stats = {}
 
     // 1. Check for orphaned agents (no owner)
-    const agents = await must('agents', supabase
+    const agents = await must('agents', applyOrgScope(supabase
       .from('agents')
-      .select('id, name, owner_id'))
+      .select('id, name, owner_id')))
 
     const orphanedAgents = agents.filter(a => !a.owner_id)
     if (orphanedAgents.length > 0) {
@@ -33,9 +34,9 @@ router.get('/', async (req, res) => {
     stats.totalAgents = agents.length
 
     // 2. Check for failed/inactive agents
-    const agentsWithStatus = await must('agents (status)', supabase
+    const agentsWithStatus = await must('agents (status)', applyOrgScope(supabase
       .from('agents')
-      .select('id, name, status')
+      .select('id, name, status'))
       .in('status', ['failed', 'inactive', 'deprecated']))
 
     if (agentsWithStatus.length > 0) {
@@ -48,9 +49,9 @@ router.get('/', async (req, res) => {
     }
 
     // 3. Check for undocumented critical knowledge assets
-    const knowledgeAssets = await must('knowledge_assets', supabase
+    const knowledgeAssets = await must('knowledge_assets', applyOrgScope(supabase
       .from('knowledge_assets')
-      .select('id, topic, is_documented, criticality, owner_id')
+      .select('id, topic, is_documented, criticality, owner_id'))
       .in('criticality', ['critical', 'high'])
       .eq('is_documented', false))
 
@@ -64,13 +65,13 @@ router.get('/', async (req, res) => {
     }
 
     // 4. Check for workflows without runbooks
-    const workflows = await must('workflows', supabase
+    const workflows = await must('workflows', applyOrgScope(supabase
       .from('workflows')
-      .select('id, name'))
+      .select('id, name')))
 
-    const runbooks = await must('workflow_runbooks', supabase
+    const runbooks = await must('workflow_runbooks', applyOrgScope(supabase
       .from('workflow_runbooks')
-      .select('workflow_id, is_documented'))
+      .select('workflow_id, is_documented')))
 
     const workflowsWithoutRunbook = workflows.filter(
       w => !runbooks.some(r => r.workflow_id === w.id)
@@ -96,14 +97,14 @@ router.get('/', async (req, res) => {
     stats.totalWorkflows = workflows.length
 
     // 5. Check for tools without policies
-    const platforms = await must('ai_platforms', supabase
+    const platforms = await must('ai_platforms', applyOrgScope(supabase
       .from('ai_platforms')
-      .select('id, name, status')
+      .select('id, name, status'))
       .eq('status', 'active'))
 
-    const policies = await must('tool_policies', supabase
+    const policies = await must('tool_policies', applyOrgScope(supabase
       .from('tool_policies')
-      .select('platform_id'))
+      .select('platform_id')))
 
     const policyPlatformIds = new Set(policies.map(p => p.platform_id))
     const noPolicyTools = platforms.filter(p => !policyPlatformIds.has(p.id))
@@ -119,9 +120,9 @@ router.get('/', async (req, res) => {
     stats.totalTools = platforms.length
 
     // 6. Check for tools without backups
-    const backups = await must('tool_backups', supabase
+    const backups = await must('tool_backups', applyOrgScope(supabase
       .from('tool_backups')
-      .select('primary_platform'))
+      .select('primary_platform')))
 
     const backupPlatformIds = new Set(backups.map(b => b.primary_platform))
     const noBackupTools = platforms.filter(p => !backupPlatformIds.has(p.id))
@@ -136,15 +137,15 @@ router.get('/', async (req, res) => {
     }
 
     // 7. Employee count
-    const employees = await must('employees', supabase
+    const employees = await must('employees', applyOrgScope(supabase
       .from('employees')
-      .select('id'))
+      .select('id')))
     stats.totalEmployees = employees.length
 
     // 8. Snapshot check
-    const snapshots = await must('snapshots', supabase
+    const snapshots = await must('snapshots', applyOrgScope(supabase
       .from('snapshots')
-      .select('id'))
+      .select('id')))
     stats.totalSnapshots = snapshots.length
 
     // Compute overall health

@@ -1,15 +1,16 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
 
 async function fetchAllForecasts() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('organizational_forecasts')
-    .select('*')
+    .select('*'))
     .order('horizon_days', { ascending: true })
 
   if (error) throw new Error(error.message)
@@ -17,9 +18,9 @@ async function fetchAllForecasts() {
 }
 
 async function fetchFindings(forecastId, type = null) {
-  let query = supabase
+  let query = applyOrgScope(supabase
     .from('forecast_findings')
-    .select('finding_type, reference_name, detail')
+    .select('finding_type, reference_name, detail'))
     .eq('forecast_id', forecastId)
 
   if (type) query = query.eq('finding_type', type)

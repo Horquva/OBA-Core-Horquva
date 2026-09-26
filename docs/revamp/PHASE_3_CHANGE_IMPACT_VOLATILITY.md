@@ -15,7 +15,7 @@ applyMutation(roots, orgId, { type, entityType, entityId, payload, actor, idempo
 - Flow: validate (entity exists, RBAC already checked at route) → capture **before/after snapshots** of the mutated row → apply through Supabase → append `dependency_change_log` row → invalidate per-org caches → trigger `changeImpact` computation → async graph reload (1.7).
 - **Idempotency**: unique index on `(org_id, idempotency_key)`; retries replay the stored result instead of double-applying (fixes the audit's missed finding on the owner PATCH).
 
-**Schema** (`backend/sql/27_change_log.sql`):
+**Schema** (`backend/sql/22_change_log.sql`):
 ```sql
 create table dependency_change_log (
   id uuid pk, org_id uuid not null, idempotency_key text,
@@ -27,7 +27,7 @@ create table dependency_change_log (
 ```
 + `(org_id, created_at desc)`, `(org_id, target_type, target_id)` indexes.
 
-**Trigger backstop**: `backend/sql/28_out_of_band_triggers.sql` — AFTER UPDATE/DELETE triggers on entity tables writing `OUT_OF_BAND` rows (before/after only; no cascade computation — those get picked up on next org scan).
+**Trigger backstop**: `backend/sql/23_out_of_band_triggers.sql` — AFTER UPDATE/DELETE triggers on entity tables writing `OUT_OF_BAND` rows (before/after only; no cascade computation — those get picked up on next org scan).
 
 **Tests**: `mutations.unit.test.js` — before/after fidelity, idempotent retry, unknown entity → `ApiError`, trigger backstop fires on direct SQL (integration test), per-org isolation.
 

@@ -7,7 +7,7 @@
 
 **Problem**: `agents.id`, `workflows.id`, `ai_platforms.id`, `employees.id` all use independent `SERIAL 1..N`, so node `1` is simultaneously an agent, a workflow, a platform and an employee. The frontend throws away all cross-type edges to avoid walking IDs across tables (`frontend/app/risk/page.tsx` ~47–61, `app/map/page.tsx` same fix) — the Risk Dashboard is blind to workflows, tools and platforms. Connectors would inherit the same trap immediately.
 
-**Approach — mapping-based backfill migration** (`backend/sql/22_uuid_migration.sql`), safe at current data scale (~157 nodes):
+**Approach — mapping-based backfill migration** (`backend/sql/19_uuid_primary_keys.sql`), safe at current data scale (~157 nodes):
 
 1. `create extension if not exists pgcrypto` (Supabase ships it) — `gen_random_uuid()` available.
 2. Per entity table (`agents`, `workflows`, `ai_platforms`, `employees`, plus any other SERIAL-keyed entity tables found in `01_schema_migration.sql`):
@@ -32,7 +32,7 @@
 **Problem**: `org` exists only on `app_users`; not one business table has `org_id`; `orgGuard.js` hard-exits (`process.exit(1)`) if >1 org exists. Marketing sells multi-tenant SaaS.
 
 **Approach**:
-1. `backend/sql/23_multi_tenancy.sql`: `orgs` table (id uuid pk, name, slug, created_at); bootstrap org inserted; `org_id uuid not null references orgs(id)` added to **every business table** (agents, workflows, ai_platforms, employees, owners, dependencies, knowledge_assets, workflow_runbooks, tool_ownership, tool_backups, agent_platform, workflow_tool_dependencies, policies, incidents, app_users.org→org_id FK, etc.); existing data assigned to the bootstrap org; replace hot single-column indexes with `(org_id, …)` composites.
+1. `backend/sql/20_multi_tenancy.sql`: `orgs` table (id uuid pk, name, slug, created_at); bootstrap org inserted; `org_id uuid not null references orgs(id)` added to **every business table** (agents, workflows, ai_platforms, employees, owners, dependencies, knowledge_assets, workflow_runbooks, tool_ownership, tool_backups, agent_platform, workflow_tool_dependencies, policies, incidents, app_users.org→org_id FK, etc.); existing data assigned to the bootstrap org; replace hot single-column indexes with `(org_id, …)` composites.
 2. **RLS policies (defense-in-depth)**: `alter table … enable row level security; create policy tenant_isolation using (org_id = current_setting('app.current_org', true)::uuid)`. The backend uses the service-role key (bypasses RLS), so the **primary enforcement is app-level scoping** — every Supabase query in `graphLoader.js`, `domain/derived.js:loadRoots`, and route handlers gains `eq('org_id', ctx.orgId)`; `loadRoots(supabase, orgId)` and `graphLoader` load per org. Per request, auth middleware resolves the caller's org (from `app_users`) and `set_config('app.current_org', …, true)` is applied on any direct-Postgres path.
 3. **`orgGuard` rewrite**: from boot-time `process.exit(1)` to a per-request tenant resolver (`requireTenant` middleware): token ↔ org mismatch → 403; unknown org → 401. Multi-org data now *works* instead of crashing the process.
 4. **Cache/graph invalidation**: the in-memory graph and `loadRoots` results become **per-org** — namespace the graph singleton (`Map<orgId, KnowledgeGraph>`) and memoized roots; `POST /api/intelligence/prediction/graph/reload` takes an org scope.

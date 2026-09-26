@@ -20,13 +20,13 @@ async function loadAgentDocumentation() {
 /** The enriched agent list — pulled out so other routes (decisionIntelligence.js)
  *  can reuse this exact computation instead of re-deriving owner/backup/documented. */
 async function loadEnrichedAgents() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('agents')
     .select(`
       id, name, type, status, risk, owner_id,
       usage_count, adoption_pct, last_used, cost,
       employees ( id, name, role, department )
-    `)
+    `))
   if (error) throw new Error(`agents: ${error.message}`)
 
   const [documented, ownerBackups] = await Promise.all([
@@ -129,9 +129,9 @@ router.patch('/:id/owner', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'ownerId must be an employee uuid, or null to clear ownership' })
   }
 
-  const { data: before, error: beforeError } = await supabase
+  const { data: before, error: beforeError } = await applyOrgScope(supabase
     .from('agents')
-    .select('id, owner_id')
+    .select('id, owner_id'))
     .eq('id', agentId)
     .maybeSingle()
   if (beforeError) return res.status(500).json({ error: beforeError.message })
@@ -140,9 +140,9 @@ router.patch('/:id/owner', requireAdmin, async (req, res) => {
     return res.status(404).json({ error: `No agent with id ${agentId}` })
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('agents')
-    .update({ owner_id: ownerId })
+    .update({ owner_id: ownerId }))
     .eq('id', agentId)
     .select('id, name, owner_id')
     .maybeSingle()
@@ -175,9 +175,9 @@ router.patch('/:id/owner', requireAdmin, async (req, res) => {
 
 // GET /api/agents/risk-summary — risk breakdown
 router.get('/risk-summary', async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('agents')
-    .select('id, name, status, risk, owner_id')
+    .select('id, name, status, risk, owner_id'))
 
   if (error) return res.status(500).json({ error: error.message })
 

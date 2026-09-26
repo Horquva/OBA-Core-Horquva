@@ -59,7 +59,7 @@ alter table public.tool_users        add column if not exists employee_uuid uuid
 alter table public.tool_ownership    add column if not exists employee_uuid uuid;
 alter table public.workflow_runbooks add column if not exists owner_uuid uuid;
 alter table public.employee_agent    add column if not exists employee_uuid uuid;
-alter table public.systems           add column if not exists owner_uuid;
+alter table public.systems           add column if not exists owner_uuid uuid;
 alter table public.external_entities add column if not exists relationship_owner_uuid uuid;
 alter table public.incidents         add column if not exists owner_uuid uuid;
 alter table public.incidents         add column if not exists resolved_by_uuid uuid;
@@ -105,6 +105,11 @@ alter table public.dependencies    add column if not exists target_uuid uuid;
 alter table public.dependencies    add column if not exists agent_source_uuid uuid;
 alter table public.dependencies    add column if not exists agent_target_uuid uuid;
 
+-- The polymorphic knowledge_assets.asset_id gets its twin here too — the
+-- per-type fills below write into it, and step 4 copies it into the renamed
+-- asset_id column.
+alter table public.knowledge_assets add column if not exists asset_uuid uuid;
+
 -- Fill the typed references by joining old int id → new_id.
 update public.agents            t set owner_uuid        = p.new_id from public.employees         p where t.owner_id            = p.id;
 update public.owners            t set employee_uuid     = p.new_id from public.employees         p where t.employee_id         = p.id;
@@ -115,6 +120,7 @@ update public.tool_ownership    t set employee_uuid     = p.new_id from public.e
 update public.tool_ownership    t set platform_uuid     = p.new_id from public.ai_platforms      p where t.platform_id         = p.id;
 update public.workflow_runbooks t set owner_uuid        = p.new_id from public.employees         p where t.owner_id            = p.id;
 update public.employee_agent    t set employee_uuid     = p.new_id from public.employees         p where t.employee_id         = p.id;
+update public.systems           t set owner_uuid        = p.new_id from public.employees         p where t.owner_id            = p.id;
 update public.external_entities t set relationship_owner_uuid = p.new_id from public.employees   p where t.relationship_owner_id = p.id;
 update public.incidents         t set owner_uuid        = p.new_id from public.employees         p where t.owner_id            = p.id;
 update public.incidents         t set resolved_by_uuid  = p.new_id from public.employees         p where t.resolved_by_id      = p.id;
@@ -199,6 +205,7 @@ alter table public.tool_ownership     drop column if exists employee_id;
 alter table public.tool_ownership     drop column if exists platform_id;
 alter table public.workflow_runbooks  drop column if exists owner_id;
 alter table public.employee_agent     drop column if exists employee_id;
+alter table public.systems            drop column if exists owner_id;
 alter table public.external_entities  drop column if exists relationship_owner_id;
 alter table public.incidents          drop column if exists owner_id;
 alter table public.incidents          drop column if exists resolved_by_id;
@@ -236,6 +243,7 @@ alter table public.tool_ownership     rename column employee_uuid          to em
 alter table public.tool_ownership     rename column platform_uuid          to platform_id;
 alter table public.workflow_runbooks  rename column owner_uuid             to owner_id;
 alter table public.employee_agent     rename column employee_uuid          to employee_id;
+alter table public.systems            rename column owner_uuid             to owner_id;
 alter table public.external_entities  rename column relationship_owner_uuid to relationship_owner_id;
 alter table public.incidents          rename column owner_uuid             to owner_id;
 alter table public.incidents          rename column resolved_by_uuid       to resolved_by_id;

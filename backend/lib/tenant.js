@@ -25,8 +25,11 @@
  *                 a silent fallback to unscoped.
  *   degraded    — Supabase unreachable or the orgs table missing (pre-20
  *                 database, or the offline test suites that stub Supabase
- *                 with in-memory fixtures): runs UNSCOPED — the legacy
- *                 single-tenant behavior — with a one-per-minute warning.
+ *                 with in-memory fixtures). NO org claim → runs UNSCOPED
+ *                 (the legacy single-tenant behavior) with a one-per-minute
+ *                 warning. WITH an org claim → fail closed: stale cached
+ *                 orgId when one exists, else 503 — a transient orgs-lookup
+ *                 error must never turn into a cross-tenant read.
  */
 
 const { AsyncLocalStorage } = require('async_hooks')
@@ -57,9 +60,17 @@ async function resolveOrgId(supabase, slug) {
     orgIdCache.set(slug, { orgId: data.id, resolvedAt: Date.now() })
     return { mode: 'resolved', orgId: data.id }
   } catch (err) {
+    // Transient failure of the orgs lookup. Serving the request UNSCOPED here
+    // would let one request read across tenants while the business tables
+    // (which may still be reachable) answer normally — fail closed instead:
+    // use a stale cached orgId when one exists (stale-on-error beats
+    // cross-org), otherwise reject.
+    if (cached) {
+      return { mode: 'resolved', orgId: cached.orgId }
+    }
     if (Date.now() - degradationWarnedAt > RESOLVE_TTL_MS) {
       degradationWarnedAt = Date.now()
-      console.warn(`[tenant] degrading to UNSCOPED single-tenant mode — cannot resolve org '${slug}': ${err.message}`)
+      console.warn(`[tenant] org resolution failed for '${slug}' with no cached org — requests will 503 until the orgs table answers: ${err.message}`)
     }
     return { mode: 'degraded', orgId: null }
   }
@@ -79,6 +90,12 @@ function runWithTenant(req, res, next) {
   resolveOrgId(supabase, req.org).then(({ mode, orgId }) => {
     if (mode === 'unknown-org') {
       return res.status(403).json({ error: `Unknown organization '${req.org}'` })
+    }
+    if (mode === 'degraded' && req.org && orgId == null) {
+      // The orgs lookup failed and no cached org exists. Failing open would
+      // serve this request unscoped against business tables that may be
+      // perfectly reachable — a cross-tenant read. Fail closed with 503.
+      return res.status(503).json({ error: 'Tenant resolution unavailable — retry shortly' })
     }
     req.orgId = orgId
     tenantContext.run({ orgId }, () => next())

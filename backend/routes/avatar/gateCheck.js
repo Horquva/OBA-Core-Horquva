@@ -1,4 +1,5 @@
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { isUuid } = require('../../lib/uuid')
 
 // M15 Verification + M16 Orchestration gate for the Executive Avatar.
@@ -15,9 +16,9 @@ const { isUuid } = require('../../lib/uuid')
 // in-flight workflows whose current step needs the same actor.
 
 async function currentStepActor(workflow_id, step_number) {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('workflow_steps')
-    .select('actor_name, actor_type')
+    .select('actor_name, actor_type'))
     .eq('workflow_id', workflow_id)
     .eq('step_number', step_number)
     .maybeSingle()
@@ -30,9 +31,9 @@ async function detectActorCollision(orchState) {
   const step = await currentStepActor(orchState.workflow_id, orchState.current_step)
   if (!step?.actor_name) return null
 
-  const { data: inFlight, error } = await supabase
+  const { data: inFlight, error } = await applyOrgScope(supabase
     .from('workflow_orchestration')
-    .select('workflow_id, current_step')
+    .select('workflow_id, current_step'))
     .eq('status', 'in_progress')
 
   if (error) throw new Error(`Orchestration scan failed: ${error.message}`)
@@ -45,9 +46,9 @@ async function detectActorCollision(orchState) {
   // auto-escalates on failure, so its latency scales with however many
   // workflows happen to be in flight at once.
   const otherIds = [...new Set(others.map((o) => o.workflow_id))]
-  const { data: steps, error: stepsError } = await supabase
+  const { data: steps, error: stepsError } = await applyOrgScope(supabase
     .from('workflow_steps')
-    .select('workflow_id, step_number, actor_name')
+    .select('workflow_id, step_number, actor_name'))
     .in('workflow_id', otherIds)
 
   if (stepsError) throw new Error(`Workflow step lookup failed: ${stepsError.message}`)
@@ -70,18 +71,18 @@ async function checkGate(workflow_id) {
     throw new Error(`workflow_id must be a workflow uuid, got '${workflow_id}'`)
   }
 
-  const { data: verifications, error: vErr } = await supabase
+  const { data: verifications, error: vErr } = await applyOrgScope(supabase
     .from('verification_actions')
-    .select('*')
+    .select('*'))
     .eq('workflow_id', workflow_id)
     .order('created_at', { ascending: false })
     .limit(1)
 
   if (vErr) throw new Error(`Verification lookup failed: ${vErr.message}`)
 
-  const { data: orchestration, error: oErr } = await supabase
+  const { data: orchestration, error: oErr } = await applyOrgScope(supabase
     .from('workflow_orchestration')
-    .select('*')
+    .select('*'))
     .eq('workflow_id', workflow_id)
     .order('updated_at', { ascending: false })
     .limit(1)

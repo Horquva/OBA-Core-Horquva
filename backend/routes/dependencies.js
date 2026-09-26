@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
   // canonical edge representation (derived.js, graphLoader.js, network.js,
   // risks.js, export-company.js all already use only these) -- the embed was
   // computing a join, sending it over the wire, and being discarded.
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('dependencies')
     .select(`
       id,
@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
       target_type,
       dependency_type,
       strength
-    `)
+    `))
 
   if (error) return res.status(500).json({ error: error.message })
 

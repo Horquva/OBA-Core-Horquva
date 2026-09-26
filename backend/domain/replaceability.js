@@ -28,6 +28,8 @@
  *     backup signal is the owner's own owners.backup_owner row and
  *     cross-trained peers are OTHER employees currently owning at least one
  *     asset of the same type (same-type ownership as the skill-overlap proxy).
+ *     An asset with NO owner reads bench 0 — the peer proxy only means
+ *     something when there is an accountable owner to hand over from.
  *     The minimal-knowledge-holder framing follows the bus-factor literature
  *     (arXiv:2202.01523, arXiv:2403.08038, arXiv:2508.09828 — BF is NP-hard
  *     under the standard formalization; same-type ownership overlap is our
@@ -165,10 +167,13 @@ function replaceability(roots, context) {
     const owner = agent.owner_id
     const ownerHasBackup = owner != null ? Boolean(backupByEmployee.get(owner)) : false
     // peers of the same type, excluding the owner themself
-    const crossTrained = agentOwners.size - (owner != null && agentOwners.has(owner) ? 1 : 0)
+    const crossTrained = owner != null ? agentOwners.size - (agentOwners.has(owner) ? 1 : 0) : 0
     const doc = docScoreAgent(knowledgeAssets, agent.id)
     const alt = altScoreAgent(agentPlatforms.get(agent.id) || [], backedPlatformIdSet)
-    const bench = benchScore(ownerHasBackup, crossTrained)
+    // No owner → no bench: the peers proxy only means something when there is
+    // an accountable owner to hand over FROM. Without one, bench is 0, not
+    // 25x every other owner in the org.
+    const bench = owner == null ? 0 : benchScore(ownerHasBackup, crossTrained)
     const K = Math.round(WEIGHTS.doc * doc.score + WEIGHTS.alt * alt.score + WEIGHTS.bench * bench)
     const blastRadius = engine.blastRadius('agent', agent.id)
     entities.push({
@@ -193,10 +198,10 @@ function replaceability(roots, context) {
     const runbook = runbookByWorkflow.get(workflow.id)
     const owner = runbook ? runbook.owner_id : null
     const ownerHasBackup = owner != null ? Boolean(backupByEmployee.get(owner)) : false
-    const crossTrained = runbookOwners.size - (owner != null && runbookOwners.has(owner) ? 1 : 0)
+    const crossTrained = owner != null ? runbookOwners.size - (runbookOwners.has(owner) ? 1 : 0) : 0
     const doc = docScoreWorkflow(runbook)
     const alt = altScoreWorkflow(stepsByWorkflow.get(workflow.id))
-    const bench = benchScore(ownerHasBackup, crossTrained)
+    const bench = owner == null ? 0 : benchScore(ownerHasBackup, crossTrained)
     const K = Math.round(WEIGHTS.doc * doc.score + WEIGHTS.alt * alt.score + WEIGHTS.bench * bench)
     const blastRadius = engine.blastRadius('workflow', workflow.id)
     entities.push({
@@ -221,10 +226,10 @@ function replaceability(roots, context) {
     const holders = (roots.tool_ownership || []).filter((t) => t.platform_id === platform.id).map((t) => t.employee_id)
     const owner = holders[0] ?? null
     const ownerHasBackup = owner != null ? Boolean(backupByEmployee.get(owner)) : false
-    const crossTrained = Math.max(0, toolHolders.size - (owner != null && toolHolders.has(owner) ? 1 : 0))
+    const crossTrained = owner != null ? Math.max(0, toolHolders.size - (toolHolders.has(owner) ? 1 : 0)) : 0
     const doc = docScorePlatform(knowledgeAssets, platform.id)
     const alt = altScorePlatform(toolBackups, platform.id)
-    const bench = benchScore(ownerHasBackup, crossTrained)
+    const bench = owner == null ? 0 : benchScore(ownerHasBackup, crossTrained)
     const K = Math.round(WEIGHTS.doc * doc.score + WEIGHTS.alt * alt.score + WEIGHTS.bench * bench)
     const blastRadius = engine.blastRadius('platform', platform.id)
     entities.push({

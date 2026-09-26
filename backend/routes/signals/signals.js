@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const domain = require('../../domain')
 
 // GET /api/signals/drilldown/:entityName
@@ -12,9 +13,9 @@ router.get('/drilldown/:entityName', async (req, res) => {
     let trendDirection = 'stable'
     const reasons = []
 
-    const { data: agent } = await supabase
+    const { data: agent } = await applyOrgScope(supabase
       .from('agents')
-      .select('id, name, status, risk')
+      .select('id, name, status, risk'))
       .ilike('name', entityName)
       .maybeSingle()
 

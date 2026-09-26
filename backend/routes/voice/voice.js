@@ -517,9 +517,9 @@ router.get('/intents', async (req, res) => {
 // failed read, so a broken query looked like a fresh, unused assistant.
 router.get('/history', async (req, res) => {
   try {
-    const data = await must('voice_history', supabase
+    const data = await must('voice_history', applyOrgScope(supabase
       .from('voice_history')
-      .select('*')
+      .select('*'))
       .order('created_at', { ascending: false })
       .limit(20))
     res.json(data)
