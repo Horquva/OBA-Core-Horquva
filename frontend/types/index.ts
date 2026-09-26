@@ -16,9 +16,10 @@ export interface Agent {
   documented: boolean;
 }
 
-/** GET /api/employees row — used for the assign-owner dropdown (DATA-1). */
+/** GET /api/employees row — used for the assign-owner dropdown (DATA-1).
+ *  id is a uuid string since sql/19_uuid_primary_keys.sql. */
 export interface Employee {
-  id: number;
+  id: string;
   name: string;
   role?: string;
   department?: string;

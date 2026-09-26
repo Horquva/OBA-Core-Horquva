@@ -6,6 +6,7 @@ import { SimulationUniverseRanking } from '../../components/simulation/Simulatio
 import { TwinHealthIndex } from '../../components/simulation/TwinHealthIndex';
 import { TwinSyncStatus } from '../../components/simulation/TwinSyncStatus';
 import { ScenarioSandbox } from '../../components/simulation/ScenarioSandbox';
+import { SuccessionPlanner } from '../../components/simulation/SuccessionPlanner';
 import { Agent, AITool } from '../../types';
 import { request, predictiveApi, healthApi, ApiError } from '../../lib/api';
 import { ScenarioResult, mapScenario, RawScenario } from '../../lib/simulation';
@@ -117,6 +118,13 @@ export default function SimulationPage() {
         <TwinHealthIndex agents={agents} healthIndex={healthIndex} healthStatus={healthStatus} />
         <TwinSyncStatus agents={agents} tools={tools} />
         <ScenarioSandbox agents={agents} tools={tools} riskByAgentName={riskByAgentName} spofIds={spofIds} />
+      </div>
+
+      {/* D-70 succession planning — the recovery half of the simulation story:
+          pick a departing employee and a successor, see the health delta the
+          reassignment buys and whether the successor becomes a SPOF. */}
+      <div className="px-6 md:px-10 max-w-7xl w-full mx-auto">
+        <SuccessionPlanner />
       </div>
 
       {/* Full universe ranking — every entity ranked by survivability */}

@@ -116,6 +116,7 @@ module.exports = {
   simulations: {
     loadRoots: () => derived.loadRoots(requireSupabase()),
     employeeLeaves: simulations.employeeLeaves,
+    employeeLeavesWithSuccessor: simulations.employeeLeavesWithSuccessor,
     agentFails: simulations.agentFails,
     platformDown: simulations.platformDown,
     workflowDisruption: simulations.workflowDisruption,

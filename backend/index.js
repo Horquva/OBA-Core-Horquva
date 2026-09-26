@@ -134,6 +134,7 @@ app.use('/api/simulations/agent-fails',     require('./routes/simulations/agentF
 app.use('/api/simulations/platform-down',   require('./routes/simulations/platformDown'))
 app.use('/api/simulations/workflow-disruption', require('./routes/simulations/workflowDisruption'))
 app.use('/api/simulations/rank',            require('./routes/simulations/rank'))
+app.use('/api/simulations/reassign',        require('./routes/simulations/reassign'))
 app.use('/api/human-agent-map',             require('./routes/humanAgentMap'))
 app.use('/api/tools',             require('./routes/tools'))
 app.use('/api/tool-intelligence', require('./routes/toolIntelligence'))
