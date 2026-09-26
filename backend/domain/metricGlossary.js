@@ -203,6 +203,18 @@ const metrics = [
     computedIn: 'backend/domain/definitions.js :: coverage()',
     decisions: ['D-10'],
   },
+  {
+    metric: 'replaceability',
+    label: 'Replaceability Index (K_i)',
+    definition: "K_i = 0.40*S_doc + 0.30*S_alt + 0.30*S_bench per asset (agents, workflows, platforms). S_doc: documented knowledge/runbook coverage. S_alt: drop-in alternative availability (hot platform backup, agent's platform backing, workflow automation posture from step actors). S_bench: min(100, 50*owner-backup + 25*same-type cross-trained peers) - the bus-factor heuristic (arXiv:2202.01523, 2403.08038, 2508.09828). Banded EASY/MODERATE/DIFFICULT/IRREPLACEABLE and crossed with Engine A blast radius into the 2x2 quadrant map (VULNERABLE_CORE etc.).",
+    computedIn: 'backend/domain/replaceability.js :: replaceability()',
+    servedBy: 'GET /api/intelligence/replaceability',
+    authored: true,
+    inputs: ['agents', 'workflows', 'workflow_runbooks', 'workflow_steps', 'ai_platforms', 'tool_ownership', 'tool_backups', 'agent_platform', 'knowledge_assets', 'owners', 'dependencies'],
+    authoredNote: 'Component weights (0.40/0.30/0.30), band thresholds (70/45/20), alt scores and quadrant cut-offs (60/50) are authored design values, documented in replaceability.js.',
+    range: 'K_i 0-100; blast radius 0-100',
+    decisions: [],
+  },
 ]
 
 function getMetricDefinition(metricName) {

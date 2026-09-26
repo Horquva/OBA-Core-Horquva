@@ -7,6 +7,7 @@ import { CriticalRiskPanel } from '../../components/risk/CriticalRiskPanel';
 import { RiskScoreTable } from '../../components/risk/RiskScoreTable';
 import { OrgHealthBanner } from '../../components/risk/OrgHealthBanner';
 import { PredictedRiskPanel } from '../../components/risk/PredictedRiskPanel';
+import { ReplaceabilityMatrix } from '../../components/risk/ReplaceabilityMatrix';
 import { Agent, Dependency } from '../../types';
 import { request, predictiveApi, healthApi, ApiError } from '../../lib/api';
 import { normalizeAgent, RawAgent } from '../../lib/normalize';
@@ -105,6 +106,9 @@ export default function RiskPage() {
     <div className="space-y-8 pb-12 animate-in fade-in duration-500">
       <RiskHeader report={report} />
       <PredictedRiskPanel />
+
+      {/* Feature 1 (Phase 2.1): the 2x2 Criticality x Replaceability map. */}
+      <ReplaceabilityMatrix />
       <CriticalRiskPanel criticalAgents={report.criticalAgents} />
       <RiskScoreTable
         agents={report.highAgents}

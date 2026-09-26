@@ -33,6 +33,7 @@ const { loadOrgDataset } = require('./dataset')
 const analyses = require('./analyses')
 const derived = require('./derived')
 const simulations = require('./simulations')
+const replaceability = require('./replaceability')
 
 let supabase = null
 try {
@@ -113,6 +114,8 @@ module.exports = {
   },
 
   // ─── Simulation (cascade reach, severity, health impact) ───
+  replaceability: (roots, ctx) => replaceability.replaceability(roots, ctx),
+
   simulations: {
     loadRoots: () => derived.loadRoots(requireSupabase()),
     employeeLeaves: simulations.employeeLeaves,

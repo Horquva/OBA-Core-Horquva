@@ -68,7 +68,7 @@ const ROOT_TABLES = [
   'employee_agent', 'ai_platforms', 'tool_policies', 'policy_violations',
   'tool_ownership', 'accountability_entities', 'accountability_links',
   'truth_claims', 'decision_history', 'agent_platform', 'workflow_dependencies',
-  'tool_backups',
+  'tool_backups', 'workflow_steps',
 ]
 
 // ─── Small shared helpers ────────────────────────────────────────────────────
