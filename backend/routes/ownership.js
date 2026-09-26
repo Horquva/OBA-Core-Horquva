@@ -48,6 +48,14 @@ router.get('/', async (req, res) => {
       intel.humanDependencyRisk.map((p) => [p.employeeId, p])
     )
 
+    // Phase 2.2: per-person exposure shares from the unified concentration
+    // engine (computed inside computeAllFromRoots with the shared Engine A/B
+    // context — no second engine build here).
+    const { shareToRisk } = require('../domain/concentration')
+    const humanShares = new Map(
+      ((intel.concentration?.classes?.humans?.nodes) || []).map((n) => [n.id, n.share])
+    )
+
     // Declared owners, plus anyone who owns an agent without being listed as one.
     const employeeIds = [
       ...new Set(
@@ -76,8 +84,13 @@ router.get('/', async (req, res) => {
         agents: ownedAgents,
         agentCount,
         hasBackup,
-        concentrationRisk:
-          agentCount >= 4 ? 'high' : agentCount >= 2 ? 'medium' : 'low',
+        // Phase 2.2: exposure share from the unified concentration engine
+        // (criticality-weighted, humans class) — replaces the raw
+        // `agentCount >= 4` heuristic, which ignored criticality and
+        // portfolio breadth entirely.
+        concentrationRisk: humanShares.get(employeeId) != null
+          ? shareToRisk(humanShares.get(employeeId))
+          : 'low',
         isHumanSpof: !hasBackup && agentCount >= HUMAN_SPOF_MIN_AGENTS,
         dependencyRiskScore: dependencyRisk ? dependencyRisk.totalRiskScore : null,
         dependencyRiskTier: dependencyRisk ? dependencyRisk.tier : null,

@@ -34,6 +34,7 @@ const analyses = require('./analyses')
 const derived = require('./derived')
 const simulations = require('./simulations')
 const replaceability = require('./replaceability')
+const concentration = require('./concentration')
 
 let supabase = null
 try {
@@ -115,6 +116,8 @@ module.exports = {
 
   // ─── Simulation (cascade reach, severity, health impact) ───
   replaceability: (roots, ctx) => replaceability.replaceability(roots, ctx),
+  concentration: (roots, ctx) => concentration.concentration(roots, ctx),
+  humanConcentrationRisk: (roots, employeeId, ctx) => concentration.humanConcentrationRisk(roots, employeeId, ctx),
 
   simulations: {
     loadRoots: () => derived.loadRoots(requireSupabase()),

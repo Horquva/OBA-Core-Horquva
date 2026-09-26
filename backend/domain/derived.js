@@ -1750,6 +1750,7 @@ function computeAllFromRoots(roots) {
     orgHealthByDepartment: orgHealthByDepartment(roots),
     departmentExposure: departmentExposure(roots),
     humanDependencyRisk: humanDependencyRisk(roots, ctx),
+    concentration: require('./concentration').concentration(roots, ctx),
     knowledgeConcentration: knowledgeConcentration(roots),
     orgMemory: orgMemory(roots),
     assetContinuity: assetContinuity(roots),

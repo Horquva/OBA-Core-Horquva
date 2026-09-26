@@ -62,7 +62,7 @@ const PENALTY_NO_BACKUP            = 25
 const PENALTY_NO_DOCS_AGENT        = 20
 const PENALTY_NO_DOCS_TOOL         = 15
 const PENALTY_NO_DOCS_WORKFLOW     = 15
-const PENALTY_CONCENTRATION        = 20 // owner has 5+ agents
+const PENALTY_CONCENTRATION        = 20 // owner crosses the concentration engine's chokepoint share (25% of humans-class exposure, domain/concentration.js)
 const PENALTY_CRITICAL_NO_BACKUP   = 15
 const PENALTY_CRITICAL_NO_FALLBACK = 30 // critical tool, no fallback
 
@@ -75,7 +75,7 @@ function qualityTier(score) {
 
 // ─── Ownership (agent) decision scoring ─────────────────────────────────────
 
-function scoreAgentDecision(agent, ownerAgentCount) {
+function scoreAgentDecision(agent, ownerAgentCount, totalAgents) {
   let score = 100
   const influences = []
 
@@ -88,9 +88,13 @@ function scoreAgentDecision(agent, ownerAgentCount) {
   } else {
     influences.push({ factor: 'Owner Assigned', impact: 'positive', detail: `${agent.owner} holds ownership of this agent` })
     const count = ownerAgentCount[agent.owner] ?? 0
-    if (count >= 5) {
+    // Phase 2.2: the trigger is now the concentration engine's chokepoint
+    // line (domain/concentration.js ALERT_SHARE = 25% of the population),
+    // not a bare "5+ agents" — an owner holding 6 of 40 agents is not the
+    // risk an owner holding 6 of 12 is.
+    if (count > totalAgents * 0.25 && count >= 2) {
       score -= PENALTY_CONCENTRATION
-      influences.push({ factor: 'Owner Concentration Risk', impact: 'negative', detail: `${agent.owner} owns ${count} agents — excessive concentration (−${PENALTY_CONCENTRATION})` })
+      influences.push({ factor: 'Owner Concentration Risk', impact: 'negative', detail: `${agent.owner} owns ${count} of ${totalAgents} agents (${Math.round((count / totalAgents) * 100)}%) — excessive concentration (−${PENALTY_CONCENTRATION})` })
     }
   }
 
@@ -120,7 +124,7 @@ function scoreAgentDecision(agent, ownerAgentCount) {
   score = Math.max(0, score)
   const quality = qualityTier(score)
   const fix = quality === 'POOR' || quality === 'HARMFUL' ? buildAgentFix(agent) : null
-  const trailSummary = buildAgentTrail(agent, ownerAgentCount)
+  const trailSummary = buildAgentTrail(agent, ownerAgentCount, totalAgents)
 
   return {
     id: `dec_agent_${agent.id}`,
@@ -147,12 +151,12 @@ function buildAgentFix(agent) {
   return parts.join('; ') + '.'
 }
 
-function buildAgentTrail(agent, ownerAgentCount) {
+function buildAgentTrail(agent, ownerAgentCount, totalAgents) {
   if (!agent.owner) {
     return `"${agent.name}" was deployed in ${agent.department} without assigning any owner, leaving it orphaned with no accountable stakeholder.`
   }
   const count = ownerAgentCount[agent.owner] ?? 0
-  const concentration = count >= 5 ? ` ${agent.owner} was already managing ${count} agents, creating unsafe concentration.` : ''
+  const concentration = totalAgents && count > totalAgents * 0.25 && count >= 2 ? ` ${agent.owner} was already managing ${count} of ${totalAgents} agents, creating unsafe concentration.` : ''
   const backup = agent.backup_owner ? ` ${agent.backup_owner} was named as backup.` : ` No backup was designated.`
   const docs = agent.documented ? ` Documentation was created.` : ` No runbook was created.`
   return `"${agent.name}" was assigned to ${agent.owner} in ${agent.department}.${concentration}${backup}${docs}`
@@ -355,11 +359,12 @@ router.get('/', async (req, res) => {
     for (const a of agents) {
       if (a.owner) ownerAgentCount[a.owner] = (ownerAgentCount[a.owner] ?? 0) + 1
     }
+    const totalAgents = agents.length
 
     const toolMap = {}
     for (const t of tools) toolMap[t.id] = t.name
 
-    const agentDecisions = agents.map((a) => scoreAgentDecision(a, ownerAgentCount))
+    const agentDecisions = agents.map((a) => scoreAgentDecision(a, ownerAgentCount, totalAgents))
     const workflowDecisions = workflows.map((w) => scoreWorkflowDecision(w))
     const toolDecisions = tools.map((t) => scoreToolDecision(t, toolMap))
 

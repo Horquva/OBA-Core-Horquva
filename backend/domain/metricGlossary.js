@@ -215,6 +215,18 @@ const metrics = [
     range: 'K_i 0-100; blast radius 0-100',
     decisions: [],
   },
+  {
+    metric: 'concentration',
+    label: 'Dependency Concentration (HHI)',
+    definition: "Per entity class (humans / models / vendors), criticality-weighted exposure E(v) — ownership κ for people, usage-edge κ·λ for platforms (Engine A graph in-neighbors + agent_platform + workflow_tool_dependencies), supply-inherited E for vendors — scored with the DOJ/FTC HHI instrument: HHI = Σ(100·share)², banded DISTRIBUTED <1500, MODERATE 1500-2500, CRITICAL_CHOKEPOINT >2500. Secondary: Gini (spread) and normalized Shannon entropy. Chokepoint alerts fire at >25% class share with no fallback (KEY_PERSON / MODEL_CHOKEPOINT / VENDOR_CHOKEPOINT), each with evidence rows.",
+    computedIn: 'backend/domain/concentration.js :: concentration()',
+    servedBy: 'GET /api/intelligence/concentration',
+    authored: true,
+    inputs: ['employees', 'agents', 'owners', 'workflows', 'workflow_runbooks', 'ai_platforms', 'tool_ownership', 'tool_backups', 'agent_platform', 'workflow_tool_dependencies', 'dependencies', 'external_entities', 'external_entity_supplies'],
+    authoredNote: 'ALERT_SHARE (0.25), the critical-usage weight (0.5) and the HHI bands come from the DOJ/FTC merger guidelines; alert shares and fallback conditions are authored, documented in concentration.js.',
+    range: 'HHI 0-10000; shares 0-1; entropy 0-1',
+    decisions: [],
+  },
 ]
 
 function getMetricDefinition(metricName) {
