@@ -45,6 +45,8 @@ const tests = [
 	'reassignRoute.test.js', // HTTP-level; stubs Supabase; the D-70 succession route (Phase 1.6)
 	'brainResilience.unit.test.js', // stubs graphLoader; retry/breaker/debounce (Phase 1.7)
 	'replaceability.unit.test.js', // pure; K_i decomposition, bench formula, quadrants (Phase 2.1)
+	'concentration.unit.test.js', // pure; HHI/Gini/entropy instruments, per-class alerts (Phase 2.2)
+	'scoreLedger.unit.test.js', // stubs Supabase; delta guard + evidence grounding (Phase 2.3)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
 	'agentData.unit.test.js', // Tasks 10.6 and 12.7 - turn context and page context
 	'navigationCatalog.unit.test.js', // W-L 12.2 navigation catalog

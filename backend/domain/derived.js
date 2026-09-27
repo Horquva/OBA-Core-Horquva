@@ -1760,10 +1760,6 @@ function computeAllFromRoots(roots) {
   }
 }
 
-async function computeAll(supabase) {
-  return computeAllFromRoots(await loadRoots(supabase))
-}
-
 // ─── Short-lived memo ────────────────────────────────────────────────────────
 
 /**
@@ -1798,7 +1794,26 @@ async function computeAllCached(supabase, { force = false } = {}) {
   }
   const value = await inFlight
   memo = { at: Date.now(), value }
+
+  // Spec 1 (Phase 2.3): persist changed scores + their evidence, best-effort
+  // and fire-and-forget — a ledger failure never delays or fails the read
+  // path (Invariant 1: conclusions are calculated live; the ledger is a
+  // record of them, not their source).
+  require('./scoreLedger').persistScoreRunBestEffort(supabase, rootsOf(value), value.predictiveRisk)
+
   return { ...value, fromMemo: false }
+}
+
+// computeAllFromRoots returns the derived bundle only; the ledger needs the
+// roots bundle the scores were computed over. computeAll keeps them paired.
+async function computeAll(supabase) {
+  const roots = await loadRoots(supabase)
+  const value = computeAllFromRoots(roots)
+  return Object.defineProperty(value, '__roots', { value: roots, enumerable: false })
+}
+
+function rootsOf(value) {
+  return value.__roots || null
 }
 
 /** Drops the memo. Called after any write that changes the roots. */
