@@ -104,12 +104,13 @@ async function clearCachesAfterOwnerChange() {
 //
 // DATA-1's first slice: the app has always been able to DETECT an unowned or
 // under-covered agent (orphaned list, human-SPOF checks, dependency risk) but
-// had no path to actually fix one — every recommendation it generates was
-// read-only advice with nowhere to go. This is that one write path: it does
-// not attempt the rest of the write loop (backup designation, documentation
-// flags, recommendation resolution, decision approval, automation mode —
-// each is its own decision about validation and UI, deliberately left for
-// its own pass rather than bundled in here).
+// had no path to actually fix one. Phase 3.1: this route now flows through
+// domain/mutations.js — the ONE write path — so every owner change is
+// recorded in dependency_change_log with before/after snapshots, its cascade
+// and ΔOHI impact, and honors an optional `Idempotency-Key` header (retries
+// replay the recorded mutation instead of double-applying). Cache
+// invalidation (derived memo + snapshot tables) and the background graph
+// reload happen inside the mutation layer.
 //
 // Body: { ownerId: uuid | null }. `null` clears ownership — a genuine
 // action (e.g. the owner left and there is no replacement yet), not an
@@ -129,48 +130,32 @@ router.patch('/:id/owner', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'ownerId must be an employee uuid, or null to clear ownership' })
   }
 
-  const { data: before, error: beforeError } = await applyOrgScope(supabase
-    .from('agents')
-    .select('id, owner_id'))
-    .eq('id', agentId)
-    .maybeSingle()
-  if (beforeError) return res.status(500).json({ error: beforeError.message })
-  if (!before) {
-    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_agent', targetType: 'agent', targetId: agentId })
-    return res.status(404).json({ error: `No agent with id ${agentId}` })
+  try {
+    const result = await domain.mutations.applyMutation({
+      mutationType: ownerId === null ? 'OWNER_REMOVED' : 'OWNER_ASSIGNED',
+      targetType: 'agent',
+      targetId: agentId,
+      payload: { ownerId },
+      actorId: req.user ? String(req.user.sub ?? req.user.id ?? '') : null,
+      idempotencyKey: req.get('Idempotency-Key') || null,
+    })
+
+    await recordAudit(req, {
+      action: 'agent.owner_update',
+      outcome: 'success',
+      targetType: 'agent',
+      targetId: agentId,
+      changes: { owner_id: { from: result.change?.before?.owner_id ?? null, to: ownerId } },
+    })
+    await clearCachesAfterOwnerChange()
+
+    res.json({ ok: true, agent: result.change?.after ?? null, replayed: result.replayed, changeId: result.change?.id ?? null })
+  } catch (err) {
+    const status = err.status || 500
+    const reason = status === 404 ? 'unknown_agent' : status === 400 ? 'unknown_employee' : 'update_error'
+    await recordAudit(req, { action: 'agent.owner_update', outcome: status < 500 ? 'failure' : 'failure', reason, targetType: 'agent', targetId: agentId })
+    return res.status(status).json({ error: err.message })
   }
-
-  const { data, error } = await applyOrgScope(supabase
-    .from('agents')
-    .update({ owner_id: ownerId }))
-    .eq('id', agentId)
-    .select('id, name, owner_id')
-    .maybeSingle()
-
-  if (error) {
-    // Postgres foreign-key violation (agents.owner_id -> employees(id),
-    // declared in sql/05_foreign_keys.sql) — a real, expected outcome for a
-    // bad id, not a server fault.
-    if (error.code === '23503') {
-      await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_employee', targetType: 'agent', targetId: agentId, changes: { owner_id: { from: before.owner_id, to: ownerId } } })
-      return res.status(400).json({ error: `No employee with id ${ownerId}` })
-    }
-    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'update_error', targetType: 'agent', targetId: agentId })
-    return res.status(500).json({ error: error.message })
-  }
-  if (!data) {
-    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_agent', targetType: 'agent', targetId: agentId })
-    return res.status(404).json({ error: `No agent with id ${agentId}` })
-  }
-
-  await recordAudit(req, { action: 'agent.owner_update', outcome: 'success', targetType: 'agent', targetId: agentId, changes: { owner_id: { from: before.owner_id, to: ownerId } } })
-  await clearCachesAfterOwnerChange()
-  // Phase 1.7: the Knowledge Graph is a snapshot — after a mutation, refresh
-  // it in the background (debounced) so analysis routes see the new owner
-  // without waiting for a restart or a manual /graph/reload.
-  require('../brain').scheduleReload()
-
-  res.json({ ok: true, agent: data })
 })
 
 // GET /api/agents/risk-summary — risk breakdown
