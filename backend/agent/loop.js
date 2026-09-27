@@ -93,10 +93,18 @@ function navigationOffersFrom(toolTrace) {
 }
 
 /**
- * The volatile per-turn block (§11.4, §3.3 consequence 2). Gemini re-sends
- * systemInstruction every request, so there is no cached prefix to protect
- * and this can go straight in. It also keeps operator instructions out of
- * the user turn, which preserves the injection-safety property.
+ * The volatile per-turn block (§11.4, §3.3 consequence 2).
+ *
+ * Phase 4.4 — PROMPT CACHING: this block used to be appended to
+ * systemInstruction, which invalidated the request prefix every turn and
+ * made provider prefix caching impossible (the old comment's premise —
+ * "Gemini re-sends systemInstruction every request, so there is no cached
+ * prefix to protect" — conflated re-sending with re-COSTING; providers
+ * charge cached prefixes at a fraction and Gemini also auto-caches repeated
+ * prefixes). The block now rides at the FRONT of the turn's user message:
+ * the system instruction stays byte-stable for the whole session, and
+ * operator instructions still precede any user content, which preserves the
+ * injection-safety property.
  *
  * NOTE: §11.4 assigns this to constitution.js, but buildFullConstitution()
  * takes only `roots`. Raised with 11.1/11.4's owner — move it there if he
@@ -139,7 +147,10 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
   const combined = typeof AbortSignal.any === 'function' ? AbortSignal.any(signals) : deadline.signal
 
   const built = buildFullConstitution(turnContext.roots)
-  const systemInstruction = built.systemInstruction + volatileBlock(turnContext)
+  // Phase 4.4: the STATIC prefix — byte-identical across turns so the
+  // provider's prefix cache can serve it (constitution + tool schemas +
+  // entity summaries change only on a graph reload).
+  const systemInstruction = built.systemInstruction
   if (!built.withinBudget) {
     // Not fatal, but the roster drifting out of budget is a real regression
     // and it should be visible rather than discovered later in a quota bill.
@@ -147,10 +158,14 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
   }
 
   const convo = history.slice()
-  if (userMessage) convo.push({ role: 'user', parts: [{ text: userMessage }] })
+  if (userMessage) {
+    // The volatile per-turn context leads the user turn (never the cached
+    // prefix), keeping operator framing ahead of user content.
+    convo.push({ role: 'user', parts: [{ text: volatileBlock(turnContext) + '\n\n' + userMessage }] })
+  }
 
   const toolTrace = []
-  const usage = { inputTokens: 0, outputTokens: 0 }
+  const usage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }
   let iterations = 0
   let text = ''
   let finishReason = null
@@ -180,6 +195,7 @@ async function runTurn({ turnContext, history = [], userMessage, emit, signal, r
           if (ev.usage) {
             usage.inputTokens += ev.usage.inputTokens || 0
             usage.outputTokens += ev.usage.outputTokens || 0
+            usage.cachedInputTokens += ev.usage.cachedInputTokens || 0
           }
           if (ev.finishReason) finishReason = ev.finishReason
         } else if (ev.type === 'error') {

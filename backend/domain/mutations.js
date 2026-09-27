@@ -27,7 +27,8 @@ const MUTATION_TYPES = [
   'BACKUP_ASSIGNED', 'BACKUP_LOST',
   'STATUS_CHANGED', 'MODEL_SWAPPED',
   'DEPENDENCY_ADDED', 'DEPENDENCY_BROKEN',
-  'ENTITY_CREATED', 'ENTITY_DELETED',
+  'ENTITY_CREATED', 'ENTITY_UPDATED', 'ENTITY_DELETED',
+  'EMPLOYEE_CREATED', 'EMPLOYEE_UPDATED',
 ]
 
 const TARGET_TABLES = { agent: 'agents', workflow: 'workflows', platform: 'ai_platforms', employee: 'employees' }
@@ -137,6 +138,26 @@ async function applyWrite(mutation, beforeRow) {
       if (!payload.row || typeof payload.row !== 'object') throw new MutationError('ENTITY_CREATED requires payload.row')
       const { error } = await supabase.from(table).insert(payload.row)
       if (error) throw new MutationError(`${table} insert failed: ${error.message}`, 500)
+      return
+    }
+    case 'ENTITY_UPDATED': {
+      const table = TARGET_TABLES[targetType]
+      if (!table || targetType === 'employee') throw new MutationError('ENTITY_UPDATED targets agents, workflows or platforms')
+      if (!payload.patch || typeof payload.patch !== 'object') throw new MutationError('ENTITY_UPDATED requires payload.patch (the column updates)')
+      const { error } = await supabase.from(table).update(payload.patch).eq('id', targetId)
+      if (error) throw new MutationError(`${table} update failed: ${error.message}`, 500)
+      return
+    }
+    case 'EMPLOYEE_CREATED': {
+      if (!payload.row || typeof payload.row !== 'object') throw new MutationError('EMPLOYEE_CREATED requires payload.row {name, role?, department?}')
+      const { error } = await supabase.from('employees').insert(payload.row)
+      if (error) throw new MutationError(`employees insert failed: ${error.message}`, 500)
+      return
+    }
+    case 'EMPLOYEE_UPDATED': {
+      if (!payload.patch || typeof payload.patch !== 'object') throw new MutationError('EMPLOYEE_UPDATED requires payload.patch')
+      const { error } = await supabase.from('employees').update(payload.patch).eq('id', targetId)
+      if (error) throw new MutationError(`employees update failed: ${error.message}`, 500)
       return
     }
     case 'ENTITY_DELETED': {

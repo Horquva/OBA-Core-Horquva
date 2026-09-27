@@ -104,6 +104,13 @@ reportAgentBootState()
 // puts the whole router above the global gate below.
 app.use('/api/auth', require('./routes/auth/auth'))
 
+// Ingest webhooks are MACHINE calls: they authenticate by per-source HMAC
+// (verified inside the router — fail closed when a source's secret is unset),
+// never by a user token, so the router also mounts above the global gate.
+// Anything unauthenticated that is NOT a validly signed webhook is rejected
+// there with 401/503 and audited.
+app.use('/api/ingest', require('./routes/ingest/webhook'))
+
 // Tenant health at boot (Phase 1.2): with org_id on every business table and
 // per-request scoping in lib/tenant.js, a second organization is now SUPPORTED,
 // not a boot failure. assertSingleTenant() is kept as a loud informational
@@ -150,6 +157,7 @@ app.use('/api/intelligence/replaceability', require('./routes/intelligence/repla
 app.use('/api/intelligence/concentration', require('./routes/intelligence/concentration'))
 app.use('/api/intelligence/score-history', require('./routes/intelligence/scoreHistory'))
 app.use('/api/intelligence/dependency-scan', require('./routes/intelligence/dependencyScan'))
+app.use('/api/crud', require('./routes/crud/crud'))
 app.use('/api/orchestration', require('./routes/orchestration/orchestration'))
 app.use('/api/decision-intelligence', require('./routes/decisionIntelligence'))
 app.use('/api/learning', require('./routes/learning/learning'))

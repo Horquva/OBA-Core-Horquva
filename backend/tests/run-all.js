@@ -49,6 +49,8 @@ const tests = [
 	'scoreLedger.unit.test.js', // stubs Supabase; delta guard + evidence grounding (Phase 2.3)
 	'changeImpact.unit.test.js', // pure; seeded cascade, ΔOHI sign, mitigation rules (Phase 3.2)
 	'volatility.unit.test.js', // pure; EWMA/CUSUM instruments, window briefings (Phase 3.3)
+	'crudRoutes.test.js', // HTTP-level; structural CRUD through mutations (Phase 4.2)
+	'ingestWebhook.test.js', // HTTP-level; HMAC schemes, staging, CSV importer (Phase 4.3)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
 	'agentData.unit.test.js', // Tasks 10.6 and 12.7 - turn context and page context
 	'navigationCatalog.unit.test.js', // W-L 12.2 navigation catalog
