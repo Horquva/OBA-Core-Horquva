@@ -64,10 +64,15 @@ function workflowsUsingAgents(agentIds, roots) {
  * for backward compatibility.
  */
 function severityFor(impacted, mass) {
+  // Bands authored for the Phase 3-audit impact walk (PPR with restart,
+  // alpha = 0.15): mass = sum of r.kappa over impacted entities, bounded
+  // well below the old saturated scale (a lone direct victim of a critical
+  // hub reads ~0.09-0.15). Old bands (0.50/0.25/0.10) were calibrated on
+  // the unbounded belief mass and mis-banded everything low.
   if (typeof mass === 'number' && !Number.isNaN(mass)) {
-    if (mass >= 0.50) return 'critical'
-    if (mass >= 0.25) return 'high'
-    if (mass >= 0.10) return 'medium'
+    if (mass >= 0.20) return 'critical'
+    if (mass >= 0.08) return 'high'
+    if (mass >= 0.02) return 'medium'
     return 'low'
   }
   const count = impacted ? impacted.length : 0
@@ -85,10 +90,14 @@ function severityFor(impacted, mass) {
  */
 function cascadeMass(context, r, entities) {
   if (!context || !r || !entities || !entities.length) return 0
+  // Phase 3 audit fix (F-1): r comes from the IMPACT-direction walk
+  // (context.impact.runSeeded — seeded at failing nodes, mass reaches their
+  // dependents). Its indices align with context.impact's node order, not the
+  // cause-direction engine's.
   let mass = 0
   for (const ent of entities) {
-    const idx = context.engine.indexByKey.get(`${ent.type}:${ent.id}`)
-    if (idx !== undefined) mass += r[idx] * context.kappaArr[idx]
+    const idx = context.impact.indexByKey.get(`${ent.type}:${ent.id}`)
+    if (idx !== undefined) mass += r[idx] * context.impact.kappaArr[idx]
   }
   return mass
 }
@@ -189,7 +198,7 @@ function employeeLeaves(employeeId, roots, ctx) {
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
   const seedPairs = ownedAgents.map((a) => ({ type: 'agent', id: a.id, weight: 1.0 }))
-  const r = seedPairs.length ? context.runSeeded(seedPairs) : null
+  const r = seedPairs.length ? context.impact.runSeeded(seedPairs) : null
   const mass = cascadeMass(context, r, entities)
 
   const mutated = cloneRoots(roots)
@@ -267,7 +276,7 @@ function employeeLeavesWithSuccessor(employeeId, successorId, roots, ctx) {
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
   const seedPairs = ownedAgents.map((a) => ({ type: 'agent', id: a.id, weight: 1.0 }))
-  const r = seedPairs.length ? context.runSeeded(seedPairs) : null
+  const r = seedPairs.length ? context.impact.runSeeded(seedPairs) : null
   const mass = cascadeMass(context, r, entities)
 
   // ── Mutation: reassign, don't orphan ────────────────────────────────────
@@ -359,7 +368,7 @@ function agentFails(agentId, roots, ctx) {
   const impactedWorkflows = workflowsUsingAgents(new Set([agentId, ...impactedAgentIds]), roots)
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
-  const r = context.runSeeded([{ type: 'agent', id: agentId, weight: 1.0 }])
+  const r = context.impact.runSeeded([{ type: 'agent', id: agentId, weight: 1.0 }])
   const mass = cascadeMass(context, r, entities)
 
   // A failed agent is still counted in the org -- it doesn't cease to exist --
@@ -413,7 +422,7 @@ function platformDown(platformId, roots, ctx) {
   const entities = resolveCriticality(impactedEntitiesFor(impactedAgentIds, impactedWorkflows), roots)
 
   const seedPairs = [...directAgentIds].map((id) => ({ type: 'agent', id, weight: 1.0 }))
-  const r = seedPairs.length ? context.runSeeded(seedPairs) : null
+  const r = seedPairs.length ? context.impact.runSeeded(seedPairs) : null
   const mass = cascadeMass(context, r, entities)
 
   // A platform going down is still a platform the org has to account for --
@@ -473,7 +482,7 @@ function workflowDisruption(workflowId, roots, ctx) {
   const seedPairs = hasWorkflowNode
     ? [{ type: 'workflow', id: workflowId, weight: 1.0 }]
     : [...directAgentIds].map((id) => ({ type: 'agent', id, weight: 1.0 }))
-  const r = seedPairs.length ? context.runSeeded(seedPairs) : null
+  const r = seedPairs.length ? context.impact.runSeeded(seedPairs) : null
   const mass = cascadeMass(context, r, entities)
 
   // A disrupted workflow is still a workflow the org has to account for --

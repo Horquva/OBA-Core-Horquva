@@ -33,6 +33,7 @@
 const { entityCriticality } = require('../definitions')
 const bayes = require('./bayes')
 const eirwr = require('./eirwr')
+const impactPagerank = require('./impactPagerank')
 
 // ─── Evidence extraction (SPEC-1) ────────────────────────────────────────────
 
@@ -341,23 +342,57 @@ function buildEngine(roots) {
   const seedArr = orgScanSeeds(engine, roots)
   const orgScanR = seedArr ? engine.run(seedArr) : null
 
+  // ── IMPACT ENGINE (audit finding F-1) ──────────────────────────────────────
+  // The eIRWR walk is root-cause direction by design: seeded at a symptom, it
+  // accumulates mass at the cascade SOURCE (the paper's own words; backward
+  // edges and the belief-C column scaling exist precisely to pull mass
+  // upstream). That is what U-evidence wants. It is the OPPOSITE of what
+  // "blast radius" means: seeded at a failing node, the impact walk must
+  // reach the node's DEPENDENTS (what breaks). Reusing eirwr for this — even
+  // transposed and with backward edges disabled — collapses, because the
+  // belief-C column scaling kills transitions toward any node that does not
+  // look like a cause (observed: hub 0, leaf 76, in both configurations).
+  //
+  // The impact side therefore uses its own, deliberately simpler instrument:
+  // Personalized PageRank with restart on the TRANSPOSED row-normalized
+  // graph (impactPagerank.js) — the standard downstream-impact construction.
+  // Same node set and κ as the cause engine; its own node order and cache.
+  // impactPagerank takes the ORIGINAL dependency rows and performs the
+  // transposition itself (dependency → dependents) — pre-swapping here would
+  // double-transpose back into the cause direction.
+  const impactEngine = impactPagerank.build(roots.dependencies || [])
+  const impactKappaArr = new Float64Array(impactEngine.nodes.length)
+  for (let i = 0; i < impactEngine.nodes.length; i++) {
+    const [type, id] = impactEngine.nodes[i].split(':')
+    impactKappaArr[i] = kappa(type, id)
+  }
+
   const idxOf = (type, id) => engine.indexByKey.get(eirwr.keyOf(type, id))
+  const impactIdxOf = (type, id) => impactEngine.indexByKey.get(impactPagerank.keyOf(type, id))
 
   const blastCache = new Map()
   function blastRadius(type, id) {
-    const idx = idxOf(type, id)
-    if (idx === undefined) return 0
+    const idx = impactIdxOf(type, id)
+    if (idx === undefined) return 0 // not in the dependency graph → no downstream estate
     const cached = blastCache.get(idx)
     if (cached !== undefined) return cached
-    const seed = new Float64Array(engine.nodes.length)
-    seed[idx] = 1
-    const r = engine.run(seed)
+    const r = impactEngine.solve([[impactEngine.nodes[idx], 1]])
+    // Blast-radius reading: the failure-mass-weighted average criticality of
+    // the downstream estate — Σ r_j·κ_j / Σ r_j over non-seed nodes, ×100.
+    // PPR mass is restart-bounded (α keeps most of it at the seed), so raw
+    // Σ r·κ would read 1-2% even for a hub breaking five critical dependents;
+    // normalizing by received mass asks the intended question directly: "how
+    // critical is what breaks, weighted by how hard it is hit". A
+    // zero-dependent leaf receives nothing → 0; a hub whose dependents are
+    // all critical → 100.
     let mass = 0
-    for (let j = 0; j < engine.nodes.length; j++) {
+    let received = 0
+    for (let j = 0; j < impactEngine.nodes.length; j++) {
       if (j === idx) continue
-      mass += r[j] * kappaArr[j]
+      received += r[j]
+      mass += r[j] * impactKappaArr[j]
     }
-    const value = Math.min(100, Math.round(100 * mass))
+    const value = received > 0 ? Math.min(100, Math.round((100 * mass) / received)) : 0
     blastCache.set(idx, value)
     return value
   }
@@ -379,8 +414,22 @@ function buildEngine(roots) {
     return engine.run(seed)
   }
 
+  // Downstream (impact-direction) solve — what simulations' severity mass and
+  // changeImpact's victim walk consume. Seeds at failing nodes, reads the
+  // dependents they break. Was previously the upstream walk misread as
+  // impact (same defect class as F-1).
+  function runImpact(pairs) {
+    const seedEntries = []
+    for (const p of pairs || []) {
+      if (impactIdxOf(p.type, p.id) === undefined) continue
+      seedEntries.push([impactPagerank.keyOf(p.type, p.id), p.weight])
+    }
+    return impactEngine.solve(seedEntries)
+  }
+
   return {
     engine,
+    impact: { engine: impactEngine, kappaArr: impactKappaArr, indexByKey: impactEngine.indexByKey, runSeeded: runImpact },
     orgScanR,
     orgScanSeeds: seedArr,
     runSeeded,

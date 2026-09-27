@@ -50,6 +50,15 @@ app.use(cors({
   // never '*'.
   credentials: true,
 }))
+
+// Ingest webhooks MUST mount before the JSON body parser (audit finding F-2):
+// their signatures are computed over the exact bytes the sender transmitted,
+// and express.json() would consume the body first, leaving the receiver to
+// sign a re-serialization that never matches. The router parses its own
+// bodies per-route (express.raw / express.text) and authenticates by
+// per-source HMAC — fail closed when a source's secret is unset.
+app.use('/api/ingest', require('./routes/ingest/webhook'))
+
 app.use(express.json())
 
 // Root route — friendly service metadata (prevents "Cannot GET /")
@@ -109,7 +118,6 @@ app.use('/api/auth', require('./routes/auth/auth'))
 // never by a user token, so the router also mounts above the global gate.
 // Anything unauthenticated that is NOT a validly signed webhook is rejected
 // there with 401/503 and audited.
-app.use('/api/ingest', require('./routes/ingest/webhook'))
 
 // Tenant health at boot (Phase 1.2): with org_id on every business table and
 // per-request scoping in lib/tenant.js, a second organization is now SUPPORTED,

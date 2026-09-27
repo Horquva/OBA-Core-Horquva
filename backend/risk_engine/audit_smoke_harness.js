@@ -222,9 +222,9 @@ const crypto = require('crypto')
 process.env.INGEST_SECRET_GENERIC = 'smoke-ingest-secret'
 
 const app = express()
+app.use('/api/ingest', require('../routes/ingest/webhook')) // BEFORE the JSON parser, mirroring the fixed index.js (F-2)
 app.use(express.json())
 app.use('/api/auth', require('../routes/auth/auth'))
-app.use('/api/ingest', require('../routes/ingest/webhook'))
 app.use('/api', requireAuth)
 app.use('/api', runWithTenant)
 const mounts = [

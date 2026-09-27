@@ -15,8 +15,8 @@ However, this audit's whole-app dimension surfaced **two critical defects that e
 
 | # | Severity | Finding | Status |
 |---|---|---|---|
-| F-1 | **Critical** | **`blastRadius()` semantics are inverted.** The eIRWR walk flows *upstream* (root-cause direction — correct for Engine B's U variable), but `blastRadius()` reads it as downstream impact. A leaf agent with **zero dependents scores 100/100** (its mass flows up to its hub) while the true hub scores lower; belief scores are unnormalized so any connected node clamps at 100. Consumers affected: `agent-spofs` ranking, replaceability's criticality axis, `changeImpact.blast_radius_score`. | **OPEN — fix proposed (§6.1)** |
-| F-2 | **Critical** | **`app.use(express.json())` consumes webhook bodies before the ingest router.** In the assembled app every JSON webhook (GitHub/Slack/Standard-Webhooks — i.e., all of them) fails signature verification with 401, because the router receives `req.body` as a parsed object and signs `"[object Object]"`. Per-router tests passed because they mounted the router without the global JSON parser — only the whole-app harness caught it. The CSV importer survives (`text/csv` isn't JSON-parsed). | **OPEN — one-line fix proposed (§6.2)** |
+| F-1 | **Critical** | **`blastRadius()` semantics are inverted.** The eIRWR walk flows *upstream* (root-cause direction — correct for Engine B's U variable), but `blastRadius()` reads it as downstream impact. A leaf agent with **zero dependents scores 100/100** (its mass flows up to its hub) while the true hub scores lower; belief scores are unnormalized so any connected node clamps at 100. Consumers affected: `agent-spofs` ranking, replaceability's criticality axis, `changeImpact.blast_radius_score`. | **FIXED (§7.1)** — new `impactPagerank.js`: PPR-with-restart on the transposed graph, mass-weighted-criticality normalization; all consumers re-pointed; 5 regression pins added |
+| F-2 | **Critical** | **`app.use(express.json())` consumes webhook bodies before the ingest router.** In the assembled app every JSON webhook (GitHub/Slack/Standard-Webhooks — i.e., all of them) fails signature verification with 401, because the router receives `req.body` as a parsed object and signs `"[object Object]"`. Per-router tests passed because they mounted the router without the global JSON parser — only the whole-app harness caught it. The CSV importer survives (`text/csv` isn't JSON-parsed). | **FIXED (§7.2)** — `/api/ingest` mounts before the JSON parser (the Stripe/Paddle canonical pattern); verified 24/24 in the harness |
 | F-3 | High | Tenant sweep v1 missed multi-line query chains (83 sites, incl. cross-tenant write on the owner PATCH) | Fixed (a11ed72) |
 | F-4 | High | Tenant degraded mode was fail-open on transient orgs-lookup errors | Fixed (a11ed72) |
 | F-5 | High | Brain graph singleton mixed orgs on boot; `/graph/reload` let a caller swap the global graph | Fixed (a11ed72, primary-org binding) |
@@ -124,21 +124,35 @@ Each module was asked: is this necessary, is it over-built, and what would the s
 
 ---
 
-## 7. Proposed Fixes for the Two Open Critical Findings
+## 7. Fixes Implemented (researched + verified)
 
-**F-1 — blastRadius direction + saturation.** The walk flows node → its *dependencies* (root-cause direction; correct for U). Blast radius needs the transpose: seed the node, read mass on its *dependents*. Minimal fix: build a second eIRWR engine instance from the reversed edge list (`source`/`target` swapped) inside `buildEngine`, and read `blastRadius` from it; address saturation by reporting the κ-weighted mass of dependents *excluding* the seed, normalized against Σκ of reachable dependents (calibration constant authored + honesty-tabled). Then re-point the three consumers and re-baseline the monotonicity/sensitivity assertions the current tests lack (a hub must outrank a leaf; upgrading edge criticality must move the number).
+Both critical findings were fixed after research; the fixes are in the tree and re-verified (§8).
 
-**F-2 — webhook body consumption.** One-line class of fix: mount `/api/ingest` before `app.use(express.json())` (it is already above the auth gate for the same reason), or add `verify: (req,res,buf)=>{req.rawBody=buf}` to the global parser and have the receiver sign `req.rawBody`. First option is the smallest diff and cannot regress other routes.
+### 7.1 F-1 — new `impactPagerank.js`: PPR-with-restart on the transposed graph
+
+**Research**: the eIRWR paper digest confirms the walk is root-cause-directed *by design* — it "concentrates probability at cascade sources" via backward edges and belief-column scaling, and the RCA literature's victim analyses (MonitorRank et al.) use the mirror construction: transposed weights. The audit's first fix attempt (reusing eirwr transposed with `rho: 0`) was **insufficient and then double-transposed** — the belief-C column scaling kills transitions toward any node that does not look like a cause regardless of direction (observed: hub 0 / leaf 76 and hub 0 / leaf 48 in the two configurations). Root lesson: eIRWR is the wrong instrument for impact; the mirror question needs the mirror, simpler tool.
+
+**Fix**: `backend/domain/riskEngine/impactPagerank.js` — Personalized PageRank with restart (α = 0.15, ε = 1e-6) on the transposed, row-normalized, λ-weighted graph. ~70 lines, no belief machinery. `buildEngine` exposes it as `context.impact` (`runSeeded(pairs)` for downstream victim walks) and `blastRadius()` reads it with **failure-mass-weighted average criticality** normalization — Σ r_j·κ_j / Σ r_j over non-seed nodes ×100 ("how critical is what breaks, weighted by how hard it is hit") — because PPR mass is restart-bounded and raw Σ r·κ would read 1–2% even for a hub breaking five critical dependents.
+
+**Consumers re-pointed**: `blastRadius` (agent-spofs ranking, replaceability criticality axis), `cascadeMass` in all five simulations (now `context.impact.runSeeded`), `changeImpact` (victim walk + relative mass-share threshold ≥15% of redistributed mass + `blastRadiusScore` from the single `blastRadius` definition). `severityFor` bands re-authored for the bounded PPR scale (0.20/0.08/0.02, honesty comment in place).
+
+**Regression pins added** (the assertions whose absence let F-1 ship): a hub with 2 dependents outranks a zero-dependent leaf; the leaf reads ~0; values stay in [0,100] without saturation; weakening one edge's strength moves the number. Verified: hub 56, leaf 0, sensitivity 56→47 on edge weakening.
+
+### 7.2 F-2 — ingest mounted before the JSON body parser
+
+**Research**: the Stripe/Paddle/Standard-Webhooks canonical pattern — signature verification needs the exact transmitted bytes; a JSON body parser before the handler invalidates every signature. Two accepted remedies: mount the webhook route before the parser, or capture raw bytes via the parser's `verify` callback.
+
+**Fix**: `index.js` now mounts `/api/ingest` immediately after the CORS setup and **before** `express.json()` (with the reasoning in a comment); the router keeps its own `express.raw`/`express.text` per-route parsing. The smoke harness was corrected to mirror this ordering (it had replicated the bug) and now reports **24/24 routes passing**, including the signed webhook that previously reproduced F-2.
 
 ---
 
 ## 8. Verification Numbers (this audit, this tree)
 
-- Backend: **1,161 checks / 51 suites / 0 failed** (`node tests/run-all.js`)
+- Backend: **1,169 checks / 51 suites / 0 failed** (`node tests/run-all.js`, post-fix)
 - Python parity: CPT tensor 243/243 entries at max err 2.8e-17; power iteration parity 0.0; anchors exact
 - Frontend: `next build` ✓ (all 21 routes prerendered)
-- Smoke harness: **24 routes driven, 23 ✓**; the 1 failure is F-2 reproduced
+- Smoke harness: **24 routes driven, 24 ✓** (post-F-2 fix; was 23/24 with F-2 reproduced)
 - Static SQL: 0 reference problems across 19–24; RLS coverage complete
-- Benchmarks: legacy vs engine per-agent table, compounding case 53 vs 92, monotonicity ✓, cascade timings 0.055/0.152 ms (semantics caveat F-1)
+- Benchmarks (post-fix): compounding case 53 (legacy linear) vs 92 (Engine B anchor); monotonicity ✓; blast radius hub 56 / leaf 0 / sensitivity 56→47; cascade sweep 0.029 ms
 
 *Sign-off: Validation Audit — 2026-09-27. Verdicts-only posture; no product code changed during this audit. The benchmark and smoke harness are committed as audit instrumentation (`backend/risk_engine/benchmark_layered_comparison.js`, `backend/risk_engine/audit_smoke_harness.js`).*

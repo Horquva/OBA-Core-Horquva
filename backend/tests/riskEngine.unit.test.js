@@ -161,6 +161,58 @@ console.log('\nEngine Context: Degenerate Zero-Seed Handling:')
   check('blastRadius calculates correctly for root dependency', ctx.blastRadius('agent', 1) > 0, ctx.blastRadius('agent', 1))
 }
 
+// ── F-1 regression pins: blastRadius direction + normalization ──────────────
+// The audit (docs/REVAMP_VALIDATION_AUDIT.md F-1) found blastRadius reading
+// the CAUSE-direction walk: a zero-dependent leaf scored 100/100 while its
+// hub scored lower, and unnormalized belief mass clamped everything at 100.
+// The impact walk is now the TRANSPOSED graph with estate-share
+// normalization. These pins are the assertions that were missing.
+console.log('\nF-1 regression pins (blastRadius direction + normalization):')
+{
+	const rootsF1 = {
+		employees: [{ id: 'e1', name: 'Dana' }, { id: 'e2', name: 'Lee' }],
+		agents: [
+			{ id: 'a1', name: 'Hub', risk: 'critical', status: 'active', owner_id: 'e1' },
+			{ id: 'a2', name: 'Leaf', risk: 'low', status: 'active', owner_id: 'e2' },
+		],
+		owners: [{ employee_id: 'e1', backup_owner: null }, { employee_id: 'e2', backup_owner: 'Deputy' }],
+		workflows: [{ id: 'w1', name: 'Flow', risk: 'high', status: 'active' }],
+		workflow_runbooks: [], workflow_failures: [],
+		dependencies: [
+			{ source_type: 'agent', source_id: 'a2', target_type: 'agent', target_id: 'a1', dependency_type: 'critical', strength: 90 },
+			{ source_type: 'workflow', source_id: 'w1', target_type: 'agent', target_id: 'a1', dependency_type: 'critical', strength: 95 },
+		],
+		knowledge_assets: [], tool_users: [], employee_agent: [], ai_platforms: [], tool_policies: [],
+		policy_violations: [], tool_ownership: [], accountability_entities: [], accountability_links: [],
+		truth_claims: [], decision_history: [], agent_platform: [], workflow_dependencies: [], tool_backups: [],
+		workflow_steps: [], _counts: {},
+	}
+	const ctx = riskEngine.buildEngine(rootsF1)
+	const hub = ctx.blastRadius('agent', 'a1')
+	const leaf = ctx.blastRadius('agent', 'a2')
+	check('the hub (2 dependents) outranks the zero-dependent leaf', hub > leaf, { hub, leaf })
+	check('the zero-dependent leaf reads ~0 (its failure breaks nothing)', leaf < 5, leaf)
+	check('hub blast radius is a bounded 0-100 number', hub > 0 && hub <= 100, hub)
+	check('coupling sensitivity: weakening an edge’s strength moves the number', (() => {
+		// lambdaOf prefers strength over dependency_type, so sensitivity is
+		// exercised through strength (the authored coupling the data carries)
+		const weak = riskEngine.buildEngine({
+			...rootsF1,
+			// weaken only the workflow edge — row normalization makes uniform
+			// scaling invisible, so sensitivity must change RELATIVE coupling
+			dependencies: rootsF1.dependencies.map((d) => d.source_id === 'w1' ? { ...d, strength: 10 } : d),
+		})
+		const before = hub
+		const after = weak.blastRadius('agent', 'a1')
+		return after !== before
+	})())
+	// estate-share normalization: mass is a SHARE of the other nodes' κ, so a
+	// fully-saturated failure cannot exceed 100 and a half-reached estate
+	// cannot read 100
+	check('normalization: values stay in [0,100] without clamping everything to 100',
+		[ctx.blastRadius('agent', 'a1'), ctx.blastRadius('agent', 'a2')].every((v) => v >= 0 && v <= 100))
+}
+
 console.log(`\n========================================`)
 console.log(`Result: ${passed} passed, ${failed} failed`)
 console.log(`========================================\n`)

@@ -129,11 +129,14 @@ console.log(`   Engine A blast radius (0-100): ${engineMs} ms per full sweep (me
 console.log(`   both engines converge in <1 ms at seed scale; Engine A additionally prices edge criticality (a critical edge outranks an equally-long normal one)`)
 
 // ── sensitivity: engine A distinguishes what BFS cannot ─────────────────────
-const strongFixture = buildFixture()
-strongFixture.dependencies = strongFixture.dependencies.map((d) => ({ ...d, dependency_type: d.dependency_type === 'normal' ? 'critical' : d.dependency_type }))
-const strongContext = riskEngine.buildEngine(strongFixture)
-const radiusAllCritical = strongContext.blastRadius('agent', A(1))
+// lambdaOf prefers edge.strength over dependency_type, so coupling is varied
+// through strength — and only ONE edge is weakened, because the impact walk
+// row-normalizes per source (uniform scaling is invisible by construction).
+const weakFixture = buildFixture()
+weakFixture.dependencies = weakFixture.dependencies.map((d) => d.source_type === 'workflow' ? { ...d, strength: 20 } : d)
+const weakContext = riskEngine.buildEngine(weakFixture)
+const radiusWeakened = weakContext.blastRadius('agent', A(1))
 const radiusNormal = context.blastRadius('agent', A(1))
-console.log(`   sensitivity: upgrading the normal edges to critical moves Hub-1's blast radius ${radiusNormal.toFixed(1)} → ${radiusAllCritical.toFixed(1)}; the legacy BFS count cannot see this at all`)
+console.log(`   sensitivity: weakening the workflow→hub edge to strength 20 shifts Hub-1's blast radius ${radiusNormal} → ${radiusWeakened} (mass redistributes from the critical workflow to the low-criticality agent); the legacy BFS count cannot see this at all`)
 
 console.log('\n=== END BENCHMARK ===')

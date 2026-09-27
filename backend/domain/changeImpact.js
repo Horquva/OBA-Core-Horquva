@@ -54,25 +54,41 @@ function changeImpact(beforeRoots, afterRoots, mutation) {
   } else {
     seeds.push({ type: mutation.targetType, id: mutation.targetId, weight: 1.0 })
   }
-  const r = seeds.length ? engine.runSeeded(seeds) : null
+  // F-1 fix: the victim walk is the IMPACT-direction (transposed) solve —
+  // seeded at the failing node, mass reaches its dependents.
+  const r = seeds.length ? engine.impact.runSeeded(seeds) : null
 
   const impacted = { workflows: [], agents: [], platforms: [] }
   let blastRadiusScore = null
   if (r) {
-    let total = 0
-    for (let i = 0; i < engine.engine.nodes.length; i++) {
-      const nodeKey = engine.engine.nodes[i]
-      const mass = r[i]
-      if (mass < IMPACT_THRESHOLD) continue
+    // Relative threshold: the seed's received-mass shares, EXCLUDING the
+    // seed nodes themselves (their mass is the failure, not a victim). A
+    // node counts as impacted when it holds >= 15% of that redistributed
+    // mass — the authored line, now scale-free (PPR mass is restart-
+    // bounded, so the old absolute 0.15 line was unreachable).
+    const seedIdx = new Set()
+    for (const p of seeds) {
+      const idx = engine.impact.indexByKey.get(`${p.type}:${p.id}`)
+      if (idx !== undefined) seedIdx.add(idx)
+    }
+    let received = 0
+    for (let i = 0; i < engine.impact.engine.nodes.length; i++) {
+      if (!seedIdx.has(i)) received += r[i]
+    }
+    for (let i = 0; i < engine.impact.engine.nodes.length; i++) {
+      if (seedIdx.has(i) || received <= 0) continue
+      const share = r[i] / received
+      if (share < IMPACT_THRESHOLD) continue
+      const nodeKey = engine.impact.engine.nodes[i]
       const colon = nodeKey.indexOf(':')
       const type = nodeKey.slice(0, colon)
       const id = nodeKey.slice(colon + 1)
       if (type === 'workflow') impacted.workflows.push(id)
       else if (type === 'agent') impacted.agents.push(id)
       else if (type === 'platform') impacted.platforms.push(id)
-      total += mass * engine.kappaOf(type, id)
     }
-    blastRadiusScore = Math.round(Math.min(100, total * 100) * 100) / 100
+    // One blast-radius definition: the context's estate-share number.
+    blastRadiusScore = seeds.length === 1 ? engine.blastRadius(seeds[0].type, seeds[0].id) : null
   }
 
   // 2. ΔOHI — same health definition as the simulations.
@@ -83,7 +99,7 @@ function changeImpact(beforeRoots, afterRoots, mutation) {
     : null
 
   // 3. Mitigation — deterministic rules over the mutation's outputs.
-  const mitigation = mitigationFor(mutation, beforeRoots, afterRoots, impacted)
+  const mitigation = mitigationFor(mutation, beforeRoots, afterRoots, impacted, seeds)
 
   return {
     impactedEntities: impacted,
@@ -111,18 +127,24 @@ function orgHealthIndex(roots) {
  * Deterministic mitigation rules. Every rule reads only computed outputs and
  * real rows — no invented data, no LLM.
  */
-function mitigationFor(mutation, beforeRoots, afterRoots, impacted) {
+function mitigationFor(mutation, beforeRoots, afterRoots, impacted, seeds = []) {
   const recommendations = []
   const t = mutation.mutationType
 
   if (t === 'OWNER_REMOVED' || (t === 'STATUS_CHANGED' && mutation.payload?.status === 'failed')) {
     // Unowned or failed assets: name a successor, and warn if the obvious
-    // one (a current top owner) is already concentrated.
+    // one (a current top owner) is already concentrated. The SEED entities
+    // (the mutated node / the departed employee's former assets) are checked
+    // directly — they are the source of the impact walk, not victims, so
+    // they never appear in the impacted set.
     const humans = require('./concentration').concentration(afterRoots)
     const top = humans.classes.humans.topNodes[0]
-    for (const agentId of impacted.agents.slice(0, 3)) {
-      const agent = (afterRoots.agents || []).find((a) => a.id === agentId)
-      if (!agent) continue
+    const seedAgentIds = new Set([
+      ...seeds.filter((p) => p.type === 'agent').map((p) => p.id),
+      ...(mutation.targetType === 'agent' ? [mutation.targetId] : []),
+    ])
+    const reviewAgents = (afterRoots.agents || []).filter((a) => seedAgentIds.has(a.id))
+    for (const agent of reviewAgents.slice(0, 3)) {
       if (agent.owner_id == null) {
         recommendations.push({
           action: 'ASSIGN_OWNER',
