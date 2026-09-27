@@ -149,6 +149,7 @@ app.use('/api/intelligence/brain-core', require('./routes/intelligence/brainCore
 app.use('/api/intelligence/replaceability', require('./routes/intelligence/replaceability'))
 app.use('/api/intelligence/concentration', require('./routes/intelligence/concentration'))
 app.use('/api/intelligence/score-history', require('./routes/intelligence/scoreHistory'))
+app.use('/api/intelligence/dependency-scan', require('./routes/intelligence/dependencyScan'))
 app.use('/api/orchestration', require('./routes/orchestration/orchestration'))
 app.use('/api/decision-intelligence', require('./routes/decisionIntelligence'))
 app.use('/api/learning', require('./routes/learning/learning'))
