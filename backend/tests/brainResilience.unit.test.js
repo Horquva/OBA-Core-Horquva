@@ -44,6 +44,24 @@ function seedGraph(graph) {
 }
 
 stubLoader()
+
+// Stub lib/tenant BEFORE brain loads: the real module resolves the primary
+// org through Supabase (backend/.env injects live credentials), which would
+// make these offline assertions depend on network state and let org-lookup
+// latency leak into the debounce timing. The stub keeps the suite fully
+// deterministic; tenant resolution itself has its own suite (tenant.unit).
+const tenantPath = require.resolve(path.join(__dirname, '..', 'lib', 'tenant.js'))
+require.cache[tenantPath] = {
+	id: tenantPath, filename: tenantPath, loaded: true,
+	exports: {
+		BOOTSTRAP_ORG_SLUG: 'horquva',
+		resolveOrgId: async () => ({ mode: 'degraded', orgId: null }),
+		runAsOrg: (_orgId, fn) => fn(),
+		applyOrgScope: (q) => q,
+		currentOrgId: () => null,
+	},
+}
+
 const brain = require('../brain')
 
 async function main() {

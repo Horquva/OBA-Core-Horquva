@@ -85,12 +85,20 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
  * multi-org workstream; until then the deployment serves one org's graph.
  * When the orgs table is unavailable (pre-20 database), the load runs
  * unscoped — the legacy single-tenant behavior.
+ *
+ * Org resolution happens OUTSIDE the breaker action: it is cached by
+ * lib/tenant.js, and letting its failures consume breaker budget would open
+ * the circuit over a lookup hiccup rather than a load failure.
  */
-async function buildAndValidateGraph() {
+function resolvePrimaryOrg() {
   const tenant = require('../lib/tenant')
   const supabase = require('../supabase')
   const slug = process.env.PRIMARY_ORG_SLUG || tenant.BOOTSTRAP_ORG_SLUG
-  const { mode, orgId } = await tenant.resolveOrgId(supabase, slug)
+  return tenant.resolveOrgId(supabase, slug)
+}
+
+async function buildAndValidateGraph(orgId) {
+  const tenant = require('../lib/tenant')
   const load = async () => {
     const next = new KnowledgeGraph()
     await loadFromSupabase(next)
@@ -103,7 +111,7 @@ async function buildAndValidateGraph() {
     }
     return next
   }
-  if (mode === 'resolved' && orgId) return tenant.runAsOrg(orgId, load)
+  if (orgId) return tenant.runAsOrg(orgId, load)
   return load()
 }
 
@@ -133,6 +141,11 @@ function scheduleReload(delayMs = 2_000) {
  */
 async function loadGraph({ attempts = 4 } = {}) {
   let lastErr = null
+  // Resolve the primary org ONCE per load, outside the breaker: resolution
+  // is cached by lib/tenant.js and its failures must not consume breaker
+  // budget (a lookup hiccup is not a load failure). null → unscoped load,
+  // the legacy single-tenant behavior on a pre-20 database.
+  const { orgId } = await resolvePrimaryOrg().catch(() => ({ orgId: null }))
   for (let attempt = 1; attempt <= attempts; attempt++) {
     if (loadBreaker.opened) {
       lastErr = new Error('graph load circuit breaker is open — Supabase is failing consistently')
@@ -143,7 +156,7 @@ async function loadGraph({ attempts = 4 } = {}) {
       await sleep(backoff + Math.floor(Math.random() * 250))
     }
     try {
-      const next = await loadBreaker.fire()
+      const next = await loadBreaker.fire(orgId)
       graph = next
       source = { live: true, stats: next.stats(), loadedAt: new Date().toISOString(), error: null }
       return source.stats
