@@ -227,6 +227,18 @@ const metrics = [
     range: 'HHI 0-10000; shares 0-1; entropy 0-1',
     decisions: [],
   },
+  {
+    metric: 'volatility',
+    label: 'Longitudinal Volatility',
+    definition: "Longitudinal layer over dependency_change_log (Feature 3's own records — not a separate engine). Churn velocity: mutations/day weighted by |ΔOHI|/10+1, EWMA-smoothed (λ=0.3) over rolling 7- and 30-day windows. CUSUM drift (split-window baseline, k=0.5, h=5 per NIST/SEMATECH §6.3.2) fires on sustained second-half drift, never a single spike. Risk trajectory: net exposure change, damage/improvement split, worst event with its mitigation. Empty window → insufficient_evidence.",
+    computedIn: 'backend/domain/volatility.js :: volatility()',
+    servedBy: 'GET /api/briefing/volatility',
+    authored: true,
+    inputs: ['dependency_change_log'],
+    authoredNote: 'EWMA lambda (0.3), CUSUM k/h (0.5/5), and the |ΔOHI|/10 churn weight are authored design values, documented in volatility.js.',
+    range: 'velocity ≥ 0; net exposure in OHI points',
+    decisions: [],
+  },
 ]
 
 function getMetricDefinition(metricName) {

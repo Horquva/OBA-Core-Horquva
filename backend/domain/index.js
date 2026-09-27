@@ -36,6 +36,7 @@ const simulations = require('./simulations')
 const replaceability = require('./replaceability')
 const concentration = require('./concentration')
 const mutations = require('./mutations')
+const volatility = require('./volatility')
 
 let supabase = null
 try {
@@ -119,6 +120,7 @@ module.exports = {
   replaceability: (roots, ctx) => replaceability.replaceability(roots, ctx),
   concentration: (roots, ctx) => concentration.concentration(roots, ctx),
   mutations,
+  volatility: (rows) => volatility.volatility(rows),
   humanConcentrationRisk: (roots, employeeId, ctx) => concentration.humanConcentrationRisk(roots, employeeId, ctx),
 
   simulations: {

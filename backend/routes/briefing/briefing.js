@@ -352,5 +352,23 @@ router.get('/top-risks', async (req, res) => {
   }
 })
 
+// GET /api/briefing/volatility — Phase 3.3: the Weekly Executive Dependency
+// Briefing's longitudinal section, over the change log Feature 3's mutation
+// layer writes. Per-window: material changes, churn velocity (EWMA) with its
+// band, CUSUM drift alert, net exposure change, damage/improvement split,
+// and the worst event with its mitigation. Empty window →
+// insufficient_evidence per the Ironclad rule.
+router.get('/volatility', async (req, res) => {
+  try {
+    const { data, error } = await applyOrgScope(
+      supabase.from('dependency_change_log').select('*')
+    ).order('created_at', { ascending: false }).limit(500)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(domain.volatility(data || []))
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
 module.exports.buildSummaryPoints = buildSummaryPoints

@@ -11,6 +11,7 @@ import { WhatMattersNowFeed } from '../../components/dashboard/WhatMattersNowFee
 import { ExecutiveMemoryPanel } from '../../components/dashboard/ExecutiveMemoryPanel';
 import { EarlyWarningStrip } from '../../components/dashboard/EarlyWarningStrip';
 import { ConcentrationAlertsCard } from '../../components/dashboard/ConcentrationAlertsCard';
+import { VolatilityCard } from '../../components/dashboard/VolatilityCard';
 
 export default function DashboardPage() {
   return (
@@ -58,6 +59,9 @@ export default function DashboardPage() {
       {/* Row 3: Memory & Context */}
       {/* Feature 2 (Phase 2.2): multi-class concentration + chokepoint alerts. */}
       <ConcentrationAlertsCard />
+
+      {/* Phase 3.3: longitudinal volatility — churn velocity, drift watch, net exposure. */}
+      <VolatilityCard />
 
       <ExecutiveMemoryPanel />
 

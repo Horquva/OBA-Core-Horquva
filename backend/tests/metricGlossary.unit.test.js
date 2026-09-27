@@ -23,7 +23,7 @@ console.log('\n=== OBA Core — Metric Glossary Unit Test ===\n')
 console.log('Overall shape:')
 {
 	check('metrics is a non-empty array', Array.isArray(metrics) && metrics.length > 0, metrics.length)
-	check('exports 22 entries (19 source functions, pillars() contributing 4)', metrics.length === 22, metrics.length)
+	check('exports 23 entries (20 source functions, pillars() contributing 4)', metrics.length === 23, metrics.length)
 
 	const names = metrics.map((m) => m.metric)
 	const uniqueNames = new Set(names)
