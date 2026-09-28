@@ -33,7 +33,13 @@ function migrationFiles() {
 
   const dir = path.join(__dirname, 'sql')
   if (fs.existsSync(dir)) {
-    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
+    const allSql = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
+    // auth_schema.sql defines app_users, which 12_consolidate_single_tenant.sql
+    // and 20_multi_tenancy.sql require. Ensure it runs before numbered migrations.
+    const authFile = allSql.find((f) => f === 'auth_schema.sql')
+    const remaining = allSql.filter((f) => f !== 'auth_schema.sql')
+    const ordered = authFile ? [authFile, ...remaining] : remaining
+    for (const f of ordered) {
       files.push({ name: f, path: path.join(dir, f) })
     }
   }
@@ -65,9 +71,20 @@ async function main() {
     process.exit(1)
   }
 
+  const dns = require('dns').promises
+  let connStr = process.env.DATABASE_URL
+  let servername = undefined
+  try {
+    const u = new URL(connStr)
+    servername = u.hostname
+    const { address } = await dns.lookup(u.hostname, { family: 4 })
+    u.hostname = address
+    connStr = u.toString()
+  } catch (_) {}
+
   const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    connectionString: connStr,
+    ssl: { rejectUnauthorized: false, servername },
   })
   await client.connect()
 

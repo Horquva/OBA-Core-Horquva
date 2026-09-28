@@ -28,6 +28,7 @@
 const EWMA_LAMBDA = 0.3
 const CUSUM_K = 0.5
 const CUSUM_H = 5
+const CUSUM_H_SHORT = 2.5
 
 const dayKey = (iso) => String(iso).slice(0, 10)
 
@@ -113,7 +114,8 @@ function windowBriefing(rows, days) {
   const series = dailySeries(inWindow, days, weightOf)
   const values = series.map((d) => d.value)
   const velocity = Math.round(ewma(values) * 100) / 100
-  const drift = cusum(values)
+  const thresholdH = days <= 7 ? CUSUM_H_SHORT : CUSUM_H
+  const drift = cusum(values, { h: thresholdH })
 
   // Risk trajectory — ΔOHI series (damage events carry health_delta > 0:
   // the impact engine's convention is "points WORSE").
@@ -164,8 +166,8 @@ function volatility(rows) {
   return {
     week,
     month,
-    constants: { EWMA_LAMBDA, CUSUM_K, CUSUM_H },
+    constants: { EWMA_LAMBDA, CUSUM_K, CUSUM_H, CUSUM_H_SHORT },
   }
 }
 
-module.exports = { volatility, windowBriefing, ewma, cusum, EWMA_LAMBDA, CUSUM_K, CUSUM_H }
+module.exports = { volatility, windowBriefing, ewma, cusum, EWMA_LAMBDA, CUSUM_K, CUSUM_H, CUSUM_H_SHORT }

@@ -59,6 +59,8 @@ const tests = [
 	'agentRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-L 11.6 SSE route)
 	'getPageContext.unit.test.js', // Task 12.7 - get_page_context tool
 	'agentSuggestions.unit.test.js', // agent empty-state starter questions
+	'migrationOrdering.unit.test.js', // pure; verifies schema.sql and auth_schema.sql run order
+	'secondaryTenantScoping.test.js', // integration; asserts tenant scoping on secondary logs & knowledge gaps
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
 if (process.env.BASE_URL) tests.push('api.smoke.test.js')

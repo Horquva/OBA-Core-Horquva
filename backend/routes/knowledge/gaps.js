@@ -8,7 +8,7 @@ const { must } = require('../../lib/supabaseQuery')
 // list is rejected by PostgREST), but still fails loudly on a real error
 // instead of letting it look like "zero undocumented assets".
 const fetchByIds = (table, cols, ids) =>
-  ids.length ? must(table, supabase.from(table).select(cols).in('id', ids)) : Promise.resolve([])
+  ids.length ? must(table, applyOrgScope(supabase.from(table).select(cols)).in('id', ids)) : Promise.resolve([])
 
 router.get('/', async (req, res) => {
   // Get all undocumented assets with owner info

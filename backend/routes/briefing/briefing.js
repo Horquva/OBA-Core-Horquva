@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
-const { applyOrgScope } = require('../../lib/tenant')
+const { applyOrgScope, currentOrgId } = require('../../lib/tenant')
 const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
 const { requireCsrfHeader } = require('../../middleware/auth')
@@ -176,6 +176,9 @@ router.get('/today', requireCsrfHeader, async (req, res) => {
       doc_trend_status: docTrend?.direction ?? null,
       summary_points: summaryPoints
     }
+
+    const orgId = currentOrgId()
+    if (orgId) briefing.org_id = orgId
 
     // Cache it. The briefing is already computed and valid, so a write failure
     // must not deny it to the caller — but it can't vanish either.

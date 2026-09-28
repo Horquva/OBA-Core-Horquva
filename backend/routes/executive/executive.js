@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
-const { applyOrgScope } = require('../../lib/tenant')
+const { applyOrgScope, currentOrgId } = require('../../lib/tenant')
 const domain = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
 const { requireCsrfHeader } = require('../../middleware/auth')
@@ -297,14 +297,17 @@ router.get('/ask', requireCsrfHeader, async (req, res) => {
     // write failure must not deny the executive their answer — but it is logged
     // rather than discarded, since a silently broken audit trail is its own
     // problem.
-    const { error: logError } = await supabase.from('executive_sessions').insert({
+    const orgId = currentOrgId()
+    const sessionPayload = {
       question,
       question_type: questionType,
       answer_summary: result.answer,
       entity_name: result.entityName,
       responsible_person: result.responsiblePerson,
       data_sources: result.dataSources
-    })
+    }
+    if (orgId) sessionPayload.org_id = orgId
+    const { error: logError } = await supabase.from('executive_sessions').insert(sessionPayload)
     if (logError) {
       console.warn(`[executive] failed to log session to executive_sessions: ${logError.message}`)
     }

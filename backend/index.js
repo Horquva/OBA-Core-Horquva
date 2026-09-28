@@ -123,7 +123,7 @@ app.use('/api/auth', require('./routes/auth/auth'))
 // per-request scoping in lib/tenant.js, a second organization is now SUPPORTED,
 // not a boot failure. assertSingleTenant() is kept as a loud informational
 // report — multi-org data isolation is real, so the old process.exit(1) is gone.
-require('./lib/orgGuard').assertSingleTenant()
+const orgGuardCheck = require('./lib/orgGuard').assertSingleTenant()
 
 // Everything else under /api touches real org data — require a valid bearer token,
 // then bind the request to its tenant (Phase 1.2): runWithTenant resolves the

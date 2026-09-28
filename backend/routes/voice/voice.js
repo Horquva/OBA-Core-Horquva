@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
-const { applyOrgScope } = require('../../lib/tenant')
+const { applyOrgScope, currentOrgId } = require('../../lib/tenant')
 const domain = require('../../domain')
 const { loadDataset: loadOrgDataset } = domain
 const { atOrAbove } = require('../../domain/definitions')
@@ -414,14 +414,17 @@ function answerQuery(rawQuery, brain) {
 
 async function logHistory(query, r) {
   try {
-    await supabase.from('voice_history').insert({
+    const orgId = currentOrgId()
+    const payload = {
       query,
       detected_intent: r.intent,
       resolved_entity: r.entity ? r.entity.name : null,
       entity_type: r.entityType,
       answer: r.answer,
       confidence: r.confidence,
-    })
+    }
+    if (orgId) payload.org_id = orgId
+    await supabase.from('voice_history').insert(payload)
   } catch (_) { /* best-effort */ }
 }
 

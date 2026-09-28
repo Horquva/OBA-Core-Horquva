@@ -8,7 +8,7 @@
  * Run from backend/:  node tests/volatility.unit.test.js
  */
 
-const { volatility, windowBriefing, ewma, cusum } = require('../domain/volatility')
+const { volatility, windowBriefing, ewma, cusum, CUSUM_H_SHORT } = require('../domain/volatility')
 
 let passed = 0
 let failed = 0
@@ -43,6 +43,11 @@ check('EWMA known answer: step to 10 with λ=0.3 lands between', (() => {
 		cusum([1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 3, 2, 1, 2, 1, 2, 1]))
 	check('CUSUM on a flat series never fires', cusum([3, 3, 3, 3, 3, 3]).alert === false)
 check('CUSUM on a too-short series never fires', cusum([9, 9]).alert === false)
+check('CUSUM_H_SHORT constant is 2.5 for short operational windows', CUSUM_H_SHORT === 2.5)
+check('CUSUM fires on sustained shift in 7-day window (h=2.5)',
+	cusum([0, 0, 0, 2, 2, 2, 2], { h: CUSUM_H_SHORT }).alert === true)
+check('CUSUM ignores single-day isolated spike in 7-day window (h=2.5)',
+	cusum([0, 0, 0, 2, 0, 0, 0], { h: CUSUM_H_SHORT }).alert === false)
 
 console.log('\nwindow briefings:')
 {

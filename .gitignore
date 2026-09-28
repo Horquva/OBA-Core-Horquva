@@ -29,3 +29,21 @@ FRONTEND_PLAN.md
 
 # SDD scratch workspace (ledger, briefs, review packages)
 .superpowers/
+
+# Session artifacts & cookies (never commit session tokens)
+cookies.txt
+backend/cookies.txt
+
+# Scratch and transient analysis dumps
+graphify-out/
+.agents/
+.zcode/
+.zcodeignore
+step_204_*
+last_response_*
+*_extracted.txt
+scratch_*.py
+implementation_plan_*
+*.docx
+docs/horquva_oba_core_development_session_transcript.md
+HOMEPAGE_COPY_REWRITE_SPEC.md

@@ -181,7 +181,7 @@ declare
   fk record;
 begin
   for fk in
-    select con.conname, con.relid::regclass as child
+    select con.conname, con.conrelid::regclass as child
     from pg_constraint con
     where con.contype = 'f'
       and con.confrelid in (
@@ -232,6 +232,8 @@ alter table public.system_agent_usage         drop column if exists system_id;
 alter table public.external_entity_supplies   drop column if exists external_entity_id;
 alter table public.dependencies               drop column if exists source_id;
 alter table public.dependencies               drop column if exists target_id;
+alter table public.dependencies               drop column if exists agent_source;
+alter table public.dependencies               drop column if exists agent_target;
 alter table public.knowledge_assets           drop column if exists asset_id;
 
 alter table public.agents             rename column owner_uuid             to owner_id;
