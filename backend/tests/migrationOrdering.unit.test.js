@@ -6,7 +6,7 @@
  *   2. auth_schema.sql ahead of numbered migrations (so app_users is created)
  *   3. 12_consolidate_single_tenant.sql after auth_schema.sql
  *   4. 20_multi_tenancy.sql after auth_schema.sql
- *   5. All 27 migrations accounted for with zero dropped files.
+ *   5. All 29 migrations accounted for with zero dropped files.
  *
  * Run from backend/:  node tests/migrationOrdering.unit.test.js
  */
@@ -58,7 +58,10 @@ check('auth_schema.sql appears before 20_multi_tenancy.sql', authIdx < migr20Idx
 // Check total unique files
 const uniqueNames = new Set(names)
 check('Zero duplicate files in migration list', uniqueNames.size === names.length, { total: names.length, unique: uniqueNames.size })
-check('All 27 expected migrations present (schema.sql + 26 sql/ files)', names.length === 28 || names.length === 27, names.length)
+check('All 29 expected migrations present (schema.sql + 28 sql/ files)', names.length === 29, names.length)
+check('25_revamp_live_repair.sql runs after 24_ingestion_staging.sql',
+  names.indexOf('25_revamp_live_repair.sql') > names.indexOf('24_ingestion_staging.sql'),
+  { m24: names.indexOf('24_ingestion_staging.sql'), m25: names.indexOf('25_revamp_live_repair.sql') })
 
 // Verify file existence
 let allExist = true

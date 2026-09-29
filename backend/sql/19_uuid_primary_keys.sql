@@ -73,6 +73,8 @@ alter table public.tool_backups               add column if not exists backup_pl
 alter table public.agent_platform             add column if not exists platform_uuid uuid;
 alter table public.workflow_tool_dependencies add column if not exists platform_uuid uuid;
 alter table public.external_entity_supplies   add column if not exists platform_uuid uuid;
+-- tool_spend (15) was missing from this list when 19 first shipped; see 25's header.
+alter table public.tool_spend                 add column if not exists platform_uuid uuid;
 
 -- Agent references
 alter table public.agent_platform             add column if not exists agent_uuid uuid;
@@ -131,6 +133,7 @@ update public.tool_backups               t set backup_platform_uuid = p.new_id f
 update public.agent_platform             t set platform_uuid        = p.new_id from public.ai_platforms      p where t.platform_id          = p.id;
 update public.workflow_tool_dependencies t set platform_uuid        = p.new_id from public.ai_platforms      p where t.platform_id          = p.id;
 update public.external_entity_supplies   t set platform_uuid        = p.new_id from public.ai_platforms      p where t.platform_id          = p.id;
+update public.tool_spend                 t set platform_uuid        = p.new_id from public.ai_platforms      p where t.platform_id          = p.id;
 
 update public.agent_platform             t set agent_uuid = p.new_id from public.agents p where t.agent_id   = p.id;
 update public.employee_agent             t set agent_uuid = p.new_id from public.agents p where t.agent_id   = p.id;
@@ -215,6 +218,7 @@ alter table public.tool_backups               drop column if exists backup_platf
 alter table public.agent_platform             drop column if exists platform_id;
 alter table public.workflow_tool_dependencies drop column if exists platform_id;
 alter table public.external_entity_supplies   drop column if exists platform_id;
+alter table public.tool_spend                 drop column if exists platform_id; -- also drops tool_spend_platform_id_month_key; 25 re-adds it
 alter table public.agent_platform             drop column if exists agent_id;
 alter table public.employee_agent             drop column if exists agent_id;
 alter table public.workflow_dependencies      drop column if exists agent_id;
@@ -255,6 +259,7 @@ alter table public.tool_backups               rename column backup_platform_uuid
 alter table public.agent_platform             rename column platform_uuid         to platform_id;
 alter table public.workflow_tool_dependencies rename column platform_uuid         to platform_id;
 alter table public.external_entity_supplies   rename column platform_uuid         to platform_id;
+alter table public.tool_spend                 rename column platform_uuid         to platform_id;
 alter table public.agent_platform             rename column agent_uuid            to agent_id;
 alter table public.employee_agent             rename column agent_uuid            to agent_id;
 alter table public.workflow_dependencies      rename column agent_uuid            to agent_id;
@@ -370,6 +375,7 @@ begin
       ('external_entities',          'relationship_owner_id',    'employees'),
       ('external_entity_supplies',   'external_entity_id',       'external_entities'),
       ('external_entity_supplies',   'platform_id',              'ai_platforms'),
+      ('tool_spend',                 'platform_id',              'ai_platforms'),
       ('incidents',                  'owner_id',                 'employees'),
       ('incidents',                  'resolved_by_id',           'employees')
     ) as t(child, col, parent)
@@ -434,6 +440,7 @@ begin
       ('external_entities',          'relationship_owner_id'),
       ('external_entity_supplies',   'external_entity_id'),
       ('external_entity_supplies',   'platform_id'),
+      ('tool_spend',                 'platform_id'),
       ('incidents',                  'owner_id'),
       ('incidents',                  'resolved_by_id')
     ) as t(tbl, col)
