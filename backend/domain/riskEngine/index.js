@@ -83,7 +83,10 @@ function agentEvidence(roots, agent, precomputed = {}) {
   const ownership = !hasOwner ? 0 : (backups.get(agent.owner_id) ? 2 : 1)
   const ownerName = hasOwner ? (employees.get(agent.owner_id)?.name ?? null) : null
 
-  const docs = agentDocumentation(roots, agent.id)
+  // A caller scoring every agent passes a precomputed state per agent —
+  // agentDocumentation() scans all of knowledge_assets, which is O(A·K)
+  // across an org and dominated simulation cost at scale.
+  const docs = precomputed.docStateByAgent?.get(agent.id) || agentDocumentation(roots, agent.id)
 
   let runtimeState = 2
   if (agent.status === 'failed') runtimeState = 0
@@ -134,20 +137,55 @@ const PORTFOLIO_MAJORITY = 0.5
  *
  * Pure: no I/O. `context` is the shared buildEngine(roots) context.
  */
-function scoreEmployee(roots, context, employeeId) {
-  const backups = ownerBackupMap(roots)
-  const employees = new Map((roots.employees || []).map((e) => [e.id, e]))
+/**
+ * Lookups scoreEmployee() needs, built once per roots bundle. Scoring every
+ * employee used to rebuild all of them per employee — O(employees × rows).
+ * Each grouping keeps roots order, and each by-id map keeps the same
+ * first-/last-match rule the per-call code used, so scores are unchanged.
+ */
+function portfolioIndex(roots) {
+  const groupBy = (rows, keyOf) => {
+    const out = new Map()
+    for (const row of rows || []) {
+      const k = keyOf(row)
+      if (!out.has(k)) out.set(k, [])
+      out.get(k).push(row)
+    }
+    return out
+  }
+  const platformById = new Map() // first match, as Array.prototype.find
+  for (const p of roots.ai_platforms || []) if (!platformById.has(p.id)) platformById.set(p.id, p)
+  const docByAgentId = new Map()
+  for (const ka of roots.knowledge_assets || []) {
+    if (ka.asset_type !== 'agent') continue
+    const cur = docByAgentId.get(ka.asset_id) || { total: 0, documented: 0 }
+    cur.total++
+    if (ka.is_documented) cur.documented++
+    docByAgentId.set(ka.asset_id, cur)
+  }
+  return {
+    backups: ownerBackupMap(roots),
+    employees: new Map((roots.employees || []).map((e) => [e.id, e])),
+    agentsByOwner: groupBy(roots.agents, (a) => a.owner_id),
+    runbooksByOwner: groupBy(roots.workflow_runbooks, (r) => r.owner_id),
+    toolOwnershipByEmployee: groupBy(roots.tool_ownership, (t) => t.employee_id),
+    workflowById: new Map((roots.workflows || []).map((w) => [w.id, w])),
+    platformById,
+    backedPlatformIds: new Set((roots.tool_backups || []).map((b) => b.primary_platform)),
+    docByAgentId,
+    runbookByWorkflowId: new Map((roots.workflow_runbooks || []).map((r) => [r.workflow_id, r])),
+  }
+}
 
-  const ownedAgents = (roots.agents || []).filter((a) => a.owner_id === employeeId)
-  const workflowById = new Map((roots.workflows || []).map((w) => [w.id, w]))
-  const ownedWorkflows = (roots.workflow_runbooks || [])
-    .filter((r) => r.owner_id === employeeId)
+function scoreEmployee(roots, context, employeeId, index = portfolioIndex(roots)) {
+  const { backups, employees, workflowById, backedPlatformIds, docByAgentId, runbookByWorkflowId } = index
+
+  const ownedAgents = index.agentsByOwner.get(employeeId) || []
+  const ownedWorkflows = (index.runbooksByOwner.get(employeeId) || [])
     .map((r) => workflowById.get(r.workflow_id))
     .filter(Boolean)
-  const backedPlatformIds = new Set((roots.tool_backups || []).map((b) => b.primary_platform))
-  const ownedTools = (roots.tool_ownership || [])
-    .filter((t) => t.employee_id === employeeId)
-    .map((t) => (roots.ai_platforms || []).find((p) => p.id === t.platform_id))
+  const ownedTools = (index.toolOwnershipByEmployee.get(employeeId) || [])
+    .map((t) => index.platformById.get(t.platform_id))
     .filter(Boolean)
 
   const total = ownedAgents.length + ownedWorkflows.length + ownedTools.length
@@ -167,15 +205,6 @@ function scoreEmployee(roots, context, employeeId) {
   // D — documentation coverage over the doc-able assets (platforms carry no
   // knowledge rows and are excluded from the denominator, not counted as
   // undocumented).
-  const docByAgentId = new Map()
-  for (const ka of roots.knowledge_assets || []) {
-    if (ka.asset_type !== 'agent') continue
-    const cur = docByAgentId.get(ka.asset_id) || { total: 0, documented: 0 }
-    cur.total++
-    if (ka.is_documented) cur.documented++
-    docByAgentId.set(ka.asset_id, cur)
-  }
-  const runbookByWorkflowId = new Map((roots.workflow_runbooks || []).map((r) => [r.workflow_id, r]))
   let docTotal = 0
   let docDocumented = 0
   for (const a of ownedAgents) {
@@ -426,12 +455,13 @@ function buildEngine(roots) {
     return value
   }
 
-  function uState(type, id) {
-    if (!orgScanR) return 2 // no observed distress anywhere → Protected
+  const makeUState = (scanR, mass) => (type, id) => {
+    if (!scanR) return 2 // no observed distress anywhere → Protected
     const idx = idxOf(type, id)
     if (idx === undefined) return 2
-    return bayes.exposureState(orgScanR[idx] * seedMass)
+    return bayes.exposureState(scanR[idx] * mass)
   }
+  const uState = makeUState(orgScanR, seedMass)
 
   function runSeeded(pairs) {
     const seed = new Float64Array(engine.nodes.length)
@@ -456,7 +486,7 @@ function buildEngine(roots) {
     return impactEngine.solve(seedEntries)
   }
 
-  return {
+  const context = {
     engine,
     impact: { engine: impactEngine, kappaArr: impactKappaArr, indexByKey: impactEngine.indexByKey, runSeeded: runImpact },
     orgScanR,
@@ -466,7 +496,51 @@ function buildEngine(roots) {
     blastRadius,
     kappaOf: kappa,
     kappaArr,
+    withRoots,
   }
+
+  /**
+   * A context for a MUTATED copy of these roots, reusing everything that
+   * cannot have changed. Simulations (simulations.js) mutate ownership and
+   * status only, never the dependency topology or any criticality field, so
+   * both walk engines, κ and the blast-radius cache stay valid; only the
+   * org-scan seeds (which read agent status and workflow_failures) can move.
+   * They are re-extracted from `next` and re-solved only when they differ.
+   *
+   * Building a fresh context per scenario (the previous behavior) rebuilt
+   * both engines and re-ran every blast radius for every scenario — the
+   * dominant cost of rankAllScenarios. The result here is identical to
+   * buildEngine(next) for every field it exposes (same topology ⇒ same
+   * nodes, same seeds ⇒ same deterministic solve).
+   *
+   * Guard: if `next` carries a different dependencies array (a caller that
+   * deep-cloned or edited the topology), nothing is assumed — it falls back
+   * to a full buildEngine(next).
+   */
+  function withRoots(next) {
+    if (!next || next.dependencies !== roots.dependencies) return buildEngine(next)
+    const nextSeed = orgScanSeeds(engine, next)
+    if (sameSeeds(seedArr, nextSeed)) return context
+    const nextR = nextSeed ? engine.run(nextSeed) : null
+    const nextMass = nextSeed ? nextSeed.reduce((sum, w) => sum + w, 0) : 0
+    return {
+      ...context,
+      orgScanR: nextR,
+      orgScanSeeds: nextSeed,
+      uState: makeUState(nextR, nextMass),
+      // withRoots is inherited: it re-extracts seeds from whatever roots it
+      // is handed, so chaining from a mutated context stays correct.
+    }
+  }
+
+  return context
+}
+
+function sameSeeds(a, b) {
+  if (a === b) return true
+  if (!a || !b || a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
 }
 
 module.exports = {
@@ -476,6 +550,7 @@ module.exports = {
   agentDocumentation,
   orgScanSeeds,
   scoreEmployee,
+  portfolioIndex,
   PORTFOLIO_MAJORITY,
   KAPPA,
   BLAST_REACH_SCALE,

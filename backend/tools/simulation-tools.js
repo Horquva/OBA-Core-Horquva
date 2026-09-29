@@ -14,7 +14,7 @@
 
 const {
   employeeLeaves, agentFails, platformDown, workflowDisruption,
-  rankAllScenarios,
+  rankAllScenariosAsync,
 } = require('../domain/simulations')
 
 const SCENARIO_DISPATCH = {
@@ -88,8 +88,10 @@ const rankScenariosTool = {
     properties: { limit: { type: 'integer' } },
     required: [],
   },
-  run(ctx, args) {
-    const all = rankAllScenarios(ctx.roots)
+  // Async (the registry awaits it): the ranking yields the event loop so an
+  // agent turn on a large org cannot freeze every other request.
+  async run(ctx, args) {
+    const all = await rankAllScenariosAsync(ctx.roots)
     const limit = args.limit ?? DEFAULT_LIMIT
     const limited = all.slice(0, limit)
     const notes = limited.length < all.length

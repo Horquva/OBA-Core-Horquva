@@ -473,6 +473,12 @@ function collaboration(roots) {
  * callers holding one (computeAllFromRoots, the simulations) pass it so the
  * graph walk and blast radii are computed once per roots bundle, not once
  * per call.
+ *
+ * `{ lean: true }` omits the two per-agent graph walks — `cascadeReach`
+ * (a BFS per agent) and `blastRadius` (a PPR solve per agent) — for callers
+ * that only need scores and threat levels. orgHealth() reads nothing else,
+ * and simulations score health once per scenario, so this is what keeps
+ * rankAllScenarios from paying A graph walks × S scenarios.
  */
 const THREAT_ORDER = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 }
 const RECORDED_RISK_AS_THREAT = { low: 'LOW', medium: 'MEDIUM', high: 'HIGH', critical: 'CRITICAL' }
@@ -485,9 +491,9 @@ function threatLevel(score) {
   return riskEngine.threatLevelFor(score)
 }
 
-function predictiveRisk(roots, ctx) {
+function predictiveRisk(roots, ctx, { lean = false } = {}) {
   const context = ctx || riskEngine.buildEngine(roots)
-  const depIndex = dependencyIndex(roots)
+  const depIndex = lean ? null : dependencyIndex(roots)
   // agents.owner_id references employees.id directly, NOT owners.id (see
   // routes/ownership.js's header comment — both id spaces start at 1, so a
   // join on the wrong one never errors, it silently returns a different,
@@ -518,12 +524,9 @@ function predictiveRisk(roots, ctx) {
   }
 
   const scores = roots.agents.map((agent) => {
-    const ev = riskEngine.agentEvidence(roots, agent, { ownerBackup, employeeById })
-    // Override documentation with the precomputed state (same rule, one pass).
-    const docs = docStateByAgent.get(agent.id)
-    ev.documentation = docs.state
-    ev.docTotal = docs.total
-    ev.docDocumented = docs.documented
+    // Documentation comes from the one-pass docStateByAgent above (same rule
+    // agentDocumentation() applies), not a knowledge_assets scan per agent.
+    const ev = riskEngine.agentEvidence(roots, agent, { ownerBackup, employeeById, docStateByAgent })
     ev.cascade_exposure = context.uState('agent', agent.id)
 
     const posterior = riskEngine.scoreAgent(ev)
@@ -546,8 +549,10 @@ function predictiveRisk(roots, ctx) {
         runtime_state: ev.runtime_state,
         cascade_exposure: ev.cascade_exposure,
       },
-      cascadeReach: cascadeReach('agent', agent.id, depIndex),
-      blastRadius: context.blastRadius('agent', agent.id),
+      ...(lean ? {} : {
+        cascadeReach: cascadeReach('agent', agent.id, depIndex),
+        blastRadius: context.blastRadius('agent', agent.id),
+      }),
     }
   })
 
@@ -605,8 +610,9 @@ function humanDependencyRisk(roots, ctx) {
     ...roots.tool_ownership.map((t) => t.employee_id),
   ].filter((id) => id != null))
 
+  const index = riskEngine.portfolioIndex(roots) // once, not per employee
   const profiles = [...employeeIds].map((employeeId) => {
-    const scored = riskEngine.scoreEmployee(roots, context, employeeId)
+    const scored = riskEngine.scoreEmployee(roots, context, employeeId, index)
     if (!scored) return null
     return {
       employeeId,
@@ -1816,9 +1822,18 @@ function rootsOf(value) {
   return value.__roots || null
 }
 
-/** Drops the memo. Called after any write that changes the roots. */
+// Other in-process results computed from the roots (simulations.js's cached
+// scenario ranking) register here, so one invalidate() after a write drops
+// every one of them — no caller has to know the full list.
+const invalidationListeners = new Set()
+function onInvalidate(fn) {
+  invalidationListeners.add(fn)
+}
+
+/** Drops the memo and every registered dependent cache. Called after any write that changes the roots. */
 function invalidate() {
   memo = null
+  for (const fn of invalidationListeners) fn()
 }
 
 module.exports = {
@@ -1829,6 +1844,7 @@ module.exports = {
   cascadeReach,
   computeAllCached,
   invalidate,
+  onInvalidate,
   MEMO_TTL_MS,
   accountability,
   collaboration,

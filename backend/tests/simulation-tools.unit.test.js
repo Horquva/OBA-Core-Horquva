@@ -78,8 +78,10 @@ console.log('run_simulation:')
 	check('a string targetId resolves to the SAME employee as the numeric id', stringId.data && stringId.data.scenario === ok.data.scenario, stringId.data && stringId.data.scenario)
 }
 
+// rank_scenarios' run() is async (it yields the event loop); the summary
+// below waits for this block before reporting.
+const rankScenariosDone = (async () => {
 console.log('\nrank_scenarios:')
-{
 	const r = roots({
 		employees: [
 			{ id: 1, name: 'Sarah', department: 'Eng' },
@@ -99,12 +101,12 @@ console.log('\nrank_scenarios:')
 	})
 	const ctx = { roots: r }
 
-	const all = rankScenariosTool.run(ctx, {})
+	const all = await rankScenariosTool.run(ctx, {})
 	check('ranked-list output is a non-empty array', Array.isArray(all.data) && all.data.length > 0, all.data && all.data.length)
 
-	const limited = rankScenariosTool.run(ctx, { limit: 1 })
+	const limited = await rankScenariosTool.run(ctx, { limit: 1 })
 	check('a limit trims the ranked output', limited.data.length === 1, limited.data.length)
-}
+})()
 
 console.log('\ncompare_scenarios:')
 {
@@ -148,6 +150,7 @@ console.log('\nKnown open gap (matches the author\'s own todo):')
 	console.log('  ⧗ a genuinely null healthDelta feeding into compare_scenarios -- not asserted here either, same as the author\'s test.todo(). Left as an explicit, visible gap.')
 }
 
+rankScenariosDone.then(() => {
 console.log('\n' + '-'.repeat(40))
 console.log('passed:', passed, '  failed:', failed)
 console.log('-'.repeat(40))
@@ -157,3 +160,4 @@ if (failed > 0) {
 }
 console.log('\nSIMULATION TOOLS UNIT TESTS PASSED ✅')
 console.log('-'.repeat(40))
+})

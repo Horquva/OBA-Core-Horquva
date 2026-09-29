@@ -18,8 +18,19 @@ const { entityCriticality, atOrAbove, spofVerdict } = require('./definitions')
 
 // ─── Cascade ─────────────────────────────────────────────────────────────────
 
+// Memoized on the dependencies array: every scenario in one ranking run reads
+// the same topology (scenarios never mutate it), so the index is built once
+// per roots bundle instead of once per scenario.
+const dependencyIndexCache = new WeakMap()
 function buildDependencyIndex(roots) {
-  return derived.dependencyIndex(roots)
+  const deps = roots.dependencies
+  if (!deps || typeof deps !== 'object') return derived.dependencyIndex(roots)
+  let index = dependencyIndexCache.get(deps)
+  if (!index) {
+    index = derived.dependencyIndex(roots)
+    dependencyIndexCache.set(deps, index)
+  }
+  return index
 }
 
 /** Everything that transitively fails downstream of one node, as entities not just a count. */
@@ -113,6 +124,22 @@ function cloneRoots(roots) {
   return clone
 }
 
+/**
+ * Copy-on-write fork for the scenarios below: a new bundle object whose
+ * table arrays are SHARED with the original until a scenario replaces one.
+ *
+ * Safe because every scenario mutates by reassigning a whole table
+ * (`mutated.agents = mutated.agents.map(...)`, spreading the rows it
+ * changes) and never edits a row or an array in place, and nothing
+ * downstream (derived.js's analyses, the risk engine) writes to its inputs.
+ * The deep cloneRoots() this replaced copied every row of all 22 tables per
+ * scenario. Sharing `dependencies` is also what lets the risk engine reuse
+ * its graph structures for the mutated bundle (riskEngine withRoots()).
+ */
+function forkRoots(roots) {
+  return { ...roots, _counts: { ...roots._counts } }
+}
+
 function recount(roots) {
   const counts = {}
   for (const t of derived.ROOT_TABLES) counts[t] = (roots[t] || []).length
@@ -120,10 +147,24 @@ function recount(roots) {
   return roots
 }
 
+// orgHealth() reads only threat levels from predictiveRisk, so the lean
+// variant (no per-agent cascade BFS / blast-radius walk) is exact here.
 function healthScore(roots, ctx) {
   const acc = derived.accountability(roots)
-  const risk = derived.predictiveRisk(roots, ctx)
+  const risk = derived.predictiveRisk(roots, ctx, { lean: true })
   return derived.orgHealth(roots, { accountability: acc, predictiveRisk: risk }).healthIndex
+}
+
+// Baseline health per engine context. A context is built for one roots
+// bundle, so its baseline never changes; rankAllScenarios used to recompute
+// it once per scenario.
+const baselineHealthCache = new WeakMap()
+function cachedBaselineHealth(roots, ctx) {
+  const hit = baselineHealthCache.get(ctx)
+  if (hit && hit.roots === roots) return hit.score
+  const score = healthScore(roots, ctx)
+  baselineHealthCache.set(ctx, { roots, score })
+  return score
 }
 
 /**
@@ -132,13 +173,17 @@ function healthScore(roots, ctx) {
  * a second health formula: simulatedHealthScore = baselineHealthScore - healthDelta.
  */
 function baselineHealthScore(roots, ctx) {
-  return healthScore(roots, ctx)
+  return cachedBaselineHealth(roots, ctx || riskEngine.buildEngine(roots))
 }
 
 /** Positive = health drops after the mutation. Null if either side lacks evidence. */
 function healthDelta(baselineRoots, mutatedRoots, baselineCtx) {
-  const before = healthScore(baselineRoots, baselineCtx)
-  const after = healthScore(mutatedRoots)
+  const base = baselineCtx || riskEngine.buildEngine(baselineRoots)
+  const before = cachedBaselineHealth(baselineRoots, base)
+  // withRoots() reuses the baseline's engines for the mutated bundle when
+  // the topology is shared (forkRoots), re-solving only if the observed
+  // distress changed; given a separately-cloned bundle it builds afresh.
+  const after = healthScore(mutatedRoots, base.withRoots(mutatedRoots))
   if (before == null || after == null) return null
   return before - after
 }
@@ -201,7 +246,7 @@ function employeeLeaves(employeeId, roots, ctx) {
   const r = seedPairs.length ? context.impact.runSeeded(seedPairs) : null
   const mass = cascadeMass(context, r, entities)
 
-  const mutated = cloneRoots(roots)
+  const mutated = forkRoots(roots)
   mutated.employees = mutated.employees.filter((e) => e.id !== employeeId)
   mutated.agents = mutated.agents.map((a) => (a.owner_id === employeeId ? { ...a, owner_id: null } : a))
   // Anyone who named the departing employee as a backup loses that coverage
@@ -280,7 +325,7 @@ function employeeLeavesWithSuccessor(employeeId, successorId, roots, ctx) {
   const mass = cascadeMass(context, r, entities)
 
   // ── Mutation: reassign, don't orphan ────────────────────────────────────
-  const mutated = cloneRoots(roots)
+  const mutated = forkRoots(roots)
 
   mutated.agents = mutated.agents.map((a) =>
     a.owner_id === employeeId ? { ...a, owner_id: successorId } : a)
@@ -383,7 +428,7 @@ function agentFails(agentId, roots, ctx) {
   // should outrank anything merely fragile") -- the population stays the
   // same size, and the failure itself is what raises the threat level, not a
   // shrinking denominator. Owner decision, 2026-09-18.
-  const mutated = cloneRoots(roots)
+  const mutated = forkRoots(roots)
   mutated.agents = mutated.agents.map((a) => (a.id === agentId ? { ...a, status: 'failed' } : a))
   recount(mutated)
 
@@ -436,7 +481,7 @@ function platformDown(platformId, roots, ctx) {
   // Marking it down instead keeps the population the same size; only an
   // actual backup relationship should move this ratio. Owner decision,
   // 2026-09-18.
-  const mutated = cloneRoots(roots)
+  const mutated = forkRoots(roots)
   mutated.ai_platforms = mutated.ai_platforms.map((p) => (p.id === platformId ? { ...p, status: 'down' } : p))
   recount(mutated)
 
@@ -498,7 +543,7 @@ function workflowDisruption(workflowId, roots, ctx) {
   // disrupted instead keeps the population the same size; only an actual
   // runbook/failure record should move these ratios. Owner decision,
   // 2026-09-18.
-  const mutated = cloneRoots(roots)
+  const mutated = forkRoots(roots)
   mutated.workflows = mutated.workflows.map((w) => (w.id === workflowId ? { ...w, status: 'disrupted' } : w))
   recount(mutated)
 
@@ -521,31 +566,126 @@ function workflowDisruption(workflowId, roots, ctx) {
  * health impact. Criticality is entityCriticality() — never the raw,
  * disputed agents.risk column read directly.
  */
-function rankAllScenarios(roots, ctx) {
-  const context = ctx || riskEngine.buildEngine(roots)
-  const results = []
-
+function* scenarioSteps(roots, context) {
   for (const employee of roots.employees) {
-    const r = employeeLeaves(employee.id, roots, context)
-    if (r) results.push(r)
+    yield () => employeeLeaves(employee.id, roots, context)
   }
 
   for (const agent of roots.agents) {
     if (!atOrAbove(entityCriticality('agent', agent), 'high')) continue
-    const r = agentFails(agent.id, roots, context)
-    if (r) results.push(r)
+    yield () => agentFails(agent.id, roots, context)
   }
 
   for (const platform of roots.ai_platforms) {
     const criticality = entityCriticality('platform', platform, { knowledgeAssets: roots.knowledge_assets })
     if (!atOrAbove(criticality, 'high')) continue
-    const r = platformDown(platform.id, roots, context)
+    yield () => platformDown(platform.id, roots, context)
+  }
+}
+
+const byHealthImpact = (a, b) => (b.healthDelta ?? -Infinity) - (a.healthDelta ?? -Infinity)
+
+function rankAllScenarios(roots, ctx) {
+  const context = ctx || riskEngine.buildEngine(roots)
+  const results = []
+  for (const step of scenarioSteps(roots, context)) {
+    const r = step()
     if (r) results.push(r)
   }
-
-  results.sort((a, b) => (b.healthDelta ?? -Infinity) - (a.healthDelta ?? -Infinity))
-  return results
+  return results.sort(byHealthImpact)
 }
+
+/**
+ * Same ranking, same result, but yields the event loop every `sliceMs` of
+ * work. A large org's ranking is seconds of CPU (each agent-fails scenario
+ * re-solves the org-scan walk, which cannot be shortcut exactly); run
+ * synchronously it froze every other request for the whole duration. Use
+ * this from request handlers and agent tools.
+ */
+async function rankAllScenariosAsync(roots, ctx, { sliceMs = 20 } = {}) {
+  const context = ctx || riskEngine.buildEngine(roots)
+  const results = []
+  let sliceStart = Date.now()
+  for (const step of scenarioSteps(roots, context)) {
+    const r = step()
+    if (r) results.push(r)
+    if (Date.now() - sliceStart >= sliceMs) {
+      await new Promise((resolve) => setImmediate(resolve))
+      sliceStart = Date.now()
+    }
+  }
+  return results.sort(byHealthImpact)
+}
+
+// ─── Cached ranking for the request path ─────────────────────────────────────
+
+/**
+ * The org-wide ranking as GET /api/simulations/rank serves it: computed off
+ * the hot path, shared, and refreshed without making anyone wait.
+ *
+ *   - fresh (< RANK_TTL_MS): served from memory;
+ *   - stale: the previous ranking is served immediately (flagged
+ *     `refreshing: true`, with its real `computedAt`) while ONE background
+ *     recomputation runs — the same freshness window derived.js's memo uses,
+ *     without a multi-second wait every 30s on a large org;
+ *   - after a write (derived.invalidate() → invalidateRanking()): the old
+ *     ranking is dropped, not served — it may describe the org before the
+ *     change — and the next caller waits for a fresh one. A computation
+ *     that started before the write never stores its result.
+ *
+ * Concurrent callers share one computation. `loadRoots` is injected so the
+ * route keeps its existing data path and tests can stub it.
+ */
+const RANK_TTL_MS = 30_000
+let rankMemo = null // { at, value }
+let rankInFlight = null
+let rankInFlightToken = null
+let rankGeneration = 0
+
+function computeRanking(loadRoots) {
+  const generation = rankGeneration
+  const token = {}
+  rankInFlightToken = token
+  // The memo is stored and the in-flight slot released INSIDE the
+  // computation, before it resolves — releasing them in a later .then()
+  // left a window where a finished computation still looked in flight and
+  // a stale request skipped its refresh.
+  const promise = (async () => {
+    try {
+      const roots = await loadRoots()
+      const context = riskEngine.buildEngine(roots)
+      const baseline = baselineHealthScore(roots, context)
+      const scenarios = await rankAllScenariosAsync(roots, context)
+      const value = { baseline, scenarios, computedAt: new Date().toISOString() }
+      if (generation === rankGeneration) rankMemo = { at: Date.now(), value }
+      return value
+    } finally {
+      if (rankInFlightToken === token) { rankInFlight = null; rankInFlightToken = null }
+    }
+  })()
+  // Surfaced to awaiting callers; a background refresh with nobody awaiting
+  // must not become an unhandled rejection (it keeps the last good ranking).
+  promise.catch(() => {})
+  if (rankInFlightToken === token) rankInFlight = promise
+  return promise
+}
+
+async function rankedScenarios(loadRoots) {
+  if (rankMemo && Date.now() - rankMemo.at < RANK_TTL_MS) {
+    return { ...rankMemo.value, fromMemo: true, refreshing: false }
+  }
+  const pending = rankInFlight || computeRanking(loadRoots)
+  if (rankMemo) return { ...rankMemo.value, fromMemo: true, refreshing: true }
+  return { ...(await pending), fromMemo: false, refreshing: false }
+}
+
+function invalidateRanking() {
+  rankGeneration++
+  rankMemo = null
+  rankInFlight = null
+  rankInFlightToken = null
+}
+derived.onInvalidate(invalidateRanking)
 
 module.exports = {
   buildDependencyIndex,
@@ -553,6 +693,7 @@ module.exports = {
   workflowsUsingAgents,
   severityFor,
   cloneRoots,
+  forkRoots,
   recount,
   healthDelta,
   baselineHealthScore,
@@ -563,4 +704,8 @@ module.exports = {
   platformDown,
   workflowDisruption,
   rankAllScenarios,
+  rankAllScenariosAsync,
+  rankedScenarios,
+  invalidateRanking,
+  RANK_TTL_MS,
 }

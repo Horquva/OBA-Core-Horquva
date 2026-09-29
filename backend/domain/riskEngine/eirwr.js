@@ -215,17 +215,33 @@ function build(edges, opts = {}) {
       if (vSum > 0) for (let i = 0; i < N; i++) v[i] /= vSum
       else { v[0] = 1 } // unreachable in practice (bMax > 0 ⇒ some b^q > 0)
 
+      // Flatten M into CSR arrays for the inner loop. Entries keep their
+      // per-row order, so every accumulation below sums in exactly the same
+      // order as the nested-array form — results are bit-identical, only
+      // faster (this loop dominated simulation ranking at scale).
+      const rowPtr = new Int32Array(N + 1)
+      for (let i = 0; i < N; i++) rowPtr[i + 1] = rowPtr[i] + mIdx[i].length
+      const colIdx = new Int32Array(rowPtr[N])
+      const vals = new Float64Array(rowPtr[N])
+      for (let i = 0; i < N; i++) {
+        const base = rowPtr[i]
+        for (let k = 0; k < mIdx[i].length; k++) { colIdx[base + k] = mIdx[i][k]; vals[base + k] = mVal[i][k] }
+      }
+
       // Inner power iteration: r ← (1−α)·M·r + α·v, warm-started from the
-      // current r [paper lines 10-14]. Contraction rate ≤ (1−α).
+      // current r [paper lines 10-14]. Contraction rate ≤ (1−α). Two buffers,
+      // swapped each iteration, instead of a fresh array per iteration.
       let rIn = Float64Array.from(rVec)
+      let rNext = new Float64Array(N)
       for (let iter = 1; iter <= p.maxInner; iter++) {
         const rPrev = rIn
-        rIn = new Float64Array(N)
         for (let i = 0; i < N; i++) {
           let acc = 0
-          for (let k = 0; k < mIdx[i].length; k++) acc += mVal[i][k] * rPrev[mIdx[i][k]]
-          rIn[i] = (1 - p.alpha) * acc + p.alpha * v[i]
+          for (let k = rowPtr[i], end = rowPtr[i + 1]; k < end; k++) acc += vals[k] * rPrev[colIdx[k]]
+          rNext[i] = (1 - p.alpha) * acc + p.alpha * v[i]
         }
+        rIn = rNext
+        rNext = rPrev
         let diff = 0
         for (let i = 0; i < N; i++) diff += Math.abs(rIn[i] - rPrev[i])
         if (diff < p.eps) break

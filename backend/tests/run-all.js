@@ -23,6 +23,7 @@ const tests = [
 	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
 	'simulations.unit.test.js', // pure; asserts cascade/severity/health-delta (W-I)
 	'simulationsReassign.unit.test.js', // pure; asserts the succession mutation policy (W-L 13.1, D-70)
+	'rankingPerformance.unit.test.js', // pure; ranking optimizations are exact, non-blocking, cached (item 3)
 	'simulateReassignment.unit.test.js', // pure; asserts the TOOL wrapper resolves string ids (W-L 13.2)
 	'goldenQuestions.unit.test.js', // pure/offline; validates the 13.4 fixture structure and tool names
 	'tools.unit.test.js', // pure; asserts tool-risk composite score/tier (W-K D-58)

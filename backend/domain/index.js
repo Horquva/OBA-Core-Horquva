@@ -131,6 +131,9 @@ module.exports = {
     platformDown: simulations.platformDown,
     workflowDisruption: simulations.workflowDisruption,
     rankAllScenarios: simulations.rankAllScenarios,
+    rankAllScenariosAsync: simulations.rankAllScenariosAsync,
+    /** Cached, non-blocking org-wide ranking for request handlers — see simulations.js. */
+    rankedScenarios: () => simulations.rankedScenarios(() => derived.loadRoots(requireSupabase())),
     baselineHealthScore: simulations.baselineHealthScore,
     healthStatusFor: simulations.healthStatusFor,
   },

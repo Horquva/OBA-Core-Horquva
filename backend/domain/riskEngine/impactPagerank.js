@@ -99,27 +99,50 @@ function build(edges) {
     if (seedSum <= 0) return r
     for (let i = 0; i < n; i++) v[i] /= seedSum
 
+    // Only nodes reachable from the seed ever hold mass, and a blast-radius
+    // solve (one per agent) usually reaches a small downstream set. The walk
+    // therefore iterates over that ACTIVE set — kept in ascending index order
+    // — instead of every node. Every skipped term is an exact +0, and the
+    // remaining terms are summed in the same ascending order as a full sweep,
+    // so the result is bit-identical to iterating all n nodes.
+    const reached = new Uint8Array(n)
+    let active = []
+    for (let i = 0; i < n; i++) if (v[i] > 0) { reached[i] = 1; active.push(i) }
+
     let rIn = Float64Array.from(v)
+    let next = new Float64Array(n)
     for (let iter = 0; iter < MAX_ITER; iter++) {
       // Column-oriented accumulation: node j RECEIVES (1−α)·Σ_i M[i][j]·r[i]
       // — mass flows along rows from i to its neighbors. (The row-oriented
       // form next[i] = Σ M[i][j]·r[j] would push mass FROM i, inverting the
       // walk — the same direction-bug class this module exists to fix.)
-      const next = new Float64Array(n)
-      for (let i = 0; i < n; i++) {
+      for (const i of active) next[i] = 0
+      let grew = false
+      // Snapshot the length: nodes first reached this sweep hold no mass yet
+      // (rIn is 0 there), so they only start pushing next sweep.
+      const activeCount = active.length
+      for (let a = 0; a < activeCount; a++) {
+        const i = active[a]
         const outgoing = (1 - ALPHA) * rIn[i]
         const rowI = rowIdx[i]
-        if (rowI) for (let k = 0; k < rowI.length; k++) next[rowI[k]] += outgoing * rowVal[i][k]
+        for (let k = 0; k < rowI.length; k++) {
+          const j = rowI[k]
+          if (!reached[j]) { reached[j] = 1; next[j] = 0; active.push(j); grew = true }
+          next[j] += outgoing * rowVal[i][k]
+        }
       }
+      if (grew) active = active.sort((a, b) => a - b)
       let diff = 0
-      for (let i = 0; i < n; i++) {
+      for (const i of active) {
         next[i] += ALPHA * v[i]
         diff += Math.abs(next[i] - rIn[i])
       }
+      const prev = rIn
       rIn = next
+      next = prev
       if (diff < EPS) break
     }
-    r.set(rIn)
+    for (const i of active) r[i] = rIn[i]
     return r
   }
 
