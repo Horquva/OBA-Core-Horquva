@@ -11,6 +11,10 @@
  * Run from backend/:  node tests/secondaryTenantScoping.test.js
  */
 
+// The route modules pull in middleware/auth.js, whose authSecret refuses to
+// load without JWT_SECRET. CI has no backend/.env, so set it before any require.
+process.env.JWT_SECRET = 'test-secret-for-secondary-tenant-scoping'
+
 const tenant = require('../lib/tenant')
 const { runAsOrg, currentOrgId, applyOrgScope } = tenant
 
