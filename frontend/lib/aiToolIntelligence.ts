@@ -74,9 +74,9 @@ export interface OutageImpact {
  *  fields this file reads are declared; the route returns more (severity,
  *  healthDelta, etc.) for other consumers. */
 export interface PlatformImpactScenario {
-  platformId: number;
-  impactedAgents: { id: number }[];
-  impactedWorkflows: { id: number }[];
+  platformId: string;
+  impactedAgents: { id: string }[];
+  impactedWorkflows: { id: string }[];
 }
 
 /**

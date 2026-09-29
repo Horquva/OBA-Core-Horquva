@@ -4,6 +4,7 @@ const supabase = require('../../supabase')
 const { applyOrgScope } = require('../../lib/tenant')
 const { checkGate } = require('./gateCheck')
 const { escalate } = require('./escalate')
+const { isUuid } = require('../../lib/uuid')
 
 // ⚠ This endpoint does NOT implement the brain's M21 (Executive Avatar Intelligence). It used to
 // report `module: 'M21'` and carry that analysis's catalog name while computing
@@ -60,8 +61,8 @@ router.post('/check', async (req, res) => {
   try {
     const { workflow_id } = req.body
 
-    if (!Number.isInteger(Number(workflow_id))) {
-      return res.status(400).json({ error: 'workflow_id is required and must be an integer workflow id' })
+    if (!isUuid(workflow_id)) {
+      return res.status(400).json({ error: 'workflow_id is required and must be a workflow uuid' })
     }
 
     const gateResult = await checkGate(workflow_id)

@@ -1186,7 +1186,7 @@ export const authApi = {
 
 export interface AssignOwnerResponse {
   ok: boolean;
-  agent: { id: number; name: string; owner_id: number | null };
+  agent: { id: string; name: string; owner_id: string | null };
 }
 
 export const agentsApi = {
