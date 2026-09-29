@@ -1,4 +1,5 @@
 const supabase = require('../supabase')
+const { applyOrgScope } = require('./tenant')
 
 /**
  * employee_id -> full `owners` row (a 10-row subset of employees carrying
@@ -15,7 +16,7 @@ const supabase = require('../supabase')
  * run this exact query itself rather than share it.
  */
 async function loadOwners() {
-  const { data, error } = await supabase.from('owners').select('id, name, role, backup_owner, risk, employee_id').not('employee_id', 'is', null)
+  const { data, error } = await applyOrgScope(supabase.from('owners').select('id, name, role, backup_owner, risk, employee_id')).not('employee_id', 'is', null)
   if (error) throw new Error(`owners: ${error.message}`)
   const byEmployee = {}
   for (const o of data || []) byEmployee[o.employee_id] = o

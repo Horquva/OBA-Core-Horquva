@@ -1,8 +1,10 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { checkGate } = require('./gateCheck')
 const { escalate } = require('./escalate')
+const { isUuid } = require('../../lib/uuid')
 
 // ⚠ This endpoint does NOT implement the brain's M21 (Executive Avatar Intelligence). It used to
 // report `module: 'M21'` and carry that analysis's catalog name while computing
@@ -18,9 +20,9 @@ const { escalate } = require('./escalate')
 router.get('/', async (req, res) => {
   let criticalRisksTracked = null
   try {
-    const { count, error } = await supabase
+    const { count, error } = await applyOrgScope(supabase
       .from('knowledge_assets')
-      .select('*', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true }))
       .eq('criticality', 'critical')
     if (!error) criticalRisksTracked = count
   } catch (_) {}
@@ -38,9 +40,9 @@ router.get('/', async (req, res) => {
 
 // GET /api/avatar/escalations — all escalation logs
 router.get('/escalations', async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('escalation_logs')
-    .select('*')
+    .select('*'))
     .order('created_at', { ascending: false })
 
   if (error) return res.status(500).json({ error: error.message })
@@ -59,8 +61,8 @@ router.post('/check', async (req, res) => {
   try {
     const { workflow_id } = req.body
 
-    if (!Number.isInteger(Number(workflow_id))) {
-      return res.status(400).json({ error: 'workflow_id is required and must be an integer workflow id' })
+    if (!isUuid(workflow_id)) {
+      return res.status(400).json({ error: 'workflow_id is required and must be a workflow uuid' })
     }
 
     const gateResult = await checkGate(workflow_id)

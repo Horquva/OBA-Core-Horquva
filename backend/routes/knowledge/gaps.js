@@ -1,17 +1,18 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { must } = require('../../lib/supabaseQuery')
 
 // Skips the query entirely when there is nothing to look up (an empty .in()
 // list is rejected by PostgREST), but still fails loudly on a real error
 // instead of letting it look like "zero undocumented assets".
 const fetchByIds = (table, cols, ids) =>
-  ids.length ? must(table, supabase.from(table).select(cols).in('id', ids)) : Promise.resolve([])
+  ids.length ? must(table, applyOrgScope(supabase.from(table).select(cols)).in('id', ids)) : Promise.resolve([])
 
 router.get('/', async (req, res) => {
   // Get all undocumented assets with owner info
-  const data = await must('knowledge_assets', supabase
+  const data = await must('knowledge_assets', applyOrgScope(supabase
     .from('knowledge_assets')
     .select(`
       asset_type,
@@ -19,7 +20,7 @@ router.get('/', async (req, res) => {
       is_documented,
       criticality,
       employees ( id, name, role )
-    `)
+    `))
     .eq('is_documented', false))
 
   const agentIds    = data.filter(a => a.asset_type === 'agent')   .map(a => a.asset_id)

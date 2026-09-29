@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
 const { computePriorityScore, priorityLabel, driverLabel } = require('../../lib/decisionPriority')
@@ -35,9 +36,9 @@ function formatItem(i) {
 }
 
 async function fetchOpenItems() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('context_items')
-    .select('*')
+    .select('*'))
     .eq('status', 'open')
 
   if (error) throw new Error(error.message)
@@ -45,9 +46,9 @@ async function fetchOpenItems() {
 }
 
 async function fetchByType(contextType) {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('context_items')
-    .select('*')
+    .select('*'))
     .eq('context_type', contextType)
     .eq('status', 'open')
 
@@ -91,9 +92,9 @@ router.get('/incidents', async (req, res) => {
     const items = await fetchByType('incident')
 
     // Enrich with live failure data from workflow_failures
-    const failures = await must('workflow_failures', supabase
+    const failures = await must('workflow_failures', applyOrgScope(supabase
       .from('workflow_failures')
-      .select('severity, description, failure_type, workflows(name)')
+      .select('severity, description, failure_type, workflows(name)'))
       .in('severity', ['critical', 'high'])
       .order('severity', { ascending: true })
       .limit(6))
@@ -125,9 +126,9 @@ router.get('/decisions', async (req, res) => {
     // 2026-09-18, owner decision -- see
     // sql/18_drop_superseded_pending_decisions.sql), deriving the same
     // priority/sourceModule shape this route always returned.
-    const pending = await must('decision_queue', supabase
+    const pending = await must('decision_queue', applyOrgScope(supabase
       .from('decision_queue')
-      .select('title, description, impact_score, urgency_score, effort_score, blast_radius, driver, raised_at')
+      .select('title, description, impact_score, urgency_score, effort_score, blast_radius, driver, raised_at'))
       .eq('status', 'pending'))
 
     const ranked = pending
@@ -170,9 +171,9 @@ router.get('/metrics', async (req, res) => {
         snapshot_month: intel.orgHealth.snapshotMonth,
       })),
 
-      optional('documentation_trend', supabase
+      optional('documentation_trend', applyOrgScope(supabase
         .from('documentation_trend')
-        .select('coverage_pct, recorded_month')
+        .select('coverage_pct, recorded_month'))
         .order('recorded_month', { ascending: false })
         .limit(1)
         .maybeSingle()),
@@ -222,9 +223,9 @@ router.get('/avatar', async (req, res) => {
     const top5 = items.slice(0, 5)
 
     // Pull latest briefing summary
-    const briefing = await must('executive_briefings', supabase
+    const briefing = await must('executive_briefings', applyOrgScope(supabase
       .from('executive_briefings')
-      .select('summary_points, briefing_date')
+      .select('summary_points, briefing_date'))
       .order('briefing_date', { ascending: false })
       .limit(1)
       .maybeSingle())

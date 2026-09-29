@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { optional } = require('../../lib/supabaseQuery')
 const { computePriorityScore, priorityLabel, driverLabel } = require('../../lib/decisionPriority')
 
@@ -9,9 +10,9 @@ const { computePriorityScore, priorityLabel, driverLabel } = require('../../lib/
 // ─────────────────────────────────────────────
 
 async function fetchQueue(filterStatus = null, filterDriver = null) {
-  let query = supabase
+  let query = applyOrgScope(supabase
     .from('decision_queue')
-    .select('*')
+    .select('*'))
 
   if (filterStatus) query = query.eq('status', filterStatus)
   if (filterDriver) query = query.eq('driver', filterDriver)
@@ -53,9 +54,9 @@ router.get('/summary', async (req, res) => {
 
     const topDecision = queue[0]
 
-    const history = await optional('decision_history(revisit_flags)', supabase
+    const history = await optional('decision_history(revisit_flags)', applyOrgScope(supabase
       .from('decision_history')
-      .select('outcome, should_revisit'), [])
+      .select('outcome, should_revisit')), [])
 
     const revisitCount = history.filter(h => h.should_revisit).length
 
@@ -182,9 +183,9 @@ router.get('/drivers', async (req, res) => {
 
 router.get('/review', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('decision_history')
-      .select('*')
+      .select('*'))
       .order('decided_at', { ascending: false })
 
     if (error) throw new Error(error.message)
@@ -217,9 +218,9 @@ router.get('/review', async (req, res) => {
 
 router.get('/revisit', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('decision_history')
-      .select('*')
+      .select('*'))
       .eq('should_revisit', true)
       .order('decided_at', { ascending: true })
 

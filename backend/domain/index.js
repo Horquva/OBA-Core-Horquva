@@ -33,6 +33,10 @@ const { loadOrgDataset } = require('./dataset')
 const analyses = require('./analyses')
 const derived = require('./derived')
 const simulations = require('./simulations')
+const replaceability = require('./replaceability')
+const concentration = require('./concentration')
+const mutations = require('./mutations')
+const volatility = require('./volatility')
 
 let supabase = null
 try {
@@ -113,9 +117,16 @@ module.exports = {
   },
 
   // ─── Simulation (cascade reach, severity, health impact) ───
+  replaceability: (roots, ctx) => replaceability.replaceability(roots, ctx),
+  concentration: (roots, ctx) => concentration.concentration(roots, ctx),
+  mutations,
+  volatility: (rows) => volatility.volatility(rows),
+  humanConcentrationRisk: (roots, employeeId, ctx) => concentration.humanConcentrationRisk(roots, employeeId, ctx),
+
   simulations: {
     loadRoots: () => derived.loadRoots(requireSupabase()),
     employeeLeaves: simulations.employeeLeaves,
+    employeeLeavesWithSuccessor: simulations.employeeLeavesWithSuccessor,
     agentFails: simulations.agentFails,
     platformDown: simulations.platformDown,
     workflowDisruption: simulations.workflowDisruption,

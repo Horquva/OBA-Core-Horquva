@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 
 /**
  * `tool_spend` holds one row per platform per month (six months live —
@@ -17,7 +18,7 @@ function latestMonthSpend(rows) {
 }
 
 router.get('/', async (req, res) => {
-  const { data: platforms, error } = await supabase
+  const { data: platforms, error } = await applyOrgScope(supabase
     .from('ai_platforms')
     .select(`
       id, name, type, status,
@@ -27,7 +28,7 @@ router.get('/', async (req, res) => {
       tool_backups_primary:tool_backups!tool_backups_primary_platform_fkey ( id ),
       tool_policies ( status ),
       tool_spend ( amount_usd, month )
-    `)
+    `))
 
   if (error) return res.status(500).json({ error: error.message })
 

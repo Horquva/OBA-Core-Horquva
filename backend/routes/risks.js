@@ -1,14 +1,15 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { spofVerdict } = require('../domain/definitions')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 
 // GET /api/risks — comprehensive risk intelligence
 router.get('/', async (req, res) => {
-  const { data: agents, error: agentErr } = await supabase
+  const { data: agents, error: agentErr } = await applyOrgScope(supabase
     .from('agents')
-    .select('id, name, risk, status, owner_id')
+    .select('id, name, risk, status, owner_id'))
 
   if (agentErr) return res.status(500).json({ error: agentErr.message })
 
@@ -40,9 +41,9 @@ router.get('/', async (req, res) => {
   // not hide a SPOF that has no recorded dependent yet). This used to fall
   // back to `[]` on failure, which meant a broken query reported zero
   // dependents for every agent instead of the request failing.
-  const { data: deps, error: depsErr } = await supabase
+  const { data: deps, error: depsErr } = await applyOrgScope(supabase
     .from('dependencies')
-    .select('target_id, target_type, dependency_type')
+    .select('target_id, target_type, dependency_type'))
     .eq('target_type', 'agent')
     .in('dependency_type', ['critical', 'high'])
 

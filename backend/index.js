@@ -50,6 +50,15 @@ app.use(cors({
   // never '*'.
   credentials: true,
 }))
+
+// Ingest webhooks MUST mount before the JSON body parser (audit finding F-2):
+// their signatures are computed over the exact bytes the sender transmitted,
+// and express.json() would consume the body first, leaving the receiver to
+// sign a re-serialization that never matches. The router parses its own
+// bodies per-route (express.raw / express.text) and authenticates by
+// per-source HMAC — fail closed when a source's secret is unset.
+app.use('/api/ingest', require('./routes/ingest/webhook'))
+
 app.use(express.json())
 
 // Root route — friendly service metadata (prevents "Cannot GET /")
@@ -104,15 +113,26 @@ reportAgentBootState()
 // puts the whole router above the global gate below.
 app.use('/api/auth', require('./routes/auth/auth'))
 
-// OBA Core is single-tenant and no business table carries an org column, so a
-// second organization in app_users would silently share one dataset. D-01:
-// this is now a hard boot failure, not a warning — see the gate on
-// app.listen() at the bottom of this file, and lib/orgGuard.js for why the
-// check itself still only reports rather than exiting.
+// Ingest webhooks are MACHINE calls: they authenticate by per-source HMAC
+// (verified inside the router — fail closed when a source's secret is unset),
+// never by a user token, so the router also mounts above the global gate.
+// Anything unauthenticated that is NOT a validly signed webhook is rejected
+// there with 401/503 and audited.
+
+// Tenant health at boot (Phase 1.2): with org_id on every business table and
+// per-request scoping in lib/tenant.js, a second organization is now SUPPORTED,
+// not a boot failure. assertSingleTenant() is kept as a loud informational
+// report — multi-org data isolation is real, so the old process.exit(1) is gone.
 const orgGuardCheck = require('./lib/orgGuard').assertSingleTenant()
 
-// Everything else under /api touches real org data — require a valid bearer token.
+// Everything else under /api touches real org data — require a valid bearer token,
+// then bind the request to its tenant (Phase 1.2): runWithTenant resolves the
+// token's org slug to an orgs.id, stores it in the AsyncLocalStorage request
+// context that lib/tenant.js's applyOrgScope() reads everywhere, and mirrors it
+// on req.orgId. An unknown org slug is a hard 403; an unreachable orgs table
+// degrades to unscoped single-tenant mode with a warning.
 app.use('/api', requireAuth)
+app.use('/api', require('./lib/tenant').runWithTenant)
 app.use('/api/agent', require('./routes/agent'))
 
 app.use('/api/audit-log', require('./routes/auditLog'))
@@ -129,6 +149,7 @@ app.use('/api/simulations/agent-fails',     require('./routes/simulations/agentF
 app.use('/api/simulations/platform-down',   require('./routes/simulations/platformDown'))
 app.use('/api/simulations/workflow-disruption', require('./routes/simulations/workflowDisruption'))
 app.use('/api/simulations/rank',            require('./routes/simulations/rank'))
+app.use('/api/simulations/reassign',        require('./routes/simulations/reassign'))
 app.use('/api/human-agent-map',             require('./routes/humanAgentMap'))
 app.use('/api/tools',             require('./routes/tools'))
 app.use('/api/tool-intelligence', require('./routes/toolIntelligence'))
@@ -140,6 +161,11 @@ app.use('/api/continuity', require('./routes/continuity/continuity'))
 app.use('/api/intelligence/truth', require('./routes/truth/truth'))
 app.use('/api/verification', require('./routes/verification/intelligence'))
 app.use('/api/intelligence/brain-core', require('./routes/intelligence/brainCore'))
+app.use('/api/intelligence/replaceability', require('./routes/intelligence/replaceability'))
+app.use('/api/intelligence/concentration', require('./routes/intelligence/concentration'))
+app.use('/api/intelligence/score-history', require('./routes/intelligence/scoreHistory'))
+app.use('/api/intelligence/dependency-scan', require('./routes/intelligence/dependencyScan'))
+app.use('/api/crud', require('./routes/crud/crud'))
 app.use('/api/orchestration', require('./routes/orchestration/orchestration'))
 app.use('/api/decision-intelligence', require('./routes/decisionIntelligence'))
 app.use('/api/learning', require('./routes/learning/learning'))
@@ -177,6 +203,24 @@ require('./brain').loadGraph()
     console.error('Every /api/intelligence analysis endpoint will answer 503 until this')
     console.error('succeeds. Nothing is served from stand-in data.')
     console.error('='.repeat(78))
+    // Phase 1.7: transient failures retry inside loadGraph already; a total
+    // boot failure self-retries in the background instead of staying down
+    // until a human restarts the container.
+    const brain = require('./brain')
+    let bootRetries = 0
+    const retryBootLoad = () => {
+      if (bootRetries >= 5) {
+        console.error('Organizational Brain: giving up after 5 boot retries — use POST /api/intelligence/prediction/graph/reload once Supabase is reachable.')
+        return
+      }
+      bootRetries++
+      setTimeout(() => {
+        brain.loadGraph()
+          .then((stats) => console.log('Organizational Brain: graph loaded on boot retry', bootRetries, '—', JSON.stringify(stats)))
+          .catch(retryBootLoad)
+      }, 30_000 * bootRetries)
+    }
+    retryBootLoad()
   })
 
 app.use(errorHandler)
@@ -184,11 +228,18 @@ app.use(errorHandler)
 console.log("4. Routes loaded")
 
 const PORT = process.env.PORT || 3000
+// Phase 1.2: multi-org data is now isolated per request, so a second org in
+// app_users is a supported state, not a refusal to boot. The guard's report
+// is logged when it resolves; the server listens regardless.
 orgGuardCheck.then((result) => {
-  if (!result.ok) {
-    console.error('Refusing to start — see the SINGLE-TENANT ASSUMPTION VIOLATED banner above.')
-    process.exit(1)
+  if (result.ok && result.orgs.length > 1) {
+    console.log(`Tenant mode: ${result.orgs.length} organizations served with per-request isolation.`)
   }
+  app.listen(PORT, () => {
+    console.log("Server running on port", PORT)
+  })
+}).catch(() => {
+  // The report is best-effort; never let it block listening.
   app.listen(PORT, () => {
     console.log("Server running on port", PORT)
   })

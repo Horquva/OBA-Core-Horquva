@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 
 /*
  * GET /api/network/centrality — people-centric ownership/dependency graph.
@@ -15,10 +16,10 @@ const supabase = require('../supabase')
 router.get('/centrality', async (req, res) => {
   try {
     const [agentsRes, workflowsRes, runbooksRes, depsRes] = await Promise.all([
-      supabase.from('agents').select('id, employees ( name )'),
-      supabase.from('workflows').select('id'),
-      supabase.from('workflow_runbooks').select('workflow_id, employees ( name )'),
-      supabase.from('dependencies').select('source_id, source_type, target_id, target_type'),
+      applyOrgScope(supabase.from('agents').select('id, employees ( name )')),
+      applyOrgScope(supabase.from('workflows').select('id')),
+      applyOrgScope(supabase.from('workflow_runbooks').select('workflow_id, employees ( name )')),
+      applyOrgScope(supabase.from('dependencies').select('source_id, source_type, target_id, target_type')),
     ])
 
     if (agentsRes.error) return res.status(500).json({ error: agentsRes.error.message })

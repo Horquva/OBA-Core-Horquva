@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const domain = require('../../domain')
 
 const FAILURE_TYPE_LABEL = {
@@ -25,10 +26,10 @@ async function detectIssues() {
   // point of failure stayed on the self-healing issue list permanently.
   const [heroIntel, { data: failures, error: fErr }, { data: platforms, error: pErr }, { data: backups, error: bErr }, { data: knowledge, error: kErr }] = await Promise.all([
     domain.intelligence.all(),
-    supabase.from('workflow_failures').select('*, workflows ( name )'),
-    supabase.from('ai_platforms').select('id, name'),
-    supabase.from('tool_backups').select('primary_platform'),
-    supabase.from('knowledge_assets').select('asset_id, criticality').eq('asset_type', 'platform').eq('criticality', 'critical'),
+    applyOrgScope(supabase.from('workflow_failures').select('*, workflows ( name )')),
+    applyOrgScope(supabase.from('ai_platforms').select('id, name')),
+    applyOrgScope(supabase.from('tool_backups').select('primary_platform')),
+    applyOrgScope(supabase.from('knowledge_assets').select('asset_id, criticality')).eq('asset_type', 'platform').eq('criticality', 'critical'),
   ])
   if (fErr || pErr || bErr || kErr) {
     throw new Error((fErr || pErr || bErr || kErr).message)

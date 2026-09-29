@@ -1,14 +1,15 @@
 const express  = require('express')
 const router   = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 
 router.get('/', async (req, res) => {
-  const { data: workflows, error: wfErr } = await supabase
+  const { data: workflows, error: wfErr } = await applyOrgScope(supabase
     .from('workflows')
     .select(`
       id, name,
       workflow_failures ( failure_type, severity, description )
-    `)
+    `))
 
   if (wfErr) return res.status(500).json({ error: wfErr.message })
 

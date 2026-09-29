@@ -16,23 +16,31 @@ import {
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 
-import { AgentNode, AgentNodeData } from './CustomNodes';
+import { AgentNode, AgentNodeData, EntityNode, EntityNodeData } from './CustomNodes';
 import { Agent, Dependency } from '../../types';
 import { getDownstream } from '../../lib/graph';
 import { AlertTriangle, Info, Lock, Unlock } from 'lucide-react';
 
 const nodeTypes = {
   agent: AgentNode,
+  entity: EntityNode,
+};
+
+/** Rendered footprint per node kind — dagre needs explicit boxes. */
+const NODE_DIMS: Record<string, { width: number; height: number }> = {
+  agent: { width: 340, height: 160 },
+  entity: { width: 220, height: 72 },
 };
 
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-const getLayoutedElements = (nodes: Node<AgentNodeData>[], edges: Edge[], direction = 'TB') => {
+const getLayoutedElements = (nodes: Node<AgentNodeData | EntityNodeData>[], edges: Edge[], direction = 'TB') => {
   dagreGraph.setGraph({ rankdir: direction });
 
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: 340, height: 160 });
+    const dims = NODE_DIMS[node.type ?? 'entity'] ?? NODE_DIMS.entity;
+    dagreGraph.setNode(node.id, dims);
   });
 
   edges.forEach((edge) => {
@@ -42,12 +50,13 @@ const getLayoutedElements = (nodes: Node<AgentNodeData>[], edges: Edge[], direct
   dagre.layout(dagreGraph);
 
   const layoutedNodes = nodes.map((node) => {
+    const dims = NODE_DIMS[node.type ?? 'entity'] ?? NODE_DIMS.entity;
     const nodeWithPosition = dagreGraph.node(node.id);
     return {
       ...node,
       position: {
-        x: nodeWithPosition.x - 340 / 2,
-        y: nodeWithPosition.y - 160 / 2,
+        x: nodeWithPosition.x - dims.width / 2,
+        y: nodeWithPosition.y - dims.height / 2,
       },
     };
   });
@@ -55,23 +64,34 @@ const getLayoutedElements = (nodes: Node<AgentNodeData>[], edges: Edge[], direct
   return { nodes: layoutedNodes, edges };
 };
 
+/** Human-readable label for any graph node id. Bare uuids are globally
+ *  unique (sql/19_uuid_primary_keys.sql), so one map serves every type. */
+export interface EntityLabels {
+  [id: string]: { name: string; kind: string };
+}
+
 interface FlowCanvasProps {
   agents: Agent[];
   dependencies: Dependency[];
   /** Server-computed SPOF agent ids (backend/routes/dependencies.js
    *  GET /agent-spofs) — one definition of "SPOF", not reimplemented here. */
   spofIds: Set<string>;
+  /** Names for non-agent endpoints (workflows, platforms); absent ids fall
+   *  back to a shortened id so an edge is never rendered nameless-invisible. */
+  entityLabels?: EntityLabels;
 }
 
-export function FlowCanvas({ agents, dependencies, spofIds }: FlowCanvasProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<AgentNodeData>>([]);
+const shortId = (id: string) => (id.length > 10 ? `${id.slice(0, 8)}…` : id);
+
+export function FlowCanvas({ agents, dependencies, spofIds, entityLabels }: FlowCanvasProps) {
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<AgentNodeData | EntityNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(true);
 
   useEffect(() => {
-    const initialNodes: Node<AgentNodeData>[] = agents.map(agent => ({
+    const initialNodes: Node<AgentNodeData | EntityNodeData>[] = agents.map(agent => ({
       id: agent.id,
       type: 'agent',
       position: { x: 0, y: 0 },
@@ -80,6 +100,28 @@ export function FlowCanvas({ agents, dependencies, spofIds }: FlowCanvasProps) {
         isSPOF: spofIds.has(agent.id),
       }
     }));
+
+    // Full topology: every edge endpoint gets a node. Non-agent endpoints
+    // (workflows, platforms) render as compact generic nodes — the map is no
+    // longer blind to them (the agent–agent filter existed only to dodge the
+    // pre-uuid id collisions).
+    const seen = new Set(initialNodes.map(n => n.id));
+    for (const dep of dependencies) {
+      for (const endpointId of [dep.from, dep.to]) {
+        if (seen.has(endpointId)) continue;
+        seen.add(endpointId);
+        const label = entityLabels?.[endpointId];
+        initialNodes.push({
+          id: endpointId,
+          type: 'entity',
+          position: { x: 0, y: 0 },
+          data: {
+            label: label?.name ?? shortId(endpointId),
+            kind: label?.kind ?? 'entity',
+          },
+        });
+      }
+    }
 
     const initialEdges: Edge[] = dependencies.map((dep, idx) => ({
       id: `${dep.from}-${dep.to}-${idx}`,
@@ -105,14 +147,14 @@ export function FlowCanvas({ agents, dependencies, spofIds }: FlowCanvasProps) {
 
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-  }, [agents, dependencies, spofIds, setNodes, setEdges]);
+  }, [agents, dependencies, spofIds, entityLabels, setNodes, setEdges]);
 
   const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    setSelectedAgentId(prev => prev === node.id ? null : node.id);
+    setSelectedNodeId(prev => prev === node.id ? null : node.id);
   }, []);
 
   useEffect(() => {
-    if (!selectedAgentId) {
+    if (!selectedNodeId) {
       setNodes(nds => nds.map(n => ({
         ...n,
         data: { ...n.data, isFailed: false, isImpacted: false }
@@ -126,10 +168,10 @@ export function FlowCanvas({ agents, dependencies, spofIds }: FlowCanvasProps) {
       return;
     }
 
-    const downstreamIds = getDownstream(selectedAgentId, dependencies);
+    const downstreamIds = getDownstream(selectedNodeId, dependencies);
 
     setNodes(nds => nds.map(n => {
-      const isFailed = n.id === selectedAgentId;
+      const isFailed = n.id === selectedNodeId;
       const isImpacted = downstreamIds.has(n.id);
       
       return {
@@ -144,7 +186,7 @@ export function FlowCanvas({ agents, dependencies, spofIds }: FlowCanvasProps) {
 
     setEdges(eds => eds.map(e => {
       const isPathAffected = 
-        (e.source === selectedAgentId || downstreamIds.has(e.source)) && 
+        (e.source === selectedNodeId || downstreamIds.has(e.source)) && 
         downstreamIds.has(e.target);
 
       if (isPathAffected) {
@@ -164,7 +206,7 @@ export function FlowCanvas({ agents, dependencies, spofIds }: FlowCanvasProps) {
       }
     }));
 
-  }, [selectedAgentId, dependencies, setNodes, setEdges]);
+  }, [selectedNodeId, dependencies, setNodes, setEdges]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -181,7 +223,7 @@ export function FlowCanvas({ agents, dependencies, spofIds }: FlowCanvasProps) {
           </p>
         </div>
 
-        {selectedAgentId && (
+        {selectedNodeId && (
           <div className="bg-red-950/30 border border-red-900/50 p-3 rounded-md min-w-[250px]">
             <div className="flex items-center text-red-400 text-sm font-bold mb-1">
               <AlertTriangle size={16} className="mr-1.5" />
@@ -189,11 +231,11 @@ export function FlowCanvas({ agents, dependencies, spofIds }: FlowCanvasProps) {
             </div>
             <div className="text-xs text-[var(--text-primary)] flex justify-between">
               <span>Agent:</span> 
-              <span className="font-semibold">{agents.find(a => a.id === selectedAgentId)?.name}</span>
+              <span className="font-semibold">{entityLabels?.[selectedNodeId ?? '']?.name ?? agents.find(a => a.id === selectedNodeId)?.name ?? shortId(selectedNodeId ?? '')}</span>
             </div>
             <div className="text-xs text-[var(--text-secondary)] mt-1 flex justify-between">
               <span>Downstream impacted:</span> 
-              <span className="text-red-400 font-bold">{getDownstream(selectedAgentId, dependencies).size}</span>
+              <span className="text-red-400 font-bold">{getDownstream(selectedNodeId, dependencies).size}</span>
             </div>
           </div>
         )}

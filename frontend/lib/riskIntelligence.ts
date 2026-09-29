@@ -39,6 +39,23 @@ export interface AgentRiskProfile {
 
   /** How many downstream agents this one can cascade into */
   downstreamCount: number;
+
+  /** eIRWR continuous failure mass / blast radius (0.0 to 1.0) */
+  blastRadius: number;
+
+  /** BBN discrete state tuple (O, D, S, U) */
+  evidence: {
+    ownership: number;
+    documentation: number;
+    runtime_state: number;
+    cascade_exposure: number;
+  } | null;
+
+  /** Plain-English causal reasons */
+  reasons: string[];
+
+  /** BBN counterfactual attribution */
+  contributingFactors: Record<string, number>;
 }
 
 // ─── Factor list for an agent ─────────────────────────────────────────────────
@@ -200,6 +217,10 @@ export function computeRiskIntelligence(
       isSPOF,
       factors,
       downstreamCount,
+      blastRadius: risk?.blastRadius ?? 0,
+      evidence: risk?.evidence ?? null,
+      reasons: risk?.reasons ?? [],
+      contributingFactors: risk?.contributingFactors ?? {},
     };
   });
 
@@ -216,7 +237,19 @@ export function computeRiskIntelligence(
   const mediumAgents   = profiles.filter(p => p.tier === 'MEDIUM');
   const lowAgents      = profiles.filter(p => p.tier === 'LOW');
 
-  const evidence = evidenceGate(agents, () => true);
+  // Glass-box evidence gate (Spec 1, Phase 1.3). An agent counts as
+  // evidence-covered only when the facts its risk score reads actually
+  // exist: a named owner row, and the backend BBN's per-agent evidence
+  // tuple — which the two-engine pipeline computes from the real
+  // ownership/knowledge/dependency rows and refuses to fabricate
+  // (insufficient_evidence + null score, see domain/derived.js
+  // predictiveRisk). The former `() => true` predicate claimed 100%
+  // coverage unconditionally — an empty database rendered as fully
+  // evidenced, breaking the Ironclad Evidence Rule this gate exists for.
+  const evidence = evidenceGate(
+    agents,
+    (a) => Boolean(a.owner) && riskByAgentName.get(a.name)?.evidence != null,
+  );
   const ohs = orgHealth?.healthIndex ?? null;
 
   const statusMap: Record<string, RiskIntelligenceReport['healthStatus']> = {

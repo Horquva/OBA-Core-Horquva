@@ -1,4 +1,4 @@
-﻿/*
+/*
  * OBA Core — Run all MVP tests in sequence.
  * Run from the backend/ folder:  node tests/run-all.js
  * To include the live API test:   BASE_URL=https://horquva-oba-core.vercel.app node tests/run-all.js
@@ -17,6 +17,9 @@ const tests = [
 	'graphLoader.live.test.js', // self-skips when SUPABASE_URL is unset
 	'intelligence.verify.test.js',
 	'auth.unit.test.js',
+	'riskEngine.unit.test.js', // pure; asserts Engine A (eIRWR) and Engine B (BBN)
+	'uuidIds.unit.test.js', // pure; asserts opaque-string id handling after sql/19 (uuid PKs)
+	'tenant.unit.test.js', // pure + HTTP-level; asserts lib/tenant.js resolution modes and scoping (Phase 1.2)
 	'derived.unit.test.js', // pure; asserts the derived-intelligence definitions
 	'simulations.unit.test.js', // pure; asserts cascade/severity/health-delta (W-I)
 	'simulationsReassign.unit.test.js', // pure; asserts the succession mutation policy (W-L 13.1, D-70)
@@ -39,6 +42,15 @@ const tests = [
 	'agentsRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (DATA-1's first write path)
 	'realityRoutes.test.js', // HTTP-level; real brain + fixture graph, so it runs offline (M02/M03/M07/M28/M29/M31/M32/M34/M35/M49 wire-up)
 	'simulationRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-I)
+	'reassignRoute.test.js', // HTTP-level; stubs Supabase; the D-70 succession route (Phase 1.6)
+	'brainResilience.unit.test.js', // stubs graphLoader; retry/breaker/debounce (Phase 1.7)
+	'replaceability.unit.test.js', // pure; K_i decomposition, bench formula, quadrants (Phase 2.1)
+	'concentration.unit.test.js', // pure; HHI/Gini/entropy instruments, per-class alerts (Phase 2.2)
+	'scoreLedger.unit.test.js', // stubs Supabase; delta guard + evidence grounding (Phase 2.3)
+	'changeImpact.unit.test.js', // pure; seeded cascade, ΔOHI sign, mitigation rules (Phase 3.2)
+	'volatility.unit.test.js', // pure; EWMA/CUSUM instruments, window briefings (Phase 3.3)
+	'crudRoutes.test.js', // HTTP-level; structural CRUD through mutations (Phase 4.2)
+	'ingestWebhook.test.js', // HTTP-level; HMAC schemes, staging, CSV importer (Phase 4.3)
 	'orgGuard.unit.test.js', // pure; asserts checkSingleTenant()'s logic offline
 	'agentData.unit.test.js', // Tasks 10.6 and 12.7 - turn context and page context
 	'navigationCatalog.unit.test.js', // W-L 12.2 navigation catalog
@@ -47,6 +59,8 @@ const tests = [
 	'agentRoutes.test.js', // HTTP-level; stubs Supabase, so it runs offline (W-L 11.6 SSE route)
 	'getPageContext.unit.test.js', // Task 12.7 - get_page_context tool
 	'agentSuggestions.unit.test.js', // agent empty-state starter questions
+	'migrationOrdering.unit.test.js', // pure; verifies schema.sql and auth_schema.sql run order
+	'secondaryTenantScoping.test.js', // integration; asserts tenant scoping on secondary logs & knowledge gaps
 ]
 // api.smoke.test.js only runs when BASE_URL is set (otherwise localhost would fail).
 if (process.env.BASE_URL) tests.push('api.smoke.test.js')

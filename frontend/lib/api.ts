@@ -1112,6 +1112,8 @@ export interface PredictedAgent {
   threatLevel: string;
   isEmergingThreat: boolean;
   contributingFactors: Record<string, number>;
+  blastRadius?: number;
+  evidence?: { O: number; D: number; S: number; U: number };
   reasons: string[];
   computedAt: string;
 }
@@ -1184,7 +1186,7 @@ export const authApi = {
 
 export interface AssignOwnerResponse {
   ok: boolean;
-  agent: { id: number; name: string; owner_id: number | null };
+  agent: { id: string; name: string; owner_id: string | null };
 }
 
 export const agentsApi = {
@@ -1195,7 +1197,7 @@ export const agentsApi = {
    * approval, automation mode) is deliberately not built here — this is one
    * narrow, complete slice, not the start of a bigger form.
    */
-  assignOwner: (agentId: number, ownerId: number | null) =>
+  assignOwner: (agentId: string, ownerId: string | null) =>
     request<AssignOwnerResponse>(`/api/agents/${agentId}/owner`, {
       method: 'PATCH',
       body: JSON.stringify({ ownerId }),

@@ -1,9 +1,12 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { spofVerdict } = require('../domain/definitions')
 const { dependencyIndex, cascadeReach } = require('../domain/derived')
+const riskEngine = require('../domain/riskEngine')
+const domain = require('../domain')
 
 // GET /api/dependencies — full dependency graph with analysis
 router.get('/', async (req, res) => {
@@ -14,7 +17,7 @@ router.get('/', async (req, res) => {
   // canonical edge representation (derived.js, graphLoader.js, network.js,
   // risks.js, export-company.js all already use only these) -- the embed was
   // computing a join, sending it over the wire, and being discarded.
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('dependencies')
     .select(`
       id,
@@ -24,7 +27,7 @@ router.get('/', async (req, res) => {
       target_type,
       dependency_type,
       strength
-    `)
+    `))
 
   if (error) return res.status(500).json({ error: error.message })
 
@@ -45,7 +48,9 @@ router.get('/', async (req, res) => {
     .sort((a, b) => b[1] - a[1])
     .map(([key, count]) => {
       const [type, id] = key.split(':')
-      return { type, id: parseInt(id), connectionCount: count }
+      // ids are opaque strings (uuid since sql/19_uuid_primary_keys.sql) —
+      // never coerce to a number, the type prefix is the namespace.
+      return { type, id, connectionCount: count }
     })
 
   res.json({
@@ -72,54 +77,63 @@ router.get('/', async (req, res) => {
  * still reported per agent, as informational blast-radius context, not as
  * part of the SPOF gate.
  *
- * victimsCount/maxCascadeRisk now come from derived.js's dependencyIndex() +
- * cascadeReach() rather than a local adjacency walk. The local version built
- * adj[source] = [targets] and walked FORWARD from each agent — that returns
- * what the agent itself depends on (its own prerequisites), not who is
- * affected when it fails. "Max Cascade Depth / Largest downstream failure
- * chain" (the label this number renders under on the Dependency Map) was
- * therefore reporting each agent's upstream dependency count, backwards.
- * dependencyIndex()/cascadeReach() walk the correct direction — from a
- * failing node to the sources pointing AT it — and are already the shared,
- * tested definition three other consumers (predictiveRisk, orgHealth,
- * domain/simulations.js's scenario cascades) use for the same question.
+ * victimsCount/maxCascadeRisk come from derived.js's dependencyIndex() +
+ * cascadeReach() over the agent–agent edge subset — a COUNT is a different
+ * (still true) statement than a probability, and the Dependency Map's
+ * "largest downstream chain" label reads it as a count. The PROBABILISTIC
+ * blast radius (Phase 1.4) comes from the two-engine pipeline's Engine A:
+ * riskEngine.buildEngine(roots) — the eIRWR walk (arXiv:2608.08073) over the
+ * FULL dependency graph, weighted by edge criticality with attenuation and
+ * anomaly damping — served per agent as `blastRadius` (0–100, continuous),
+ * replacing this route's former unweighted-BFS-only view. The engine is
+ * built once per request from the tenant-scoped roots bundle; each per-agent
+ * radius is one seeded solve, memoized inside the engine.
  */
 router.get('/agent-spofs', async (req, res) => {
   try {
-    const [agentsRes, depsRes, backupByEmployee] = await Promise.all([
-      supabase.from('agents').select('id, name, risk, owner_id'),
-      supabase.from('dependencies').select('source_id, target_id, source_type, target_type').eq('source_type', 'agent').eq('target_type', 'agent'),
+    const [roots, backupByEmployee] = await Promise.all([
+      domain.intelligence.compute.loadRoots(),
       // "backup coverage" belongs to the agent's owner, not the agent — see
       // ownership.js's header comment. Same derivation as agents.js.
       loadOwnerBackupByEmployee(),
     ])
-    if (agentsRes.error) return res.status(500).json({ error: agentsRes.error.message })
-    if (depsRes.error) return res.status(500).json({ error: depsRes.error.message })
 
-    const agents = (agentsRes.data || []).map((a) => ({
-      ...a,
-      backup_owner: a.owner_id != null ? (backupByEmployee[a.owner_id] ?? null) : null,
-    }))
-    const index = dependencyIndex({ dependencies: depsRes.data || [] })
+    const engine = riskEngine.buildEngine(roots)
+    const agentDeps = roots.dependencies.filter((d) => d.source_type === 'agent' && d.target_type === 'agent')
+    const index = dependencyIndex({ dependencies: agentDeps })
 
     const spofs = []
     let maxCascadeRisk = 0
+    let maxBlastRadius = 0
 
-    for (const agent of agents) {
+    for (const agent of roots.agents) {
       const victimsCount = cascadeReach('agent', agent.id, index)
       if (victimsCount > maxCascadeRisk) maxCascadeRisk = victimsCount
+
+      const blastRadius = engine.blastRadius('agent', agent.id)
+      if (blastRadius > maxBlastRadius) maxBlastRadius = blastRadius
 
       const verdict = spofVerdict({
         criticality: agent.risk,
         ownerCount: agent.owner_id != null ? 1 : 0,
-        hasBackup: Boolean(agent.backup_owner),
+        hasBackup: agent.owner_id != null ? Boolean(backupByEmployee[agent.owner_id]) : false,
       })
       if (verdict.status === 'spof') {
-        spofs.push({ agentId: agent.id, name: agent.name, victimsCount })
+        spofs.push({
+          agentId: agent.id,
+          name: agent.name,
+          victimsCount,
+          blastRadius,
+          blastRadiusProvenance: {
+            engine: 'eirwr',
+            seed: { type: 'agent', id: agent.id },
+            criticalityWeight: engine.kappaOf('agent', agent.id),
+          },
+        })
       }
     }
 
-    res.json({ spofs, spofCount: spofs.length, maxCascadeRisk })
+    res.json({ spofs, spofCount: spofs.length, maxCascadeRisk, maxBlastRadius })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

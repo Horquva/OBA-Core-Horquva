@@ -1,4 +1,5 @@
 const supabase = require('../../supabase')
+const { currentOrgId } = require('../../lib/tenant')
 
 // escalation_logs columns are (workflow_id, severity, status, reason, detail).
 // This used to insert escalation_id, actor_type, actor_name, reasons and
@@ -23,15 +24,19 @@ async function escalate(gateResult) {
     `Actor: ${actor_name} (${actor_type}). Issues detected: ${reasons.join(', ')}. ` +
     `Immediate review required.`
 
+  const row = {
+    workflow_id: String(workflow_id),
+    severity,
+    status: 'open',
+    reason: reasons.join(', '),
+    detail: message,
+  }
+  const orgId = currentOrgId()
+  if (orgId) row.org_id = orgId
+
   const { data, error } = await supabase
     .from('escalation_logs')
-    .insert([{
-      workflow_id: String(workflow_id),
-      severity,
-      status: 'open',
-      reason: reasons.join(', '),
-      detail: message,
-    }])
+    .insert([row])
     .select()
 
   if (error) throw new Error(`Escalation failed: ${error.message}`)

@@ -1,18 +1,20 @@
+const { hhiOf } = require('../../domain/concentration')
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const domain = require('../../domain')
 
 router.get('/', async (req, res) => {
   const [{ data, error }, intel] = await Promise.all([
-    supabase
+    applyOrgScope(supabase
       .from('knowledge_assets')
       .select(`
         owner_id,
         is_documented,
         criticality,
         employees ( id, name, role, department )
-      `),
+      `)),
     domain.intelligence.all(),
   ])
 
@@ -102,7 +104,10 @@ router.get('/', async (req, res) => {
     cumulativeShare += c.concentrationScore
     if (cumulativeShare > 50) break
   }
-  const hhi = Math.round(concentration.reduce((sum, c) => sum + (c.concentrationScore * c.concentrationScore), 0))
+  // Phase 2.2: one HHI implementation (domain/concentration.js hhiOf) —
+  // the knowledge-holdings population keeps its own tier vocabulary
+  // (SEVERE/HIGH/MODERATE/HEALTHY, a frontend contract), only the math is shared.
+  const hhi = Math.round(hhiOf(concentration.map((c) => c.concentrationScore)))
   const hhiTier =
     hhi > 4000 ? 'SEVERE' :
     hhi > 2500 ? 'HIGH' :

@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope, currentOrgId } = require('../../lib/tenant')
 const domain = require('../../domain')
 const { loadDataset: loadOrgDataset } = domain
 const { atOrAbove } = require('../../domain/definitions')
@@ -37,8 +38,8 @@ async function buildBrain() {
     // decision_queue merged onto it 2026-09-18 (owner decision) -- see
     // sql/18_drop_superseded_pending_decisions.sql. Only .length is read
     // below, so no field mapping is needed here.
-    supabase.from('decision_queue').select('*').eq('status', 'pending'),
-    supabase.from('workflow_orchestration').select('*, workflows ( name )'),
+    applyOrgScope(supabase.from('decision_queue').select('*')).eq('status', 'pending'),
+    applyOrgScope(supabase.from('workflow_orchestration').select('*, workflows ( name )')),
   ])
   if (e3 || e4) throw new Error((e3 || e4).message)
 
@@ -413,14 +414,17 @@ function answerQuery(rawQuery, brain) {
 
 async function logHistory(query, r) {
   try {
-    await supabase.from('voice_history').insert({
+    const orgId = currentOrgId()
+    const payload = {
       query,
       detected_intent: r.intent,
       resolved_entity: r.entity ? r.entity.name : null,
       entity_type: r.entityType,
       answer: r.answer,
       confidence: r.confidence,
-    })
+    }
+    if (orgId) payload.org_id = orgId
+    await supabase.from('voice_history').insert(payload)
   } catch (_) { /* best-effort */ }
 }
 
@@ -497,7 +501,7 @@ const SUPPORTED_INTENTS = [
 ]
 router.get('/intents', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('voice_intents').select('intent_name, example_query').order('intent_name')
+    const { data, error } = await applyOrgScope(supabase.from('voice_intents').select('intent_name, example_query')).order('intent_name')
     // Falling back to SUPPORTED_INTENTS is deliberate and safe — it documents
     // this engine's real code behavior rather than organizational data, so it
     // cannot misreport the org. But a failed query is still logged rather than
@@ -516,9 +520,9 @@ router.get('/intents', async (req, res) => {
 // failed read, so a broken query looked like a fresh, unused assistant.
 router.get('/history', async (req, res) => {
   try {
-    const data = await must('voice_history', supabase
+    const data = await must('voice_history', applyOrgScope(supabase
       .from('voice_history')
-      .select('*')
+      .select('*'))
       .order('created_at', { ascending: false })
       .limit(20))
     res.json(data)

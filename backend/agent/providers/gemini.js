@@ -47,6 +47,13 @@ function mapUsage(u) {
 	return {
 		inputTokens: u.promptTokenCount || 0,
 		outputTokens: u.candidatesTokenCount || 0,
+		// Phase 4.4: with the volatile block out of the system instruction,
+		// the static prefix (constitution + tool schemas + entity summaries)
+		// repeats byte-identically across a session's turns, so the provider's
+		// prefix cache can hit — Gemini reports the served-from-cache share
+		// here. Logged per turn so the ~90% prefix-cost reduction is
+		// observable, not assumed.
+		cachedInputTokens: u.cachedContentTokenCount || 0,
 	}
 }
 

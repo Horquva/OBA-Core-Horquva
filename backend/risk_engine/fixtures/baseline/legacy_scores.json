@@ -1,0 +1,76 @@
+{
+  "capturedAt": "2026-09-24T08:11:24.201Z",
+  "engine": "legacy RISK_FACTORS point table (pre-v2)",
+  "predictiveRisk": [
+    {
+      "agentName": "FragileAgent",
+      "predictedScore": 87,
+      "threatLevel": "CRITICAL",
+      "contributingFactors": {
+        "single_owner": 30,
+        "high_dependency_count": 12,
+        "critical_workflow": 27,
+        "undocumented": 18
+      },
+      "cascadeReach": 4
+    },
+    {
+      "agentName": "OrphanAgent",
+      "predictedScore": 69,
+      "threatLevel": "HIGH",
+      "contributingFactors": {
+        "single_owner": 35,
+        "high_dependency_count": 12,
+        "unstable": 10,
+        "intrinsic_risk": 12
+      },
+      "cascadeReach": 3
+    },
+    {
+      "agentName": "HubAgent",
+      "predictedScore": 12,
+      "threatLevel": "LOW",
+      "contributingFactors": {
+        "high_dependency_count": 12
+      },
+      "cascadeReach": 3
+    },
+    {
+      "agentName": "SafeAgent",
+      "predictedScore": 0,
+      "threatLevel": "LOW",
+      "contributingFactors": {},
+      "cascadeReach": 0
+    }
+  ],
+  "humanDependencyRisk": [
+    {
+      "name": "Solo",
+      "totalRiskScore": 100,
+      "tier": "CRITICAL"
+    },
+    {
+      "name": "Covered",
+      "totalRiskScore": 6,
+      "tier": "LOW"
+    }
+  ],
+  "orgHealth": {
+    "healthIndex": 65,
+    "criticalSafetyScore": 63
+  },
+  "simulations": {
+    "agentFails_1": {
+      "severity": "high",
+      "healthDelta": 0
+    },
+    "employeeLeaves_1": {
+      "severity": "high",
+      "healthDelta": -5
+    },
+    "workflowDisruption_2": {
+      "severity": "medium",
+      "healthDelta": 0
+    }
+  }
+}

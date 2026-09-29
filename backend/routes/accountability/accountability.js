@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const domain = require('../../domain')
 
 // ─────────────────────────────────────────────
@@ -8,7 +9,7 @@ const domain = require('../../domain')
 // ─────────────────────────────────────────────
 
 async function fetchAllLinksWithEntity() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('accountability_links')
     .select(`
       id,
@@ -16,7 +17,7 @@ async function fetchAllLinksWithEntity() {
       person_name,
       raci_role,
       accountability_entities ( entity_name, entity_type, department )
-    `)
+    `))
 
   if (error) throw new Error(error.message)
   return data

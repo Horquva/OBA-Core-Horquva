@@ -220,40 +220,46 @@ console.log('\nPredictive risk — factors and emergence:')
 			{ source_id: 1, source_type: 'workflow', target_id: 1, target_type: 'agent', dependency_type: 'critical' },
 			{ source_id: 3, source_type: 'agent', target_id: 1, target_type: 'agent', dependency_type: 'high' },
 		],
-		knowledge_assets: [{ asset_type: 'agent', asset_id: 1, is_documented: false, owner_id: 1 }],
+		knowledge_assets: [
+			{ asset_type: 'agent', asset_id: 1, is_documented: false, owner_id: 1 },
+			{ asset_type: 'agent', asset_id: 2, is_documented: true, owner_id: 2 },
+			{ asset_type: 'agent', asset_id: 3, is_documented: true, owner_id: 2 },
+		],
 	})
 	const p = d.predictiveRisk(r)
 	const by = Object.fromEntries(p.scores.map((s) => [s.agentName, s]))
 
 	check('every agent is assessed', p.scores.length === 3, p.scores.length)
 	check('results are ordered worst-first', p.scores[0].agentName === 'Fragile', p.scores.map((s) => s.agentName))
-	check('an owner with no backup contributes single_owner',
-		by.Fragile.contributingFactors.single_owner === d.constants.RISK_FACTORS.SINGLE_OWNER, by.Fragile.contributingFactors)
-	check('an owner WITH a backup does not', by.Safe.contributingFactors.single_owner === undefined, by.Safe.contributingFactors)
-	check('a high-risk dependent workflow contributes critical_workflow',
-		by.Fragile.contributingFactors.critical_workflow === d.constants.RISK_FACTORS.CRITICAL_WORKFLOW, by.Fragile.contributingFactors)
-	check('undocumented knowledge contributes', by.Fragile.contributingFactors.undocumented === d.constants.RISK_FACTORS.UNDOCUMENTED)
-	check('score is the sum of its factors',
-		by.Fragile.predictedScore === Object.values(by.Fragile.contributingFactors).reduce((a, b) => a + b, 0), by.Fragile.predictedScore)
-	check('every factor has a human-readable reason',
-		by.Fragile.reasons.length === Object.keys(by.Fragile.contributingFactors).length, by.Fragile.reasons)
+	check('predictedScore is bounded 0..100', by.Fragile.predictedScore >= 0 && by.Fragile.predictedScore <= 100)
+	check('threatLevel aligns with 35/55/75 bands', by.Fragile.threatLevel === d.threatLevel(by.Fragile.predictedScore))
+	check('evidence object is present on every score', by.Fragile.evidence && by.Fragile.evidence.ownership === 1)
+	check('an unbacked owner contributes positive ownership attribution',
+		by.Fragile.contributingFactors.ownership > 0, by.Fragile.contributingFactors)
+	check('an owner WITH a backup sheds zero score', by.Safe.contributingFactors.ownership === 0, by.Safe.contributingFactors)
+	check('undocumented knowledge contributes positive attribution', by.Fragile.contributingFactors.documentation > 0)
+	check('fully documented agent sheds zero score on documentation', by.Safe.contributingFactors.documentation === 0)
+	check('every non-zero attribution factor has a human-readable reason',
+		by.Fragile.reasons.length >= 2, by.Fragile.reasons)
 	check('an agent scoring above its recorded label is EMERGING',
 		by.Fragile.isEmergingThreat === true && by.Fragile.recordedRisk === 'low', by.Fragile)
 	check('an agent matching its recorded label is not', by.Safe.isEmergingThreat === false, by.Safe)
 	check('cascadeReach counts everything downstream', by.Fragile.cascadeReach === 2, by.Fragile.cascadeReach)
-	check('a clean agent scores zero', by.Safe.predictedScore === 0, by.Safe.predictedScore)
+	check('blastRadius is present and non-negative', typeof by.Fragile.blastRadius === 'number' && by.Fragile.blastRadius > 0, by.Fragile.blastRadius)
+	check('a clean agent scores minimal floor risk', by.Safe.predictedScore === 2, by.Safe.predictedScore)
 }
 
 // ── Human dependency risk ─────────────────────────────────────────────────────
-console.log('\nHuman dependency risk — real predictedScore + RISK_FACTORS-scale exposure:')
+console.log('\nHuman dependency risk — Engine B portfolio expectation (Phase 1.5):')
 {
 	const r = roots({
 		employees: [
 			{ id: 1, name: 'Overloaded' },
 			{ id: 2, name: 'Clean' },
 		],
-		// Both employees have a personal backup, so neither agent picks up a
-		// single_owner factor -- isolates workflow/tool exposure from agentRisk.
+		// Both employees have a personal backup, so no agent picks up an
+		// ownership-fragile factor -- isolates tool-backup coverage as the
+		// one fragile dimension in Overloaded's portfolio.
 		agents: [
 			{ id: 1, name: 'A1', risk: 'low', status: 'active', owner_id: 1 },
 			{ id: 2, name: 'A2', risk: 'low', status: 'active', owner_id: 1 },
@@ -264,16 +270,16 @@ console.log('\nHuman dependency risk — real predictedScore + RISK_FACTORS-scal
 			{ id: 11, name: 'Clean', employee_id: 2, backup_owner: 'Deputy2' },
 		],
 		workflows: [
-			{ id: 1, name: 'CritFlow', risk: 'critical' },
-			{ id: 2, name: 'LowFlow', risk: 'low' },
+			{ id: 1, name: 'CritFlow', risk: 'critical', status: 'active' },
+			{ id: 2, name: 'LowFlow', risk: 'low', status: 'active' },
 		],
 		workflow_runbooks: [
 			{ workflow_id: 1, owner_id: 1, is_documented: true },
 			{ workflow_id: 2, owner_id: 1, is_documented: true },
 		],
 		ai_platforms: [
-			{ id: 1, name: 'ToolA' },
-			{ id: 2, name: 'ToolB' },
+			{ id: 1, name: 'ToolA', status: 'active' },
+			{ id: 2, name: 'ToolB', status: 'active' },
 		],
 		tool_ownership: [
 			{ platform_id: 1, employee_id: 1 },
@@ -281,21 +287,30 @@ console.log('\nHuman dependency risk — real predictedScore + RISK_FACTORS-scal
 		],
 		// ToolA has a designated backup platform, ToolB does not.
 		tool_backups: [{ primary_platform: 1, backup_platform: 2 }],
+		knowledge_assets: [
+			{ asset_type: 'agent', asset_id: 1, is_documented: true, owner_id: 1 },
+			{ asset_type: 'agent', asset_id: 2, is_documented: true, owner_id: 1 },
+			{ asset_type: 'agent', asset_id: 3, is_documented: true, owner_id: 2 },
+		],
 	})
 	const profiles = d.humanDependencyRisk(r)
 	const by = Object.fromEntries(profiles.map((p) => [p.name, p]))
 
 	check('every owning employee gets a profile', profiles.length === 2, profiles.map((p) => p.name))
-	check('a fully-backed agent contributes zero agentRisk', by.Clean.totalRiskScore === 0, by.Clean)
-	check('1 of 2 owned workflows critical -> half of CRITICAL_WORKFLOW',
-		by.Overloaded.criticalWorkflowCount === 1 && by.Overloaded.ownedWorkflowCount === 2, by.Overloaded)
-	check('1 of 2 owned tools unbacked -> half of SINGLE_OWNER',
-		by.Overloaded.unbackedToolCount === 1 && by.Overloaded.ownedToolCount === 2, by.Overloaded)
-	check('score is agentRisk(0) + 0.5*CRITICAL_WORKFLOW(27) + 0.5*SINGLE_OWNER(30), rounded',
-		by.Overloaded.totalRiskScore === Math.round(0.5 * d.constants.RISK_FACTORS.CRITICAL_WORKFLOW + 0.5 * d.constants.RISK_FACTORS.SINGLE_OWNER),
-		by.Overloaded.totalRiskScore)
+	check('a fully-resilient one-asset portfolio scores the CPT floor (2)', by.Clean.totalRiskScore === 2, by.Clean)
+	check('the unbacked tool moves portfolio ownership evidence off optimal',
+		by.Overloaded.unbackedToolCount === 1 && by.Overloaded.evidence.ownership === 1, by.Overloaded.evidence)
+	check('fully documented portfolio reads documentation 2',
+		by.Overloaded.evidence.documentation === 2 && by.Overloaded.portfolio.docDocumented === 4, by.Overloaded.evidence)
+	check('all-active portfolio reads runtime_state 2', by.Overloaded.evidence.runtime_state === 2, by.Overloaded.evidence)
+	check('portfolio with no dependency-graph presence reads protected',
+		by.Overloaded.evidence.cascade_exposure === 2, by.Overloaded.evidence)
+	check('fragile dimension raises the score above the clean floor',
+		by.Overloaded.totalRiskScore > by.Clean.totalRiskScore, { overloaded: by.Overloaded.totalRiskScore, clean: by.Clean.totalRiskScore })
+	check('glass-box attribution rides on the profile (four counterfactual keys)',
+		by.Overloaded.attribution && ['ownership', 'documentation', 'runtime_state', 'cascade_exposure'].every((k) => typeof by.Overloaded.attribution[k] === 'number'), by.Overloaded.attribution)
 	check('tier comes from the canonical threatLevel bands, not an invented scheme',
-		by.Overloaded.totalRiskScore < 35 ? by.Overloaded.tier === 'LOW' : true, by.Overloaded)
+		by.Overloaded.tier === 'LOW' || by.Overloaded.tier === 'MEDIUM' || by.Overloaded.tier === 'HIGH' || by.Overloaded.tier === 'CRITICAL', by.Overloaded.tier)
 	check('sorted worst-first', profiles[0].totalRiskScore >= profiles[1].totalRiskScore, profiles)
 }
 

@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { must, optional } = require('../../lib/supabaseQuery')
 const domain = require('../../domain')
 const signalReaders = require('../../domain/signalReaders')
@@ -50,9 +51,9 @@ const MODULE_REGISTRY = [
 // ─────────────────────────────────────────────
 
 async function readBrainCore() {
-  const data = await must('brain_core_snapshots', supabase
+  const data = await must('brain_core_snapshots', applyOrgScope(supabase
     .from('brain_core_snapshots')
-    .select('brain_index, posture')
+    .select('brain_index, posture'))
     .order('computed_at', { ascending: false })
     .limit(1).maybeSingle())
 
@@ -106,9 +107,9 @@ function readExecutiveMemory(intel) {
 // while the CURRENT end of the trend is computed live. Comparing two stored
 // rows, as this did before, compared June against January and called it today.
 async function readHealthTrend(intel) {
-  const history = await optional('org_health_snapshots(trend)', supabase
+  const history = await optional('org_health_snapshots(trend)', applyOrgScope(supabase
     .from('org_health_snapshots')
-    .select('health_index, snapshot_month')
+    .select('health_index, snapshot_month'))
     .order('snapshot_month', { ascending: true }), [])
 
   if (!history.length) return { score: 50, verified: false, source: 'org_health_snapshots' }
@@ -126,9 +127,9 @@ async function readHealthTrend(intel) {
 }
 
 async function readExecutiveBriefing() {
-  const data = await must('executive_briefings', supabase
+  const data = await must('executive_briefings', applyOrgScope(supabase
     .from('executive_briefings')
-    .select('doc_trend_current')
+    .select('doc_trend_current'))
     .order('briefing_date', { ascending: false })
     .limit(1).maybeSingle())
 
@@ -349,9 +350,9 @@ async function getOrComputeOrchestration() {
 
   // A failed cache read is non-fatal — recomputing live is the right fallback —
   // but the error is logged rather than discarded.
-  const cached = await optional('orchestrator_snapshots (cache read)', supabase
+  const cached = await optional('orchestrator_snapshots (cache read)', applyOrgScope(supabase
     .from('orchestrator_snapshots')
-    .select('*')
+    .select('*'))
     .gte('computed_at', `${today}T00:00:00`)
     .order('computed_at', { ascending: false })
     .limit(1).maybeSingle())

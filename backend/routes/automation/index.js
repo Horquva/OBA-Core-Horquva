@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { computePriorityScore, priorityLabel } = require('../../lib/decisionPriority')
 
 // ⚠ This endpoint does NOT implement the brain's M52 (Governance Automation Intelligence). It used to
@@ -21,9 +22,9 @@ router.get('/governance', async (req, res) => {
   // title, description, priority, raised_at, status) is preserved by
   // deriving `priority` from decision_queue's real score instead of a
   // hand-picked label.
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('decision_queue')
-    .select('*')
+    .select('*'))
     .order('raised_at', { ascending: false })
 
   if (error) return res.status(500).json({ error: error.message })
@@ -61,9 +62,9 @@ router.get('/governance', async (req, res) => {
 // GET /api/automation/continuity — backup coverage for critical assets (advisory)
 router.get('/continuity', async (req, res) => {
   const [{ data: criticalAssets, error: kaErr }, { data: platforms, error: pErr }, { data: backups, error: bErr }] = await Promise.all([
-    supabase.from('knowledge_assets').select('*').eq('criticality', 'critical'),
-    supabase.from('ai_platforms').select('id, name'),
-    supabase.from('tool_backups').select('primary_platform'),
+    applyOrgScope(supabase.from('knowledge_assets').select('*')).eq('criticality', 'critical'),
+    applyOrgScope(supabase.from('ai_platforms').select('id, name')),
+    applyOrgScope(supabase.from('tool_backups').select('primary_platform')),
   ])
   if (kaErr) return res.status(500).json({ error: kaErr.message })
   if (pErr) return res.status(500).json({ error: pErr.message })

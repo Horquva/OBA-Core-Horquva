@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope, currentOrgId } = require('../../lib/tenant')
 const domain = require('../../domain')
 const { must, optional } = require('../../lib/supabaseQuery')
 const { requireCsrfHeader } = require('../../middleware/auth')
@@ -22,12 +23,10 @@ async function getTopSPOF() {
   return {
     predicted_score: top.predictedScore,
     agents: { name: top.agentName, risk: top.recordedRisk, owner_id: null },
-    // predictiveRisk()'s single_owner factor is only present when the agent
-    // has no owner AT ALL, or has an owner with no backup (derived.js's
-    // predictiveRisk(), lines ~510-516) -- absent when the owner has a real
-    // backup. Previously this route asserted "no backup owner" for whichever
-    // agent happened to be top-CRITICAL, whether or not that was true.
-    hasNoBackupOwner: 'single_owner' in top.contributingFactors,
+    // predictiveRisk()'s ownership evidence indicates lack of backup coverage
+    // when ownership !== 2 (0 = unowned, 1 = single owner with no backup, 2 = backed up).
+    // On the BBN engine, evidence.ownership !== 2 accurately reflects unbacked status.
+    hasNoBackupOwner: top.evidence ? top.evidence.ownership !== 2 : false,
   }
 }
 
@@ -49,9 +48,9 @@ async function getMostOverloaded() {
 // available proxy, not an actual "latest" guarantee; do not present this as
 // time-ordered without adding a real timestamp column first.
 async function getLatestIncident() {
-  return must('workflow_failures', supabase
+  return must('workflow_failures', applyOrgScope(supabase
     .from('workflow_failures')
-    .select('failure_type, severity, description, workflow_id, workflows(name)')
+    .select('failure_type, severity, description, workflow_id, workflows(name)'))
     .eq('severity', 'critical')
     .order('workflow_id', { ascending: false })
     .limit(1)
@@ -59,9 +58,9 @@ async function getLatestIncident() {
 }
 
 async function getDocTrend() {
-  const data = await must('documentation_trend', supabase
+  const data = await must('documentation_trend', applyOrgScope(supabase
     .from('documentation_trend')
-    .select('*')
+    .select('*'))
     .order('recorded_month', { ascending: false })
     .limit(2))
 
@@ -77,9 +76,9 @@ async function getDocTrend() {
 }
 
 async function getPendingDecisionsCount() {
-  const { count, error } = await supabase
+  const { count, error } = await applyOrgScope(supabase
     .from('decision_queue')
-    .select('*', { count: 'exact', head: true })
+    .select('*', { count: 'exact', head: true }))
     .eq('status', 'pending')
 
   if (error) throw new Error(`decision_queue: ${error.message}`)
@@ -145,9 +144,9 @@ router.get('/today', requireCsrfHeader, async (req, res) => {
     const today = new Date().toISOString().split('T')[0]
     // A failed cache read is non-fatal — computing live is the right fallback —
     // but log the real error rather than silently treating it as "no cache".
-    const cached = await optional('executive_briefings (cache read)', supabase
+    const cached = await optional('executive_briefings (cache read)', applyOrgScope(supabase
       .from('executive_briefings')
-      .select('*')
+      .select('*'))
       .eq('briefing_date', today)
       .maybeSingle())
 
@@ -178,6 +177,9 @@ router.get('/today', requireCsrfHeader, async (req, res) => {
       summary_points: summaryPoints
     }
 
+    const orgId = currentOrgId()
+    if (orgId) briefing.org_id = orgId
+
     // Cache it. The briefing is already computed and valid, so a write failure
     // must not deny it to the caller — but it can't vanish either.
     const { error: cacheError } = await supabase.from('executive_briefings').insert(briefing)
@@ -197,9 +199,9 @@ router.get('/today', requireCsrfHeader, async (req, res) => {
 
 router.get('/summary', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('executive_briefings')
-      .select('briefing_date, summary_points, doc_trend_status, most_overloaded_owner, top_spof')
+      .select('briefing_date, summary_points, doc_trend_status, most_overloaded_owner, top_spof'))
       .order('briefing_date', { ascending: false })
       .limit(1)
       .single()
@@ -224,9 +226,9 @@ router.get('/summary', async (req, res) => {
 
 router.get('/history', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('executive_briefings')
-      .select('*')
+      .select('*'))
       .order('briefing_date', { ascending: false })
       .limit(30)
 
@@ -243,9 +245,9 @@ router.get('/history', async (req, res) => {
 
 router.get('/documentation-trend', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('documentation_trend')
-      .select('*')
+      .select('*'))
       .order('recorded_month', { ascending: true })
 
     if (error) throw new Error(error.message)
@@ -285,9 +287,9 @@ router.get('/pending-decisions', async (req, res) => {
     // priority/sourceModule shape this route always returned, from
     // decision_queue's real impact/urgency/effort/blast_radius score instead
     // of a hand-picked label.
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('decision_queue')
-      .select('*')
+      .select('*'))
       .eq('status', 'pending')
 
     if (error) throw new Error(error.message)
@@ -348,6 +350,24 @@ router.get('/top-risks', async (req, res) => {
         reasons: d.reasons
       }))
     })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/briefing/volatility — Phase 3.3: the Weekly Executive Dependency
+// Briefing's longitudinal section, over the change log Feature 3's mutation
+// layer writes. Per-window: material changes, churn velocity (EWMA) with its
+// band, CUSUM drift alert, net exposure change, damage/improvement split,
+// and the worst event with its mitigation. Empty window →
+// insufficient_evidence per the Ironclad rule.
+router.get('/volatility', async (req, res) => {
+  try {
+    const { data, error } = await applyOrgScope(
+      supabase.from('dependency_change_log').select('*')
+    ).order('created_at', { ascending: false }).limit(500)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(domain.volatility(data || []))
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

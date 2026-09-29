@@ -1,13 +1,14 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
 
 async function fetchOrchestrationWithCurrentStep() {
-  const { data: orchestrations, error } = await supabase
+  const { data: orchestrations, error } = await applyOrgScope(supabase
     .from('workflow_orchestration')
     .select(`
       id,
@@ -17,7 +18,7 @@ async function fetchOrchestrationWithCurrentStep() {
       status,
       updated_at,
       workflows ( name, department )
-    `)
+    `))
 
   if (error) throw new Error(error.message)
 
@@ -26,9 +27,9 @@ async function fetchOrchestrationWithCurrentStep() {
   // orchestration row.
   const workflowIds = [...new Set(orchestrations.map(o => o.workflow_id))]
   const { data: steps, error: stepsError } = workflowIds.length
-    ? await supabase
+    ? await applyOrgScope(supabase
         .from('workflow_steps')
-        .select('workflow_id, step_number, step_name, actor_type, actor_name, is_required')
+        .select('workflow_id, step_number, step_name, actor_type, actor_name, is_required'))
         .in('workflow_id', workflowIds)
     : { data: [], error: null }
   if (stepsError) throw new Error(stepsError.message)
@@ -188,9 +189,9 @@ router.get('/blocked', async (req, res) => {
 
 router.get('/mode', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('execution_mode')
-      .select('mode')
+      .select('mode'))
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()

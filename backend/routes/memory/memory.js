@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { must } = require('../../lib/supabaseQuery')
 const domain = require('../../domain')
 
@@ -49,9 +50,9 @@ router.get('/employee/:name', async (req, res) => {
   try {
     const { name } = req.params
 
-    const { data: emp, error: empError } = await supabase
+    const { data: emp, error: empError } = await applyOrgScope(supabase
       .from('employees')
-      .select('id, name, role, department, risk')
+      .select('id, name, role, department, risk'))
       .ilike('name', name)
       .single()
 
@@ -69,9 +70,9 @@ router.get('/employee/:name', async (req, res) => {
     // Workflow runbooks owned by employee. This feeds both the department list
     // and impactIfLeaves, so a failed read must not pass as "owns no
     // runbooks" — that understates the person's risk.
-    const runbooks = await must('workflow_runbooks', supabase
+    const runbooks = await must('workflow_runbooks', applyOrgScope(supabase
       .from('workflow_runbooks')
-      .select('workflow_id, is_documented, last_updated, workflows(name, department)')
+      .select('workflow_id, is_documented, last_updated, workflows(name, department)'))
       .eq('owner_id', emp.id))
 
     // Departments impacted

@@ -48,6 +48,7 @@
 const supabase = require('../../supabase')
 const { loadOwnerBackupByEmployee } = require('../../lib/ownerBackups')
 const { deriveCollaborations } = require('../../lib/deriveCollaborations')
+const { applyOrgScope } = require('../../lib/tenant')
 
 const EXEC_TITLE = /^(VP|COO|CFO|CEO|CTO|Head of|Chief|President|Director)/i
 
@@ -57,6 +58,11 @@ async function loadFromSupabase(graph) {
     if (!from || !to) return null
     return graph.addRelationship({ from: from.id, to: to.id, type, ...extra })
   }
+
+  // Tenant scoping (Phase 1.2): inside a request/tenant context every read
+  // filters to the caller's org; outside one the read is unscoped (legacy
+  // single-tenant behavior — offline tests, boot-time loads).
+  const q = (table, select = '*') => applyOrgScope(supabase.from(table).select(select))
 
   /**
    * Carry the WHOLE source row into entity metadata.
@@ -108,28 +114,28 @@ async function loadFromSupabase(graph) {
     { data: externalEntitySupplies, error: e22 },
     { data: decisionQueue, error: e23 },
   ] = await Promise.all([
-    supabase.from('employees').select('*'),
-    supabase.from('agents').select('*'),
-    supabase.from('ai_platforms').select('*'),
-    supabase.from('workflows').select('*'),
-    supabase.from('workflow_runbooks').select('*'),
-    supabase.from('dependencies').select('*'),
-    supabase.from('tool_ownership').select('*'),
-    supabase.from('tool_users').select('*'),
-    supabase.from('tool_policies').select('*'),
-    supabase.from('knowledge_assets').select('*'),
-    supabase.from('accountability_links').select('*'),
-    supabase.from('accountability_entities').select('*'),
-    supabase.from('workflow_steps').select('*'),
-    supabase.from('tool_backups').select('*'),
-    supabase.from('agent_platform').select('*, agents ( name )'),
-    supabase.from('workflow_tool_dependencies').select('*, workflows ( name )'),
-    supabase.from('systems').select('*'),
-    supabase.from('system_dependencies').select('*'),
-    supabase.from('system_agent_usage').select('*'),
-    supabase.from('external_entities').select('*'),
-    supabase.from('external_entity_supplies').select('*'),
-    supabase.from('decision_queue').select('*'),
+    q('employees'),
+    q('agents'),
+    q('ai_platforms'),
+    q('workflows'),
+    q('workflow_runbooks'),
+    q('dependencies'),
+    q('tool_ownership'),
+    q('tool_users'),
+    q('tool_policies'),
+    q('knowledge_assets'),
+    q('accountability_links'),
+    q('accountability_entities'),
+    q('workflow_steps'),
+    q('tool_backups'),
+    q('agent_platform', '*, agents ( name )'),
+    q('workflow_tool_dependencies', '*, workflows ( name )'),
+    q('systems'),
+    q('system_dependencies'),
+    q('system_agent_usage'),
+    q('external_entities'),
+    q('external_entity_supplies'),
+    q('decision_queue'),
   ])
   const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10 || e11 || e12 || e13 || e15 || e16 || e17 || e18 || e19 || e20 || e21 || e22 || e23
   if (firstError) throw new Error(`graphLoader: ${firstError.message}`)

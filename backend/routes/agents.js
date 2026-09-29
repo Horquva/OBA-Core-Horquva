@@ -1,15 +1,17 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../supabase')
+const { applyOrgScope } = require('../lib/tenant')
 const { loadOwnerBackupByEmployee } = require('../lib/ownerBackups')
 const { requireAdmin } = require('../middleware/requireRole')
 const { recordAudit } = require('../lib/audit')
+const { isUuid } = require('../lib/uuid')
 const domain = require('../domain')
 
 /** agent_id -> is_documented, via knowledge_assets where asset_type='agent'.
  *  null when no assessment exists — never fabricate a default (matches tools.js). */
 async function loadAgentDocumentation() {
-  const { data } = await supabase.from('knowledge_assets').select('asset_id, is_documented').eq('asset_type', 'agent')
+  const { data } = await applyOrgScope(supabase.from('knowledge_assets').select('asset_id, is_documented')).eq('asset_type', 'agent')
   const byAgent = {}
   for (const k of data || []) byAgent[k.asset_id] = k.is_documented
   return byAgent
@@ -18,13 +20,13 @@ async function loadAgentDocumentation() {
 /** The enriched agent list — pulled out so other routes (decisionIntelligence.js)
  *  can reuse this exact computation instead of re-deriving owner/backup/documented. */
 async function loadEnrichedAgents() {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('agents')
     .select(`
       id, name, type, status, risk, owner_id,
       usage_count, adoption_pct, last_used, cost,
       employees ( id, name, role, department )
-    `)
+    `))
   if (error) throw new Error(`agents: ${error.message}`)
 
   const [documented, ownerBackups] = await Promise.all([
@@ -92,9 +94,9 @@ async function clearCachesAfterOwnerChange() {
     }
   }
   await Promise.all([
-    clearTable('brain_core_snapshots', () => supabase.from('brain_core_snapshots').delete().gte('computed_at', `${today}T00:00:00`)),
-    clearTable('orchestrator_snapshots', () => supabase.from('orchestrator_snapshots').delete().gte('computed_at', `${today}T00:00:00`)),
-    clearTable('executive_briefings', () => supabase.from('executive_briefings').delete().eq('briefing_date', today)),
+    clearTable('brain_core_snapshots', () => applyOrgScope(supabase.from('brain_core_snapshots').delete()).gte('computed_at', `${today}T00:00:00`)),
+    clearTable('orchestrator_snapshots', () => applyOrgScope(supabase.from('orchestrator_snapshots').delete()).gte('computed_at', `${today}T00:00:00`)),
+    clearTable('executive_briefings', () => applyOrgScope(supabase.from('executive_briefings').delete()).eq('briefing_date', today)),
   ])
 }
 
@@ -102,14 +104,15 @@ async function clearCachesAfterOwnerChange() {
 //
 // DATA-1's first slice: the app has always been able to DETECT an unowned or
 // under-covered agent (orphaned list, human-SPOF checks, dependency risk) but
-// had no path to actually fix one — every recommendation it generates was
-// read-only advice with nowhere to go. This is that one write path: it does
-// not attempt the rest of the write loop (backup designation, documentation
-// flags, recommendation resolution, decision approval, automation mode —
-// each is its own decision about validation and UI, deliberately left for
-// its own pass rather than bundled in here).
+// had no path to actually fix one. Phase 3.1: this route now flows through
+// domain/mutations.js — the ONE write path — so every owner change is
+// recorded in dependency_change_log with before/after snapshots, its cascade
+// and ΔOHI impact, and honors an optional `Idempotency-Key` header (retries
+// replay the recorded mutation instead of double-applying). Cache
+// invalidation (derived memo + snapshot tables) and the background graph
+// reload happen inside the mutation layer.
 //
-// Body: { ownerId: number | null }. `null` clears ownership — a genuine
+// Body: { ownerId: uuid | null }. `null` clears ownership — a genuine
 // action (e.g. the owner left and there is no replacement yet), not an
 // error, so it is accepted, not rejected.
 //
@@ -117,61 +120,49 @@ async function clearCachesAfterOwnerChange() {
 // caller is signed in; without this any signed-in user could reassign
 // ownership.
 router.patch('/:id/owner', requireAdmin, async (req, res) => {
-  const agentId = Number(req.params.id)
-  if (!Number.isInteger(agentId)) {
+  const agentId = req.params.id
+  if (!isUuid(agentId)) {
     return res.status(400).json({ error: 'Invalid agent id' })
   }
 
   const { ownerId } = req.body ?? {}
-  if (ownerId !== null && !Number.isInteger(ownerId)) {
-    return res.status(400).json({ error: 'ownerId must be an integer employee id, or null to clear ownership' })
+  if (ownerId !== null && !isUuid(ownerId)) {
+    return res.status(400).json({ error: 'ownerId must be an employee uuid, or null to clear ownership' })
   }
 
-  const { data: before, error: beforeError } = await supabase
-    .from('agents')
-    .select('id, owner_id')
-    .eq('id', agentId)
-    .maybeSingle()
-  if (beforeError) return res.status(500).json({ error: beforeError.message })
-  if (!before) {
-    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_agent', targetType: 'agent', targetId: agentId })
-    return res.status(404).json({ error: `No agent with id ${agentId}` })
+  try {
+    const result = await domain.mutations.applyMutation({
+      mutationType: ownerId === null ? 'OWNER_REMOVED' : 'OWNER_ASSIGNED',
+      targetType: 'agent',
+      targetId: agentId,
+      payload: { ownerId },
+      actorId: req.user ? String(req.user.sub ?? req.user.id ?? '') : null,
+      idempotencyKey: req.get('Idempotency-Key') || null,
+    })
+
+    await recordAudit(req, {
+      action: 'agent.owner_update',
+      outcome: 'success',
+      targetType: 'agent',
+      targetId: agentId,
+      changes: { owner_id: { from: result.change?.before?.owner_id ?? null, to: ownerId } },
+    })
+    await clearCachesAfterOwnerChange()
+
+    res.json({ ok: true, agent: result.change?.after ?? null, replayed: result.replayed, changeId: result.change?.id ?? null })
+  } catch (err) {
+    const status = err.status || 500
+    const reason = status === 404 ? 'unknown_agent' : status === 400 ? 'unknown_employee' : 'update_error'
+    await recordAudit(req, { action: 'agent.owner_update', outcome: status < 500 ? 'failure' : 'failure', reason, targetType: 'agent', targetId: agentId })
+    return res.status(status).json({ error: err.message })
   }
-
-  const { data, error } = await supabase
-    .from('agents')
-    .update({ owner_id: ownerId })
-    .eq('id', agentId)
-    .select('id, name, owner_id')
-    .maybeSingle()
-
-  if (error) {
-    // Postgres foreign-key violation (agents.owner_id -> employees(id),
-    // declared in sql/05_foreign_keys.sql) — a real, expected outcome for a
-    // bad id, not a server fault.
-    if (error.code === '23503') {
-      await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_employee', targetType: 'agent', targetId: agentId, changes: { owner_id: { from: before.owner_id, to: ownerId } } })
-      return res.status(400).json({ error: `No employee with id ${ownerId}` })
-    }
-    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'update_error', targetType: 'agent', targetId: agentId })
-    return res.status(500).json({ error: error.message })
-  }
-  if (!data) {
-    await recordAudit(req, { action: 'agent.owner_update', outcome: 'failure', reason: 'unknown_agent', targetType: 'agent', targetId: agentId })
-    return res.status(404).json({ error: `No agent with id ${agentId}` })
-  }
-
-  await recordAudit(req, { action: 'agent.owner_update', outcome: 'success', targetType: 'agent', targetId: agentId, changes: { owner_id: { from: before.owner_id, to: ownerId } } })
-  await clearCachesAfterOwnerChange()
-
-  res.json({ ok: true, agent: data })
 })
 
 // GET /api/agents/risk-summary — risk breakdown
 router.get('/risk-summary', async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await applyOrgScope(supabase
     .from('agents')
-    .select('id, name, status, risk, owner_id')
+    .select('id, name, status, risk, owner_id'))
 
   if (error) return res.status(500).json({ error: error.message })
 

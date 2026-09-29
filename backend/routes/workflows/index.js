@@ -1,6 +1,7 @@
 const express = require('express')
 const router  = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { loadOwnerBackupByEmployee } = require('../../lib/ownerBackups')
 
 // GET /api/workflows — list all workflows with owner resolved via workflow_runbooks
@@ -16,9 +17,9 @@ const { loadOwnerBackupByEmployee } = require('../../lib/ownerBackups')
 // fields (see decision log, same-day fix "workflow shape mismatch").
 router.get('/', async (req, res) => {
   const [{ data: workflows, error: wErr }, { data: runbooks, error: rErr }, { data: steps, error: sErr }] = await Promise.all([
-    supabase.from('workflows').select('id, name, status, risk, department, frequency'),
-    supabase.from('workflow_runbooks').select('workflow_id, owner_id, is_documented, employees ( id, name, role, department )'),
-    supabase.from('workflow_steps').select('workflow_id, step_number, actor_type, actor_name, step_name').order('step_number'),
+    applyOrgScope(supabase.from('workflows').select('id, name, status, risk, department, frequency')),
+    applyOrgScope(supabase.from('workflow_runbooks').select('workflow_id, owner_id, is_documented, employees ( id, name, role, department )')),
+    applyOrgScope(supabase.from('workflow_steps').select('workflow_id, step_number, actor_type, actor_name, step_name')).order('step_number'),
   ])
   if (wErr) return res.status(500).json({ error: wErr.message })
   if (rErr) return res.status(500).json({ error: rErr.message })

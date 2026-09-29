@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Agent, Dependency } from '../../types';
 import { getDownstream } from '../../lib/graph';
+import { EntityLabels } from './FlowCanvas';
 import { ShieldAlert, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -10,10 +11,16 @@ interface DependencyTableProps {
   /** Server-computed SPOF agent ids (backend/routes/dependencies.js
    *  GET /agent-spofs) — one definition of "SPOF", not reimplemented here. */
   spofIds: Set<string>;
+  /** Names for non-agent endpoints (workflows, platforms) — cross-type
+   *  edges render real names instead of opaque uuid fragments. */
+  entityLabels?: EntityLabels;
 }
 
-export function DependencyTable({ agents, dependencies, spofIds }: DependencyTableProps) {
+const shortId = (id: string) => (id.length > 10 ? `${id.slice(0, 8)}…` : id);
+
+export function DependencyTable({ agents, dependencies, spofIds, entityLabels }: DependencyTableProps) {
   const agentMap = new Map(agents.map(a => [a.id, a]));
+  const nameOf = (id: string) => agentMap.get(id)?.name ?? entityLabels?.[id]?.name ?? shortId(id);
 
   // Pre-calculate immediate edges
   const immediateUpstream = useMemo(() => {
@@ -79,7 +86,7 @@ export function DependencyTable({ agents, dependencies, spofIds }: DependencyTab
                         {upstreams.map(upId => (
                           <li key={upId} className="flex items-start text-xs text-[var(--text-secondary)]">
                             <ArrowUpRight size={12} className="mr-1.5 mt-0.5 text-[var(--text-tertiary)] shrink-0" />
-                            <span>{agentMap.get(upId)?.name || upId}</span>
+                            <span>{nameOf(upId)}</span>
                           </li>
                         ))}
                       </ul>
@@ -95,7 +102,7 @@ export function DependencyTable({ agents, dependencies, spofIds }: DependencyTab
                         {downstreams.map(downId => (
                           <li key={downId} className="flex items-start text-xs text-[var(--text-secondary)]">
                             <ArrowDownRight size={12} className="mr-1.5 mt-0.5 text-[var(--accent)] shrink-0" />
-                            <span>{agentMap.get(downId)?.name || downId}</span>
+                            <span>{nameOf(downId)}</span>
                           </li>
                         ))}
                       </ul>

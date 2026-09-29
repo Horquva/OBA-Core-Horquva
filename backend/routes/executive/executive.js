@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope, currentOrgId } = require('../../lib/tenant')
 const domain = require('../../domain')
 const { must } = require('../../lib/supabaseQuery')
 const { requireCsrfHeader } = require('../../middleware/auth')
@@ -93,9 +94,9 @@ async function answerOwnership() {
 }
 
 async function answerContinuity() {
-  const data = await must('workflow_runbooks', supabase
+  const data = await must('workflow_runbooks', applyOrgScope(supabase
     .from('workflow_runbooks')
-    .select('workflow_id, is_documented, owner_id, workflows(name, department), employees(name)')
+    .select('workflow_id, is_documented, owner_id, workflows(name, department), employees(name)'))
     .eq('is_documented', false))
 
   if (!data.length) return null
@@ -185,9 +186,9 @@ async function answerAccountability() {
 }
 
 async function answerKnowledge() {
-  const rows = await must('knowledge_assets', supabase
+  const rows = await must('knowledge_assets', applyOrgScope(supabase
     .from('knowledge_assets')
-    .select('criticality, is_documented, owner_id, employees(name, department)')
+    .select('criticality, is_documented, owner_id, employees(name, department)'))
     .eq('is_documented', false)
     .eq('criticality', 'critical'))
 
@@ -296,14 +297,17 @@ router.get('/ask', requireCsrfHeader, async (req, res) => {
     // write failure must not deny the executive their answer — but it is logged
     // rather than discarded, since a silently broken audit trail is its own
     // problem.
-    const { error: logError } = await supabase.from('executive_sessions').insert({
+    const orgId = currentOrgId()
+    const sessionPayload = {
       question,
       question_type: questionType,
       answer_summary: result.answer,
       entity_name: result.entityName,
       responsible_person: result.responsiblePerson,
       data_sources: result.dataSources
-    })
+    }
+    if (orgId) sessionPayload.org_id = orgId
+    const { error: logError } = await supabase.from('executive_sessions').insert(sessionPayload)
     if (logError) {
       console.warn(`[executive] failed to log session to executive_sessions: ${logError.message}`)
     }
@@ -328,9 +332,9 @@ router.get('/ask', requireCsrfHeader, async (req, res) => {
 
 router.get('/questions', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('executive_questions')
-      .select('question_text, question_type')
+      .select('question_text, question_type'))
       .order('question_type')
 
     if (error) throw new Error(error.message)
@@ -347,9 +351,9 @@ router.get('/questions', async (req, res) => {
 
 router.get('/history', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await applyOrgScope(supabase
       .from('executive_sessions')
-      .select('*')
+      .select('*'))
       .order('created_at', { ascending: false })
       .limit(20)
 

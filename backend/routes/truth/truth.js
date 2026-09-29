@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../supabase')
+const { applyOrgScope } = require('../../lib/tenant')
 const { evidenceGate } = require('../../domain/definitions')
 
 // ─────────────────────────────────────────────
@@ -8,7 +9,7 @@ const { evidenceGate } = require('../../domain/definitions')
 // ─────────────────────────────────────────────
 
 async function fetchClaimsWithEntity(filters = {}) {
-  let query = supabase
+  let query = applyOrgScope(supabase
     .from('truth_claims')
     .select(`
       id,
@@ -25,7 +26,7 @@ async function fetchClaimsWithEntity(filters = {}) {
         entity_type,
         department
       )
-    `)
+    `))
 
   if (filters.verdict)      query = query.eq('verdict', filters.verdict)
   if (filters.entity_id)    query = query.eq('entity_id', filters.entity_id)
@@ -229,9 +230,9 @@ router.get('/entity/:name', async (req, res) => {
     const { name } = req.params
 
     // Resolve entity
-    const { data: entity, error: entityError } = await supabase
+    const { data: entity, error: entityError } = await applyOrgScope(supabase
       .from('truth_entities')
-      .select('id, entity_name, entity_type, department')
+      .select('id, entity_name, entity_type, department'))
       .ilike('entity_name', name)
       .single()
 

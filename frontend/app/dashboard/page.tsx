@@ -10,6 +10,8 @@ import { DailyBriefingCard } from '../../components/dashboard/DailyBriefingCard'
 import { WhatMattersNowFeed } from '../../components/dashboard/WhatMattersNowFeed';
 import { ExecutiveMemoryPanel } from '../../components/dashboard/ExecutiveMemoryPanel';
 import { EarlyWarningStrip } from '../../components/dashboard/EarlyWarningStrip';
+import { ConcentrationAlertsCard } from '../../components/dashboard/ConcentrationAlertsCard';
+import { VolatilityCard } from '../../components/dashboard/VolatilityCard';
 
 export default function DashboardPage() {
   return (
@@ -55,6 +57,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Row 3: Memory & Context */}
+      {/* Feature 2 (Phase 2.2): multi-class concentration + chokepoint alerts. */}
+      <ConcentrationAlertsCard />
+
+      {/* Phase 3.3: longitudinal volatility — churn velocity, drift watch, net exposure. */}
+      <VolatilityCard />
+
       <ExecutiveMemoryPanel />
 
       <div className="flex items-center gap-3 pt-6 pb-2 opacity-50">
