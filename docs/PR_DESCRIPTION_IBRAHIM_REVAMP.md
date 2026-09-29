@@ -59,7 +59,6 @@ This release delivers the complete architectural, algorithmic, and database tran
 ## 4. How to Test Locally
 1. Start backend: `cd backend && npm start` (listens on port 5000).
 2. Start frontend: `cd frontend && npm run dev` (listens on port 3001).
-3. Open `http://localhost:3001/login` and log in with:
-   - Email: `admin@horquva.com`
-   - Password: `admin1234`
+3. Open `http://localhost:3001/login` and log in with your own account
+   (credentials are never committed to the repo).
 4. Confirm dashboard renders live data across all risk, replaceability, concentration, and volatility panels without errors.
