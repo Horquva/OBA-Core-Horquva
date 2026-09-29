@@ -12,9 +12,13 @@
  *
  * Edge direction (the load-bearing convention): a dependencies row
  * `source depends_on target` maps to the paper's caller→callee edge, and the
- * update r ← M·r flows score FROM the failing dependency INTO its dependents —
- * exactly the blast-radius direction. Walking the transpose is the paper's
- * measured catastrophic case (MRR ≈ 0.01, Table 4).
+ * update r ← M·r flows score FROM the failing dependency INTO its dependents.
+ * Walking the transpose is the paper's measured catastrophic case (MRR ≈ 0.01,
+ * Table 4). The backward edges and belief-C column scaling then pull mass
+ * back toward likely cause nodes, so this engine is used ONLY for Engine B's
+ * upstream-exposure evidence (U). Blast radius — what a failure breaks — is
+ * computed by impactPagerank.js instead (audit finding F-1; see
+ * riskEngine/index.js).
  *
  * Parameters are the paper's defaults (§4.1). Where the paper is ambiguous the
  * decision is pinned in docs/risk_engine_research/IMPLEMENTATION_PLAN_EXPANDED.md

@@ -213,6 +213,44 @@ console.log('\nF-1 regression pins (blastRadius direction + normalization):')
 		[ctx.blastRadius('agent', 'a1'), ctx.blastRadius('agent', 'a2')].every((v) => v >= 0 && v <= 100))
 }
 
+// ── U exposure is invariant to unrelated failures ──────────────────────────
+// Regression: eirwr L1-normalizes the seed, so reading raw r against fixed
+// thresholds made a dependent of a failed agent read HighExposure with 1
+// failure org-wide and Protected with 10.
+console.log('\nU exposure — invariance to unrelated failures:')
+{
+	const exposureWith = (K) => {
+		const deps = []
+		const agents = []
+		for (let k = 0; k < K; k++) {
+			agents.push({ id: 'f' + k, status: 'failed' }, { id: 'd' + k, status: 'active' })
+			deps.push({ source_type: 'agent', source_id: 'd' + k, target_type: 'agent', target_id: 'f' + k, dependency_type: 'critical' })
+		}
+		return riskEngine.buildEngine({ dependencies: deps, agents, workflows: [], ai_platforms: [] }).uState('agent', 'd0')
+	}
+	const readings = [1, 2, 5, 10, 20].map(exposureWith)
+	check('dependent of a failed agent reads HighExposure (0) at every org-wide failure count', readings.every((u) => u === 0), readings)
+}
+
+// ── Blast radius scales with the number of dependents ───────────────────────
+// Regression: the κ-weighted average alone gave a 20-dependent hub and a
+// 1-dependent node the same reading.
+console.log('\nBlast radius — reach:')
+{
+	const deps = []
+	const agents = [{ id: 'hub' }, { id: 'solo' }, { id: 'lone' }]
+	for (let i = 0; i < 20; i++) {
+		agents.push({ id: 'n' + i })
+		deps.push({ source_type: 'agent', source_id: 'n' + i, target_type: 'agent', target_id: 'hub', dependency_type: 'normal' })
+	}
+	deps.push({ source_type: 'agent', source_id: 'lone', target_type: 'agent', target_id: 'solo', dependency_type: 'normal' })
+	const ctx = riskEngine.buildEngine({ dependencies: deps, agents, workflows: [], ai_platforms: [] })
+	const hub = ctx.blastRadius('agent', 'hub')
+	const solo = ctx.blastRadius('agent', 'solo')
+	check('20-dependent hub reads strictly higher than a 1-dependent node', hub > solo, { hub, solo })
+	check('a zero-dependent leaf reads 0', ctx.blastRadius('agent', 'n0') === 0, ctx.blastRadius('agent', 'n0'))
+}
+
 console.log(`\n========================================`)
 console.log(`Result: ${passed} passed, ${failed} failed`)
 console.log(`========================================\n`)

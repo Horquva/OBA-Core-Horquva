@@ -292,6 +292,13 @@ function orgScanSeeds(engine, roots) {
 // unmeasured-but-present (0.4), never as zero.
 const KAPPA = { critical: 1.0, high: 0.7, normal: 0.4, medium: 0.4, low: 0.2, unknown: 0.4 }
 
+// Blast-radius reach factor (see blastRadius below). [AUTHORED] — 3
+// dependents reach ~63% of full magnitude; a node needs ~10 dependents
+// before its reading approaches its severity. EPS separates "reached by the
+// walk" from floating-point residue.
+const BLAST_REACH_SCALE = 3
+const BLAST_REACH_EPS = 1e-9
+
 function kappaFor(roots) {
   // Node keys come from eirwr's `type:<id>` strings, entity rows carry the
   // raw id (a uuid since sql/19_uuid_primary_keys.sql). Keying the maps on
@@ -341,6 +348,16 @@ function buildEngine(roots) {
 
   const seedArr = orgScanSeeds(engine, roots)
   const orgScanR = seedArr ? engine.run(seedArr) : null
+  // eirwr.run L1-normalizes the seed, so the scan's r is a SHARE of the org's
+  // total distress: with K independent failures each one's neighborhood
+  // receives ~1/K of the mass it would alone. Read against the fixed
+  // U_THRESHOLDS that made exposure fall as failures rose (1 failed agent →
+  // its dependent HighExposure; 10 → the same dependent Protected, and so
+  // were the failed agents themselves). Scaling r back by the total seed mass
+  // expresses it in distress units (DISTRESS_FAILED = 1) — invariant to
+  // unrelated failures elsewhere, and identical to the old reading for a
+  // single failed seed, so the thresholds keep their calibration.
+  const seedMass = seedArr ? seedArr.reduce((sum, w) => sum + w, 0) : 0
 
   // ── IMPACT ENGINE (audit finding F-1) ──────────────────────────────────────
   // The eIRWR walk is root-cause direction by design: seeded at a symptom, it
@@ -383,16 +400,28 @@ function buildEngine(roots) {
     // Σ r·κ would read 1-2% even for a hub breaking five critical dependents;
     // normalizing by received mass asks the intended question directly: "how
     // critical is what breaks, weighted by how hard it is hit". A
-    // zero-dependent leaf receives nothing → 0; a hub whose dependents are
-    // all critical → 100.
+    // zero-dependent leaf receives nothing → 0; a hub whose many dependents
+    // are all critical → ~100.
+    //
+    // That average alone is blind to HOW MUCH breaks: a hub with twenty
+    // normal-criticality dependents and a node with one read the same 40. The
+    // severity is therefore scaled by a saturating reach factor over the
+    // number of dependents the walk actually reaches,
+    //   1 − exp(−reached / BLAST_REACH_SCALE)
+    // (1 dependent → 0.28, 3 → 0.63, 5 → 0.81, 10 → 0.96), so the reading is
+    // "how critical is what breaks × how much of it there is".
     let mass = 0
     let received = 0
+    let reached = 0
     for (let j = 0; j < impactEngine.nodes.length; j++) {
       if (j === idx) continue
+      if (r[j] > BLAST_REACH_EPS) reached++
       received += r[j]
       mass += r[j] * impactKappaArr[j]
     }
-    const value = received > 0 ? Math.min(100, Math.round((100 * mass) / received)) : 0
+    const severity = received > 0 ? mass / received : 0
+    const reach = 1 - Math.exp(-reached / BLAST_REACH_SCALE)
+    const value = Math.min(100, Math.round(100 * severity * reach))
     blastCache.set(idx, value)
     return value
   }
@@ -401,7 +430,7 @@ function buildEngine(roots) {
     if (!orgScanR) return 2 // no observed distress anywhere → Protected
     const idx = idxOf(type, id)
     if (idx === undefined) return 2
-    return bayes.exposureState(orgScanR[idx])
+    return bayes.exposureState(orgScanR[idx] * seedMass)
   }
 
   function runSeeded(pairs) {
@@ -449,6 +478,7 @@ module.exports = {
   scoreEmployee,
   PORTFOLIO_MAJORITY,
   KAPPA,
+  BLAST_REACH_SCALE,
   DISTRESS_FAILED,
   DISTRESS_INACTIVE,
   DISTRESS_WORKFLOW,
