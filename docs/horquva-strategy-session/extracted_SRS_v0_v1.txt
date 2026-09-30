@@ -1,0 +1,1265 @@
+Horquva — Software Requirements Specification (v0 to v2)
+
+Sep 30, 2026 · @Affan Ahmed
+
+1. Introduction
+
+This SRS defines what Horquva v0 (free n8n Ownership Check) and v1 (the Continuity Platform) must do in full, and v1.1 and v2 at a lighter level (section 7). It is a draft: the product scope it is built on (revision 3, 30 Sep 2026) is not yet signed off, and no buyer has validated it. Treat every requirement as a proposal that discovery calls and the hands-on API test may change.
+
+Audience: the two engineers building Horquva, and the founder for sign-off.
+
+How to read requirements. Each has an ID (AREA-nn), a release (v0, v1, v1.1) and a priority: Must (release cannot ship without it), Should (planned, can slip), Could (only if time allows). "Shall" marks a binding requirement.
+
+1.1 Definitions
+
+Term
+
+Meaning
+
+Asset
+
+Anything a person can hold: an automation (n8n workflow), an app, a group, a credential, or a CSV-imported system, vendor or process
+
+Holder / owner
+
+The person accountable for an asset
+
+Fact
+
+One attribute of an asset: owner, backup, criticality, documented, fallback, depends-on, runs-on-credentials-of
+
+Evidence state
+
+How a fact is known: stated (from an API), inferred (derived by rule), confirmed (by a person), unknown
+
+Departure
+
+A person leaving or changing role, with a leave date
+
+Handover pack
+
+Everything a departing person holds, what breaks, and who takes over
+
+Confirmation campaign
+
+A batch of requests asking owners to confirm facts no API provides
+
+Successor
+
+The person named to take over an asset
+
+Directory
+
+Microsoft Entra ID or Google Workspace
+
+1.2 References
+
+Product scope: docs/research/2026-09-30-product-scope.md (source of truth for scope)
+
+Feasibility study: docs/research/2026-09-29-horquva-feasibility-study.md (API endpoints and limits)
+
+Engineering foundation: docs/research/2026-09-29-horquva-product-engineering-foundation.md (architecture, draft data model)
+
+Simulation study: docs/research/2026-09-30-simulation-prediction-feasibility.md
+
+2. Overall description
+
+Horquva is organisational continuity software: when someone leaves, nothing breaks. It discovers who holds what across a company, asks owners to confirm what no API knows, and runs a handover before each departure and a check after it. AI automations (n8n first) are the entry point, not the whole product.
+
+2.1 Target customer and buyer
+
+Customer: companies of 100–2,000 people on Microsoft 365 or Google Workspace, adopting AI automation, using n8n and OpenAI and/or Anthropic.
+
+Buyer: whoever owns offboarding and the automation rollout: Head of Operations, IT lead, or AI/automation lead. (Open: which of the three leads.)
+
+2.2 User roles
+
+Role
+
+Who
+
+Can do
+
+Admin
+
+IT lead or Ops lead running Horquva
+
+Connect sources, manage users and roles, launch campaigns, enter departures, see everything, export
+
+Viewer
+
+Leadership, HR
+
+Read all screens and reports; no configuration
+
+Reviewer
+
+Asset owners, managers, successors
+
+Answer confirmation requests, claim ownerless assets, name or accept successors; sees only what they are asked about
+
+HR / manager (a permission, not a separate role)
+
+HR staff, line managers
+
+Enter a departure and name successors for their reports
+
+2.3 Operating environment
+
+Web app, current Chrome, Edge, Safari and Firefox, desktop first. Confirmation forms must also work on a phone.
+
+One deployment per customer (single tenant). No multi-org in v1.
+
+Connects outbound to n8n (Cloud or self-hosted and reachable), Microsoft Graph or Google Admin SDK, OpenAI and Anthropic admin APIs.
+
+2.4 Constraints
+
+Two engineers; v1 estimated at about 4.5–5 months (38.5–41 engineer-weeks, unverified).
+
+Built from scratch. The old OBA Core codebase is reference only; no code or engines carried over.
+
+Deterministic core: every finding is computed by rules from data. AI only explains; it never computes a finding.
+
+Read-only, metadata-only access to customer systems.
+
+2.5 Assumptions (to be tested)
+
+Buyers feel this pain enough to pay (untested: no calls yet).
+
+Owners will complete confirmation requests.
+
+A meaningful share of Entra apps and groups have owners set.
+
+n8n node parameters expose which AI model each node calls.
+
+3. System context and core loop
+
+Every feature serves one step of the loop: discover → confirm → watch → hand over → verify. Sources are read only; findings are computed by rules; AI only explains them.
+
+System context · 4 sources, 5-step loop, 4 outputs
+
+Connectors discover what they can. Owners confirm the facts no API provides (backup, criticality, documentation, fallback). Handover is the centre of the product.
+
+4. Functional requirements
+
+Requirements are grouped by area and follow the core loop. Release and priority are in each table.
+
+4.1 v0 — Free n8n Ownership Check (V0)
+
+A self-serve page. Someone pastes an n8n API key and gets a one-off report. It becomes the first slice of the v1 n8n connector.
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+V0-01
+
+The system shall accept an n8n base URL and API key and validate them with one read call before running.
+
+v0
+
+Must
+
+V0-02
+
+The system shall tell the user, before they paste, that the key must be the instance owner's (or an admin's on paid plans), that it is full-power on most plans, and that Horquva only calls read endpoints.
+
+v0
+
+Must
+
+V0-03
+
+The system shall never persist the key: held in memory for the run only, never logged, never written to disk or database.
+
+v0
+
+Must
+
+V0-04
+
+The report shall list automations with a single owner (one person resolved via GET /users?projectId=).
+
+v0
+
+Must
+
+V0-05
+
+The report shall list automations whose nodes use credentials owned by a person's personal project.
+
+v0
+
+Must
+
+V0-06
+
+The report shall list failing workflows (failed executions in the retained window) and abandoned ones (active, not edited or run in a set period).
+
+v0
+
+Must
+
+V0-07
+
+The report shall state its limits: execution history depth, and anything the key could not see.
+
+v0
+
+Must
+
+V0-08
+
+The user shall be able to download the report and optionally leave an email to hear about the platform (explicit opt-in).
+
+v0
+
+Should
+
+4.2 Connectors (R-CON)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+CON-01
+
+n8n: the system shall sync workflows (nodes, node types, connections, description, active state), credentials (id, name, type, owning project; never secrets), projects and their users, executions, and workflow history authors.
+
+v1
+
+Must
+
+CON-02
+
+The n8n connector shall poll workflow history at least daily, because unlicensed and Starter instances prune it after 24 hours.
+
+v1
+
+Must
+
+CON-03
+
+The n8n connector shall store execution outcomes itself, because n8n deletes them after 7–30 days.
+
+v1
+
+Must
+
+CON-04
+
+The n8n connector shall call read (GET) endpoints only, enforced in code by an allow-list and recorded in the audit log.
+
+v1
+
+Must
+
+CON-05
+
+Directory (Entra or Google, one in v1): the system shall sync people (name, email, department, title, manager, status), and for Entra, leave dates where employeeLeaveDateTime is populated.
+
+v1
+
+Must
+
+CON-06
+
+Entra: the system shall sync app registrations and service principals with their owners, and groups with their owners. Ownerless apps become findings.
+
+v1
+
+Must
+
+CON-07
+
+Google: the system shall sync groups with owners and managers. Apps come only via CSV.
+
+v1
+
+Must (if Google first)
+
+CON-08
+
+OpenAI / Anthropic admin: the system shall sync usage by model per project, workspace or key, and let an admin map a key or project to automations.
+
+v1
+
+Should
+
+CON-09
+
+CSV import: the system shall import systems, vendors, processes and other assets with owner, criticality and depends-on columns, and report row-level errors.
+
+v1
+
+Must
+
+CON-10
+
+Each connector shall show its last sync time, status, and errors on a Connections screen, and support a manual re-sync.
+
+v1
+
+Must
+
+CON-11
+
+Syncs shall run on a schedule (default daily; n8n history at least daily) and be safe to re-run.
+
+v1
+
+Must
+
+CON-12
+
+Second directory, Make and PagerDuty: see section 7.2 (CON-12 to CON-14).
+
+v1.1
+
+—
+
+4.3 Data and evidence (R-DATA)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+DATA-01
+
+The system shall hold one graph of people, teams, assets and dependencies (person holds asset; asset depends on asset, tool, vendor or model; automation runs on credential).
+
+v1
+
+Must
+
+DATA-02
+
+Every fact shall carry an evidence state (stated, inferred, confirmed, unknown), its source, and when it was last seen.
+
+v1
+
+Must
+
+DATA-03
+
+Unknown shall never be displayed or computed as "no". Unknown backup is not "no backup"; it is shown as unknown and counted separately.
+
+v1
+
+Must
+
+DATA-04
+
+A confirmed fact shall override a stated or inferred one until the underlying source changes, which triggers re-confirmation.
+
+v1
+
+Must
+
+DATA-05
+
+The system shall keep history of each fact so changes can be shown and audited.
+
+v1
+
+Must
+
+DATA-06
+
+Criticality and replaceability shall be High, Medium or Low with a stated reason; no numeric scores.
+
+v1
+
+Must
+
+4.4 Identity resolution (R-ID)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+ID-01
+
+The system shall match accounts across sources to directory people by email, then by admin-approved rules.
+
+v1
+
+Must
+
+ID-02
+
+Accounts that do not match anyone shall go to an identity review queue, never be treated as "no owner".
+
+v1
+
+Must
+
+ID-03
+
+An admin shall resolve queue items by linking to a person, marking as service account, or marking as departed. Decisions are audited.
+
+v1
+
+Must
+
+4.5 Confirmation (R-CHK)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+CHK-01
+
+An admin shall launch a confirmation campaign for a set of assets; each owner receives one request listing their assets.
+
+v1
+
+Must
+
+CHK-02
+
+The request shall ask per asset: am I the owner, who is the backup, criticality, is it documented (link), is there a fallback. Each answer may be "don't know".
+
+v1
+
+Must
+
+CHK-03
+
+Owners shall be able to claim ownerless assets and hand an asset to someone else.
+
+v1
+
+Must
+
+CHK-04
+
+The system shall send email reminders on a schedule and show campaign progress per team.
+
+v1
+
+Must
+
+CHK-05
+
+The system shall re-request confirmation automatically when an owner leaves or an asset materially changes.
+
+v1
+
+Should
+
+CHK-06
+
+Every answer shall be stored with who, when, and the prior value.
+
+v1
+
+Must
+
+4.6 Watch and change (R-CHG)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+CHG-01
+
+The system shall produce a change feed: upcoming leave dates, leavers, new or removed assets, edited workflows, swapped AI models, credential changes, failure spikes.
+
+v1
+
+Must
+
+CHG-02
+
+Each change shall show what it affects (assets, dependents, handovers).
+
+v1
+
+Must
+
+CHG-03
+
+The system shall send a weekly briefing email to admins: upcoming departures and what they hold, open handovers, new risks.
+
+v1
+
+Must
+
+4.7 Handover (R-HND) — the centre of the product
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+HND-01
+
+A departure shall be created (a) by HR or a manager entering a person and leave date, or (b) automatically from an Entra leave date where populated.
+
+v1
+
+Must
+
+HND-02
+
+On creation the system shall build a handover pack: every asset the person holds, what runs on their credentials, what is undocumented, what is critical, and what depends on each.
+
+v1
+
+Must
+
+HND-03
+
+The manager shall name a successor per asset (or per group of assets); the system shall suggest candidates from existing backups and co-owners but never pick automatically.
+
+v1
+
+Must
+
+HND-04
+
+Each successor shall receive a request to accept; acceptance is recorded as a confirmed ownership fact.
+
+v1
+
+Must
+
+HND-05
+
+The system shall track handover status per departure and per asset (not started, successor named, accepted, verified) and show what is still open before the leave date.
+
+v1
+
+Must
+
+HND-06
+
+After the account is disabled, the system shall check that the person's automations still run successfully and flag any that fail or stop.
+
+v1
+
+Must
+
+HND-07
+
+The system shall show credential and ownership risk: automations on a person's own credentials, credentials with no owner, ownerless apps, assets whose owner has left.
+
+v1
+
+Must
+
+HND-08
+
+Manager leaves: see section 7.2.
+
+v1.1
+
+—
+
+4.8 Simulation and analysis (R-SIM)
+
+All simulations are deterministic: the same data gives the same answer.
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+SIM-01
+
+What-if: a person leaves. Output: orphaned critical assets, automations that would stop (on their credentials), runs per week affected, dependents hit.
+
+v1
+
+Must
+
+SIM-02
+
+What-if: an automation fails; a vendor or AI model goes down. Same outputs.
+
+v1
+
+Must
+
+SIM-03
+
+Combined scenarios (several people and/or assets), and the worst single losses ranked.
+
+v1
+
+Should
+
+SIM-04
+
+Succession test: assign assets to a successor and show the resulting coverage and the successor's new load.
+
+v1
+
+Must
+
+SIM-05
+
+Unknown facts in a simulation shall be reported as unknown ("3 assets have unknown backup"), never assumed.
+
+v1
+
+Must
+
+SIM-06
+
+Team view: holdings, coverage and concentration by department or manager tree (e.g. "2 people hold 70% of Finance's critical assets"), with a mapping step for messy department names and a minimum group size.
+
+v1
+
+Must
+
+SIM-07
+
+Headline coverage count, e.g. "38 of 52 critical assets fully covered", with the definition of "covered" shown.
+
+v1
+
+Must
+
+SIM-08
+
+Ranked actions: one per problem, critical first, stating what it fixes.
+
+v1
+
+Must
+
+SIM-09
+
+Observed-rate signals and a prediction record: see section 7.2 (SIG, PRED).
+
+v1.1
+
+—
+
+4.9 Screens (R-UI)
+
+ID
+
+Screen
+
+Must show
+
+Release
+
+UI-01
+
+Overview
+
+Headline count, upcoming departures, top risks, top actions
+
+v1
+
+UI-02
+
+Departures
+
+Upcoming and recent leavers, handover status, post-departure checks
+
+v1
+
+UI-03
+
+People & teams
+
+Who holds what; team coverage and concentration. No individual scores.
+
+v1
+
+UI-04
+
+Assets
+
+Automations, apps, groups, CSV assets; each fact with its evidence state and source
+
+v1
+
+UI-05
+
+Map
+
+Clickable graph of people, assets and dependencies
+
+v1
+
+UI-06
+
+What-If
+
+Build and run scenarios; succession test
+
+v1
+
+UI-07
+
+Actions
+
+Ranked action list with status
+
+v1
+
+UI-08
+
+Supporting
+
+Confirmation form (phone-friendly), Connections, Identity queue, Settings, Users and roles
+
+v1
+
+4.10 Ask Horquva assistant (R-AI)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+AI-01
+
+Users shall ask plain-English questions from any screen ("what breaks if the ML team leaves?").
+
+v1
+
+Must
+
+AI-02
+
+The assistant shall answer only by calling the same API the screens use, and link each claim to its evidence. It shall never compute or invent a finding.
+
+v1
+
+Must
+
+AI-03
+
+The assistant shall respect the user's role permissions.
+
+v1
+
+Must
+
+AI-04
+
+Only metadata shall be sent to the model provider: never secrets, credentials or message content. One provider, contractually barred from training on customer data, listed as a sub-processor.
+
+v1
+
+Must
+
+AI-05
+
+If the data cannot answer the question, the assistant shall say so.
+
+v1
+
+Must
+
+4.11 Reports (R-RPT)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+RPT-01
+
+The system shall export a PDF handover pack per departure.
+
+v1
+
+Must
+
+RPT-02
+
+The system shall export a PDF scan report (Overview findings, risks, actions).
+
+v1
+
+Must
+
+RPT-03
+
+PDFs shall be generated from the same data as the screens and show the as-of date and evidence states.
+
+v1
+
+Must
+
+5. Non-functional requirements
+
+Targets marked (proposed) are starting numbers to agree on, not measured needs.
+
+5.1 Security and privacy (R-SEC)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+SEC-01
+
+Sign-in only through Microsoft or Google SSO; no local passwords.
+
+v1
+
+Must
+
+SEC-02
+
+Role-based access (admin, viewer, reviewer) enforced on every API call, not only in the UI.
+
+v1
+
+Must
+
+SEC-03
+
+Connector secrets encrypted at rest with a managed key, never returned to the browser, never logged.
+
+v1
+
+Must
+
+SEC-04
+
+Access to customer systems is read-only and metadata-only. Where a key cannot be restricted (n8n below Business/Enterprise), read-only is enforced in code and this is disclosed to the customer.
+
+v1
+
+Must
+
+SEC-05
+
+The system shall never read message, email, chat or document content.
+
+v1
+
+Must
+
+SEC-06
+
+Audit log of every sign-in, configuration change, sync, confirmation answer, handover action and export; admins can view and export it.
+
+v1
+
+Must
+
+SEC-07
+
+The system shall never score, rank or predict individuals, including likelihood of leaving. Team views enforce a minimum group size.
+
+v1
+
+Must
+
+SEC-08
+
+Data encrypted in transit (TLS 1.2+) and at rest.
+
+v1
+
+Must
+
+SEC-09
+
+A customer's data can be exported and fully deleted on request.
+
+v1
+
+Must
+
+SEC-10
+
+Hosting region selectable at least between US and EU.
+
+v1
+
+Should
+
+5.2 Quality (R-NFR)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+NFR-01
+
+Scale: up to 2,000 people, 5,000 automations and 20,000 assets per deployment (proposed).
+
+v1
+
+Must
+
+NFR-02
+
+Screens load in under 2 s at that scale; a single what-if runs in under 3 s (proposed).
+
+v1
+
+Must
+
+NFR-03
+
+A full sync of that scale completes within 1 hour (proposed); a failed sync never corrupts existing data.
+
+v1
+
+Must
+
+NFR-04
+
+Availability 99.5% monthly (proposed); syncs, reminders and briefings run even when no one is signed in.
+
+v1
+
+Should
+
+NFR-05
+
+Deterministic: the same data gives the same findings, simulations and counts.
+
+v1
+
+Must
+
+NFR-06
+
+Every number on screen or in a PDF traces to the facts behind it.
+
+v1
+
+Must
+
+NFR-07
+
+Connector version tolerance: the n8n connector handles API differences between supported n8n versions and fails loudly on unknown shapes.
+
+v1
+
+Must
+
+NFR-08
+
+Wording: the product shall not claim "real-time", "calibrated", "proven" or "peer-reviewed".
+
+v1
+
+Must
+
+NFR-09
+
+Accessibility: WCAG 2.1 AA for all screens and the confirmation form.
+
+v1
+
+Should
+
+NFR-10
+
+A hand-checkable test organisation (small, with known answers) is used to verify every finding and simulation in automated tests.
+
+v1
+
+Must
+
+6. Scope boundaries and open questions
+
+6.1 Out of scope for v1
+
+Any 0–100 score, health index, pillar, maturity or benchmark.
+
+Scoring or ranking individuals; predicting who will leave.
+
+Forecasts and probability ranges (v2, only once accuracy is measured).
+
+Reading message content.
+
+Writing to customer systems, including one-click reassignment (v2, opt-in).
+
+AI-drafted handover documents (v2).
+
+Distribution lists, on-premises-synced groups, Google app ownership (no API).
+
+Custom-code agents with no platform behind them (CSV only).
+
+Multi-org, real-time sync, SOC 2.
+
+The old engines: eIRWR, the hand-written Bayesian score, the 55 brain modules.
+
+6.2 Later releases (for architecture, not to build now)
+
+Release
+
+Adds
+
+v1.1
+
+Second directory, Make, PagerDuty; manager-leaves reassignment; observed-rate signals; prediction record; AI cost per automation or ISO 42001 / Vanta export
+
+v2
+
+Likelihood ranges (Monte Carlo), one-click reassignment, AI-drafted handover docs, trends
+
+Later
+
+GitHub, Backstage, ServiceNow, Jira, Confluence, Zapier, Agentforce, Copilot Studio, Workday / BambooHR via Merge, reorganisation planning
+
+Design the data model and connector framework so these fit without a rewrite; do not build them.
+
+6.3 Open decisions (block sign-off)
+
+☐ Sign off the promise, buyer and core loop.
+
+☐ n8n as the richest source (recommended) or a requirement.
+
+☐ Entra or Google first (recommended: whichever the first design partner uses; Entra if unknown).
+
+☐ Lead market: mid-market AI-automation companies (recommended) or regulated finance.
+
+☐ Pricing, and how much of the scan and onboarding is done by hand.
+
+6.4 Must be verified before build (hands-on test, about 1 week)
+
+☐ Where AI model names sit inside n8n node parameters.
+
+☐ Older n8n versions' API surface; self-hosted reachability.
+
+☐ Whether credential ownership is visible on n8n Cloud and self-hosted.
+
+☐ What share of Entra apps and groups actually return owners.
+
+☐ Google Workspace trial: groups, managers, suspended status.
+
+☐ OpenAI and Anthropic admin keys: usage granularity per key and project.
+
+☐ Re-estimate v1 effort from the results (current 38.5–41 engineer-weeks is unverified).
+
+7. v1.1 and v2 requirements
+
+These are specified at a lighter level than v1. They depend on what design partners ask for and on data v1 collects, so expect them to change. v1 must not block any of them (see TRD-01).
+
+7.1 Enabling requirement in v1
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+TRD-01
+
+The system shall store a dated snapshot of headline measures at least daily: coverage count, ownerless assets, open handovers, unconfirmed facts, concentration per team, failures per automation. No trend screens in v1.
+
+v1
+
+Must
+
+7.2 v1.1 (about 5–6 weeks after v1)
+
+ID
+
+Requirement
+
+Release
+
+Priority
+
+CON-12
+
+Second directory: whichever of Entra or Google was not built in v1, to the same requirements (CON-05 to CON-07).
+
+v1.1
+
+Must
+
+CON-13
+
+Make: sync scenarios, connections, owners and run history, mapped to the same asset model as n8n.
+
+v1.1
+
+Must
+
+CON-14
+
+PagerDuty: sync services, escalation policies and on-call schedules; the next person in an escalation policy becomes a stated backup fact.
+
+v1.1
+
+Must
+
+HND-08
+
+When a manager leaves, their pending confirmation reviews and successor decisions shall be reassigned to their manager, and team views regrouped.
+
+v1.1
+
+Must
+
+SIG-01
+
+Failure rate and its trend per automation, from Horquva's stored run history.
+
+v1.1
+
+Must
+
+SIG-02
+
+AI vendor incident history from public status feeds (OpenAI, Anthropic), linked to the automations that use each vendor.
+
+v1.1
+
+Should
+
+SIG-03
+
+Organisation turnover rate, applied equally to everyone and never per person, to show expected departures per quarter.
+
+v1.1
+
+Should
+
+SIG-04
+
+Inferred bus factor per team or asset group: the fewest people whose departure leaves critical assets without an owner or backup.
+
+v1.1
+
+Should
+
+SIG-05
+
+Confirmation shall ask an optional "time to recover if this stops" question; answers feed simulations.
+
+v1.1
+
+Should
+
+PRED-01
+
+Every probabilistic statement the product makes shall be logged with its date, inputs and expected outcome, then checked against what actually happened. Accuracy is visible to admins.
+
+v1.1
+
+Must
+
+OPT-01
+
+One of the following, chosen by design partners: (a) AI cost per automation from admin usage data mapped to automations; or (b) compliance evidence export: an ISO 42001 AI inventory and a push to Vanta.
+
+v1.1
+
+Must (one)
+
+7.3 v2
+
+ID
+
+Requirement
+
+Release
+
+Gate
+
+TRD-02
+
+Trend views: coverage, ownerless assets, open handovers, concentration and failures over time, per company and per team, from TRD-01 snapshots. Changes annotated with the events behind them (a departure, a campaign).
+
+v2
+
+At least 3 months of snapshots
+
+TRD-03
+
+Trend analysis: flag measures that are getting worse (e.g. coverage falling 3 months in a row) and show which teams or assets drive the change. No forecasts of individual behaviour.
+
+v2
+
+TRD-02
+
+SIM-10
+
+Likelihood ranges: Monte Carlo ranges for disruption (e.g. "10–25% chance a critical automation stops this quarter"), built from observed rates (SIG-01 to SIG-03).
+
+v2
+
+Shown only once PRED-01 shows measured accuracy
+
+ACT-01
+
+One-click reassignment: move workflow and credential ownership in n8n to the successor. Requires separate opt-in write access, per-action confirmation, and an audit entry; off by default.
+
+v2
+
+Customer opt-in; tested per n8n version
+
+AI-06
+
+AI-drafted handover docs: a draft handover note per asset from its metadata, edited and approved by a person before it is saved or shared. Same data limits as AI-04.
+
+v2
+
+Human approval on every draft
+
+OPT-02
+
+The v1.1 option (OPT-01) that was not chosen.
+
+v2
+
+—
+
+7.4 Beyond v2
+
+GitHub, Backstage, ServiceNow CMDB, Jira, Confluence, Zapier, Agentforce, Copilot Studio, Workday and BambooHR (via Merge), reorganisation planning, real-time sync, multi-org, SOC 2. Requirements will be written when a customer need is confirmed.

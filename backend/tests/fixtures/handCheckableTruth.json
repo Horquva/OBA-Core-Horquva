@@ -1,0 +1,64 @@
+{
+  "entities": [
+    { "id": "person:omar@acme.com", "kind": "person", "name": "Omar Farooq", "externalRefs": { "email": "omar@acme.com" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "person:maya@acme.com", "kind": "person", "name": "Maya Lin", "externalRefs": { "email": "maya@acme.com" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "person:chen@acme.com", "kind": "person", "name": "Chen Wei", "externalRefs": { "email": "chen@acme.com" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "person:sarah@acme.com", "kind": "person", "name": "Sarah Connor", "externalRefs": { "email": "sarah@acme.com" }, "createdAt": "2024-01-01T00:00:00Z", "updatedAt": "2024-01-01T00:00:00Z" },
+    { "id": "person:david@acme.com", "kind": "person", "name": "David Miller", "externalRefs": { "email": "david@acme.com" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "person:elena@acme.com", "kind": "person", "name": "Elena Rostova", "externalRefs": { "email": "elena@acme.com" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "person:liam@acme.com", "kind": "person", "name": "Liam Smith", "externalRefs": { "email": "liam@acme.com" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "person:priya@acme.com", "kind": "person", "name": "Priya Sharma", "externalRefs": { "email": "priya@acme.com" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "person:carlos@acme.com", "kind": "person", "name": "Carlos Gomez", "externalRefs": { "email": "carlos@acme.com" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "person:aisha@acme.com", "kind": "person", "name": "Aisha Diallo", "externalRefs": { "email": "aisha@acme.com" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+
+    { "id": "automation:n8n:101", "kind": "automation", "name": "Billing Sync to Stripe", "externalRefs": { "n8n": "101" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "automation:n8n:102", "kind": "automation", "name": "Payroll Batch Trigger", "externalRefs": { "n8n": "102" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "automation:n8n:103", "kind": "automation", "name": "CRM Lead Enrichment", "externalRefs": { "n8n": "103" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "automation:n8n:104", "kind": "automation", "name": "Customer Onboarding Flow", "externalRefs": { "n8n": "104" }, "createdAt": "2024-06-01T00:00:00Z", "updatedAt": "2024-06-01T00:00:00Z" },
+    { "id": "automation:n8n:105", "kind": "automation", "name": "AI Ticket Routing", "externalRefs": { "n8n": "105" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "automation:n8n:106", "kind": "automation", "name": "Slack Notifications", "externalRefs": { "n8n": "106" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+
+    { "id": "model:openai:gpt-4o", "kind": "model", "name": "OpenAI GPT-4o", "externalRefs": { "vendor": "openai" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" }
+  ],
+  "edges": [
+    { "fromId": "person:omar@acme.com", "toId": "automation:n8n:101", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:omar@acme.com", "toId": "automation:n8n:102", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:maya@acme.com", "toId": "automation:n8n:103", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:chen@acme.com", "toId": "automation:n8n:103", "type": "backs_up", "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:sarah@acme.com", "toId": "automation:n8n:104", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2024-06-01T00:00:00Z" },
+    { "fromId": "person:david@acme.com", "toId": "automation:n8n:105", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "automation:n8n:105", "toId": "person:david@acme.com", "type": "runs_on_credentials_of", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "automation:n8n:105", "toId": "model:openai:gpt-4o", "type": "calls_model", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:chen@acme.com", "toId": "automation:n8n:106", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" }
+  ],
+  "facts": [
+    { "entityId": "person:sarah@acme.com", "attribute": "status", "value": "departed", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "person:omar@acme.com", "attribute": "status", "value": "active", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "person:maya@acme.com", "attribute": "status", "value": "active", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "person:david@acme.com", "attribute": "status", "value": "active", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+
+    { "entityId": "automation:n8n:101", "attribute": "criticality", "value": "critical", "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:101", "attribute": "documented", "value": true, "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:101", "attribute": "fallback_exists", "value": true, "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:101", "attribute": "run_volume_weekly", "value": 500, "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+
+    { "entityId": "automation:n8n:102", "attribute": "criticality", "value": "critical", "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:102", "attribute": "documented", "value": false, "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:102", "attribute": "fallback_exists", "value": false, "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:102", "attribute": "run_volume_weekly", "value": 120, "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+
+    { "entityId": "automation:n8n:103", "attribute": "criticality", "value": "high", "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:103", "attribute": "documented", "value": true, "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:103", "attribute": "fallback_exists", "value": true, "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:103", "attribute": "run_volume_weekly", "value": 1800, "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+
+    { "entityId": "automation:n8n:104", "attribute": "criticality", "value": "critical", "grade": "confirmed", "source": "attestation", "validFrom": "2024-06-01T00:00:00Z" },
+    { "entityId": "automation:n8n:104", "attribute": "run_volume_weekly", "value": 350, "grade": "stated", "source": "n8n", "validFrom": "2024-06-01T00:00:00Z" },
+
+    { "entityId": "automation:n8n:105", "attribute": "criticality", "value": "medium", "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:105", "attribute": "run_volume_weekly", "value": 2500, "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+
+    { "entityId": "automation:n8n:106", "attribute": "criticality", "value": "low", "grade": "confirmed", "source": "attestation", "validFrom": "2025-01-01T00:00:00Z" },
+    { "entityId": "automation:n8n:106", "attribute": "run_volume_weekly", "value": 50, "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "horquva-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "packages/*"
+  ],
+  "scripts": {
+    "test:all": "npm run test --prefix backend && npm run test --prefix frontend"
+  }
+}

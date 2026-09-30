@@ -10,7 +10,10 @@ wheels/
 .venv
 
 # Node.js
+node_modules/
 backend/node_modules/
+frontend/node_modules/
+packages/*/node_modules/
 backend_extracted/
 
 # Environment variables (never commit real credentials)

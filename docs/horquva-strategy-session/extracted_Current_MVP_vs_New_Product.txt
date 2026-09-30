@@ -1,0 +1,437 @@
+Horquva — Current MVP vs New Product Design
+
+Sep 30, 2026 · @Affan Ahmed
+
+The new product design keeps the current MVP's strongest ideas (the dependency map, what-if simulations, succession, ownership and the chat agent) and narrows them to one job: when someone leaves, nothing breaks. It goes from 17 pages to 7, from a demo organisation to real company data, and from scores to counted, evidence-backed facts. The new product is a proposal; its scope is not yet signed off.
+
+1. At a glance
+
+Current MVP (OBA Core)
+
+New product (Horquva)
+
+Purpose
+
+Broad organisational intelligence: health, risk, culture, forecasts, decisions, dependencies
+
+Organisational continuity: who holds what, what breaks when they leave, who takes over
+
+Buyer
+
+Executives, broadly
+
+One owner: whoever runs offboarding and the automation rollout (Head of Ops, IT lead, AI lead)
+
+Core moment
+
+Exploring the organisation
+
+A person leaving: before, during and after
+
+Data
+
+A 40-person demo organisation loaded from a dataset
+
+The customer's own systems: n8n, Entra or Google, OpenAI and Anthropic admin, CSV
+
+How facts are known
+
+Loaded and computed
+
+Discovered from APIs, then confirmed by owners; every fact labelled stated, inferred, confirmed or unknown
+
+Pages
+
+17
+
+7 screens + assistant
+
+Engine
+
+55 brain modules, plus Bayesian and eIRWR models
+
+One deterministic rule set; same data, same answer
+
+Headline
+
+Index scores (health, pillars)
+
+A counted fact: "38 of 52 critical assets fully covered"
+
+People
+
+Per-person views and scores
+
+Team views only; individuals never scored
+
+AI
+
+Gemini chat agent
+
+Ask Horquva assistant that explains findings through the same API as the screens, never computes them
+
+Outputs
+
+Screens
+
+Screens, PDF handover packs and scan reports, weekly email
+
+Entry offer
+
+Demo
+
+Free n8n Ownership Check (self-serve)
+
+Codebase
+
+Next.js + Node + Supabase
+
+Rebuilt from scratch; the current codebase is reference only
+
+2. What carries over, and how it changes
+
+Eleven current features live on in the new product. Most are merged: several current pages feed one new screen.
+
+Current feature (page)
+
+New form
+
+What is better
+
+Dashboard
+
+Overview
+
+One counted headline, upcoming departures, top risks and top actions on one screen
+
+Dependency Map, Network, Relationships
+
+Map
+
+One clickable graph of people, automations, apps, groups, vendors and models, built from real connections
+
+Simulation
+
+What-If
+
+Adds combined scenarios, vendor or AI model outages, and runs-per-week affected; unknowns are reported as unknown
+
+Succession planner
+
+Succession test + Departures
+
+Grows from a planning view into a full handover: pack, successors named, successors accept, status tracked, post-departure check
+
+Ownership, Knowledge Risk, Org Memory, Continuity
+
+People & teams + Assets
+
+Holdings and coverage per team, and every asset with its owner, backup, documentation and fallback shown with evidence
+
+Risk Intelligence
+
+Credential and ownership risk
+
+Concrete findings: automations on a person's own credentials, ownerless credentials and apps, assets whose owner left
+
+AI Tools
+
+Assets (automations, models)
+
+AI automations and model usage come from n8n and the OpenAI and Anthropic admin APIs
+
+Recommendations
+
+Actions
+
+One ranked list, one action per problem, critical first, each saying what it fixes
+
+Agent (chat)
+
+Ask Horquva
+
+Answers by calling the same API the screens use and links to the evidence; one provider barred from training on customer data
+
+Backend change tracking
+
+Change feed + weekly email
+
+Changes come from real sources (leavers, edited workflows, swapped models, failures), each showing what it affects
+
+Dependency-scan endpoint
+
+Core of the product
+
+The scan idea becomes the centre: discover, confirm, watch, hand over, verify
+
+3. What is dropped
+
+These are left out because they don't serve the continuity job. Where the need behind them still matters, the new product meets it another way.
+
+Dropped
+
+Why it is out of the new scope
+
+What covers the need now
+
+Org Science (23 cards: culture, DNA, maturity, patterns, benchmarks)
+
+Abstract organisational measures are outside the continuity job
+
+Team view: coverage and concentration per team
+
+Health, pillar and intelligence indexes (0–100)
+
+The new product shows counts a buyer can check, not indexes
+
+Headline coverage count, e.g. "38 of 52 critical assets fully covered"
+
+Per-person risk scores
+
+The new product never scores or ranks individuals (EU AI Act and US positioning)
+
+What each person holds, with no score; team-level views
+
+Forecast
+
+Forecasting comes after the product has collected customer history
+
+Stored snapshots from v1; trends in v2; likelihood ranges only once accuracy is measured
+
+Decision Intelligence
+
+Decision tracking is a separate job
+
+Ranked actions and handover tracking
+
+Workflows page (collision detector, self-healing feed, verification ledger)
+
+Workflow operations are a separate job
+
+Workflows become assets; post-departure verification checks they still run
+
+Bayesian network and eIRWR engines
+
+The deterministic rule set gives explainable, repeatable answers
+
+What-if simulations and observed-rate signals (v1.1)
+
+55 brain modules
+
+Replaced by one focused rule set
+
+Discover → confirm → watch → hand over → verify
+
+Fictional 40-person demo organisation
+
+The product runs on customer data from day one
+
+Connectors and CSV; a small hand-checkable test organisation for testing only
+
+Dashboard feeds (daily briefing, what matters now, early warning)
+
+Replaced by live sources
+
+Change feed and weekly briefing email
+
+Current codebase
+
+Rebuilt for the new model
+
+Lessons carry over; code is reference only
+
+4. What is new
+
+These capabilities have no equivalent in the current MVP.
+
+New capability
+
+What it does
+
+Release
+
+Live connectors
+
+Reads n8n, Entra or Google, OpenAI and Anthropic admin, plus CSV
+
+v1
+
+Free n8n Ownership Check
+
+Self-serve report from an n8n key: single-owner automations, personal-credential automations, failing or abandoned workflows
+
+v0
+
+Evidence on every fact
+
+Each fact labelled stated, inferred, confirmed or unknown, with its source; unknown never read as "no"
+
+v1
+
+Confirmation campaigns
+
+Owners confirm backup, criticality, documentation and fallback, and claim ownerless assets
+
+v1
+
+Identity review queue
+
+Accounts that don't match the directory are resolved by a person
+
+v1
+
+Departure workflow
+
+Departure entered by HR or a manager (or from an Entra leave date) triggers a handover pack
+
+v1
+
+Successor acceptance and tracking
+
+Successors confirm they've taken over; status tracked per asset
+
+v1
+
+Post-departure verification
+
+After the account is disabled, checks the person's automations still run
+
+v1
+
+Credential risk
+
+Finds automations running on a person's own credentials
+
+v1
+
+PDF handover packs and scan reports
+
+Board- or HR-ready documents from the same data
+
+v1
+
+Weekly briefing email
+
+Upcoming departures, open handovers, new risks
+
+v1
+
+Roles and audit log
+
+Admin, viewer, reviewer; every action and sync recorded
+
+v1
+
+Observed-rate signals and prediction record
+
+Failure trends, vendor incidents, turnover; every prediction checked against outcomes
+
+v1.1
+
+Trends, likelihood ranges, one-click reassignment, AI-drafted handover docs
+
+Later capabilities, each behind a gate
+
+v2
+
+5. How it is done better
+
+The biggest gains come from how the product works, not from any one screen.
+
+Area
+
+Current approach
+
+New approach
+
+Why it is better
+
+Focus
+
+Many questions across 17 pages
+
+One promise, one buyer, one moment (a departure)
+
+Easy to explain and to sell; every feature serves the same loop
+
+Data
+
+Loaded dataset
+
+Discovered from the customer's systems, then confirmed by owners
+
+Findings are about the customer's real organisation
+
+Trust
+
+Computed values
+
+Every fact carries its evidence state and source
+
+A buyer can check any number back to where it came from
+
+Unknowns
+
+Treated by the model
+
+Shown as unknown and counted separately
+
+The product never claims more than it knows
+
+Computation
+
+Many engines and modules
+
+One deterministic rule set, computed once in the backend
+
+Same data, same answer on every screen, PDF and chat reply
+
+Headline
+
+Index score
+
+Counted fact with a drill-down to named assets
+
+Understood without a legend
+
+People
+
+Individual views and scores
+
+Holdings per person, coverage per team, no scores
+
+Fits the EU AI Act and US positioning; safer for HR to adopt
+
+AI
+
+Agent over the data
+
+Assistant that explains only, using the same API and linking evidence
+
+Answers always match the screens
+
+Outcome
+
+Insight
+
+Action: handover pack, successors, tracking, post-departure check
+
+Ends with the problem fixed, not just seen
+
+Access
+
+Internal data
+
+Read-only, metadata-only; never reads messages; disclosed where a key can't be limited
+
+Easier security review for customers
+
+Growth
+
+Broad feature set at once
+
+Build in slices: v0 → v1 → v1.1 → v2, each gated
+
+Each release is tested with buyers before the next
+
+Sources: product scope docs/research/2026-09-30-product-scope.md; first scope draft docs/superpowers/specs/2026-09-29-mvp-scope.md (current MVP pages and features); current app routes in frontend/app/.

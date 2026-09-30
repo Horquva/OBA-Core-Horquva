@@ -2,10 +2,14 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.ts",
+  "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "test": "node tests/run-all.js"
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
@@ -15,14 +19,28 @@
   },
   "dependencies": {
     "@google/genai": "^2.20.0",
-    "@supabase/supabase-js": "^2.107.0",
-    "cors": "^2.8.6",
-    "csv-parse": "^7.0.3",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "helmet": "^8.3.0",
-    "opossum": "^10.0.0",
-    "pg": "^8.22.0",
-    "ws": "^8.21.3"
+    "@horquva/types": "*",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.5.6",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "graphology": "^0.25.4",
+    "graphology-dag": "^0.4.1",
+    "helmet": "^8.0.0",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.13.1",
+    "pg-boss": "^10.1.4",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.4",
+    "@types/nodemailer": "^6.4.17",
+    "@types/pg": "^8.11.11",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
   }
 }
+
