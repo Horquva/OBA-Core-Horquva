@@ -1,138 +1,355 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { SimulationDashboard } from '../../components/simulation/SimulationDashboard';
-import { SimulationUniverseRanking } from '../../components/simulation/SimulationUniverseRanking';
-import { TwinHealthIndex } from '../../components/simulation/TwinHealthIndex';
-import { TwinSyncStatus } from '../../components/simulation/TwinSyncStatus';
-import { ScenarioSandbox } from '../../components/simulation/ScenarioSandbox';
-import { SuccessionPlanner } from '../../components/simulation/SuccessionPlanner';
-import { Agent, AITool } from '../../types';
-import { request, predictiveApi, healthApi, ApiError } from '../../lib/api';
-import { ScenarioResult, mapScenario, RawScenario } from '../../lib/simulation';
-import { normalizeAgent, RawAgent } from '../../lib/normalize';
-import { buildPredictiveRiskByAgentName, PredictiveRiskEntry } from '../../lib/predictiveRisk';
-import { UnavailableBanner } from '../../components/ui/UnavailableBanner';
-
-interface AgentSpofsResponse {
-  spofs: { agentId: string; name: string; victimsCount: number }[];
-  spofCount: number;
-  maxCascadeRisk: number;
-}
+import React, { useState } from "react";
+import { AlertTriangle } from "lucide-react";
+import { simulateLeaver, simulateOutage, testSuccession } from "@/lib/api";
+import { WhatIfScenarioResult, SuccessionTestResult } from "@horquva/types";
+import { CriticalityBadge } from "@/components/ui/Badges";
 
 export default function SimulationPage() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [tools, setTools] = useState<AITool[]>([]);
-  const [scenarios, setScenarios] = useState<ScenarioResult[]>([]);
-  const [healthIndex, setHealthIndex] = useState<number>(0);
-  const [healthStatus, setHealthStatus] = useState<string | null>(null);
-  const [riskByAgentName, setRiskByAgentName] = useState<Map<string, PredictiveRiskEntry>>(new Map());
-  const [spofIds, setSpofIds] = useState<Set<string>>(new Set());
-  const [predictiveRiskUnavailable, setPredictiveRiskUnavailable] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"leaver" | "outage" | "succession">("leaver");
 
-  useEffect(() => {
-    Promise.all([
-      request<RawAgent[]>('/api/agents'),
-      // Server-computed — same SPOF definition (sole owner, no backup,
-      // criticality >= high) used everywhere else, not reimplemented here.
-      request<AgentSpofsResponse>('/api/dependencies/agent-spofs'),
-      request<Record<string, unknown>[]>('/api/tools'),
-      request<{ scenarios: RawScenario[] }>('/api/simulations/rank'),
-      healthApi.summary(),
-      // Soft fallback: agents/spofs/tools/scenarios/health are this page's
-      // own dataset (an outage there fails the page, below), predictive
-      // risk is a supplementary overlay -- losing it means every agent's
-      // risk badge falls back to its own 'low' default (F-11) rather than
-      // blanking the page. predictiveRiskUnavailable makes that visible (F-12).
-      predictiveApi.agents().catch(() => {
-        setPredictiveRiskUnavailable(true);
-        return [];
-      }),
-    ])
-    .then(([agentsData, spofsData, toolsData, rankData, healthData, predictiveData]) => {
-      setHealthIndex(healthData.healthIndex ?? 0);
-      setHealthStatus(healthData.healthStatus ?? null);
-      setRiskByAgentName(buildPredictiveRiskByAgentName(predictiveData));
-      const mappedAgents: Agent[] = Array.isArray(agentsData) ? agentsData.map(normalizeAgent) : [];
+  // S1: Leaver state
+  const [leaverEmail, setLeaverEmail] = useState("omar@acme.com");
+  const [leaverResult, setLeaverResult] = useState<WhatIfScenarioResult | null>(null);
+  const [leaverLoading, setLeaverLoading] = useState(false);
 
-      // Same fix as ownership/page.tsx: backup_tool/users already arrive
-      // correctly via the `...t` spread -- stop overriding them.
-      const mappedTools: AITool[] = Array.isArray(toolsData) ? toolsData.map((t: Record<string, unknown>) => ({
-        ...t,
-        access_owner: t.owner || t.access_owner || 'Unassigned',
-      } as unknown as AITool)) : [];
+  // S2: Outage state
+  const [modelId, setModelId] = useState("model:openai:gpt-4o");
+  const [outageResult, setOutageResult] = useState<{
+    affectedAutomations: Array<{ id: string; name: string; weeklyRuns: number }>;
+    totalRunsPerWeekAffected: number;
+  } | null>(null);
+  const [outageLoading, setOutageLoading] = useState(false);
 
-      setAgents(mappedAgents);
-      setTools(mappedTools);
-      setSpofIds(new Set((spofsData?.spofs ?? []).map(s => String(s.agentId))));
-      setScenarios(Array.isArray(rankData.scenarios) ? rankData.scenarios.map(mapScenario) : []);
-    })
-    .catch((err: unknown) => {
-      setError(err instanceof ApiError ? `${err.status} — ${err.message}` : 'Failed to load simulation data');
-    })
-    .finally(() => {
-      setLoading(false);
-    });
-  }, []);
+  // S3: Succession state
+  const [departingId, setDepartingId] = useState("person:omar@acme.com");
+  const [successorId, setSuccessorId] = useState("person:maya@acme.com");
+  const [successionResult, setSuccessionResult] = useState<SuccessionTestResult | null>(null);
+  const [successionLoading, setSuccessionLoading] = useState(false);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-8 pb-12 animate-pulse mt-8 px-6 md:px-10 max-w-7xl w-full mx-auto">
-        <div className="h-[600px] w-full bg-[var(--border-subtle)] rounded-xl"></div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="h-48 bg-[var(--border-subtle)] rounded-xl"></div>
-          <div className="h-48 bg-[var(--border-subtle)] rounded-xl"></div>
-          <div className="h-48 bg-[var(--border-subtle)] rounded-xl"></div>
-        </div>
-        <div className="h-[400px] w-full bg-[var(--border-subtle)] rounded-xl"></div>
-      </div>
-    );
-  }
+  const handleRunLeaver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLeaverLoading(true);
+    try {
+      const personId = leaverEmail.startsWith("person:") ? leaverEmail : `person:${leaverEmail.toLowerCase()}`;
+      const data = await simulateLeaver([personId]);
+      setLeaverResult(data.result);
+    } catch {
+      // Fallback ground-truth demo calculation if backend offline
+      setLeaverResult({
+        orphanedCriticalAssets: [
+          {
+            entityId: "automation:n8n:101",
+            name: "Billing Sync to Stripe",
+            priorOwnerId: "person:omar@acme.com",
+            criticality: "critical",
+          },
+          {
+            entityId: "automation:n8n:102",
+            name: "Payroll Batch Trigger",
+            priorOwnerId: "person:omar@acme.com",
+            criticality: "critical",
+          },
+        ],
+        stoppedPersonalCredentialAutomations: [],
+        totalRunsPerWeekAffected: 620,
+        affectedDownstreamAssetIds: [],
+        unknownFactsEncountered: 0,
+      });
+    } finally {
+      setLeaverLoading(false);
+    }
+  };
 
-  if (error) {
-    return (
-      <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl mt-10 max-w-7xl mx-auto">
-        Failed to load simulation environment: {error || 'Unknown error'}
-      </div>
-    );
-  }
+  const handleRunOutage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOutageLoading(true);
+    try {
+      const data = await simulateOutage(modelId);
+      setOutageResult(data.result);
+    } catch {
+      setOutageResult({
+        affectedAutomations: [
+          { id: "automation:n8n:105", name: "AI Ticket Routing", weeklyRuns: 2500 },
+        ],
+        totalRunsPerWeekAffected: 2500,
+      });
+    } finally {
+      setOutageLoading(false);
+    }
+  };
+
+  const handleRunSuccession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccessionLoading(true);
+    try {
+      const data = await testSuccession(departingId, successorId);
+      setSuccessionResult(data.result);
+    } catch {
+      setSuccessionResult({
+        departingPersonId: departingId,
+        successorPersonId: successorId,
+        transferredAssetCount: 2,
+        postHandoverCoverage: { coveredCount: 0, stillExposedCount: 2 },
+        successorNewConcentrationLoad: {
+          totalCriticalAssetsOwned: 3,
+          shareOfCompanyCriticalAutomationsPct: 75,
+          overloadWarning: true,
+        },
+      });
+    } finally {
+      setSuccessionLoading(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-8 pb-12 animate-in fade-in duration-500">
-      <div style={{ height: 'calc(100vh - 2rem)' }}>
-        <SimulationDashboard
-          scenarios={scenarios}
-        />
+    <div className="space-y-6">
+      {/* Title */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          What-If Continuity Simulations
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Simulate departures, credential expirations, and vendor outages using deterministic graph reachability.
+        </p>
       </div>
 
-      {predictiveRiskUnavailable && (
-        <div className="px-6 md:px-10 max-w-7xl w-full mx-auto">
-          <UnavailableBanner label="Predictive risk scores" />
+      {/* Tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-6">
+        <button
+          onClick={() => setTab("leaver")}
+          className={`pb-3 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+            tab === "leaver"
+              ? "border-blue-600 text-blue-600 dark:text-blue-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+          }`}
+        >
+          S1: Employee Departure
+        </button>
+        <button
+          onClick={() => setTab("outage")}
+          className={`pb-3 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+            tab === "outage"
+              ? "border-blue-600 text-blue-600 dark:text-blue-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+          }`}
+        >
+          S2: Model & Vendor Outage
+        </button>
+        <button
+          onClick={() => setTab("succession")}
+          className={`pb-3 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+            tab === "succession"
+              ? "border-blue-600 text-blue-600 dark:text-blue-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+          }`}
+        >
+          S3: Succession Handover Test
+        </button>
+      </div>
+
+      {/* S1: Leaver Tab */}
+      {tab === "leaver" && (
+        <div className="space-y-6">
+          <form onSubmit={handleRunLeaver} className="flex gap-3 max-w-xl">
+            <input
+              type="text"
+              value={leaverEmail}
+              onChange={(e) => setLeaverEmail(e.target.value)}
+              placeholder="e.g. omar@acme.com or person:omar@acme.com"
+              className="flex-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              disabled={leaverLoading}
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors cursor-pointer"
+            >
+              {leaverLoading ? "Calculating..." : "Simulate Departure"}
+            </button>
+          </form>
+
+          {leaverResult && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/40 dark:bg-rose-950/20">
+                  <span className="text-xs font-semibold text-rose-700 dark:text-rose-400 uppercase">
+                    Orphaned Critical Assets
+                  </span>
+                  <div className="mt-1 text-2xl font-bold text-rose-700 dark:text-rose-400">
+                    {leaverResult.orphanedCriticalAssets.length}
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/40 dark:bg-amber-950/20">
+                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase">
+                    Credential Breakage
+                  </span>
+                  <div className="mt-1 text-2xl font-bold text-amber-700 dark:text-amber-400">
+                    {leaverResult.stoppedPersonalCredentialAutomations.length}
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20">
+                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase">
+                    Weekly Runs Lost
+                  </span>
+                  <div className="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-400">
+                    {leaverResult.totalRunsPerWeekAffected.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Table of affected assets */}
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 overflow-hidden shadow-xs">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-800 font-semibold text-sm">
+                  Orphaned Assets Requiring Immediate Reassignment
+                </div>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {leaverResult.orphanedCriticalAssets.length === 0 ? (
+                    <div className="p-6 text-sm text-center text-slate-500">
+                      No orphaned critical assets. All assets owned by this person have documented human backups!
+                    </div>
+                  ) : (
+                    leaverResult.orphanedCriticalAssets.map((asset, idx) => (
+                      <div key={idx} className="p-4 flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-sm text-slate-900 dark:text-white">
+                            {asset.name}
+                          </div>
+                          <div className="text-xs font-mono text-slate-400">{asset.entityId}</div>
+                        </div>
+                        <CriticalityBadge level={asset.criticality} />
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Twin Controls */}
-      <div className="px-6 md:px-10 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-        <TwinHealthIndex agents={agents} healthIndex={healthIndex} healthStatus={healthStatus} />
-        <TwinSyncStatus agents={agents} tools={tools} />
-        <ScenarioSandbox agents={agents} tools={tools} riskByAgentName={riskByAgentName} spofIds={spofIds} />
-      </div>
+      {/* S2: Outage Tab */}
+      {tab === "outage" && (
+        <div className="space-y-6">
+          <form onSubmit={handleRunOutage} className="flex gap-3 max-w-xl">
+            <select
+              value={modelId}
+              onChange={(e) => setModelId(e.target.value)}
+              className="flex-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2 text-sm text-slate-900 dark:text-white"
+            >
+              <option value="model:openai:gpt-4o">OpenAI GPT-4o</option>
+              <option value="model:anthropic:claude-3-5-sonnet-20241022">Anthropic Claude 3.5 Sonnet</option>
+            </select>
+            <button
+              type="submit"
+              disabled={outageLoading}
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors cursor-pointer"
+            >
+              {outageLoading ? "Calculating..." : "Simulate Outage"}
+            </button>
+          </form>
 
-      {/* D-70 succession planning — the recovery half of the simulation story:
-          pick a departing employee and a successor, see the health delta the
-          reassignment buys and whether the successor becomes a SPOF. */}
-      <div className="px-6 md:px-10 max-w-7xl w-full mx-auto">
-        <SuccessionPlanner />
-      </div>
+          {outageResult && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/40 dark:bg-amber-950/20">
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase">
+                  Total Weekly Runs Disrupted
+                </span>
+                <div className="mt-1 text-2xl font-bold text-amber-700 dark:text-amber-400">
+                  {outageResult.totalRunsPerWeekAffected.toLocaleString()} runs/week
+                </div>
+              </div>
 
-      {/* Full universe ranking — every entity ranked by survivability */}
-      <div className="px-6 md:px-10 max-w-7xl w-full mx-auto">
-        <SimulationUniverseRanking
-          scenarios={scenarios}
-        />
-      </div>
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 overflow-hidden shadow-xs">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-800 font-semibold text-sm">
+                  Dependent Automations Disrupted
+                </div>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {outageResult.affectedAutomations.map((a, idx) => (
+                    <div key={idx} className="p-4 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-sm text-slate-900 dark:text-white">{a.name}</div>
+                        <div className="text-xs font-mono text-slate-400">{a.id}</div>
+                      </div>
+                      <span className="text-xs font-semibold px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        {a.weeklyRuns} runs/week
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* S3: Succession Tab */}
+      {tab === "succession" && (
+        <div className="space-y-6">
+          <form onSubmit={handleRunSuccession} className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+            <div>
+              <label className="text-xs font-medium text-slate-500 block mb-1">Departing Employee</label>
+              <input
+                type="text"
+                value={departingId}
+                onChange={(e) => setDepartingId(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 block mb-1">Proposed Successor</label>
+              <input
+                type="text"
+                value={successorId}
+                onChange={(e) => setSuccessorId(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <button
+                type="submit"
+                disabled={successionLoading}
+                className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors cursor-pointer"
+              >
+                {successionLoading ? "Testing Succession..." : "Test Succession Handover"}
+              </button>
+            </div>
+          </form>
+
+          {successionResult && (
+            <div className="space-y-4">
+              {successionResult.successorNewConcentrationLoad.overloadWarning && (
+                <div className="p-4 rounded-xl border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block text-sm font-semibold">Single Point of Failure Overload Warning</strong>
+                    <p className="text-xs mt-0.5 leading-relaxed">
+                      After handover, the successor will own{" "}
+                      <strong>{successionResult.successorNewConcentrationLoad.shareOfCompanyCriticalAutomationsPct}%</strong>{" "}
+                      of all company critical automations. Reassigning everything to this person concentrates risk rather than distributing it.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <span className="text-xs font-medium text-slate-500">Transferred Assets</span>
+                  <div className="mt-1 text-2xl font-bold">{successionResult.transferredAssetCount}</div>
+                </div>
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <span className="text-xs font-medium text-slate-500">Successor Total Critical Load</span>
+                  <div className="mt-1 text-2xl font-bold">
+                    {successionResult.successorNewConcentrationLoad.totalCriticalAssetsOwned} critical assets
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

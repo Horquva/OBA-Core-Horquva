@@ -1,66 +1,26 @@
-'use client';
+"use client";
 
-import React, { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { useAuth } from '@/lib/AuthContext';
-import GlobalNotificationPanel from '@/components/global/GlobalNotificationPanel';
-import GlobalSearchOverlay from '@/components/global/GlobalSearchOverlay';
-import CommandBar from '@/components/global/CommandBar';
-import DeepLinkFocus from '@/components/global/DeepLinkFocus';
-import { AGENT_FROM_ROUTE_KEY } from '@/lib/agentClient';
-
-const AUTH_ROUTES = ['/login'];
-const AGENT_ROUTE = '/agent';
+import React, { useState } from "react";
+import { Sidebar } from "./Sidebar";
+import { AskHorquvaSlideOver } from "@/components/assistant/AskHorquvaSlideOver";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { user, loading } = useAuth();
-  const isAuthRoute = AUTH_ROUTES.includes(pathname);
-
-  useEffect(() => {
-    if (loading) return;
-    if (!user && !isAuthRoute) {
-      router.replace('/login');
-    }
-  }, [user, loading, isAuthRoute, router]);
-
-  // The agent's starter questions are tailored to the page the user came
-  // from (EmptyState -> /api/agent/suggestions?from=...), so remember the
-  // last non-agent page. Per-tab convenience only -- losing it just means
-  // general questions.
-  useEffect(() => {
-    if (isAuthRoute || pathname === AGENT_ROUTE) return;
-    try {
-      sessionStorage.setItem(AGENT_FROM_ROUTE_KEY, pathname);
-    } catch {
-      // Storage blocked -- the agent falls back to general questions.
-    }
-  }, [pathname, isAuthRoute]);
-
-  if (isAuthRoute) return <>{children}</>;
-
-  if (loading || !user) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}>
-        Loading...
-      </div>
-    );
-  }
+  const [isAskOpen, setIsAskOpen] = useState(false);
 
   return (
-    <div className="flex h-full">
-      <Sidebar />
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden relative">
-        <CommandBar />
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
+    <div className="flex h-screen w-full bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
+      {/* Primary Sidebar */}
+      <Sidebar onOpenAskHorquva={() => setIsAskOpen(true)} />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          <div className="max-w-7xl mx-auto w-full">{children}</div>
+        </main>
       </div>
-      <GlobalNotificationPanel />
-      <GlobalSearchOverlay />
-      <DeepLinkFocus />
+
+      {/* Slide-over Ask Horquva Assistant */}
+      <AskHorquvaSlideOver isOpen={isAskOpen} onClose={() => setIsAskOpen(false)} />
     </div>
   );
 }
-
-export default AppShell;

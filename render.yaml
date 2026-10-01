@@ -1,58 +1,27 @@
 services:
   - type: web
-    name: oba-core-backend
+    name: horquva-continuity-backend
     runtime: node
     plan: free
-    branch: ocos/develop
+    branch: mvp/v1-continuity
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm install && npm run build
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /health
     envVars:
-      # Node 22+ required: @supabase/realtime-js needs native WebSocket
-      # support, which Node only ships from v22 onward.
       - key: NODE_VERSION
         value: 22
-      # Set these in the Render dashboard (Environment tab) — not committed here.
-      - key: SUPABASE_URL
+      - key: DATABASE_URL
         sync: false
-      - key: SUPABASE_KEY
+      - key: HORQUVA_SECRET_KEY
         sync: false
-      - key: JWT_SECRET
-        sync: false
-      - key: CORS_ORIGINS
-        sync: false
-      # SEC-2: the frontend proxies /api/* to this service (frontend/next.config.ts),
-      # so the session cookie is first-party: SameSite=Lax, HTTPS-only.
-      # COOKIE_CROSS_SITE is intentionally not set.
-      - key: COOKIE_SECURE
-        value: "true"
-      - key: ADMIN_EMAIL
-        sync: false
-      - key: ADMIN_PASSWORD
-        sync: false
-      - key: ADMIN_ORG
-        value: horquva
-      - key: TOKEN_TTL
-        value: 3600
-      # routes/agent/index.js mounts nothing unless this is "true" AND a
-      # provider key (GEMINI_API_KEY below) is set in the dashboard.
-      - key: AGENT_ENABLED
-        value: "true"
-      - key: AGENT_PROVIDER
-        value: gemini
-      - key: AGENT_MODEL
-        # gemini-3.7-flash 503'd consistently as of 2026-09-22; gemini-2.5-flash
-        # (stable, GA) worked immediately on the same key. Re-verify before
-        # changing -- see backend/.env.example's note on this same variable.
-        value: gemini-2.5-flash
       - key: GEMINI_API_KEY
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: SMTP_HOST
         sync: false
-      - key: AGENT_MAX_ITERATIONS
-        value: "8"
-      - key: AGENT_TURN_TIMEOUT_MS
-        value: "120000"
-      - key: AGENT_DAILY_TURN_BUDGET
-        value: "40"
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false

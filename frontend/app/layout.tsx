@@ -2,20 +2,18 @@ import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/ThemeContext";
-import { AuthProvider } from "@/lib/AuthContext";
-import { GlobalPanelsProvider } from "@/components/global/GlobalPanelsContext";
 import { AppShell } from "@/components/layout/AppShell";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-dm-sans",
-  weight: ["300", "400", "500", "600"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Horquva OBA | AI Workforce Intelligence",
+  title: "Horquva | Operational Continuity Platform",
   description:
-    "Organizational Brain Analysis — discover, map, and analyze AI agents inside your organization.",
+    "When someone leaves, nothing breaks. Detect single points of failure across automated workflows, critical credentials, and business processes.",
 };
 
 export default function RootLayout({
@@ -24,14 +22,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} h-full`}>
-      <body className="h-full">
+    <html lang="en" className={`${dmSans.variable} h-full`} suppressHydrationWarning>
+      <body className="h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased">
         <ThemeProvider>
-          <AuthProvider>
-            <GlobalPanelsProvider>
-              <AppShell>{children}</AppShell>
-            </GlobalPanelsProvider>
-          </AuthProvider>
+          <AppShell>{children}</AppShell>
         </ThemeProvider>
       </body>
     </html>

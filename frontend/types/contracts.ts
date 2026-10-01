@@ -36,7 +36,7 @@ export interface SimulationScreenProps {
   people: Array<{ id: string; name: string }>;
   models: Array<{ id: string; name: string }>;
   onSimulateLeaver: (personIds: string[]) => Promise<WhatIfScenarioResult>;
-  onSimulateOutage: (modelId: string) => Promise<{ affectedAutomations: any[]; totalRunsPerWeekAffected: number }>;
+  onSimulateOutage: (modelId: string) => Promise<{ affectedAutomations: Array<{ id: string; name: string; runsPerWeek: number }>; totalRunsPerWeekAffected: number }>;
   onTestSuccession: (leaverId: string, successorId: string) => Promise<SuccessionTestResult>;
 }
 
@@ -69,8 +69,8 @@ export interface CampaignManagementProps {
 }
 
 export interface V0N8nCheckScreenProps {
-  onRunCheck: (n8nUrl: string, apiKey: string) => Promise<any>;
+  onRunCheck: (n8nUrl: string, apiKey: string) => Promise<Record<string, unknown>>;
   isScanning: boolean;
-  results?: any;
+  results?: Record<string, unknown>;
   error?: string | null;
 }
