@@ -1,19 +1,25 @@
 import type { Metadata } from "next";
-import { DM_Sans } from "next/font/google";
+import { Instrument_Serif, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/ThemeContext";
 import { AppShell } from "@/components/layout/AppShell";
 
-const dmSans = DM_Sans({
+const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
-  variable: "--font-dm-sans",
-  weight: ["300", "400", "500", "600", "700"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-instrument-serif",
+});
+
+const hanken = Hanken_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-hanken",
 });
 
 export const metadata: Metadata = {
-  title: "Horquva | Operational Continuity Platform",
-  description:
-    "When someone leaves, nothing breaks. Detect single points of failure across automated workflows, critical credentials, and business processes.",
+  title: "Horquva | OBA — Organizational Brain Analysis",
+  description: "When someone leaves, nothing breaks.",
 };
 
 export default function RootLayout({
@@ -22,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} h-full`} suppressHydrationWarning>
-      <body className="h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased">
+    <html lang="en" className={`${instrumentSerif.variable} ${hanken.variable} h-full`} suppressHydrationWarning>
+      <body className="h-full bg-canvas text-ink antialiased">
         <ThemeProvider>
           <AppShell>{children}</AppShell>
         </ThemeProvider>
