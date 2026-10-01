@@ -16,7 +16,7 @@ These are not style preferences; every screen must obey them.
 1. **Counted facts, never invented scores.** No dollar exposure, no probabilities, no "health %", no confidence %. Every number on screen is a count from the deterministic checks engine.
 2. **Unknown is never "no".** An unrecorded fact renders as *Unknown* (gray), visibly different from a confirmed absence *None* (red).
 3. **Every fact shows its evidence grade and source** (stated / inferred / confirmed / unknown).
-4. **No individual ranking.** People are never sorted, scored or listed by risk. Ranked lists contain assets, vendors and models only. (The named share bar on team cards is a deliberate, owner-approved exception — see §11 D-23.)
+4. **No individual ranking.** People are never sorted, scored or listed by risk. Ranked lists contain assets, vendors and models only. (The named share bar on team cards is a deliberate, owner-approved exception — see §12 D-23.)
 5. **Never fabricate.** No fallback/demo data is shown when the API fails or a table is empty. Loading, error and empty are three distinct states.
 6. **AI explains; it never computes.** Only the Ask OBA page and the weekly briefing reading view contain AI-written text, and both are marked and evidence-linked.
 
@@ -27,11 +27,11 @@ These are not style preferences; every screen must obey them.
 | Element | Specification |
 |---|---|
 | Company wordmark | **HORQUVA**, uppercase, letter-spaced, recreated from the reference screenshot's wordmark (Hanken Grotesk 500, tracking ~0.18em). |
-| Logo mark | Bronze twisted-ribbon mark: `horquva-services-website/public/logo-mark.png`. Copy into `frontend/public/brand/logo-mark.png`. Min display size 28px; a flat SVG version for ≤24px (favicon) is an **open item** (§12). |
+| Logo mark | Bronze twisted-ribbon mark: `horquva-services-website/public/logo-mark.png`. Copy into `frontend/public/brand/logo-mark.png`. Min display size 28px; a flat SVG version for ≤24px (favicon) is an **open item** (§13). |
 | Product name | **OBA** with descriptor **Organizational Brain Analysis**. Sidebar header shows: mark · HORQUVA, and beneath it "OBA · Organizational Brain Analysis". |
 | Assistant | **Ask OBA**. |
 | Tagline | "When someone leaves, nothing breaks." — sign-in screen only. |
-| Hero artwork | Glowing bronze/amber artwork from the reference. Used **only** on sign-in and first-run/empty states. **Asset pending** (§12); reserved path `frontend/public/brand/hero-art.*`. |
+| Hero artwork | Glowing bronze/amber artwork from the reference. Used **only** on sign-in and first-run/empty states. **Asset pending** (§13); reserved path `frontend/public/brand/hero-art.*`. |
 | Retired | "OCOS", "Organizational Intelligence", "Operational Continuity" as UI labels; the indigo/blue identity in current code. |
 
 ---
@@ -294,7 +294,7 @@ Lifecycle stages (WBS 8.1.4): Initiated → Successor named → Accepted → Acc
 ### 8.8 Ask OBA (`/ask`)
 
 - Reached from the top-bar field; not in the 7-screen nav.
-- Left: the user's past conversations (**persisted server-side per user** — backend dependency, §12). Right: reading column.
+- Left: the user's past conversations (**persisted server-side per user** — backend dependency, §13). Right: reading column.
 - Assistant voice: "I". Answers render entity names as **EntityChips** (colored by evidence grade, open the asset/person drawer) plus a collapsible **Sources** list naming facts/API calls used.
 - If the data cannot answer: says so explicitly (AI-05). Never shows a computed score.
 
