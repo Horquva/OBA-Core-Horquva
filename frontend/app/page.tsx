@@ -85,6 +85,29 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-8">
+      {/* Design System Preview Banner */}
+      <div className="rounded-control border border-amber/30 bg-amber/10 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber text-xs font-bold text-ink-night">
+            ✨
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-ink">
+              Phase A & B Design System Showcase Ready
+            </p>
+            <p className="text-xs text-ink-2">
+              Preview the new Instrument Serif typography, theme toggle, coverage strip, pickers, and atomic UI components.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/showcase"
+          className="inline-flex items-center justify-center rounded-control bg-amber px-4 py-2 text-xs font-semibold text-ink-night shadow-xs hover:opacity-90 transition-opacity"
+        >
+          Open Design Showcase →
+        </Link>
+      </div>
+
       {/* Page Title & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
