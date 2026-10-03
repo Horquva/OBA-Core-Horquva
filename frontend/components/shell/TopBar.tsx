@@ -8,7 +8,7 @@ import { AskField } from './AskField';
 import { BellPopover } from './BellPopover';
 import type { ChangeEventView } from '@/types/view';
 
-export interface TopBarProps extends React.HTMLAttributes<HTMLElement> {
+export interface TopBarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'title'> {
   title?: React.ReactNode;
   onOpenMobileNav?: () => void;
   lastSyncedAt?: string | null;

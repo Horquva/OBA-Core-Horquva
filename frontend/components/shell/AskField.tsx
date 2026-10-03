@@ -4,13 +4,15 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
 
-export interface AskFieldProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface AskFieldProps extends Omit<React.FormHTMLAttributes<HTMLFormElement>, 'onSubmit'> {
   placeholder?: string;
+  onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
 }
 
 export function AskField({
   placeholder = 'Ask OBA anything about your assets...',
   className,
+  onSubmit,
   ...props
 }: AskFieldProps) {
   const router = useRouter();
@@ -32,8 +34,12 @@ export function AskField({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (onSubmit) {
+      onSubmit(e);
+      return;
+    }
     if (!query.trim()) return;
     router.push(`/ask?q=${encodeURIComponent(query.trim())}`);
   };
