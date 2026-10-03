@@ -107,3 +107,6 @@ export function NamedShareBar({ holders, className, ...props }: NamedShareBarPro
     </div>
   );
 }
+
+export { StageStepper, type StageStepperProps } from './StageStepper';
+
