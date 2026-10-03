@@ -18,14 +18,19 @@ const SessionContext = React.createContext<SessionContextValue | undefined>(unde
 export interface SessionProviderProps {
   children: React.ReactNode;
   initialSession?: Session | null;
+  isDevSession?: boolean;
 }
 
-export function SessionProvider({ children, initialSession }: SessionProviderProps) {
+export function SessionProvider({
+  children,
+  initialSession,
+  isDevSession: isDevProp,
+}: SessionProviderProps) {
   const [session, setSession] = React.useState<Session | null>(() => {
     if (initialSession) return initialSession;
 
     const envRole = process.env.NEXT_PUBLIC_DEV_ROLE as Role | undefined;
-    if (process.env.NODE_ENV === 'development' || envRole) {
+    if (process.env.NODE_ENV !== 'production' || envRole) {
       return {
         userId: 'usr-dev-admin',
         name: 'Alex Rivera (Dev)',
@@ -41,7 +46,8 @@ export function SessionProvider({ children, initialSession }: SessionProviderPro
   const [isLoading, setIsLoading] = React.useState(!initialSession && !process.env.NEXT_PUBLIC_DEV_ROLE);
   const [error, setError] = React.useState<Error | null>(null);
 
-  const isDevSession = process.env.NODE_ENV === 'development' || Boolean(process.env.NEXT_PUBLIC_DEV_ROLE);
+  const isDevSession =
+    isDevProp ?? (process.env.NODE_ENV !== 'production' || Boolean(process.env.NEXT_PUBLIC_DEV_ROLE));
 
   const refetchSession = React.useCallback(async () => {
     setIsLoading(true);
