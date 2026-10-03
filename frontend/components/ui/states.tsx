@@ -76,6 +76,7 @@ export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   onAction?: () => void;
   secondaryAction?: React.ReactNode;
   icon?: React.ReactNode;
+  headingLevel?: 'h2' | 'h3' | 'h4';
 }
 
 export function EmptyState({
@@ -85,9 +86,11 @@ export function EmptyState({
   onAction,
   secondaryAction,
   icon,
+  headingLevel = 'h2',
   className,
   ...props
 }: EmptyStateProps) {
+  const HeadingTag = headingLevel;
   return (
     <div
       className={cn(
@@ -105,7 +108,7 @@ export function EmptyState({
           </svg>
         </div>
       )}
-      <h3 className="text-lg font-semibold text-ink mb-1">{title}</h3>
+      <HeadingTag className="text-lg font-semibold text-ink mb-1">{title}</HeadingTag>
       <p className="text-sm text-ink-2 max-w-md mb-6">{description}</p>
       {(actionLabel || secondaryAction) && (
         <div className="flex items-center gap-3">

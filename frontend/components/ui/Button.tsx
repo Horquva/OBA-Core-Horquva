@@ -40,7 +40,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     ghost:
       'bg-transparent text-ink-2 hover:text-ink hover:bg-surface-sunken border border-transparent',
     destructive:
-      'bg-rose-500/10 text-st-fail border border-st-fail/30 hover:bg-rose-500/20 active:bg-rose-500/25',
+      'bg-st-fail/10 text-st-fail border border-st-fail/30 hover:bg-st-fail/20 active:bg-st-fail/25',
   }[variant];
 
   return (
