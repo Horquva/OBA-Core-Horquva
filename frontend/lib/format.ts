@@ -34,6 +34,13 @@ export function formatRelative(iso: string, now: Date = new Date(), locale?: str
   return rtf.format(0, 'minute');
 }
 
+export const formatRelativeTime = formatRelative;
+
+export function formatRunsPerWeek(n: number | null | undefined, locale?: string): string {
+  if (n === null || n === undefined) return 'Unknown volume';
+  return `${formatNumber(n, locale)}/wk`;
+}
+
 export function greeting(now: Date): 'Good morning' | 'Good afternoon' | 'Good evening' {
   const h = now.getHours();
   if (h >= 5 && h < 12) return 'Good morning';
