@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import type { Role, Session } from '@/types/view';
-import { fetchSession } from './api/session';
+import { devSignIn, fetchSession } from './api/session';
 
 export interface SessionContextValue {
   session: Session | null;
@@ -15,6 +15,29 @@ export interface SessionContextValue {
 
 const SessionContext = React.createContext<SessionContextValue | undefined>(undefined);
 
+/**
+ * Dev mode signs in for real, as a seeded backend user per role, through
+ * POST /api/auth/dev/sign-in (backend needs AUTH_DEV_LOGIN=true). The backend
+ * then enforces the same role the UI shows. Production never uses this.
+ */
+export const DEV_USERS: Record<Role, string> = {
+  admin: 'alex@acme.com',
+  reviewer: 'chen@acme.com',
+  viewer: 'maya@acme.com',
+};
+
+/** Shown only until the dev sign-in answers, or if the backend is not running. */
+function offlineDevSession(role: Role): Session {
+  return {
+    userId: 'usr-dev-offline',
+    name: 'Dev user (backend offline)',
+    email: DEV_USERS[role],
+    role,
+    isHrManager: role === 'admin',
+    title: null,
+  };
+}
+
 export interface SessionProviderProps {
   children: React.ReactNode;
   initialSession?: Session | null;
@@ -26,67 +49,58 @@ export function SessionProvider({
   initialSession,
   isDevSession: isDevProp,
 }: SessionProviderProps) {
+  const envRole = process.env.NEXT_PUBLIC_DEV_ROLE as Role | undefined;
+  const isDevSession =
+    isDevProp ?? (process.env.NODE_ENV !== 'production' || Boolean(envRole));
+  const startRole: Role = envRole && envRole in DEV_USERS ? envRole : 'admin';
+
   const [session, setSession] = React.useState<Session | null>(() => {
     if (initialSession) return initialSession;
-
-    const envRole = process.env.NEXT_PUBLIC_DEV_ROLE as Role | undefined;
-    if (process.env.NODE_ENV !== 'production' || envRole) {
-      return {
-        userId: 'usr-dev-admin',
-        name: 'Alex Rivera (Dev)',
-        email: 'alex.rivera@acme.corp',
-        role: envRole || 'admin',
-        isHrManager: true,
-        title: 'Platform Architect & Admin',
-      };
-    }
-    return null;
+    return isDevSession ? offlineDevSession(startRole) : null;
   });
 
-  const [isLoading, setIsLoading] = React.useState(!initialSession && !process.env.NEXT_PUBLIC_DEV_ROLE);
+  const [isLoading, setIsLoading] = React.useState(!initialSession && !isDevSession);
   const [error, setError] = React.useState<Error | null>(null);
-
-  const isDevSession =
-    isDevProp ?? (process.env.NODE_ENV !== 'production' || Boolean(process.env.NEXT_PUBLIC_DEV_ROLE));
+  // Dev: hold the screens until the first sign-in attempt settles, or their
+  // first API calls race the session cookie and come back 401.
+  const [devReady, setDevReady] = React.useState(Boolean(initialSession) || !isDevSession);
 
   const refetchSession = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchSession();
-      setSession(data);
+      setSession(await fetchSession());
     } catch (err) {
-      // In local dev, fallback to dev admin instead of failing hard
-      if (isDevSession) {
-        setSession({
-          userId: 'usr-dev-admin',
-          name: 'Alex Rivera (Dev)',
-          email: 'alex.rivera@acme.corp',
-          role: 'admin',
-          isHrManager: true,
-          title: 'Platform Architect & Admin',
-        });
-      } else {
+      if (!isDevSession) {
         setError(err instanceof Error ? err : new Error(String(err)));
+        return;
+      }
+      // No session cookie yet: sign in as the dev user for the starting role.
+      try {
+        setSession(await devSignIn(DEV_USERS[startRole]));
+      } catch (devErr) {
+        console.warn(
+          '[dev] Could not sign in to the backend. Is it running with AUTH_DEV_LOGIN=true? API calls will return 401.',
+          devErr
+        );
       }
     } finally {
       setIsLoading(false);
+      setDevReady(true);
     }
-  }, [isDevSession]);
+  }, [isDevSession, startRole]);
 
   React.useEffect(() => {
-    if (!initialSession && !session) {
+    if (!initialSession) {
       refetchSession();
     }
-  }, [initialSession, session, refetchSession]);
+  }, [initialSession, refetchSession]);
 
   const setDevRole = React.useCallback((role: Role) => {
-    setSession((prev) => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        role,
-      };
+    // Optimistic so the UI switches at once; then become that role's backend user.
+    setSession((prev) => (prev ? { ...prev, role } : null));
+    devSignIn(DEV_USERS[role]).then(setSession, () => {
+      // Backend offline or dev login disabled: UI-only role switch.
     });
   }, []);
 
@@ -102,7 +116,7 @@ export function SessionProvider({
     [session, isLoading, error, isDevSession, setDevRole, refetchSession]
   );
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  return <SessionContext.Provider value={value}>{devReady ? children : null}</SessionContext.Provider>;
 }
 
 export function useSession(): SessionContextValue {

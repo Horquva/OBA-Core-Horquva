@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent, renderHook } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, renderHook, waitFor } from '@testing-library/react';
 import { axe } from 'vitest-axe';
 import { SessionProvider, useSession } from '@/lib/session';
 import {
@@ -97,6 +97,55 @@ describe('Session & RBAC (Task 15)', () => {
       expect(screen.getByTestId('user-role')).toHaveTextContent('viewer');
 
       expect(await axe(container)).toHaveNoViolations();
+    });
+
+    it('in dev, signs in to the backend as the seeded user for each role', async () => {
+      const alex: Session = { userId: 'user:admin', name: 'Alex Rivera', email: 'alex@acme.com', role: 'admin', isHrManager: true, title: null };
+      const maya: Session = { userId: 'user:maya', name: 'Maya Lin', email: 'maya@acme.com', role: 'viewer', isHrManager: false, title: null };
+      const calls: Array<{ url: string; body: unknown }> = [];
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : null;
+        calls.push({ url, body });
+        if (url.endsWith('/api/auth/session')) return new Response('{"error":"Not signed in."}', { status: 401 });
+        if (url.endsWith('/api/auth/dev/sign-in')) {
+          return new Response(JSON.stringify(body.email === 'maya@acme.com' ? maya : alex), { status: 200 });
+        }
+        return new Response('{}', { status: 404 });
+      });
+
+      render(
+        <SessionProvider isDevSession>
+          <ConsumerComponent />
+        </SessionProvider>
+      );
+
+      // No cookie yet → dev sign-in as the admin seed user.
+      expect(await screen.findByText('Alex Rivera')).toBeInTheDocument();
+      expect(calls.find((c) => c.url.endsWith('/dev/sign-in'))?.body).toEqual({ email: 'alex@acme.com' });
+
+      // Switching to viewer becomes Maya on the backend too.
+      fireEvent.click(screen.getByRole('button', { name: 'Switch to Viewer' }));
+      expect(await screen.findByText('Maya Lin')).toBeInTheDocument();
+      expect(screen.getByTestId('user-role')).toHaveTextContent('viewer');
+    });
+
+    it('in production, never uses dev sign-in', async () => {
+      const urls: string[] = [];
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        urls.push(String(input));
+        return new Response('{"error":"Not signed in."}', { status: 401 });
+      });
+
+      render(
+        <SessionProvider isDevSession={false}>
+          <ConsumerComponent />
+        </SessionProvider>
+      );
+
+      await waitFor(() => expect(urls.some((u) => u.endsWith('/api/auth/session'))).toBe(true));
+      expect(screen.getByTestId('user-name')).toBeEmptyDOMElement();
+      expect(urls.some((u) => u.includes('/dev/sign-in'))).toBe(false);
     });
 
     it('throws error when useSession is used without provider', () => {
