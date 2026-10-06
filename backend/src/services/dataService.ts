@@ -28,6 +28,7 @@ import {
 } from '@horquva/types';
 import { ContinuityGraph } from '../domain/graph/index.js';
 import { currentContext } from '../middleware/requestContext.js';
+import type { HandoverPack } from '../handover/departureService.js';
 import { FactStore, InMemoryFactStoreAdapter } from '../domain/facts/factStore.js';
 import { IdentityQueueService, InMemoryIdentityQueueAdapter } from '../identity/queue.js';
 import { evaluateAllChecks, calculateHeadlineMetrics } from '../domain/checks/index.js';
@@ -51,6 +52,8 @@ export interface DepartureRecord {
     acceptance: 'none' | 'requested' | 'accepted' | 'declined';
     declineReason?: string | null;
   }>;
+  /** HND-02 handover pack, frozen at initiation (absent on seeded/legacy departures). */
+  handoverPack?: HandoverPack;
   createdAt: string;
   updatedAt: string;
 }
@@ -305,7 +308,13 @@ export class DataService {
     return this.departures.get(id);
   }
 
-  public createDeparture(input: { personId: string; leaveDate: string; note: string | null }): DepartureRecord {
+  public createDeparture(
+    input: { personId: string; leaveDate: string; note: string | null },
+    opts: {
+      detectedFrom?: DepartureRecord['detectedFrom'];
+      buildPack?: (departureId: string) => HandoverPack;
+    } = {}
+  ): DepartureRecord {
     const id = `dep_${crypto.randomUUID().slice(0, 8)}`;
     const now = new Date().toISOString();
 
@@ -324,9 +333,10 @@ export class DataService {
       leaveDate: input.leaveDate,
       stage: 'initiated',
       note: input.note,
-      detectedFrom: 'manual',
+      detectedFrom: opts.detectedFrom ?? 'manual',
       stageTimestamps: { initiated: now },
       handovers,
+      handoverPack: opts.buildPack?.(id),
       createdAt: now,
       updatedAt: now,
     };

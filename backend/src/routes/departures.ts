@@ -14,6 +14,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { DataService, DepartureRecord } from '../services/dataService.js';
 import { CriticalityLevel, EvidenceGrade } from '@horquva/types';
+import { DepartureError, initiateDeparture } from '../handover/departureService.js';
 
 export const departuresRouter = Router();
 
@@ -221,16 +222,33 @@ departuresRouter.post('/', (req: Request, res: Response) => {
   }
 
   try {
-    const dataService = DataService.getInstance();
-    const record = dataService.createDeparture({
+    const record = initiateDeparture(DataService.getInstance(), {
       personId: parsed.data.personId,
       leaveDate: parsed.data.leaveDate,
       note: parsed.data.note ?? null,
     });
-    res.status(201).json({ id: record.id });
+    res.status(201).json({ id: record.id, handoverPack: record.handoverPack?.summary ?? null });
   } catch (err: any) {
+    if (err instanceof DepartureError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     res.status(500).json({ error: err.message || 'Failed to initiate departure.' });
   }
+});
+
+// 3b. GET /api/departures/:id/handover-pack (HND-02 JSON manifest)
+departuresRouter.get('/:id/handover-pack', (req: Request, res: Response) => {
+  const dep = DataService.getInstance().getDeparture(String(req.params.id));
+  if (!dep) {
+    res.status(404).json({ error: `Departure ${req.params.id} not found.` });
+    return;
+  }
+  if (!dep.handoverPack) {
+    res.status(404).json({ error: 'This departure predates handover packs; no pack was compiled.' });
+    return;
+  }
+  res.json(dep.handoverPack);
 });
 
 // 4. POST /api/departures/:id/succession-test

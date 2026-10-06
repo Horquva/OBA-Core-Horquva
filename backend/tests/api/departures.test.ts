@@ -17,6 +17,7 @@ import { DataService } from '../../src/services/dataService.js';
 describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
   let server: http.Server;
   let baseUrl: string;
+  let omarDepartureId: string;
 
   beforeAll(async () => {
     await new Promise<void>((resolve) => {
@@ -63,6 +64,8 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     expect(res.status).toBe(201);
     const body = (await res.json()) as any;
     expect(body.id).toBeDefined();
+    expect(body.handoverPack).toMatchObject({ assetsTotal: 2, orphanedOnDeparture: 2 });
+    omarDepartureId = body.id;
 
     // Verify detail
     const detailRes = await authedFetch(`${baseUrl}/api/departures/${body.id}`);
@@ -77,17 +80,8 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
   });
 
   it('POST /api/departures/:id/succession-test calculates succession feasibility and concentration', async () => {
-    // Omar departure
-    const initRes = await authedFetch(`${baseUrl}/api/departures`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        personId: 'person:omar@acme.com',
-        leaveDate: '2026-12-01T00:00:00Z',
-        note: 'Succession test.',
-      }),
-    });
-    const { id: depId } = (await initRes.json()) as any;
+    // Reuse Omar's departure: a person can only have one open departure.
+    const depId = omarDepartureId;
 
     const testRes = await authedFetch(`${baseUrl}/api/departures/${depId}/succession-test`, {
       method: 'POST',
@@ -120,6 +114,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
         note: 'Updating successors.',
       }),
     });
+    expect(initRes.status).toBe(201);
     const { id: depId } = (await initRes.json()) as any;
 
     const putRes = await authedFetch(`${baseUrl}/api/departures/${depId}/successors`, {
@@ -150,6 +145,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
         note: 'Handover accept test.',
       }),
     });
+    expect(initRes.status).toBe(201);
     const { id: depId } = (await initRes.json()) as any;
 
     // Assign Chen as successor for Maya's asset (103)
@@ -184,16 +180,43 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     expect(afterDetail.handover[0].acceptance).toBe('accepted');
   });
 
+  it('POST /api/departures maps validation failures to 404 / 400 / 409', async () => {
+    const post = (body: unknown) =>
+      authedFetch(`${baseUrl}/api/departures`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    expect((await post({ personId: 'person:nobody@acme.com', leaveDate: '2026-12-31' })).status).toBe(404);
+    expect((await post({ personId: 'person:elena@acme.com', leaveDate: 'not-a-date' })).status).toBe(400);
+    expect((await post({ personId: 'person:sarah@acme.com', leaveDate: '2026-12-31' })).status).toBe(409); // seeded open departure
+  });
+
+  it('GET /api/departures/:id/handover-pack returns the compiled HND-02 manifest', async () => {
+    // Omar's departure from the first test: owns 101 + 102, neither backed up.
+    const packRes = await authedFetch(`${baseUrl}/api/departures/${omarDepartureId}/handover-pack`);
+    expect(packRes.status).toBe(200);
+    const pack = (await packRes.json()) as any;
+    expect(pack.departureId).toBe(omarDepartureId);
+    expect(pack.summary).toMatchObject({ assetsTotal: 2, orphanedOnDeparture: 2 });
+    expect(pack.assets.map((a: any) => a.asset.id).sort()).toEqual(['automation:n8n:101', 'automation:n8n:102']);
+
+    // Seeded departures predate packs.
+    expect((await authedFetch(`${baseUrl}/api/departures/dep_sarah_001/handover-pack`)).status).toBe(404);
+  });
+
   it('POST /api/handovers/:id/decline records decline reason and updates status', async () => {
     const initRes = await authedFetch(`${baseUrl}/api/departures`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        personId: 'person:maya@acme.com',
+        // Chen, not Maya: Maya's departure from the accept test is still open (one open departure per person).
+        personId: 'person:chen@acme.com',
         leaveDate: '2026-12-31T00:00:00Z',
         note: 'Handover decline test.',
       }),
     });
+    expect(initRes.status).toBe(201);
     const { id: depId } = (await initRes.json()) as any;
     const getRes = await authedFetch(`${baseUrl}/api/departures/${depId}`);
     const detail = (await getRes.json()) as any;

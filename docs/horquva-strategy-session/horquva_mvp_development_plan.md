@@ -152,7 +152,7 @@
 | ✅ **D1 (Oct 6)** | SSO Authentication — Entra ID OAuth 2.0 | G-16 | `backend/src/auth/entra.ts` — MSAL token validation, user session creation | SEC-01 |
 | ✅ **D2 (Oct 7)** | SSO Authentication — Google OIDC | G-16 | `backend/src/auth/google.ts` — ID token validation, combined auth middleware | SEC-01 |
 | ✅ **D3 (Oct 8)** | RBAC Middleware + Audit Log middleware | G-14, G-15 | `backend/src/middleware/{rbac,auditLog}.ts` — role enforcement on every route, append-only audit writes | SEC-02, SEC-06 |
-| **D4 (Oct 9)** | Departure Workflow Backend — Initiation + Pack Compilation | G-04, G-05 | `backend/src/handover/departureService.ts` — POST /api/departures, auto-generate handover pack JSON from S1 simulation | HND-01, HND-02 |
+| ✅ **D4 (Oct 9)** | Departure Workflow Backend — Initiation + Pack Compilation | G-04, G-05 | `backend/src/handover/departureService.ts` — POST /api/departures, auto-generate handover pack JSON from S1 simulation | HND-01, HND-02 |
 | **D5 (Oct 10)** | Departure Workflow Backend — Successor Assignment + Acceptance | G-06 | `backend/src/handover/successionService.ts` — successor naming, acceptance API, stage tracking (Initiated→Named→Accepted→Disabled→Verified) | HND-03, HND-04, HND-05 |
 | **D6 (Oct 13)** | Departure Workflow Backend — Integration & Tests | G-04/G-05/G-06 | Integration tests: departure creation → pack generation → successor flow → stage transitions | HND-01 to HND-05 |
 
@@ -160,7 +160,7 @@
 - [x] Microsoft Entra SSO and Google OIDC both produce valid session tokens *(verified against fake IdPs in tests; live tenant sign-in pending app registrations)*
 - [x] RBAC middleware blocks `viewer` from write operations, blocks `reviewer` from admin routes
 - [x] Every API call writes to audit_log *(scoped to every write, every denial and every sign-in/out — see D3 log for why successful reads are excluded)*
-- [ ] `POST /api/departures` creates departure and triggers S1 simulation to build handover pack
+- [x] `POST /api/departures` creates departure and triggers S1 simulation to build handover pack
 - [ ] Successor can accept via `POST /api/handover/{id}/accept`
 - [ ] Departure progresses through all 5 stages correctly
 
@@ -190,6 +190,17 @@
   - Tests: `backend/tests/middleware/rbac.test.ts` (17); existing API tests now sign a real session via `backend/tests/helpers/session.ts` (`authedFetch`). Backend suite 140/140; live boot verified (anonymous 401, viewer 200 on reads / 403 on `/api/users`, audit entries carry the right actors).
   - ⚠️ Impact on frontend: the backend now returns 401 to any request without a session. Local frontend development against the real backend needs a signed-in session (`AUTH_DEV_LOGIN=true` + `POST /api/auth/dev/sign-in`) until the sign-in page is wired (Sprint 3 D13). An automatic "act as this user when no session" dev bypass was considered and **not** added.
   - Not done here: successor-only enforcement on handover accept/decline (any reviewer can currently act on any handover) — belongs to D5 (successor acceptance).
+  - Requested follow-up (blocked): making "no session → 401" local-dev-optional (enforced only in production / `AUTH_REQUIRED=true`) was attempted at the owner's request but blocked by the agent's auto-mode safety classifier. Owner to apply manually or grant the edit permission.
+- **D4 — Departure initiation + handover pack ✅ (Oct 6)**
+  - Engineer A's push already had `POST /api/departures` creating a departure with a handover row per owned asset. Gap vs plan: it never ran S1, built no handover pack (HND-02 / G-05), and did no validation.
+  - Built: `backend/src/handover/departureService.ts` — `initiateDeparture()` (validation + creation) and `buildHandoverPack()` (runs S1 `simulateDeparture`, freezes a versioned JSON manifest on the departure). Route now goes through the service; new `GET /api/departures/:id/handover-pack`.
+  - Pack contents per owned asset: criticality + evidence grade, documented / fallback as `yes | no | unknown` (missing facts are `unknown`, never `no` — DATA-03), `orphanedOnDeparture` from S1, who still covers it (owner/backup), weekly runs. Plus personal-credential automations, downstream impact, summary counts, and the raw S1 result (for the RPT-01 PDF later).
+  - Validation: person must exist and be a `person` entity (404); leave date must parse (400, normalized to ISO); **one open departure per person** (409; "open" = any stage before `verified`). `detectedFrom` accepted for Entra/Google-detected leavers.
+  - `POST /api/departures` response is backward compatible (`{ id }`) plus `handoverPack` summary.
+  - Existing API test fix: the succession-test case silently created a second Omar departure; it now reuses the first one (the old code passed only because `succession-test` ignores the departure id).
+  - Tests: `backend/tests/handover/departureService.test.ts` (12, hand-checked against `handCheckableTruth.json`) + 2 new API tests. Backend suite 154/154.
+  - ⚠️ Found, not fixed (in `GET /api/departures/:id`, Engineer A's route; fix during D5/D6 or Sprint 2 D8 wiring): (1) `suggestion` falls back to a **hard-coded "Chen Wei"** for every asset with no backup — fabricated data; (2) `currentBackup.grade` is always `'confirmed'` and `observedAt` is "now" regardless of the real edge — misstated evidence; (3) `undocumented` counts assets with **no** `documented` fact as undocumented — unknown shown as "no" (DATA-03); (4) `team` is hard-coded `'Platform Engineering'`.
+  - Note: `tests/ai/gemini.test.ts` and `tests/api/server.test.ts` can time out intermittently — they try the Postgres in `backend/.env` first (legacy Supabase, schema absent) and fall back after 5 s. Pre-existing; passes on re-run.
 
 ---
 
