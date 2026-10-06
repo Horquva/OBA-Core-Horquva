@@ -11,6 +11,8 @@ export default defineConfig({
     // dotenv never overrides an already-set variable, so this wins over .env.
     env: {
       DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:1/horquva_test',
+      // Never call the real AI model from tests: Ask answers come from the graph.
+      GEMINI_API_KEY: '',
     },
   },
 });

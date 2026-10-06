@@ -174,7 +174,11 @@ export interface WorstLosses {
 // ── Ask OBA ────────────────────────────────────────────────
 export interface ChatMessage {
   id: string; role: 'user' | 'assistant'; content: string;
-  sources: Array<{ label: string; detail: string }>; createdAt: string;
+  /** The entities the answer cites (from the graph). */
+  sources: Array<{ label: string; detail: string; entity?: EntityRef }>;
+  /** Assistant only: 'ai' = the model answered, 'graph' = computed directly from the graph. */
+  answeredBy?: 'ai' | 'graph' | null;
+  createdAt: string;
 }
 export interface Conversation { id: string; title: string; updatedAt: string }
 

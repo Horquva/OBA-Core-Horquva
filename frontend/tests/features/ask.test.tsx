@@ -23,7 +23,7 @@ const sampleConversations: Conversation[] = [
   },
   {
     id: 'conv-2',
-    title: 'Omar Haddad departure blast radius',
+    title: 'What if Omar leaves?',
     updatedAt: '2026-09-28T09:30:00.000Z',
   },
 ];
@@ -40,13 +40,12 @@ const sampleMessages: ChatMessage[] = [
     id: 'm-2',
     role: 'assistant',
     content:
-      'I examined verified system records. Currently, [Stripe Billing Pipeline](oba://asset/w-billing?grade=confirmed) has no qualified secondary backup.',
+      '1 critical or high asset(s) have no backup on record:\n- [Billing Sync to Stripe](oba://automation/automation:n8n:101) (owner [Omar Farooq](oba://person/person:omar@acme.com))',
     sources: [
-      {
-        label: 'Stripe Billing Pipeline backup',
-        detail: 'backup: none (Confirmed by Manual check)',
-      },
+      { label: 'Billing Sync to Stripe', detail: 'Automation', entity: { id: 'automation:n8n:101', kind: 'automation', name: 'Billing Sync to Stripe' } },
+      { label: 'Omar Farooq', detail: 'Person', entity: { id: 'person:omar@acme.com', kind: 'person', name: 'Omar Farooq' } },
     ],
+    answeredBy: 'graph',
     createdAt: '2026-10-01T12:00:05.000Z',
   },
 ];
@@ -71,13 +70,6 @@ describe('Screen 8: Ask Horquva (Task 30)', () => {
         createdAt: new Date().toISOString(),
       },
     });
-    vi.spyOn(assistantApi, 'askOnce').mockResolvedValue({
-      id: 'resp-fallback',
-      role: 'assistant',
-      content: 'I analyzed our records via fallback.',
-      sources: [],
-      createdAt: new Date().toISOString(),
-    });
   });
 
   it('renders initial empty state with starter inquiries and conversation history', async () => {
@@ -86,9 +78,11 @@ describe('Screen 8: Ask Horquva (Task 30)', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Ask Horquva' })).toBeInTheDocument();
     expect(screen.getByText('Conversations')).toBeInTheDocument();
     expect(screen.getByText('Billing automations review')).toBeInTheDocument();
-    expect(screen.getByText('Omar Haddad departure blast radius')).toBeInTheDocument();
+    expect(screen.getByText('What if Omar leaves?')).toBeInTheDocument();
     expect(screen.getByText('How can I help with continuity today?')).toBeInTheDocument();
-    expect(screen.getByText(/"Which critical automations have no secondary backup\?"/)).toBeInTheDocument();
+    expect(screen.getByText(/"Which critical automations have no backup\?"/)).toBeInTheDocument();
+    // No invented names in the suggestions.
+    expect(screen.queryByText(/Omar Haddad|Stripe Billing Pipeline/)).toBeNull();
   });
 
   it('submits query from input field and renders user & assistant response', async () => {
@@ -109,27 +103,35 @@ describe('Screen 8: Ask Horquva (Task 30)', () => {
     expect(await screen.findByText('I analyzed our continuity records for that question.')).toBeInTheDocument();
   });
 
-  it('renders entity chips and verified sources accordion for assistant messages', async () => {
-    render(
-      <AskView
-        initialConversations={sampleConversations}
-        initialMessages={sampleMessages}
-      />
-    );
+  it('renders entity chips with no implied evidence grade, the mentioned list, and how it was answered', async () => {
+    render(<AskView initialConversations={sampleConversations} initialMessages={sampleMessages} />);
 
-    // Entity chip parsed from markdown
-    expect(screen.getByText('Stripe Billing Pipeline')).toBeInTheDocument();
-    expect(screen.getByText('(automation)')).toBeInTheDocument();
+    const log = screen.getByRole('log');
+    expect(log).toHaveTextContent('1 critical or high asset(s) have no backup on record');
+    expect(screen.getAllByRole('button', { name: /Inspect Billing Sync to Stripe/i }).length).toBe(2); // inline + mentioned list
+    expect(log.textContent).not.toMatch(/confirmed|verified facts/i);
+    expect(screen.getByRole('list', { name: 'Entities mentioned in this answer' })).toBeInTheDocument();
+    expect(screen.getByText(/Computed directly from OBA's records/)).toBeInTheDocument();
+  });
 
-    // Sources accordion
-    expect(screen.getByText('Sources')).toBeInTheDocument();
-    expect(screen.getByText('(1 verified facts cited)')).toBeInTheDocument();
+  it('a failed answer is shown as an error (no hidden second request), and retry does not duplicate the question', async () => {
+    (assistantApi.sendMessage as any).mockRejectedValueOnce(new Error('offline'));
+    render(<AskView initialConversations={sampleConversations} />);
+    fireEvent.change(screen.getByLabelText('Your query for Horquva'), { target: { value: 'How are we doing?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText(/Could not get an answer: offline/)).toBeInTheDocument();
+    expect(assistantApi.sendMessage).toHaveBeenCalledTimes(1);
 
-    // Expand sources
-    const sourcesBtn = screen.getByRole('button', { name: /Sources/ });
-    fireEvent.click(sourcesBtn);
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(await screen.findByText('I analyzed our continuity records for that question.')).toBeInTheDocument();
+    expect(screen.getAllByText('How are we doing?')).toHaveLength(1);
+  });
 
-    expect(screen.getByText(/backup: none \(Confirmed by Manual check\)/)).toBeInTheDocument();
+  it('says when past conversations could not be loaded instead of "No past conversations"', async () => {
+    (assistantApi.fetchConversations as any).mockRejectedValue(new Error('down'));
+    render(<AskView />);
+    expect(await screen.findByText(/Could not load past conversations/)).toBeInTheDocument();
+    expect(screen.queryByText('No past conversations.')).toBeNull();
   });
 
   it('opens asset drawer when clicking on an entity chip', async () => {
@@ -140,7 +142,7 @@ describe('Screen 8: Ask Horquva (Task 30)', () => {
       />
     );
 
-    const chip = screen.getByRole('button', { name: /Inspect Stripe Billing Pipeline/i });
+    const chip = screen.getAllByRole('button', { name: /Inspect Billing Sync to Stripe/i })[0];
     fireEvent.click(chip);
 
     // AssetDrawer renders with asset dialog

@@ -17,6 +17,7 @@ import { assetsRouter } from './routes/assets.js';
 import { graphRouter } from './routes/graph.js';
 import { identityRouter } from './routes/identity.js';
 import { freshnessRouter } from './routes/freshness.js';
+import { assistantRouter } from './routes/assistant.js';
 import {
   connectionsRouter,
   usersRouter,
@@ -65,6 +66,7 @@ app.use('/api/assets', assetsRouter);
 app.use('/api/graph', graphRouter);
 app.use('/api/identity-queue', identityRouter);
 app.use('/api/freshness', freshnessRouter);
+app.use('/api/assistant', assistantRouter);
 app.use('/api/connections', connectionsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/settings', settingsRouter);

@@ -66,6 +66,7 @@ export const POLICY: Rule[] = [
   // POSTs that only compute (what-if, Ask) — readable by everyone signed in.
   rule(['POST'], '/continuity/simulations/[a-z-]+', 'read'),
   rule(['POST'], '/continuity/assistant/ask', 'read'),
+  rule(['POST'], '/assistant/messages', 'read'),
   rule(['POST'], `/departures/${ID}/succession-test`, 'read'),
 ];
 

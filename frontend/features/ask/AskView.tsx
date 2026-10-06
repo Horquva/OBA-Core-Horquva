@@ -3,20 +3,15 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import type { ChatMessage, Conversation, EntityKind, EvidenceGrade } from '@/types/view';
+import type { ChatMessage, Conversation, EntityKind } from '@/types/view';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EntityChip } from '@/components/ui/EntityChip';
-import { SourcesList, type SourceFactItem } from '@/components/ui/SourcesList';
 import { Skeleton, EmptyState, ErrorState } from '@/components/ui/states';
 import { AssetDrawer } from '@/features/assets/AssetDrawer';
 import { useResource } from '@/lib/useResource';
-import {
-  fetchConversations,
-  fetchConversation,
-  sendMessage,
-  askOnce,
-} from '@/lib/api/assistant';
+import { fetchConversations, fetchConversation, sendMessage } from '@/lib/api/assistant';
+import { toApiError } from '@/lib/api/client';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -26,11 +21,11 @@ export interface AskViewProps {
   defaultQuery?: string;
 }
 
+// Generic on purpose: no names that may not exist in this organisation.
 const SUGGESTED_QUERIES = [
-  'Which critical automations have no secondary backup?',
-  'What is our blast radius if Stripe Billing pipeline fails?',
-  'Which workflows run on personal user credentials?',
-  'What happens if Omar Haddad leaves the company?',
+  'How are we doing on continuity?',
+  'Which critical automations have no backup?',
+  'Which automations run on personal credentials?',
 ];
 
 export function AskView({
@@ -78,8 +73,9 @@ export function AskView({
     try {
       const data = await fetchConversation(id);
       setMessages(data.messages);
-    } catch {
-      // Fallback
+    } catch (e) {
+      setMessages([]);
+      setError(`Could not open that conversation: ${toApiError(e).message}`);
     }
   };
 
@@ -106,26 +102,23 @@ export function AskView({
       createdAt: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    // A retry replaces the unanswered question instead of repeating it.
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      const base = last && last.role === 'user' && last.content === q ? prev.slice(0, -1) : prev;
+      return [...base, userMsg];
+    });
     setIsSending(true);
 
     try {
-      let assistantMsg: ChatMessage;
-      try {
-        const res = await sendMessage(activeConversationId, q);
-        if (!activeConversationId) {
-          setActiveConversationId(res.conversationId);
-          convosResource.reload();
-        }
-        assistantMsg = res.message;
-      } catch {
-        // Fallback to askOnce
-        assistantMsg = await askOnce(q);
+      const res = await sendMessage(activeConversationId, q);
+      if (!activeConversationId) {
+        setActiveConversationId(res.conversationId);
       }
-
-      setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to query assistant. Please retry.');
+      convosResource.reload();
+      setMessages((prev) => [...prev, res.message]);
+    } catch (err) {
+      setError(`Could not get an answer: ${toApiError(err).message}`);
     } finally {
       setIsSending(false);
     }
@@ -140,23 +133,29 @@ export function AskView({
     }
   }, [urlQuery]);
 
-  // Parse OBA entity markdown links: [Name](oba://asset/<id>?grade=<grade>) or oba://person/<id>
+  // Entity links from the backend: [Name](oba://<kind>/<entity id>). No evidence grade is
+  // implied (an answer cites an entity, not a confirmed fact).
+  const openEntity = (id: string, kind?: EntityKind) => {
+    if (kind === 'person') window.location.href = `/people/${encodeURIComponent(id)}`;
+    else if (kind === 'group') window.location.href = `/people/teams/${encodeURIComponent(id)}`;
+    else setInspectAssetId(id);
+  };
+
   const renderMessageContent = (content: string) => {
-    const obaLinkRegex = /\[([^\]]+)\]\(oba:\/\/(asset|person)\/([^?)]+)(?:\?grade=([a-z]+))?\)/g;
+    const obaLinkRegex = /\[([^\]]+)\]\(oba:\/\/([a-z]+)\/([^)]+)\)/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match: RegExpExecArray | null;
 
     while ((match = obaLinkRegex.exec(content)) !== null) {
-      const [fullMatch, name, rawKind, entityId, gradeParam] = match;
+      const [fullMatch, name, rawKind, entityId] = match;
       const matchIndex = match.index;
 
       if (matchIndex > lastIndex) {
         parts.push(content.substring(lastIndex, matchIndex));
       }
 
-      const kind: EntityKind = rawKind === 'asset' ? 'automation' : 'person';
-      const grade: EvidenceGrade = (gradeParam as EvidenceGrade) || 'confirmed';
+      const kind = (rawKind === 'asset' ? 'automation' : rawKind) as EntityKind;
 
       parts.push(
         <span key={`oba-entity-${entityId}-${matchIndex}`} className="inline-block mx-1 align-middle">
@@ -164,14 +163,7 @@ export function AskView({
             id={entityId}
             name={name}
             kind={kind}
-            grade={grade}
-            onInspect={(id, k) => {
-              if (k === 'person') {
-                window.location.href = `/people/${id}`;
-              } else {
-                setInspectAssetId(id);
-              }
-            }}
+            onInspect={(id, k) => openEntity(id, k)}
           />
         </span>,
       );
@@ -218,6 +210,13 @@ export function AskView({
                 <Skeleton variant="text" className="w-full h-8" />
                 <Skeleton variant="text" className="w-4/5 h-8" />
               </div>
+            ) : convosResource.status === 'error' ? (
+              <p role="alert" className="text-xs text-st-fail py-4 text-center">
+                Could not load past conversations.{' '}
+                <button type="button" onClick={convosResource.reload} className="underline cursor-pointer">
+                  Retry
+                </button>
+              </p>
             ) : conversations.length === 0 ? (
               <p className="text-xs text-ink-3 py-4 text-center font-mono">
                 No past conversations.
@@ -250,8 +249,8 @@ export function AskView({
 
         {/* Grounding Invariant Footer */}
         <div className="pt-4 border-t border-rule/50 text-[11px] text-ink-3 font-mono space-y-1">
-          <p className="font-semibold text-ink">Continuity Invariant:</p>
-          <p>Answers cite verified SCD2 facts. Zero hallucinated metrics or risk scores.</p>
+          <p className="font-semibold text-ink">How answers work</p>
+          <p>Answers are built from OBA's records and link every asset or person they mention. Unknown facts are called unknown. People are never ranked.</p>
         </div>
       </aside>
 
@@ -301,8 +300,8 @@ export function AskView({
                   How can I help with continuity today?
                 </h2>
                 <p className="text-xs text-ink-3 leading-relaxed">
-                  I analyze live SCD2 temporal facts, backup assignments, and dependency chains. Ask
-                  me about upcoming leavers, unbacked critical workflows, or vendor blast radius.
+                  Ask about owners and backups, what happens if someone leaves, what breaks if a
+                  service goes down, or automations running on personal credentials.
                 </p>
               </div>
 
@@ -330,14 +329,6 @@ export function AskView({
             <>
               {messages.map((msg) => {
                 const isUser = msg.role === 'user';
-                const mappedSources: SourceFactItem[] = msg.sources.map((s, idx) => ({
-                  id: `src-${idx}-${s.label}`,
-                  attribute: s.label,
-                  value: s.detail,
-                  grade: 'confirmed',
-                  source: 'SCD2 Temporal Record',
-                  entityName: s.label,
-                }));
 
                 return (
                   <div
@@ -366,9 +357,33 @@ export function AskView({
                       <div>{renderMessageContent(msg.content)}</div>
 
                       {/* Sources List for Assistant */}
-                      {!isUser && mappedSources.length > 0 && (
-                        <div className="pt-2">
-                          <SourcesList sources={mappedSources} />
+                      {!isUser && msg.answeredBy === 'graph' && (
+                        <p className="text-[11px] text-ink-3">
+                          Computed directly from OBA's records (no AI model is configured, or it was unavailable).
+                        </p>
+                      )}
+
+                      {!isUser && msg.sources.length > 0 && (
+                        <div className="pt-2 border-t border-rule/30">
+                          <p className="text-[10px] font-mono uppercase tracking-wider text-ink-3 mb-1.5">
+                            Mentioned ({msg.sources.length})
+                          </p>
+                          <ul className="flex flex-wrap gap-1.5" aria-label="Entities mentioned in this answer">
+                            {msg.sources.map((s) => (
+                              <li key={s.entity?.id ?? s.label}>
+                                {s.entity ? (
+                                  <EntityChip
+                                    id={s.entity.id}
+                                    name={s.entity.name}
+                                    kind={s.entity.kind}
+                                    onInspect={(id, k) => openEntity(id, k)}
+                                  />
+                                ) : (
+                                  <span className="text-xs text-ink-2">{s.label}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       )}
                     </div>
@@ -380,7 +395,7 @@ export function AskView({
                 <div className="flex flex-col items-start">
                   <div className="max-w-xl rounded-card p-4 space-y-2 bg-surface border border-rule shadow-xs">
                     <div className="text-[10px] font-mono text-ink-3">
-                      Horquva Continuity Assistant is searching SCD2 facts...
+                      Working out the answer...
                     </div>
                     <Skeleton variant="text" className="w-3/4 h-4" />
                     <Skeleton variant="text" className="w-1/2 h-4" />
@@ -389,7 +404,13 @@ export function AskView({
               )}
 
               {error && (
-                <ErrorState message={error} onRetry={() => handleSend(messages[messages.length - 1]?.content || '')} />
+                <ErrorState
+                  message={error}
+                  onRetry={() => {
+                    const last = messages[messages.length - 1];
+                    if (last?.role === 'user') handleSend(last.content);
+                  }}
+                />
               )}
 
               <div ref={messagesEndRef} />

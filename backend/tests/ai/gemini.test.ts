@@ -27,8 +27,8 @@ describe('Ask Horquva & Grounded Gemini Engine', () => {
     const answer = await engine.ask('What is our current continuity overview and metrics?', graph);
 
     expect(answer).toBeDefined();
-    expect(answer).toContain('Total Critical Assets');
-    expect(answer).toContain('4');
+    // No model in tests (GEMINI_API_KEY blanked in vitest.config.ts): answered from the graph.
+    expect(answer).toMatch(/^1 of 4 critical assets are fully covered\./);
   });
 
   it('generates weekly executive continuity briefing grounded in graph data', async () => {

@@ -13,7 +13,7 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import { ContinuityGraph } from '../domain/graph/index.js';
 import { calculateHeadlineMetrics, evaluateAllChecks } from '../domain/checks/index.js';
-import { SimulationEngine } from '../domain/simulation/index.js';
+import { answerFromGraph } from './graphAnswers.js';
 
 dotenv.config();
 
@@ -26,9 +26,10 @@ STRICT CONSTRAINTS:
 1. NEVER predict individual employee attrition or rank individual workers.
 2. NEVER use synthetic 0-100 risk scores.
 3. NEVER invent or hallucinate asset IDs, person names, or run volumes.
-4. CITE exact entity IDs (e.g. 'automation:n8n:101', 'person:omar@acme.com') in every claim.
-5. If data is unknown or missing, explicitly state: "UNKNOWN (Pending confirmation campaign)".
-6. Format responses in crisp GitHub-flavored markdown with summary tables and prioritized next actions.
+4. Cite every asset or person as [[<entity id>]], e.g. [[automation:n8n:101]] or [[person:omar@acme.com]]. Never write a name without its [[id]].
+5. If data is unknown or missing (null in the ground truth), say it is unknown. Never treat unknown as no or 0.
+6. Answer in short plain sentences and "- " bullet lists. No tables, no headings, no bold.
+7. Only answer from the ground truth. If it doesn't contain the answer, say so.
 `.trim();
 
 export class AskHorquvaEngine {
@@ -45,7 +46,13 @@ export class AskHorquvaEngine {
   /**
    * Generates a grounded response to an operational query.
    */
+  /** Answer text only (kept for existing callers). */
   public async ask(query: string, graph: ContinuityGraph): Promise<string> {
+    return (await this.askDetailed(query, graph)).answer;
+  }
+
+  /** `answeredBy`: 'ai' when the model answered, 'graph' when computed directly from the graph. */
+  public async askDetailed(query: string, graph: ContinuityGraph): Promise<{ answer: string; answeredBy: 'ai' | 'graph' }> {
     const metrics = calculateHeadlineMetrics(graph);
     const checks = evaluateAllChecks(graph);
     const nodes = graph.getAllNodes();
@@ -65,10 +72,17 @@ export class AskHorquvaEngine {
           name: n.entity.name,
           owners: graph.getOwners(n.entity.id).map((o) => o.name),
           backups: graph.getBackups(n.entity.id).map((b) => b.name),
-          weeklyRuns: n.facts.get('run_volume_weekly')?.value || 0,
+          weeklyRuns: typeof n.facts.get('run_volume_weekly')?.value === 'number' ? n.facts.get('run_volume_weekly')!.value : null,
           isDocumented: n.facts.get('documented')?.value ?? 'UNKNOWN',
           fallbackExists: n.facts.get('fallback_exists')?.value ?? 'UNKNOWN',
         })),
+      personalCredentialAutomations: graph
+        .getAllEdges()
+        .filter((e) => e.type === 'runs_on_credentials_of' && !e.validTo)
+        .map((e) => ({ automation: e.fromId, credentialOwner: e.toId })),
+      people: nodes
+        .filter((n) => n.entity.kind === 'person')
+        .map((n) => ({ id: n.entity.id, name: n.entity.name, status: n.facts.get('status')?.value ?? null })),
     };
 
     // If Gemini API Key is available, use Gemini 2.0 Flash
@@ -94,15 +108,15 @@ Provide a direct, factual answer strictly grounded in the ground truth above.
         });
 
         if (response.text) {
-          return response.text;
+          return { answer: response.text, answeredBy: 'ai' };
         }
       } catch (err) {
         console.error('[AskHorquvaEngine] Gemini API error, falling back to deterministic response:', err);
       }
     }
 
-    // Deterministic fallback response when offline or without API key
-    return this.generateDeterministicAnswer(query, groundTruthContext);
+    // No model configured (or it failed): answer directly from the graph.
+    return { answer: answerFromGraph(query, graph), answeredBy: 'graph' };
   }
 
   /**
@@ -160,35 +174,6 @@ ${failedChecks.map((f) => `- **${f.checkId}**: ${f.reason} (Asset: \`${f.entityI
 ### 3. Immediate Recommended Actions
 1. **Launch Confirmation Campaign**: ${metrics.unknownCriticalFacts} facts remain unverified. Dispatch access-review magic links to asset owners.
 2. **Assign Backups**: Assign cross-trained backups to exposed critical automations immediately.
-    `.trim();
-  }
-
-  private generateDeterministicAnswer(query: string, context: any): string {
-    const q = query.toLowerCase();
-    const metrics = context.headlineMetrics;
-
-    if (q.includes('how many') || q.includes('metrics') || q.includes('overview') || q.includes('status')) {
-      return `
-### Operational Continuity Overview
-
-| Metric | Count | Description |
-| :--- | :--- | :--- |
-| **Total Critical Assets** | **${metrics.totalCriticalAssets}** | Core automations & processes vital to operations |
-| **Fully Covered** | **${metrics.fullyCoveredCriticalAssets}** | Have confirmed backup, runbook, and fallback |
-| **Exposed Assets** | **${metrics.exposedCriticalAssets}** | Lack backup, runbook, or fallback |
-| **Unknown Facts** | **${metrics.unknownCriticalFacts}** | Pending confirmation from asset owners |
-
-**Active Continuity Failures (${context.failedChecks.length})**:
-${context.failedChecks.map((f: any) => `- \`${f.entityId}\`: ${f.reason}`).join('\n')}
-      `.trim();
-    }
-
-    return `
-### Horquva Operational Ground Truth
-- **Total Critical Assets**: ${metrics.totalCriticalAssets}
-- **Exposed Assets**: ${metrics.exposedCriticalAssets}
-- **Active Alerts**: ${context.failedChecks.length} failure(s) detected.
-${context.failedChecks.map((f: any) => `- ${f.reason}`).join('\n')}
     `.trim();
   }
 }
