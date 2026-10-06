@@ -2,54 +2,46 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import type { ConnectionView, ConnectionType } from '@/types/view';
+import type { ConnectionsOverview, ConnectionType, ConnectionView } from '@/types/view';
 import { Card } from '@/components/ui/Card';
-import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
+import { Skeleton, ErrorState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
-import { fetchConnections, syncConnection } from '@/lib/api/settings';
-import { formatDate } from '@/lib/format';
+import { fetchConnections } from '@/lib/api/settings';
+import { formatDate, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 export interface ConnectionsViewProps {
-  initialConnections?: ConnectionView[];
+  initialOverview?: ConnectionsOverview;
 }
 
-const TYPE_LABELS: Record<ConnectionType, { label: string; icon: string }> = {
-  n8n: { label: 'n8n Workflow Automation', icon: '⚡' },
-  entra: { label: 'Microsoft Entra ID (Azure AD)', icon: '🏢' },
-  google: { label: 'Google Workspace', icon: '🌐' },
-  openai: { label: 'OpenAI Platform', icon: '🤖' },
-  anthropic: { label: 'Anthropic Claude API', icon: '🧠' },
-  csv: { label: 'CSV / Manual Import', icon: '📄' },
+const TYPE_LABELS: Record<ConnectionType, string> = {
+  n8n: 'n8n Workflow Automation',
+  entra: 'Microsoft Entra ID',
+  google: 'Google Workspace',
+  openai: 'OpenAI Platform',
+  anthropic: 'Anthropic Claude API',
+  csv: 'CSV / Manual Import',
 };
 
-export function ConnectionsView({ initialConnections }: ConnectionsViewProps) {
-  const connectionsResource = useResource<ConnectionView[]>(
-    'settings-connections',
-    fetchConnections,
-  );
+const SOURCE_LABELS: Record<string, string> = {
+  entra: 'Microsoft Entra ID',
+  google: 'Google Workspace',
+  n8n: 'n8n',
+  csv: 'CSV import',
+  attestation: 'Confirmed by the people themselves',
+  manual_assignment: 'Assigned in OBA',
+};
 
-  const connections =
-    connectionsResource.status === 'ready'
-      ? connectionsResource.data
-      : initialConnections || [];
+const STATUS_STYLES: Record<ConnectionView['status'], string> = {
+  connected: 'bg-st-pass/15 text-st-pass',
+  syncing: 'bg-amber/15 text-amber-ink',
+  error: 'bg-st-fail/15 text-st-fail',
+  disconnected: 'bg-surface-sunken text-ink-3',
+};
 
-  const [syncingId, setSyncingId] = React.useState<string | null>(null);
-  const [notice, setNotice] = React.useState<string | null>(null);
-
-  const handleSync = async (id: string) => {
-    setSyncingId(id);
-    setNotice(null);
-    try {
-      await syncConnection(id);
-      setNotice(`Sync triggered for connection.`);
-      connectionsResource.reload();
-    } catch {
-      setNotice(`Sync failed to initiate. Please retry.`);
-    } finally {
-      setSyncingId(null);
-    }
-  };
+export function ConnectionsView({ initialOverview }: ConnectionsViewProps) {
+  const resource = useResource<ConnectionsOverview>('settings-connections', fetchConnections);
+  const overview = resource.status === 'ready' ? resource.data : initialOverview;
 
   return (
     <div className="space-y-6">
@@ -58,7 +50,7 @@ export function ConnectionsView({ initialConnections }: ConnectionsViewProps) {
         <div>
           <h2 className="text-base font-semibold text-ink">Connectors & Data Sources</h2>
           <p className="text-xs text-ink-3 mt-0.5">
-            Configure n8n, Entra ID, Google Workspace, and AI API integrations.
+            Where OBA's data comes from: configured connectors and what each source has contributed.
           </p>
         </div>
 
@@ -69,12 +61,6 @@ export function ConnectionsView({ initialConnections }: ConnectionsViewProps) {
           <span>Run n8n Ownership Scan →</span>
         </Link>
       </div>
-
-      {notice && (
-        <div className="rounded-control bg-amber/10 border border-amber/30 p-3 text-xs text-amber-ink font-mono">
-          {notice}
-        </div>
-      )}
 
       {/* Prominent Stateless n8n Callout */}
       <Card className="p-5 bg-surface-sunken/40 border border-rule space-y-3">
@@ -100,104 +86,94 @@ export function ConnectionsView({ initialConnections }: ConnectionsViewProps) {
         </div>
       </Card>
 
-      {/* Connectors List */}
-      {connectionsResource.status === 'loading' && !initialConnections ? (
+
+      {!overview && resource.status === 'loading' ? (
         <div className="space-y-4">
           <Skeleton variant="card" className="h-28" />
           <Skeleton variant="card" className="h-28" />
         </div>
-      ) : connectionsResource.status === 'error' && !initialConnections ? (
-        <ErrorState
-          onRetry={connectionsResource.reload}
-          message="Could not load system connectors."
-        />
-      ) : connections.length === 0 ? (
-        <EmptyState
-          title="No connectors configured"
-          description="Connect your identity providers and workflow engines to begin automated continuity mapping."
-        />
+      ) : !overview ? (
+        <ErrorState onRetry={resource.reload} message="Could not load connections." />
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {connections.map((c) => {
-            const meta = TYPE_LABELS[c.type] || { label: c.name, icon: '🔌' };
-            const isSyncing = syncingId === c.id || c.status === 'syncing';
-
-            return (
-              <Card
-                key={c.id}
-                className="p-5 bg-surface border border-rule shadow-card space-y-4 hover:border-ink-3/40 transition-colors"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl" aria-hidden="true">
-                      {meta.icon}
-                    </span>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-serif text-lg font-normal text-ink">
-                          {c.name}
-                        </h3>
-                        <span
-                          className={cn(
-                            'px-2 py-0.5 rounded-badge text-[10px] font-mono uppercase font-semibold',
-                            c.status === 'healthy' && 'bg-st-pass/15 text-st-pass',
-                            c.status === 'failed' && 'bg-st-fail/15 text-st-fail',
-                            c.status === 'syncing' && 'bg-amber/15 text-amber-ink',
-                            c.status === 'never' && 'bg-surface-sunken text-ink-3',
-                          )}
-                        >
-                          {c.status}
-                        </span>
-                      </div>
-                      <p className="text-xs text-ink-3 font-mono">
-                        Type: {meta.label} · Last Sync:{' '}
-                        {c.lastSyncAt ? formatDate(c.lastSyncAt) : 'Never'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    <button
-                      type="button"
-                      disabled={isSyncing}
-                      onClick={() => handleSync(c.id)}
-                      className="rounded-control bg-amber text-paper px-3 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                      {isSyncing ? 'Syncing...' : 'Sync Now'}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-control border border-rule bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-sunken transition-colors cursor-pointer"
-                    >
-                      Configure
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono pt-2 border-t border-rule/50">
-                  <div>
-                    <span className="text-ink-3">Items Synced: </span>
-                    <span className="font-semibold text-ink">
-                      {c.itemsSynced !== null ? `${c.itemsSynced} records` : '—'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-ink-3">Security Credential: </span>
-                    <span className="font-semibold text-ink">
-                      {c.secretHint || 'Not configured'}
-                    </span>
-                  </div>
-                </div>
-
-                {c.lastError && (
-                  <div className="rounded-control bg-st-fail/10 border border-st-fail/20 p-3 text-xs font-mono text-st-fail">
-                    Error: {c.lastError}
-                  </div>
-                )}
+        <>
+          <section className="space-y-3" aria-labelledby="configured-connectors">
+            <h3 id="configured-connectors" className="text-sm font-semibold text-ink">Configured connectors</h3>
+            {overview.store === 'unavailable' ? (
+              <Card className="p-5 bg-surface border border-rule text-xs text-ink-3 space-y-1">
+                <p className="text-ink font-medium">No connectors to show.</p>
+                <p>
+                  Connector settings live in the database, and this backend can't reach it, so OBA is running on the
+                  data it was loaded with (below).
+                </p>
               </Card>
-            );
-          })}
-        </div>
+            ) : overview.connections.length === 0 ? (
+              <Card className="p-5 bg-surface border border-rule text-xs text-ink-3">
+                No connectors have been set up yet.
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {overview.connections.map((c) => (
+                  <Card key={c.id} className="p-5 bg-surface border border-rule shadow-card space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="font-serif text-lg font-normal text-ink">{c.name}</h4>
+                      <span className={cn('px-2 py-0.5 rounded-badge text-[10px] font-mono uppercase font-semibold', STATUS_STYLES[c.status])}>
+                        {c.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-ink-3 font-mono">
+                      {TYPE_LABELS[c.type] ?? c.type} · Last sync: {c.lastSyncAt ? formatDate(c.lastSyncAt) : 'never'}
+                    </p>
+                    {c.lastRun && (
+                      <p className="text-xs text-ink-3 font-mono">
+                        Last run {c.lastRun.status}
+                        {Object.keys(c.lastRun.stats).length > 0 &&
+                          ` · ${Object.entries(c.lastRun.stats).map(([k, v]) => `${k.replace(/_/g, ' ')} ${formatNumber(v)}`).join(', ')}`}
+                      </p>
+                    )}
+                    {(c.lastError || c.lastRun?.error) && (
+                      <div className="rounded-control bg-st-fail/10 border border-st-fail/20 p-3 text-xs font-mono text-st-fail">
+                        Error: {c.lastError || c.lastRun?.error}
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-ink-3">
+              Syncing from the app isn't available yet; connectors are run by the backend.
+            </p>
+          </section>
+
+          <section className="space-y-3" aria-labelledby="data-on-record">
+            <h3 id="data-on-record" className="text-sm font-semibold text-ink">Data on record, by source</h3>
+            {overview.sources.length === 0 ? (
+              <Card className="p-5 bg-surface border border-rule text-xs text-ink-3">No data has been loaded yet.</Card>
+            ) : (
+              <div className="border border-rule rounded-card bg-surface overflow-x-auto">
+                <table className="w-full text-left text-xs" aria-label="Data on record by source">
+                  <thead className="border-b border-rule bg-surface-sunken/60 font-mono text-[11px] text-ink-3">
+                    <tr>
+                      <th scope="col" className="p-3 font-semibold">Source</th>
+                      <th scope="col" className="p-3 font-semibold text-right">Relationships</th>
+                      <th scope="col" className="p-3 font-semibold text-right">Facts</th>
+                      <th scope="col" className="p-3 font-semibold">Most recent</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-rule">
+                    {overview.sources.map((src) => (
+                      <tr key={src.source}>
+                        <td className="p-3 text-ink font-medium">{SOURCE_LABELS[src.source] ?? src.source}</td>
+                        <td className="p-3 text-right font-mono tabular-nums">{formatNumber(src.relationships)}</td>
+                        <td className="p-3 text-right font-mono tabular-nums">{formatNumber(src.facts)}</td>
+                        <td className="p-3 font-mono text-ink-3">{src.latestAt ? formatDate(src.latestAt) : 'Unknown'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
       )}
     </div>
   );

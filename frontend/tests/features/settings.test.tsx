@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { axe } from 'vitest-axe';
 import { ConnectionsView } from '@/features/settings/ConnectionsView';
 import { N8nCheckView } from '@/features/settings/N8nCheckView';
@@ -9,37 +9,48 @@ import { UsersView } from '@/features/settings/UsersView';
 import { OrganizationView } from '@/features/settings/OrganizationView';
 import { AuditLogView } from '@/features/settings/AuditLogView';
 import type {
-  ConnectionView,
+  ConnectionsOverview,
   N8nCheckReport,
   IdentityQueueItemView,
   UserView,
   OrganizationSettings,
-  AuditEntry,
+  AuditLogPage,
 } from '@/types/view';
+import * as entitiesApi from '@/lib/api/entities';
+import { ApiError } from '@/lib/api/client';
+import { SessionProvider } from '@/lib/session';
+import SettingsLayout from '@/app/(app)/settings/layout';
+
+vi.mock('next/navigation', () => ({ usePathname: () => '/settings/connections' }));
 import * as settingsApi from '@/lib/api/settings';
 
-const sampleConnections: ConnectionView[] = [
-  {
-    id: 'conn-n8n',
-    type: 'n8n',
-    name: 'Production n8n Cluster',
-    status: 'healthy',
-    lastSyncAt: '2026-10-01T12:00:00.000Z',
-    itemsSynced: 42,
-    lastError: null,
-    secretHint: 'Key ending …9a2f',
-  },
-  {
-    id: 'conn-entra',
-    type: 'entra',
-    name: 'Corporate Microsoft Entra ID',
-    status: 'failed',
-    lastSyncAt: '2026-09-30T08:00:00.000Z',
-    itemsSynced: 120,
-    lastError: 'Tenant certificate expired',
-    secretHint: 'App ID ending …b14e',
-  },
-];
+const sampleOverview: ConnectionsOverview = {
+  store: 'database',
+  connections: [
+    {
+      id: 'conn-n8n',
+      type: 'n8n',
+      name: 'Production n8n Cluster',
+      status: 'connected',
+      lastSyncAt: '2026-10-01T12:00:00.000Z',
+      lastError: null,
+      lastRun: { status: 'completed', startedAt: '2026-10-01T12:00:00.000Z', completedAt: '2026-10-01T12:01:00.000Z', stats: { fetched: 42 }, error: null },
+    },
+    {
+      id: 'conn-entra',
+      type: 'entra',
+      name: 'Corporate Microsoft Entra ID',
+      status: 'error',
+      lastSyncAt: '2026-09-30T08:00:00.000Z',
+      lastError: 'Tenant certificate expired',
+      lastRun: null,
+    },
+  ],
+  sources: [
+    { source: 'entra', relationships: 10, facts: 4, latestAt: '2025-01-01T00:00:00.000Z' },
+    { source: 'attestation', relationships: 1, facts: 0, latestAt: '2025-01-01T00:00:00.000Z' },
+  ],
+};
 
 const sampleN8nReport: N8nCheckReport = {
   scannedAt: '2026-10-01T12:00:00.000Z',
@@ -100,30 +111,40 @@ const sampleOrg: OrganizationSettings = {
   departmentMappings: [{ raw: 'Eng', mapped: 'Engineering' }],
 };
 
-const sampleAuditEntries: AuditEntry[] = [
-  {
-    id: 'aud-1',
-    at: '2026-10-01T12:30:00.000Z',
-    actor: 'Guido van Rossum',
-    action: 'ASSIGN_BACKUP',
-    resource: 'w-billing',
-    details: 'Assigned Alex Murphy as secondary backup nominee.',
-  },
-  {
-    id: 'aud-2',
-    at: '2026-10-01T11:00:00.000Z',
-    actor: 'Sarah Connor',
-    action: 'ACCEPT_RISK',
-    resource: 'w-sfdc',
-    details: 'Accepted risk for 90 days with justification: Decommissioning planned.',
-  },
-];
+const sampleAuditPage: AuditLogPage = {
+  entries: [
+    {
+      id: 'aud-1',
+      at: '2026-10-01T12:30:00.000Z',
+      actor: 'user:admin',
+      actorName: 'Alex Rivera',
+      action: 'ASSIGN_BACKUP',
+      resource: 'w-billing',
+      details: 'Assigned Priya Sharma as backup.',
+    },
+    {
+      id: 'aud-2',
+      at: '2026-10-01T11:00:00.000Z',
+      actor: 'user:ghost',
+      actorName: null,
+      action: 'ACCEPT_RISK',
+      resource: 'w-sfdc',
+      details: 'Accepted risk for 90 days.',
+    },
+  ],
+  total: 5,
+  actions: ['ACCEPT_RISK', 'API_GET', 'ASSIGN_BACKUP'],
+  retention: { storage: 'memory', capacity: 20000 },
+};
 
 describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(settingsApi, 'fetchConnections').mockResolvedValue(sampleConnections);
-    vi.spyOn(settingsApi, 'syncConnection').mockResolvedValue(undefined);
+    vi.spyOn(settingsApi, 'fetchConnections').mockResolvedValue(sampleOverview);
+    vi.spyOn(entitiesApi, 'fetchPeople').mockResolvedValue([
+      { id: 'person:david@acme.com', kind: 'person', name: 'David Miller' },
+      { id: 'person:maya@acme.com', kind: 'person', name: 'Maya Lin' },
+    ]);
     vi.spyOn(settingsApi, 'runN8nCheck').mockResolvedValue(sampleN8nReport);
     vi.spyOn(settingsApi, 'fetchIdentityQueue').mockResolvedValue(sampleIdentityQueue);
     vi.spyOn(settingsApi, 'resolveIdentity').mockResolvedValue(undefined);
@@ -131,37 +152,40 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
     vi.spyOn(settingsApi, 'updateUser').mockResolvedValue(undefined);
     vi.spyOn(settingsApi, 'fetchOrganization').mockResolvedValue(sampleOrg);
     vi.spyOn(settingsApi, 'saveOrganization').mockResolvedValue(undefined);
-    vi.spyOn(settingsApi, 'fetchAuditLog').mockResolvedValue(sampleAuditEntries);
+    vi.spyOn(settingsApi, 'fetchAuditLog').mockResolvedValue(sampleAuditPage);
   });
 
   describe('ConnectionsView Component', () => {
-    it('renders connectors list with status badges and secret hints', async () => {
-      render(<ConnectionsView initialConnections={sampleConnections} />);
+    it('lists configured connectors with real status and errors, and never a secret', async () => {
+      const { container } = render(<ConnectionsView initialOverview={sampleOverview} />);
 
       expect(screen.getByRole('heading', { level: 2, name: 'Connectors & Data Sources' })).toBeInTheDocument();
       expect(screen.getByText('Production n8n Cluster')).toBeInTheDocument();
-      expect(screen.getByText('healthy')).toBeInTheDocument();
-      expect(screen.getByText('Corporate Microsoft Entra ID')).toBeInTheDocument();
-      expect(screen.getByText('failed')).toBeInTheDocument();
+      expect(screen.getByText('connected')).toBeInTheDocument();
+      expect(screen.getByText(/Last run completed · fetched 42/)).toBeInTheDocument();
       expect(screen.getByText(/Error: Tenant certificate expired/)).toBeInTheDocument();
-      expect(screen.getByText('Key ending …9a2f')).toBeInTheDocument();
+      expect(container.textContent).not.toMatch(/secret|credential:|key ending/i);
+      // No fake "Sync Now" / "Configure" buttons.
+      expect(screen.queryByRole('button', { name: /sync now|configure/i })).toBeNull();
+      expect(screen.getByText(/syncing from the app isn't available yet/i)).toBeInTheDocument();
     });
 
-    it('triggers connection sync on button click', async () => {
-      render(<ConnectionsView initialConnections={sampleConnections} />);
+    it('shows what each source contributed', () => {
+      render(<ConnectionsView initialOverview={sampleOverview} />);
+      const table = screen.getByRole('table', { name: 'Data on record by source' });
+      expect(within(table).getByText('Microsoft Entra ID')).toBeInTheDocument();
+      expect(within(table).getByText('Confirmed by the people themselves')).toBeInTheDocument();
+      expect(within(table).getByText('10')).toBeInTheDocument();
+    });
 
-      const syncButtons = screen.getAllByRole('button', { name: 'Sync Now' });
-      fireEvent.click(syncButtons[0]);
-
-      await waitFor(() => {
-        expect(settingsApi.syncConnection).toHaveBeenCalledWith('conn-n8n');
-      });
-
-      expect(await screen.findByText('Sync triggered for connection.')).toBeInTheDocument();
+    it('says the connection store is unreachable instead of inventing connectors', () => {
+      render(<ConnectionsView initialOverview={{ ...sampleOverview, store: 'unavailable', connections: [] }} />);
+      expect(screen.getByText('No connectors to show.')).toBeInTheDocument();
+      expect(screen.queryByText('Production n8n Cluster')).toBeNull();
     });
 
     it('satisfies axe accessibility standards in ConnectionsView', async () => {
-      const { container } = render(<ConnectionsView initialConnections={sampleConnections} />);
+      const { container } = render(<ConnectionsView initialOverview={sampleOverview} />);
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });
@@ -231,6 +255,27 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
       });
 
       expect(await screen.findByText(/Identity resolved/)).toBeInTheDocument();
+      expect(screen.queryByText(/immutable/i)).toBeNull();
+    });
+
+    it('"Pick person" offers real directory people and links the chosen one', async () => {
+      render(<IdentityQueueView initialItems={sampleIdentityQueue} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Pick Person...' }));
+      const input = screen.getByPlaceholderText('Select employee...');
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: 'Maya' } });
+      fireEvent.click(await screen.findByText('Maya Lin'));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Link' }));
+      await waitFor(() =>
+        expect(settingsApi.resolveIdentity).toHaveBeenCalledWith('alias-1', { action: 'link', personId: 'person:maya@acme.com' }),
+      );
+    });
+
+    it("shows the server's reason when a resolution is refused", async () => {
+      vi.spyOn(settingsApi, 'resolveIdentity').mockRejectedValue(new ApiError(409, 'Already resolved (linked).'));
+      render(<IdentityQueueView initialItems={sampleIdentityQueue} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Ignore' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Already resolved (linked).');
     });
 
     it('satisfies axe accessibility standards in IdentityQueueView', async () => {
@@ -300,20 +345,57 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
   });
 
   describe('AuditLogView Component', () => {
-    it('renders immutable audit trail table with event records', async () => {
-      render(<AuditLogView initialEntries={sampleAuditEntries} />);
+    it('shows names, newest first, and the real retention instead of a tamper-proof claim', async () => {
+      render(<AuditLogView initialPage={sampleAuditPage} />);
 
-      expect(screen.getByRole('heading', { level: 2, name: 'Immutable Audit Trail' })).toBeInTheDocument();
-      expect(screen.getByText('Guido van Rossum')).toBeInTheDocument();
-      expect(screen.getByText('ASSIGN_BACKUP')).toBeInTheDocument();
-      expect(screen.getByText('Sarah Connor')).toBeInTheDocument();
-      expect(screen.getByText('ACCEPT_RISK')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'Audit Trail' })).toBeInTheDocument();
+      expect(screen.getByText('Alex Rivera')).toBeInTheDocument();
+      expect(screen.getByText('user:ghost')).toBeInTheDocument(); // unknown actor: raw id, not a made-up name
+      expect(screen.getAllByText('ASSIGN_BACKUP').length).toBeGreaterThan(0);
+      expect(screen.getByText(/most recent 20,000 entries/i)).toBeInTheDocument();
+      expect(screen.queryByText(/cryptographic|tamper|immutable/i)).toBeNull();
+      expect(screen.getByText('Showing 2 of 5')).toBeInTheDocument();
+    });
+
+    it('hides page reads by default and filters by action', async () => {
+      render(<AuditLogView initialPage={sampleAuditPage} />);
+      await waitFor(() => expect(settingsApi.fetchAuditLog).toHaveBeenCalledWith({ action: undefined, hideReads: true, limit: 200 }));
+      fireEvent.change(screen.getByLabelText('Action'), { target: { value: 'ACCEPT_RISK' } });
+      await waitFor(() => expect(settingsApi.fetchAuditLog).toHaveBeenCalledWith({ action: 'ACCEPT_RISK', hideReads: true, limit: 200 }));
+      fireEvent.click(screen.getByLabelText('Hide page reads'));
+      await waitFor(() => expect(settingsApi.fetchAuditLog).toHaveBeenCalledWith({ action: 'ACCEPT_RISK', hideReads: false, limit: 200 }));
     });
 
     it('satisfies axe accessibility standards in AuditLogView', async () => {
-      const { container } = render(<AuditLogView initialEntries={sampleAuditEntries} />);
+      const { container } = render(<AuditLogView initialPage={sampleAuditPage} />);
       const results = await axe(container);
       expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe('Settings layout (RBAC)', () => {
+    const session = (role: 'admin' | 'viewer') => ({
+      userId: 'u', name: 'U', email: 'u@acme.com', role, isHrManager: false, title: null,
+    });
+
+    it('admins get the tabs and the page', () => {
+      render(
+        <SessionProvider initialSession={session('admin')}>
+          <SettingsLayout><p>page body</p></SettingsLayout>
+        </SessionProvider>,
+      );
+      expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument();
+      expect(screen.getByText('page body')).toBeInTheDocument();
+    });
+
+    it('non-admins are told settings are admin-only instead of seeing error states', () => {
+      render(
+        <SessionProvider initialSession={session('viewer')}>
+          <SettingsLayout><p>page body</p></SettingsLayout>
+        </SessionProvider>,
+      );
+      expect(screen.queryByText('page body')).toBeNull();
+      expect(screen.getByText(/settings are managed by admins/i)).toBeInTheDocument();
     });
   });
 });

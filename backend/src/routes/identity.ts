@@ -97,19 +97,41 @@ identityRouter.post('/:id/resolve', async (req: Request, res: Response) => {
   try {
     const dataService = DataService.getInstance();
     const queueService = dataService.getQueueService();
-    const adminUser = 'user:admin';
-
+    const actor = req.user!.id; // the signed-in admin, not a hard-coded one
     const queueItemId = String(req.params.id);
 
-    if (parsed.data.action === 'link') {
-      await queueService.resolveLink(queueItemId, parsed.data.personId, adminUser);
-    } else if (parsed.data.action === 'service_account') {
-      await queueService.resolveMarkServiceAccount(queueItemId, adminUser);
-    } else if (parsed.data.action === 'departed') {
-      await queueService.resolveMarkDeparted(queueItemId, adminUser);
-    } else if (parsed.data.action === 'ignore') {
-      await queueService.resolveIgnore(queueItemId, adminUser);
+    const item = await queueService.getQueueItem(queueItemId);
+    if (!item) {
+      res.status(404).json({ error: 'Identity queue item not found.' });
+      return;
     }
+    if (item.status !== 'pending') {
+      res.status(409).json({ error: `Already resolved (${item.status}).` });
+      return;
+    }
+
+    let outcome: string;
+    if (parsed.data.action === 'link') {
+      const person = dataService.getGraph().getNode(parsed.data.personId)?.entity;
+      if (!person || person.kind !== 'person') {
+        res.status(400).json({ error: 'Link target must be a person in the directory.' });
+        return;
+      }
+      await queueService.resolveLink(queueItemId, person.id, actor);
+      outcome = `linked to ${person.name}`;
+    } else if (parsed.data.action === 'service_account') {
+      await queueService.resolveMarkServiceAccount(queueItemId, actor);
+      outcome = 'marked as a service account';
+    } else if (parsed.data.action === 'departed') {
+      await queueService.resolveMarkDeparted(queueItemId, actor);
+      outcome = 'marked as a former employee';
+    } else {
+      await queueService.resolveIgnore(queueItemId, actor);
+      outcome = 'ignored';
+    }
+
+    const label = item.displayName || item.emailCandidate || item.externalAccountId;
+    dataService.addAuditEntry(actor, 'IDENTITY_RESOLVED', `identity:${queueItemId}`, `${item.source} account "${label}" ${outcome}.`);
 
     res.json({ success: true });
   } catch (err: any) {

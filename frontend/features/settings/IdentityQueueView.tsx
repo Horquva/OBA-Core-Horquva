@@ -8,6 +8,8 @@ import { PersonPicker } from '@/components/ui/PersonPicker';
 import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchIdentityQueue, resolveIdentity } from '@/lib/api/settings';
+import { fetchPeople } from '@/lib/api/entities';
+import { toApiError } from '@/lib/api/client';
 import { cn } from '@/lib/cn';
 
 export interface IdentityQueueViewProps {
@@ -25,22 +27,29 @@ export function IdentityQueueView({ initialItems }: IdentityQueueViewProps) {
       ? queueResource.data
       : initialItems || [];
 
+  // Real directory people for "Pick person…" (it was given no options before D11).
+  const peopleResource = useResource('identity-queue-people', fetchPeople);
+  const peopleOptions = React.useMemo(
+    () => (peopleResource.status === 'ready' ? peopleResource.data : []),
+    [peopleResource],
+  );
+
   const [resolvingId, setResolvingId] = React.useState<string | null>(null);
   const [linkingPersonId, setLinkingPersonId] = React.useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = React.useState<EntityRef | null>(null);
-  const [notice, setNotice] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<{ ok: boolean; text: string } | null>(null);
 
   const handleResolve = async (id: string, resolution: IdentityResolution) => {
     setResolvingId(id);
     setNotice(null);
     try {
       await resolveIdentity(id, resolution);
-      setNotice('Identity resolved and recorded to immutable audit trail.');
+      setNotice({ ok: true, text: 'Identity resolved. The decision is in the audit log.' });
       setLinkingPersonId(null);
       setSelectedPerson(null);
       queueResource.reload();
-    } catch {
-      setNotice('Failed to resolve identity. Please retry.');
+    } catch (e) {
+      setNotice({ ok: false, text: `Could not resolve this account: ${toApiError(e).message}` });
     } finally {
       setResolvingId(null);
     }
@@ -56,8 +65,14 @@ export function IdentityQueueView({ initialItems }: IdentityQueueViewProps) {
       </div>
 
       {notice && (
-        <div className="rounded-control bg-amber/10 border border-amber/30 p-3 text-xs text-amber-ink font-mono">
-          {notice}
+        <div
+          role={notice.ok ? 'status' : 'alert'}
+          className={cn(
+            'rounded-control border p-3 text-xs font-mono',
+            notice.ok ? 'bg-amber/10 border-amber/30 text-amber-ink' : 'bg-st-fail/10 border-st-fail/30 text-st-fail',
+          )}
+        >
+          {notice.text}
         </div>
       )}
 
@@ -75,15 +90,15 @@ export function IdentityQueueView({ initialItems }: IdentityQueueViewProps) {
           <Skeleton variant="card" className="h-32" />
           <Skeleton variant="card" className="h-32" />
         </div>
-      ) : queueResource.status === 'error' && !initialItems ? (
+      ) : queueResource.status === 'error' ? (
         <ErrorState
           onRetry={queueResource.reload}
           message="Could not load identity resolution queue."
         />
       ) : items.length === 0 ? (
         <EmptyState
-          title="Identity queue clear"
-          description="All creator aliases and service credentials have been matched to canonical organizational records."
+          title="Nothing waiting for review"
+          description="Every account seen so far has been matched to a person or resolved."
         />
       ) : (
         <div className="space-y-4">
@@ -185,7 +200,9 @@ export function IdentityQueueView({ initialItems }: IdentityQueueViewProps) {
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                       <div className="w-full sm:w-80">
                         <PersonPicker
-                          placeholder="Select employee..."
+                          placeholder={peopleResource.status === 'error' ? 'Could not load people' : 'Select employee...'}
+                          options={peopleOptions}
+                          value={selectedPerson}
                           onChange={(p) => setSelectedPerson(p)}
                         />
                       </div>

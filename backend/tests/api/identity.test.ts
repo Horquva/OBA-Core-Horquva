@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { DataService } from '../../src/services/dataService.js';
 import { authedFetch } from '../helpers/session.js';
 
 describe('Identity Queue REST API (SRS ID-02, ID-03)', () => {
@@ -66,5 +67,30 @@ describe('Identity Queue REST API (SRS ID-02, ID-03)', () => {
     const afterBody = (await afterRes.json()) as any;
     const found = afterBody.items.find((i: any) => i.id === target.id);
     expect(found).toBeUndefined();
+
+    // Credited to the signed-in admin, with a readable audit entry; a second resolve is refused.
+    const audit = (await (await authedFetch(`${baseUrl}/api/audit-log?action=IDENTITY_RESOLVED`)).json()) as any;
+    expect(audit.entries[0]).toMatchObject({ actor: 'user:admin', resource: `identity:${target.id}` });
+    expect(audit.entries[0].details).toMatch(/linked to David Miller/);
+    const again = await authedFetch(`${baseUrl}/api/identity-queue/${encodeURIComponent(target.id)}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ignore' }),
+    });
+    expect(again.status).toBe(409);
+  });
+
+  it('rejects unknown items and links to non-people', async () => {
+    const post = (id: string, body: unknown) =>
+      authedFetch(`${baseUrl}/api/identity-queue/${encodeURIComponent(id)}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    expect((await post('nope', { action: 'ignore' })).status).toBe(404);
+    const queue = DataService.getInstance().getQueueService();
+    const item = await queue.enqueueUnmatched({ source: 'n8n', externalAccountId: 'ext_test_1', displayName: 'Test Bot' } as any);
+    expect((await post(item.id, { action: 'link', personId: 'model:openai:gpt-4o' })).status).toBe(400);
+    expect((await post(item.id, { action: 'link', personId: 'person:nobody@acme.com' })).status).toBe(400);
   });
 });

@@ -209,9 +209,19 @@ export interface ReviewerTasks {
 
 // ── Settings ───────────────────────────────────────────────
 export type ConnectionType = 'n8n' | 'entra' | 'google' | 'openai' | 'anthropic' | 'csv';
+/** A configured connector (from the connection store). Secrets never reach the browser. */
 export interface ConnectionView {
-  id: string; type: ConnectionType; name: string; status: 'healthy' | 'failed' | 'syncing' | 'never';
-  lastSyncAt: string | null; itemsSynced: number | null; lastError: string | null; secretHint: string | null;
+  id: string; type: ConnectionType; name: string; status: 'connected' | 'syncing' | 'error' | 'disconnected';
+  lastSyncAt: string | null; lastError: string | null;
+  lastRun: { status: 'running' | 'completed' | 'failed'; startedAt: string; completedAt: string | null; stats: Record<string, number>; error: string | null } | null;
+}
+/** What the graph holds per evidence source (entra, n8n, attestation, manual_assignment …). */
+export interface SourceOnRecord { source: string; relationships: number; facts: number; latestAt: string | null }
+export interface ConnectionsOverview {
+  /** 'unavailable' = the connection store (database) can't be reached, so no connectors are listed. */
+  store: 'database' | 'unavailable';
+  connections: ConnectionView[];
+  sources: SourceOnRecord[];
 }
 export interface IdentityQueueItemView {
   id: string; source: string; displayName: string | null; emailCandidate: string | null;
@@ -224,7 +234,11 @@ export interface OrganizationSettings {
   companyName: string; logoUrl: string | null; minGroupSize: number;
   departmentMappings: Array<{ raw: string; mapped: string }>;
 }
-export interface AuditEntry { id: string; at: string; actor: string; action: string; resource: string; details: string }
+export interface AuditEntry { id: string; at: string; actor: string; actorName: string | null; action: string; resource: string; details: string }
+export interface AuditLogPage {
+  entries: AuditEntry[]; total: number; actions: string[];
+  retention: { storage: 'memory'; capacity: number };
+}
 export interface NamedItem { id: string; name: string; detail: string | null }
 export interface N8nCheckReport {
   scannedAt: string;

@@ -4,6 +4,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/cn';
+import { useSession } from '@/lib/session';
+import { canManageSettings } from '@/lib/permissions';
 
 interface SettingsTab {
   href: string;
@@ -24,6 +26,9 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { session, isLoading } = useSession();
+  // Every settings API is admin-only (RBAC); show that instead of five error states.
+  const allowed = canManageSettings(session);
 
   return (
     <div className="space-y-6">
@@ -32,11 +37,11 @@ export default function SettingsLayout({
           Settings
         </h1>
         <p className="text-sm text-ink-3 mt-1">
-          Manage system connectors, identity resolution, team thresholds, and immutable audit logs.
+          Connectors, identity review, users, team thresholds, and the audit log.
         </p>
 
         {/* Settings Navigation Tabs */}
-        <nav
+        {allowed && <nav
           aria-label="Settings sections"
           className="flex items-center gap-1 overflow-x-auto pt-6"
         >
@@ -59,10 +64,16 @@ export default function SettingsLayout({
               </Link>
             );
           })}
-        </nav>
+        </nav>}
       </div>
 
-      <div>{children}</div>
+      {allowed ? (
+        <div>{children}</div>
+      ) : isLoading ? null : (
+        <p role="status" className="rounded-card border border-rule bg-surface p-5 text-sm text-ink-3">
+          Settings are managed by admins. Ask an OBA admin if something here needs changing.
+        </p>
+      )}
     </div>
   );
 }

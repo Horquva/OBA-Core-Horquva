@@ -31,37 +31,21 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
       expect(res.status).toBe(200);
 
       const data = (await res.json()) as any;
-      expect(data).toHaveProperty('connections');
       expect(Array.isArray(data.connections)).toBe(true);
-      expect(data.connections.length).toBeGreaterThanOrEqual(3);
+      // No invented connectors: without the connection store there are none.
+      expect(['database', 'unavailable']).toContain(data.store);
+      if (data.store === 'unavailable') expect(data.connections).toEqual([]);
+      // Never any secret material (SEC-03).
+      expect(JSON.stringify(data)).not.toMatch(/secret|sk-|api_/i);
+      // What the graph holds, by source (fixture: entra people/groups, n8n assets, attestation).
+      const entra = data.sources.find((s: any) => s.source === 'entra');
+      expect(entra.relationships).toBeGreaterThan(0);
+      expect(data.sources.map((s: any) => s.source)).toEqual(expect.arrayContaining(['entra', 'n8n', 'attestation']));
+    }, 10000);
 
-      const n8nConn = data.connections.find((c: any) => c.type === 'n8n');
-      expect(n8nConn).toBeDefined();
-      expect(n8nConn.status).toBe('healthy');
-      // Secret must be masked or null, never raw secret (SEC-03)
-      if (n8nConn.secretHint) {
-        expect(n8nConn.secretHint).toMatch(/\.\.\./);
-      }
-    });
-
-    it('POST /api/connections/:id/sync triggers manual sync and updates status', async () => {
-      const res = await authedFetch(`${baseUrl}/api/connections/conn_n8n_prod/sync`, {
-        method: 'POST',
-      });
-      expect(res.status).toBe(200);
-
-      const data = (await res.json()) as any;
-      expect(data.success).toBe(true);
-      expect(data.connection.id).toBe('conn_n8n_prod');
-      expect(data.connection.status).toBe('healthy');
-      expect(data.connection.lastSyncAt).toBeDefined();
-    });
-
-    it('POST /api/connections/:id/sync returns 404 for unknown connection', async () => {
-      const res = await authedFetch(`${baseUrl}/api/connections/conn_nonexistent_999/sync`, {
-        method: 'POST',
-      });
-      expect(res.status).toBe(404);
+    it('POST /api/connections/:id/sync says sync is not available instead of faking one', async () => {
+      const res = await authedFetch(`${baseUrl}/api/connections/conn_n8n_prod/sync`, { method: 'POST' });
+      expect(res.status).toBe(501);
     });
   });
 
@@ -162,14 +146,27 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
     });
 
     it('GET /api/audit-log supports filtering by action', async () => {
-      const res = await authedFetch(`${baseUrl}/api/audit-log?action=SYNC_CONNECTION`);
+      const res = await authedFetch(`${baseUrl}/api/audit-log?action=UPDATE_ORGANIZATION`);
       expect(res.status).toBe(200);
 
       const data = (await res.json()) as any;
-      expect(Array.isArray(data.entries)).toBe(true);
+      expect(data.entries.length).toBeGreaterThan(0);
       for (const e of data.entries) {
-        expect(e.action).toBe('SYNC_CONNECTION');
+        expect(e.action).toBe('UPDATE_ORGANIZATION');
       }
+    });
+
+    it('is newest first, bounded, names the actor, and states its real retention', async () => {
+      const data = (await (await authedFetch(`${baseUrl}/api/audit-log?limit=2`)).json()) as any;
+      expect(data.entries).toHaveLength(2);
+      expect(data.total).toBeGreaterThanOrEqual(2);
+      expect(data.entries[0].at >= data.entries[1].at).toBe(true);
+      expect(data.entries[0]).toMatchObject({ actor: 'user:admin', actorName: 'Alex Rivera' });
+      expect(data.actions).toContain('UPDATE_ORGANIZATION');
+      expect(data.retention).toEqual({ storage: 'memory', capacity: 20000 });
+      expect((await authedFetch(`${baseUrl}/api/audit-log?from=yesterday-ish`)).status).toBe(400);
+      const changes = (await (await authedFetch(`${baseUrl}/api/audit-log?hideReads=true&limit=1000`)).json()) as any;
+      expect(changes.entries.some((e: any) => e.action === 'API_GET')).toBe(false);
     });
   });
 });

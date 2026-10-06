@@ -95,17 +95,6 @@ export interface AuditEntry {
   details: string;
 }
 
-export interface ConnectionRecord {
-  id: string;
-  type: 'n8n' | 'entra' | 'google' | 'openai' | 'anthropic' | 'csv';
-  name: string;
-  status: 'healthy' | 'failed' | 'syncing' | 'never';
-  lastSyncAt: string | null;
-  itemsSynced: number | null;
-  lastError: string | null;
-  secretHint: string | null;
-}
-
 export interface UserAccount {
   id: string;
   name: string;
@@ -135,7 +124,6 @@ export class DataService {
   private actionOverrides: Map<string, ActionRecord> = new Map();
   private changeEvents: StoredChangeEvent[] = [];
   private auditLogs: AuditEntry[] = [];
-  private connections: Map<string, ConnectionRecord> = new Map();
   private users: Map<string, UserAccount> = new Map();
   private orgSettings: OrgSettings = {
     companyName: 'Acme Corporation',
@@ -196,17 +184,6 @@ export class DataService {
     ];
     for (const u of defaultUsers) {
       this.users.set(u.id, u);
-    }
-
-    // 3. Default Connections
-    const defaultConnections: ConnectionRecord[] = [
-      { id: 'conn_n8n_prod', type: 'n8n', name: 'Production n8n Instance', status: 'healthy', lastSyncAt: new Date(Date.now() - 3600000).toISOString(), itemsSynced: 6, lastError: null, secretHint: 'n8n_api_...7a9f' },
-      { id: 'conn_entra_hr', type: 'entra', name: 'Microsoft Entra ID HR Directory', status: 'healthy', lastSyncAt: new Date(Date.now() - 7200000).toISOString(), itemsSynced: 10, lastError: null, secretHint: 'client_sec_...bc12' },
-      { id: 'conn_openai', type: 'openai', name: 'OpenAI Enterprise Gateway', status: 'healthy', lastSyncAt: new Date(Date.now() - 14400000).toISOString(), itemsSynced: 1, lastError: null, secretHint: 'sk-proj-...88e1' },
-      { id: 'conn_anthropic', type: 'anthropic', name: 'Anthropic Claude API', status: 'never', lastSyncAt: null, itemsSynced: 0, lastError: null, secretHint: null },
-    ];
-    for (const c of defaultConnections) {
-      this.connections.set(c.id, c);
     }
 
     // 4. Default Seed Change Events
@@ -394,22 +371,6 @@ export class DataService {
   }
 
   // ── Settings & Connections ──────────────────────────────────
-  public getConnections(): ConnectionRecord[] {
-    return Array.from(this.connections.values());
-  }
-
-  public syncConnection(id: string): ConnectionRecord {
-    const conn = this.connections.get(id);
-    if (!conn) throw new Error(`Connection ${id} not found.`);
-
-    conn.status = 'syncing';
-    conn.lastSyncAt = new Date().toISOString();
-    // Simulate instantaneous healthy completion in dev/demo
-    conn.status = 'healthy';
-    this.addAuditEntry('user:admin', 'SYNC_CONNECTION', `connection:${id}`, `Triggered sync for ${conn.name}`);
-    return conn;
-  }
-
   public getUsers(): UserAccount[] {
     return Array.from(this.users.values());
   }

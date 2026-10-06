@@ -1,15 +1,10 @@
 import type {
-  AuditEntry, ConnectionView, IdentityQueueItemView, IdentityResolution, N8nCheckReport, OrganizationSettings, UserView,
+  AuditLogPage, ConnectionsOverview, IdentityQueueItemView, IdentityResolution, N8nCheckReport, OrganizationSettings, UserView,
 } from '@/types/view';
 import { request } from './client';
 
-export async function fetchConnections(): Promise<ConnectionView[]> {
-  const r = await request<{ connections: ConnectionView[] }>('/api/connections'); // (planned) B-17
-  return r.connections;
-}
-
-export function syncConnection(id: string): Promise<void> {
-  return request<void>(`/api/connections/${encodeURIComponent(id)}/sync`, { method: 'POST' }); // (planned) B-17
+export function fetchConnections(): Promise<ConnectionsOverview> {
+  return request<ConnectionsOverview>('/api/connections');
 }
 
 type V0Response = {
@@ -32,35 +27,36 @@ export async function runN8nCheck(n8nUrl: string, n8nApiKey: string): Promise<N8
 }
 
 export async function fetchIdentityQueue(): Promise<IdentityQueueItemView[]> {
-  const r = await request<{ items: IdentityQueueItemView[] }>('/api/identity-queue'); // (planned) B-18
+  const r = await request<{ items: IdentityQueueItemView[] }>('/api/identity-queue');
   return r.items;
 }
 
 export function resolveIdentity(id: string, resolution: IdentityResolution): Promise<void> {
   return request<void>(`/api/identity-queue/${encodeURIComponent(id)}/resolve`, {
     method: 'POST', body: JSON.stringify(resolution),
-  }); // (planned) B-18
+  });
 }
 
 export async function fetchUsers(): Promise<UserView[]> {
-  const r = await request<{ users: UserView[] }>('/api/users'); // (planned) B-02
+  const r = await request<{ users: UserView[] }>('/api/users');
   return r.users;
 }
 
 export function updateUser(id: string, patch: Partial<Pick<UserView, 'role' | 'isHrManager'>>): Promise<void> {
-  return request<void>(`/api/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) }); // (planned) B-02
+  return request<void>(`/api/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
 
 export function fetchOrganization(): Promise<OrganizationSettings> {
-  return request<OrganizationSettings>('/api/settings/organization'); // (planned) B-19
+  return request<OrganizationSettings>('/api/settings/organization');
 }
 
 export function saveOrganization(s: OrganizationSettings): Promise<void> {
-  return request<void>('/api/settings/organization', { method: 'PUT', body: JSON.stringify(s) }); // (planned) B-19
+  return request<void>('/api/settings/organization', { method: 'PUT', body: JSON.stringify(s) });
 }
 
-export async function fetchAuditLog(filters: { action?: string; from?: string; to?: string } = {}): Promise<AuditEntry[]> {
-  const q = new URLSearchParams(Object.entries(filters).filter(([, v]) => !!v) as Array<[string, string]>).toString();
-  const r = await request<{ entries: AuditEntry[] }>(`/api/audit-log${q ? `?${q}` : ''}`); // (planned) B-20
-  return r.entries;
+export function fetchAuditLog(filters: { action?: string; from?: string; to?: string; limit?: number; hideReads?: boolean } = {}): Promise<AuditLogPage> {
+  const q = new URLSearchParams(
+    Object.entries(filters).filter(([, v]) => v !== undefined && v !== '' && v !== false).map(([k, v]) => [k, String(v)]),
+  ).toString();
+  return request<AuditLogPage>(`/api/audit-log${q ? `?${q}` : ''}`);
 }

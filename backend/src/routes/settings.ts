@@ -7,30 +7,27 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { DataService } from '../services/dataService.js';
+import { DataService, AUDIT_LOG_CAPACITY } from '../services/dataService.js';
+import { listConnections, sourcesOnRecord } from '../views/connectionViews.js';
 
 // ── Connections Router ────────────────────────────────────────────────────────
 export const connectionsRouter = Router();
 
-connectionsRouter.get('/', (_req: Request, res: Response) => {
+connectionsRouter.get('/', async (_req: Request, res: Response) => {
   try {
-    const dataService = DataService.getInstance();
-    const connections = dataService.getConnections();
-    res.json({ connections });
+    const { store, connections } = await listConnections();
+    const sources = sourcesOnRecord(DataService.getInstance().getGraph());
+    res.json({ store, connections, sources });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch connections.' });
   }
 });
 
-connectionsRouter.post('/:id/sync', (req: Request, res: Response) => {
-  try {
-    const dataService = DataService.getInstance();
-    const connection = dataService.syncConnection(String(req.params.id));
-    res.json({ success: true, connection });
-  } catch (err: any) {
-    const status = err.message?.includes('not found') ? 404 : 500;
-    res.status(status).json({ error: err.message || 'Failed to sync connection.' });
-  }
+// Running a connector from the app (CON-10) isn't built yet: the connectors exist,
+// but nothing schedules them or loads their results. Say so instead of
+// pretending a sync happened.
+connectionsRouter.post('/:id/sync', (_req: Request, res: Response) => {
+  res.status(501).json({ error: "Syncing from the app isn't available yet. Data is loaded by the backend." });
 });
 
 // ── Users Router ─────────────────────────────────────────────────────────────
@@ -118,15 +115,39 @@ settingsRouter.put('/organization', (req: Request, res: Response) => {
 // ── Audit Log Router ─────────────────────────────────────────────────────────
 export const auditLogRouter = Router();
 
+const AUDIT_PAGE_DEFAULT = 200;
+const AUDIT_PAGE_MAX = 1000;
+
 auditLogRouter.get('/', (req: Request, res: Response) => {
   try {
     const dataService = DataService.getInstance();
-    const action = typeof req.query.action === 'string' ? req.query.action : undefined;
-    const from = typeof req.query.from === 'string' ? req.query.from : undefined;
-    const to = typeof req.query.to === 'string' ? req.query.to : undefined;
+    const action = typeof req.query.action === 'string' && req.query.action ? req.query.action : undefined;
+    const from = typeof req.query.from === 'string' && req.query.from ? req.query.from : undefined;
+    const to = typeof req.query.to === 'string' && req.query.to ? req.query.to : undefined;
+    for (const d of [from, to]) {
+      if (d && Number.isNaN(new Date(d).getTime())) {
+        res.status(400).json({ error: `Invalid date: ${d}` });
+        return;
+      }
+    }
+    const limitRaw = Number(req.query.limit ?? AUDIT_PAGE_DEFAULT);
+    const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, AUDIT_PAGE_MAX) : AUDIT_PAGE_DEFAULT;
 
-    const entries = dataService.getAuditLog({ action, from, to });
-    res.json({ entries });
+    // Newest first. Actor ids are shown with the person's name when we know it.
+    // hideReads=true drops the API_GET page-read entries (SEC-06 logs those too) so changes are findable.
+    const hideReads = req.query.hideReads === 'true';
+    const all = dataService.getAuditLog({ action, from, to }).filter((e) => !hideReads || e.action !== 'API_GET');
+    const nameOf = (actor: string) => dataService.getUserById(actor)?.name ?? null;
+    const entries = all.slice(0, limit).map((e) => ({ ...e, actorName: nameOf(e.actor) }));
+    const actions = [...new Set(dataService.getAuditLog().map((e) => e.action))].sort();
+
+    res.json({
+      entries,
+      total: all.length,
+      actions,
+      // Honest retention: in memory, newest AUDIT_LOG_CAPACITY entries, gone on restart.
+      retention: { storage: 'memory', capacity: AUDIT_LOG_CAPACITY },
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch audit log.' });
   }
