@@ -535,6 +535,18 @@ export class DataService {
     return Array.from(this.users.values());
   }
 
+  public getUserById(id: string): UserAccount | null {
+    return this.users.get(id) ?? null;
+  }
+
+  public getUserByEmail(email: string): UserAccount | null {
+    const needle = email.trim().toLowerCase();
+    for (const u of this.users.values()) {
+      if (u.email.toLowerCase() === needle) return u;
+    }
+    return null;
+  }
+
   public updateUser(id: string, patch: Partial<Pick<UserAccount, 'role' | 'isHrManager'>>): UserAccount {
     const user = this.users.get(id);
     if (!user) throw new Error(`User ${id} not found.`);

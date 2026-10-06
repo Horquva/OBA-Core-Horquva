@@ -23,6 +23,7 @@ import {
   auditLogRouter,
 } from './routes/settings.js';
 import { reviewerRouter } from './routes/reviewer.js';
+import { authRouter } from './routes/auth.js';
 
 export const app = express();
 
@@ -42,6 +43,7 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // Mount modular API routers
+app.use('/api/auth', authRouter);
 app.use('/api/v0', v0Router);
 app.use('/api/continuity', continuityRouter);
 app.use('/api/attestation', attestationRouter);
