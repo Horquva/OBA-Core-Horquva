@@ -8,12 +8,8 @@ import { PersonPicker } from '@/components/ui/PersonPicker';
 import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
 import { CriticalityDots } from '@/components/ui/marks';
 import { useResource } from '@/lib/useResource';
-import {
-  fetchAttestSession,
-  saveAttestAnswers,
-  loadAttestPeople,
-  UnsupportedAnswerError,
-} from '@/lib/api/attest';
+import { fetchAttestSession, saveAttestAnswers, loadAttestPeople } from '@/lib/api/attest';
+import { toApiError } from '@/lib/api/client';
 import { Brand } from '@/components/shell/Brand';
 import { cn } from '@/lib/cn';
 
@@ -33,6 +29,22 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
       ? sessionResource.data
       : initialSession;
 
+  // Real directory people for the owner/backup pickers (they were given no options before D12).
+  const peopleResource = useResource<EntityRef[]>(
+    session ? `attest-people-${token}` : null,
+    () => loadAttestPeople(session!),
+  );
+  const peopleOptions = React.useMemo(
+    () => (peopleResource.status === 'ready' ? peopleResource.data : []),
+    [peopleResource],
+  );
+  const reviewerEmail = session?.reviewer.email;
+  const backupOptions = React.useMemo(
+    // You can't be your own backup.
+    () => peopleOptions.filter((p) => p.id !== `person:${reviewerEmail}`),
+    [peopleOptions, reviewerEmail],
+  );
+
   // Track active asset index
   const [activeAssetIndex, setActiveAssetIndex] = React.useState<number>(0);
   const [savedAssetIds, setSavedAssetIds] = React.useState<Record<string, boolean>>({});
@@ -46,7 +58,8 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
   const [backupPerson, setBackupPerson] = React.useState<EntityRef | null>(null);
 
   // Question 3: Criticality
-  const [criticality, setCriticality] = React.useState<'high' | 'medium' | 'low'>('medium');
+  // No pre-selected answer: the owner has to choose (a default would be recorded as "confirmed").
+  const [criticality, setCriticality] = React.useState<'critical' | 'high' | 'medium' | 'low' | null>(null);
   const [criticalityReason, setCriticalityReason] = React.useState('');
 
   // Question 4: Runbook
@@ -89,22 +102,22 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
     e.preventDefault();
     if (!session || !currentAsset) return;
 
-    if (!isOwner && !newOwner) {
-      setSaveError('Please nominate who currently owns this system, or select yourself.');
-      return;
-    }
-
-    if (backupOption === 'person' && !backupPerson) {
+    if (isOwner && backupOption === 'person' && !backupPerson) {
       setSaveError('Please select a secondary backup nominee, or choose "No backup".');
       return;
     }
 
-    if (!criticalityReason.trim()) {
+    if (isOwner && !criticality) {
+      setSaveError('Please choose how critical this system is.');
+      return;
+    }
+
+    if (isOwner && !criticalityReason.trim()) {
       setSaveError('Please provide a brief justification for this criticality level.');
       return;
     }
 
-    if (hasRunbook && !runbookUrl.trim()) {
+    if (isOwner && hasRunbook && !runbookUrl.trim()) {
       setSaveError('Please provide a runbook URL, or mark it as "Not documented".');
       return;
     }
@@ -112,21 +125,24 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
     setSaveError(null);
     setIsSaving(true);
 
-    const answers: AttestAnswers = {
-      isOwner,
-      ownerPersonId: isOwner ? null : newOwner?.id || null,
-      backup:
-        backupOption === 'person' && backupPerson
-          ? { kind: 'person', personId: backupPerson.id }
-          : { kind: 'none' },
-      criticality,
-      criticalityReason: criticalityReason.trim(),
-      runbook:
-        hasRunbook && runbookUrl.trim()
-          ? { kind: 'url', url: runbookUrl.trim() }
-          : { kind: 'not_documented' },
-      fallback,
-    };
+    // Not the owner: only say who is (if known). Nothing gets confirmed from this.
+    const answers: AttestAnswers = !isOwner
+      ? { isOwner: false, ownerPersonId: newOwner?.id ?? null }
+      : {
+          isOwner: true,
+          ownerPersonId: null,
+          backup:
+            backupOption === 'person' && backupPerson
+              ? { kind: 'person', personId: backupPerson.id }
+              : { kind: 'none' },
+          criticality: criticality!,
+          criticalityReason: criticalityReason.trim(),
+          runbook:
+            hasRunbook && runbookUrl.trim()
+              ? { kind: 'url', url: runbookUrl.trim() }
+              : { kind: 'not_documented' },
+          fallback,
+        };
 
     try {
       await saveAttestAnswers(session, currentAsset.taskId, answers);
@@ -145,7 +161,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
         setNewOwner(null);
         setBackupOption('person');
         setBackupPerson(null);
-        setCriticality('medium');
+        setCriticality(null);
         setCriticalityReason('');
         setHasRunbook(true);
         setRunbookUrl('');
@@ -159,12 +175,8 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
           setIsDone(true);
         }
       }
-    } catch (err: any) {
-      if (err instanceof UnsupportedAnswerError) {
-        setSaveError(err.message);
-      } else {
-        setSaveError(err?.message || 'Failed to submit confirmation. Please retry.');
-      }
+    } catch (err) {
+      setSaveError(`Could not save: ${toApiError(err).message}`);
     } finally {
       setIsSaving(false);
     }
@@ -195,7 +207,11 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
         <main className="flex-1 max-w-xl mx-auto w-full p-6">
           <ErrorState
             onRetry={sessionResource.reload}
-            message="Could not load attestation verification session. Please check your link or contact your administrator."
+            message={
+              sessionResource.status === 'error' && sessionResource.error.status === 404
+                ? 'This link is not valid. Please check the link in your email or ask your administrator.'
+                : 'Could not load this confirmation. Please retry or contact your administrator.'
+            }
           />
         </main>
       </div>
@@ -247,11 +263,12 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
 
             <div className="space-y-2">
               <h1 className="font-serif text-2xl sm:text-3xl text-ink font-normal">
-                Thanks — {totalAssets} of {totalAssets} confirmed.
+                Thanks — answers saved for {totalAssets} of {totalAssets}.
               </h1>
               <p className="text-xs text-ink-3 max-w-sm mx-auto leading-relaxed">
-                Your answers have been recorded as verified SCD2 continuity facts. You can close this
-                tab safely.
+                What you confirmed about systems you own is now recorded as confirmed by you. Anyone you
+                named as a backup will be asked to confirm it themselves. If you said a system isn't
+                yours, an admin will follow up. You can close this tab.
               </p>
             </div>
 
@@ -261,8 +278,8 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                 <span className="font-semibold text-ink">{session.reviewer.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-ink-3">Confirmed Systems:</span>
-                <span className="font-semibold text-ink">{totalAssets} items</span>
+                <span className="text-ink-3">Systems answered:</span>
+                <span className="font-semibold text-ink">{totalAssets}</span>
               </div>
             </div>
           </Card>
@@ -396,16 +413,23 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                 {!isOwner && (
                   <div className="pt-2 space-y-1">
                     <label className="text-[11px] font-mono text-ink-3 block">
-                      Who owns it now? (Required)
+                      Who owns it now? (if you know)
                     </label>
                     <PersonPicker
-                      placeholder="Select new owner..."
+                      placeholder={peopleResource.status === 'error' ? 'Could not load people' : 'Select new owner...'}
+                      options={peopleOptions}
+                      value={newOwner}
                       onChange={(p) => setNewOwner(p)}
                     />
+                    <p className="text-[11px] text-ink-3">
+                      Optional. Nothing about this system will be confirmed from your answer; an admin will follow up.
+                    </p>
                   </div>
                 )}
               </fieldset>
 
+              {isOwner && (
+                <>
               {/* Question 2: Secondary Backup */}
               <fieldset className="space-y-2">
                 <legend className="text-xs font-semibold text-ink">
@@ -445,9 +469,12 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   {backupOption === 'person' && (
                     <div className="pt-1">
                       <PersonPicker
-                        placeholder="Search backup nominee..."
+                        placeholder={peopleResource.status === 'error' ? 'Could not load people' : 'Search backup nominee...'}
+                        options={backupOptions}
+                        value={backupPerson}
                         onChange={(p) => setBackupPerson(p)}
                       />
+                      <p className="text-[11px] text-ink-3 pt-1">They'll be asked to confirm this themselves.</p>
                     </div>
                   )}
                 </div>
@@ -458,12 +485,13 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                 <legend className="text-xs font-semibold text-ink">
                   3. How critical is this system to business continuity?
                 </legend>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['high', 'medium', 'low'] as const).map((lvl) => (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(['critical', 'high', 'medium', 'low'] as const).map((lvl) => (
                     <button
                       key={lvl}
                       type="button"
                       onClick={() => setCriticality(lvl)}
+                      aria-pressed={criticality === lvl}
                       className={cn(
                         'p-2.5 rounded-control border text-xs uppercase font-mono font-semibold transition-colors cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5',
                         criticality === lvl
@@ -472,7 +500,6 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                       )}
                     >
                       <CriticalityDots level={lvl} />
-                      <span>{lvl}</span>
                     </button>
                   ))}
                 </div>
@@ -588,6 +615,8 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   Honest invariant: selecting "Don't know" preserves Unknown state rather than inventing answers.
                 </p>
               </fieldset>
+                </>
+              )}
 
               {saveError && (
                 <div className="rounded-control bg-st-fail/10 border border-st-fail/30 p-3 text-xs text-st-fail font-mono">

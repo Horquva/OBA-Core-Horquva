@@ -88,12 +88,17 @@ export type CampaignScope =
   | { kind: 'selected'; assetIds: string[] };
 export interface CampaignPreview {
   emailCount: number; questionCount: number;
+  /** Assets in scope with no current owner on record: nobody to ask (they go to identity review). */
+  unassignedAssets: EntityRef[];
   reviewers: Array<{ person: EntityRef; email: string; assetCount: number; viaManager: boolean }>;
   tasks: Array<{ reviewerPersonId: string; assetEntityId: string }>;
   email: { subject: string; bodyText: string };
 }
+/** emailDelivery 'logged' = no SMTP configured: nothing was emailed; links are only in the server log. */
+export interface CampaignCreated { campaignId: string; reviewers: number; emailsSent: number; emailDelivery: 'smtp' | 'logged' }
 export interface CreateCampaignInput {
   name: string; dueDate: string; sendAt: string | null; introLine: string | null;
+  email: { subject: string; bodyText: string } | null;
   tasks: Array<{ reviewerPersonId: string; assetEntityId: string }>;
 }
 
@@ -185,22 +190,28 @@ export interface Conversation { id: string; title: string; updatedAt: string }
 // ── Attestation ────────────────────────────────────────────
 export interface AttestAsset { taskId: string; asset: EntityRef; status: 'todo' | 'saved' }
 export interface AttestSession {
-  token: string; legacy: boolean;
+  token: string;
   reviewer: { name: string; email: string };
   requestedBy: string | null;
   company: { name: string; logoUrl: string | null } | null;
   expired: boolean; submitted: boolean;
   assets: AttestAsset[];
 }
-export interface AttestAnswers {
-  isOwner: boolean;
-  ownerPersonId: string | null;
-  backup: { kind: 'person'; personId: string } | { kind: 'none' };
-  criticality: 'high' | 'medium' | 'low';
-  criticalityReason: string;
-  runbook: { kind: 'url'; url: string } | { kind: 'not_documented' };
-  fallback: 'yes' | 'no' | 'unknown';
-}
+/**
+ * The owner answers all five questions. "I'm not the owner" sends only who is (if known):
+ * nothing is confirmed from it; an admin is asked to resolve it.
+ */
+export type AttestAnswers =
+  | {
+      isOwner: true;
+      ownerPersonId: null;
+      backup: { kind: 'person'; personId: string } | { kind: 'none' };
+      criticality: 'critical' | 'high' | 'medium' | 'low';
+      criticalityReason: string;
+      runbook: { kind: 'url'; url: string } | { kind: 'not_documented' };
+      fallback: 'yes' | 'no' | 'unknown';
+    }
+  | { isOwner: false; ownerPersonId: string | null };
 
 // ── Reviewer app ───────────────────────────────────────────
 export interface ReviewerTasks {

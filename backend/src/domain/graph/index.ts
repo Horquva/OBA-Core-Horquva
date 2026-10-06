@@ -59,6 +59,28 @@ export class ContinuityGraph {
     this.graph.addEdge(edge.fromId, edge.toId, { edge });
   }
 
+  /** Makes `fact` the current value of its attribute on that entity (no-op for unknown entities). */
+  public setFact(fact: CanonicalFact): void {
+    if (!this.graph.hasNode(fact.entityId)) return;
+    this.graph.getNodeAttribute(fact.entityId, 'facts').set(fact.attribute, fact);
+  }
+
+  /**
+   * Ends every active edge matching `predicate` (sets validTo, removes it from the
+   * live graph) and returns the closed edges, so callers can audit what changed.
+   */
+  public closeEdges(predicate: (edge: CanonicalEdge) => boolean, at: Date = new Date()): CanonicalEdge[] {
+    const closed: CanonicalEdge[] = [];
+    for (const key of this.graph.edges()) {
+      const edge = this.graph.getEdgeAttributes(key).edge;
+      if (!edge.validTo && predicate(edge)) {
+        closed.push({ ...edge, validTo: at });
+        this.graph.dropEdge(key);
+      }
+    }
+    return closed;
+  }
+
   /**
    * Populates the entire graph from raw arrays of entities, edges, and facts.
    */

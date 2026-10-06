@@ -10,7 +10,6 @@ import * as reviewerApi from '@/lib/api/reviewer';
 
 const sampleSession: AttestSession = {
   token: 'tok-abc-123',
-  legacy: false,
   reviewer: { name: 'Sarah Connor', email: 'sarah@horquva.internal' },
   requestedBy: 'Guido van Rossum',
   company: { name: 'Cyberdyne Systems', logoUrl: null },
@@ -60,6 +59,10 @@ describe('Reviewer Surfaces (Task 31)', () => {
     vi.clearAllMocks();
     vi.spyOn(attestApi, 'fetchAttestSession').mockResolvedValue(sampleSession);
     vi.spyOn(attestApi, 'saveAttestAnswers').mockResolvedValue(undefined);
+    vi.spyOn(attestApi, 'loadAttestPeople').mockResolvedValue([
+      { id: 'person:sarah@horquva.internal', kind: 'person', name: 'Sarah Connor' },
+      { id: 'person:priya@acme.com', kind: 'person', name: 'Priya Sharma' },
+    ]);
     vi.spyOn(reviewerApi, 'fetchReviewerTasks').mockResolvedValue(sampleReviewerTasks);
     vi.spyOn(reviewerApi, 'acceptHandover').mockResolvedValue(undefined);
     vi.spyOn(reviewerApi, 'declineHandover').mockResolvedValue(undefined);
@@ -101,6 +104,11 @@ describe('Reviewer Surfaces (Task 31)', () => {
       const noBackupBtn = screen.getByRole('button', { name: /No Backup \(Critical Gap\)/ });
       fireEvent.click(noBackupBtn);
 
+      // Criticality has no default: it must be chosen.
+      fireEvent.click(
+        screen.getAllByRole('button', { pressed: false }).find((b) => b.textContent?.trim().toLowerCase().endsWith('critical'))!,
+      );
+
       // Provide criticality justification
       const critInput = screen.getByLabelText(/One-line operational justification/);
       fireEvent.change(critInput, { target: { value: 'Direct revenue processing' } });
@@ -119,6 +127,7 @@ describe('Reviewer Surfaces (Task 31)', () => {
           expect.objectContaining({
             isOwner: true,
             backup: { kind: 'none' },
+            criticality: 'critical',
             criticalityReason: 'Direct revenue processing',
           })
         );
@@ -128,6 +137,44 @@ describe('Reviewer Surfaces (Task 31)', () => {
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 2, name: 'Customer Database Sync' })).toBeInTheDocument();
       });
+    });
+
+    it('will not save without a chosen criticality (no default gets recorded as confirmed)', async () => {
+      render(<AttestForm token="tok-abc-123" initialSession={sampleSession} />);
+      fireEvent.click(screen.getByRole('button', { name: /No Backup \(Critical Gap\)/ }));
+      fireEvent.change(screen.getByLabelText(/One-line operational justification/), { target: { value: 'x' } });
+      fireEvent.change(screen.getByPlaceholderText(/wiki.internal/), { target: { value: 'https://wiki/x' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save & Next Asset →' }));
+      expect(await screen.findByText('Please choose how critical this system is.')).toBeInTheDocument();
+      expect(attestApi.saveAttestAnswers).not.toHaveBeenCalled();
+    });
+
+    it('the backup picker lists real people, minus the reviewer themselves', async () => {
+      render(<AttestForm token="tok-abc-123" initialSession={sampleSession} />);
+      await waitFor(() => expect(attestApi.loadAttestPeople).toHaveBeenCalled());
+      const input = screen.getByPlaceholderText('Search backup nominee...');
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: 'a' } });
+      expect(await screen.findByText('Priya Sharma')).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: /Sarah Connor/ })).toBeNull();
+    });
+
+    it('"not the owner" hides the other questions and sends only who owns it', async () => {
+      render(<AttestForm token="tok-abc-123" initialSession={sampleSession} />);
+      fireEvent.click(screen.getByRole('button', { name: 'No, someone else owns it' }));
+      expect(screen.queryByText('2. Who is your designated secondary backup?')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Save & Next Asset →' }));
+      await waitFor(() =>
+        expect(attestApi.saveAttestAnswers).toHaveBeenCalledWith(sampleSession, 'task-1', { isOwner: false, ownerPersonId: null }),
+      );
+    });
+
+    it("shows the server's reason when saving fails", async () => {
+      (attestApi.saveAttestAnswers as any).mockRejectedValue(new Error('This link has expired.'));
+      render(<AttestForm token="tok-abc-123" initialSession={sampleSession} />);
+      fireEvent.click(screen.getByRole('button', { name: 'No, someone else owns it' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save & Next Asset →' }));
+      expect(await screen.findByText('Could not save: This link has expired.')).toBeInTheDocument();
     });
 
     it('renders expired state when session is expired', async () => {
@@ -149,7 +196,8 @@ describe('Reviewer Surfaces (Task 31)', () => {
       };
 
       render(<AttestForm token="tok-abc-123" initialSession={completedSession} />);
-      expect(screen.getByText('Thanks — 2 of 2 confirmed.')).toBeInTheDocument();
+      expect(screen.getByText('Thanks — answers saved for 2 of 2.')).toBeInTheDocument();
+      expect(screen.queryByText(/verified SCD2/)).toBeNull();
       expect(screen.getByText('Powered by OBA · Horquva')).toBeInTheDocument();
     });
 

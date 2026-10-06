@@ -205,7 +205,6 @@ The organization tracks 52 critical operational assets. 38 are fully protected w
         token="tok-test"
         initialSession={{
           token: 'tok-test',
-          legacy: false,
           reviewer: { name: 'Sarah Connor', email: 'sarah@test.internal' },
           requestedBy: 'Guido',
           company: { name: 'Acme Inc', logoUrl: null },

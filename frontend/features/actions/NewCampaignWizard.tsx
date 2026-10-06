@@ -8,6 +8,10 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PersonPicker } from '@/components/ui/PersonPicker';
 import { previewCampaign, createCampaign } from '@/lib/api/confirmations';
+import { fetchPeople } from '@/lib/api/entities';
+import { fetchTeams } from '@/lib/api/people';
+import { useResource } from '@/lib/useResource';
+import { toApiError } from '@/lib/api/client';
 import { cn } from '@/lib/cn';
 
 export interface NewCampaignWizardProps {
@@ -22,7 +26,14 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
 
   // Step 1: Scope
   const [scopeKind, setScopeKind] = React.useState<CampaignScope['kind']>('all_unknown_critical');
-  const [department, setDepartment] = React.useState('Engineering');
+  // A real directory team (by id), not free text with an invented default.
+  const [department, setDepartment] = React.useState('');
+  const teamsResource = useResource('campaign-teams', fetchTeams);
+  const peopleResource = useResource('campaign-people', fetchPeople);
+  const peopleOptions = React.useMemo(
+    () => (peopleResource.status === 'ready' ? peopleResource.data : []),
+    [peopleResource],
+  );
   const [leaverPerson, setLeaverPerson] = React.useState<EntityRef | null>(null);
 
   // Step 2 & 3: Preview Data
@@ -39,6 +50,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
   const [introLine, setIntroLine] = React.useState('Please verify your ownership and backup assignments.');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [created, setCreated] = React.useState<import('@/types/view').CampaignCreated | null>(null);
 
   const getScope = (): CampaignScope => {
     if (scopeKind === 'department') return { kind: 'department', department };
@@ -57,7 +69,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
       setBodyText(p.email.bodyText);
       setStep(2);
     } catch (err: any) {
-      setError(err?.message || 'Failed to generate campaign preview.');
+      setError(`Could not preview this campaign: ${toApiError(err).message}`);
     } finally {
       setIsLoadingPreview(false);
     }
@@ -73,12 +85,13 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
         dueDate: new Date(dueDate).toISOString(),
         sendAt: null, // immediate
         introLine: introLine.trim() || null,
+        email: subject.trim() && bodyText.trim() ? { subject: subject.trim(), bodyText: bodyText.trim() } : null,
         tasks: preview.tasks,
       };
-      await createCampaign(input);
-      router.push('/actions');
+      // Show what actually happened (emailed, or only logged) before leaving.
+      setCreated(await createCampaign(input));
     } catch (err: any) {
-      setError(err?.message || 'Failed to create and dispatch campaign.');
+      setError(`Could not create the campaign: ${toApiError(err).message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -177,13 +190,21 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
                   Scope verification to teams and systems owned by a specific department.
                 </span>
                 {scopeKind === 'department' && (
-                  <input
-                    type="text"
+                  <select
+                    aria-label="Team"
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    placeholder="e.g. Infrastructure, Billing, Finance"
                     className="mt-2 w-full max-w-sm rounded-control border border-rule bg-surface p-2 text-xs text-ink focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber"
-                  />
+                  >
+                    <option value="">
+                      {teamsResource.status === 'error' ? 'Could not load teams' : 'Choose a team…'}
+                    </option>
+                    {(teamsResource.status === 'ready' ? teamsResource.data.teams : []).map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </div>
             </label>
@@ -204,7 +225,9 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
                 {scopeKind === 'leaver' && (
                   <div className="mt-2 max-w-sm">
                     <PersonPicker
-                      placeholder="Select leaver..."
+                      placeholder={peopleResource.status === 'error' ? 'Could not load people' : 'Select leaver...'}
+                      options={peopleOptions}
+                      value={leaverPerson}
                       onChange={(p) => setLeaverPerson(p)}
                     />
                   </div>
@@ -217,7 +240,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
             <button
               type="button"
               onClick={handleNextFromScope}
-              disabled={isLoadingPreview || (scopeKind === 'leaver' && !leaverPerson)}
+              disabled={isLoadingPreview || (scopeKind === 'leaver' && !leaverPerson) || (scopeKind === 'department' && !department)}
               className="rounded-control bg-amber text-paper px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
             >
               {isLoadingPreview ? 'Analyzing Scope...' : 'Continue to Review →'}
@@ -235,6 +258,12 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
               Inspect the questions and recipients before dispatching questionnaires.
             </p>
           </div>
+          {preview.unassignedAssets.length > 0 && (
+            <p className="rounded-control border border-amber/30 bg-amber/10 p-3 text-xs text-amber-ink">
+              {preview.unassignedAssets.length} system{preview.unassignedAssets.length === 1 ? ' has' : 's have'} no current
+              owner on record, so nobody can be asked: {preview.unassignedAssets.map((a) => a.name).join(', ')}.
+            </p>
+          )}
 
           {/* Metric Summary */}
           <div className="grid grid-cols-3 gap-4 text-xs font-mono text-center">
@@ -283,7 +312,9 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
             <button
               type="button"
               onClick={() => setStep(3)}
-              className="rounded-control bg-amber text-paper px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer"
+              disabled={preview.tasks.length === 0}
+              title={preview.tasks.length === 0 ? 'Nobody to ask in this scope' : undefined}
+              className="rounded-control bg-amber text-paper px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Configure Message →
             </button>
@@ -348,8 +379,32 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
         </Card>
       )}
 
+      {created && (
+        <div role="status" className="rounded-card border border-rule bg-surface p-5 space-y-3 text-sm">
+          <p className="font-semibold text-ink">Campaign created for {created.reviewers} reviewer{created.reviewers === 1 ? '' : 's'}.</p>
+          {created.emailDelivery === 'logged' ? (
+            <p className="text-xs text-amber-ink">
+              Email isn't configured on this server, so nothing was emailed. Each reviewer's link was written to the
+              server log; share it with them directly.
+            </p>
+          ) : (
+            <p className="text-xs text-ink-3">
+              {created.emailsSent} of {created.reviewers} emails sent
+              {created.emailsSent < created.reviewers ? '; the rest failed — check the server log.' : '.'}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => router.push('/actions')}
+            className="rounded-control bg-amber text-paper px-3 py-1.5 text-xs font-semibold"
+          >
+            Back to Actions
+          </button>
+        </div>
+      )}
+
       {/* Step 4: Schedule & Launch */}
-      {step === 4 && (
+      {step === 4 && !created && (
         <Card className="p-6 bg-surface shadow-card space-y-6">
           <div className="space-y-1">
             <h2 className="text-base font-semibold text-ink">Step 4: Campaign Schedule & Name</h2>
@@ -400,9 +455,10 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
           </div>
 
           <div className="rounded-control bg-surface-sunken p-3 text-xs text-ink-3 border border-rule/60">
-            <p className="font-semibold text-ink mb-0.5">Automated Reminders</p>
+            <p className="font-semibold text-ink mb-0.5">Reminders</p>
             <p>
-              Reviewers will automatically receive gentle reminder emails 48 hours and 24 hours prior to the due date.
+              Reminder emails aren't sent automatically yet. Check progress on the Confirmations tab and follow up
+              with anyone who hasn't answered.
             </p>
           </div>
 

@@ -130,6 +130,7 @@ const sampleCampaignDetail: CampaignDetail = {
 const samplePreview: CampaignPreview = {
   emailCount: 4,
   questionCount: 12,
+  unassignedAssets: [{ id: 'automation:n8n:104', kind: 'automation', name: 'Customer Onboarding Flow' }],
   reviewers: [
     {
       person: { id: 'p-sarah', name: 'Sarah Connor', kind: 'person' },
@@ -163,7 +164,7 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
     vi.spyOn(confirmationsApi, 'fetchCampaigns').mockResolvedValue(sampleCampaigns);
     vi.spyOn(confirmationsApi, 'fetchCampaignDetail').mockResolvedValue(sampleCampaignDetail);
     vi.spyOn(confirmationsApi, 'previewCampaign').mockResolvedValue(samplePreview);
-    vi.spyOn(confirmationsApi, 'createCampaign').mockResolvedValue('camp-new-123');
+    vi.spyOn(confirmationsApi, 'createCampaign').mockResolvedValue({ campaignId: 'camp-new-123', reviewers: 2, emailsSent: 2, emailDelivery: 'logged' });
   });
 
   describe('ActionsView Component', () => {
@@ -346,6 +347,8 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
         expect(screen.getByText('Step 2: Review Attestation Scope')).toBeInTheDocument();
       });
       expect(screen.getByText('Targeted Reviewers (2)')).toBeInTheDocument();
+      // Systems with no current owner are named, not silently dropped.
+      expect(screen.getByText(/1 system has no current owner on record.*Customer Onboarding Flow/)).toBeInTheDocument();
       expect(screen.getByText('Reviewers')).toBeInTheDocument();
       expect(screen.getByText('Questions')).toBeInTheDocument();
 
@@ -365,6 +368,7 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
       expect(screen.getByText('Step 4: Campaign Schedule & Name')).toBeInTheDocument();
       const launchBtn = screen.getByRole('button', { name: '🚀 Launch Campaign' });
       expect(launchBtn).toBeInTheDocument();
+      expect(screen.getByText(/Reminder emails aren't sent automatically yet/)).toBeInTheDocument();
 
       fireEvent.click(launchBtn);
 
@@ -372,10 +376,15 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
         expect(confirmationsApi.createCampaign).toHaveBeenCalledWith(
           expect.objectContaining({
             name: 'Q4 Critical Systems Certification',
+            // The wording the admin reviewed is what gets sent.
+            email: expect.objectContaining({ subject: 'Action Required: Confirm ownership and secondary backup for 6 systems' }),
           })
         );
-        expect(mockPush).toHaveBeenCalledWith('/actions');
       });
+      // Honest result before leaving: no SMTP means nothing was emailed.
+      expect(await screen.findByText(/nothing was emailed/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Back to Actions' }));
+      expect(mockPush).toHaveBeenCalledWith('/actions');
     });
 
     it('satisfies axe accessibility standards in NewCampaignWizard', async () => {

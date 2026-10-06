@@ -349,6 +349,13 @@ export class DataService {
     return this.changeEvents;
   }
 
+  /** Raises a new, unacknowledged change in the feed (bell). */
+  public addChangeEvent(e: { kind: string; title: string; impact: string; href: string | null }): StoredChangeEvent {
+    const event: StoredChangeEvent = { id: `chg_${crypto.randomUUID().slice(0, 8)}`, ...e, detectedAt: new Date().toISOString(), acknowledged: false };
+    this.changeEvents.unshift(event);
+    return event;
+  }
+
   /** Returns false when there is no such change. `actor` is the signed-in user's name. */
   public acknowledgeChange(id: string, actor: string): boolean {
     const c = this.changeEvents.find((e) => e.id === id);

@@ -34,7 +34,8 @@ STRICT CONSTRAINTS:
 
 export class AskHorquvaEngine {
   private ai: GoogleGenAI | null = null;
-  private modelName = 'gemini-2.0-flash';
+  // GEMINI_MODEL overrides the default; Google retires models over time (2.0-flash now returns 404).
+  private modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;

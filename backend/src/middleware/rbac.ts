@@ -36,7 +36,8 @@ const rule = (methods: Rule['methods'], path: string, permission: Permission): R
 
 export const POLICY: Rule[] = [
   // Public: the token in the magic link is the credential (CHK-02); v0 check is the free funnel (V0-01).
-  rule(['GET', 'POST'], `/attestation/review/${ID}`, 'public'),
+  rule(['GET'], `/attest/${ID}(/people)?`, 'public'),
+  rule(['PUT'], `/attest/${ID}/tasks/${ID}`, 'public'),
   rule(['POST'], '/v0/n8n-check', 'public'),
 
   // Admin-only surfaces (Settings screens, governance decisions).
@@ -46,6 +47,7 @@ export const POLICY: Rule[] = [
   rule('*', `/identity-queue(/.*)?`, 'admin'),
   rule(['PUT'], '/settings/organization', 'admin'),
   rule(['POST'], '/attestation/campaigns', 'admin'),
+  rule(['POST'], '/attestation/campaigns/preview', 'admin'),
   rule(['POST'], `/actions/${ID}/accept-risk`, 'admin'),
 
   // Departure workflow (HND-01, HND-03).

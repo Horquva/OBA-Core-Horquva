@@ -76,20 +76,18 @@ describe('API contracts', () => {
     expect(call(spy).url).toBe('/api/continuity/simulations/combined');
   });
 
-  it('falls back to the legacy attestation endpoint and refuses to write "Don’t know" there', async () => {
+  it('reads the magic-link session and saves answers on /api/attest (no legacy fallback)', async () => {
     const spy = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response('<pre>Cannot GET</pre>', { status: 404 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        task: { id: 't1', assetEntityId: 'automation:1', status: 'pending' }, assetName: 'Invoice sync',
-        reviewerName: 'Sara', reviewerEmail: 's@acme.com',
-      }), { status: 200 }));
+        reviewer: { name: 'Sara', email: 's@acme.com' }, requestedBy: 'Alex', company: null,
+        expired: false, submitted: false,
+        assets: [{ taskId: 't1', asset: { id: 'automation:1', kind: 'automation', name: 'Invoice sync' }, status: 'todo' }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
     const s = await attest.fetchAttestSession('tok');
-    expect(s.legacy).toBe(true);
-    expect(s.assets[0].asset.name).toBe('Invoice sync');
-    expect(call(spy, 1).url).toBe('/api/attestation/review/tok');
-    expect(() => attest.saveAttestAnswers(s, 't1', {
-      isOwner: true, ownerPersonId: null, backup: { kind: 'none' }, criticality: 'high', criticalityReason: 'r',
-      runbook: { kind: 'not_documented' }, fallback: 'unknown',
-    })).toThrow(attest.UnsupportedAnswerError);
+    expect(call(spy).url).toBe('/api/attest/tok');
+    expect(s).toMatchObject({ token: 'tok', assets: [{ taskId: 't1' }] });
+    await attest.saveAttestAnswers(s, 't1', { isOwner: false, ownerPersonId: null });
+    expect(call(spy, 1)).toMatchObject({ url: '/api/attest/tok/tasks/t1', method: 'PUT' });
   });
 });

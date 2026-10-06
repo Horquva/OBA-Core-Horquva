@@ -1,4 +1,4 @@
-import type { CampaignDetail, CampaignPreview, CampaignScope, CampaignSummary, CreateCampaignInput } from '@/types/view';
+import type { CampaignCreated, CampaignDetail, CampaignPreview, CampaignScope, CampaignSummary, CreateCampaignInput } from '@/types/view';
 import { request } from './client';
 
 type CampaignRow = {
@@ -16,19 +16,18 @@ export async function fetchCampaigns(): Promise<CampaignSummary[]> {
 }
 
 export function fetchCampaignDetail(id: string): Promise<CampaignDetail> {
-  return request<CampaignDetail>(`/api/attestation/campaigns/${encodeURIComponent(id)}`); // (planned) B-08
+  return request<CampaignDetail>(`/api/attestation/campaigns/${encodeURIComponent(id)}`);
 }
 
 export function previewCampaign(scope: CampaignScope): Promise<CampaignPreview> {
   return request<CampaignPreview>('/api/attestation/campaigns/preview', {
     method: 'POST', body: JSON.stringify({ scope }),
-  }); // (planned) B-08
+  });
 }
 
-/** Existing: POST /api/attestation/campaigns. `introLine` and `sendAt` need B-08 to be honoured. */
-export async function createCampaign(input: CreateCampaignInput): Promise<string> {
-  const r = await request<{ campaignId: string }>('/api/attestation/campaigns', {
+/** Creates the campaign and emails each reviewer one link (or logs it when SMTP isn't configured). */
+export function createCampaign(input: CreateCampaignInput): Promise<CampaignCreated> {
+  return request<CampaignCreated>('/api/attestation/campaigns', {
     method: 'POST', body: JSON.stringify(input),
   });
-  return r.campaignId;
 }

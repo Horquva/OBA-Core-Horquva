@@ -16,7 +16,14 @@ export interface MailerOptions {
   assetName: string;
   magicLinkUrl: string;
   campaignDueDate: Date;
+  /** Admin-written wording from the campaign wizard (plain text; escaped here). */
+  subject?: string;
+  introLine?: string | null;
+  bodyText?: string;
 }
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 export class AttestationMailer {
   private transporter: nodemailer.Transporter;
@@ -73,14 +80,15 @@ export class AttestationMailer {
 <body>
   <div class="container">
     <div class="header">Operational Continuity Attestation</div>
-    <p>Hi ${options.reviewerName},</p>
+    <p>Hi ${escapeHtml(options.reviewerName)},</p>
+    ${options.introLine ? `<p>${escapeHtml(options.introLine)}</p>` : ''}
     <p>You have been identified as the primary owner of the following automated business process:</p>
     
     <div class="asset-card">
-      <strong style="font-size: 16px;">${options.assetName}</strong>
+      <strong style="font-size: 16px;">${escapeHtml(options.assetName)}</strong>
     </div>
 
-    <p>To ensure organizational continuity if you are away, please take 60 seconds to confirm the backup owner, runbook link, and operational fallback procedure.</p>
+    <p>${escapeHtml(options.bodyText || 'To ensure organizational continuity if you are away, please take 60 seconds to confirm the backup owner, runbook link, and operational fallback procedure.')}</p>
 
     <div style="text-align: center;">
       <a href="${options.magicLinkUrl}" class="btn">Confirm Operational Details</a>
@@ -102,7 +110,7 @@ export class AttestationMailer {
       const info = await this.transporter.sendMail({
         from: this.fromAddress,
         to: options.to,
-        subject: `[Continuity Review] Action required: Confirm details for ${options.assetName}`,
+        subject: options.subject || `[Continuity Review] Action required: Confirm details for ${options.assetName}`,
         html,
       });
 

@@ -45,7 +45,7 @@ describe('RBAC enforcement (SEC-02)', () => {
   });
 
   it('keeps magic-link attestation and the free v0 check public', async () => {
-    expect((await fetch(`${baseUrl}/api/attestation/review/no-such-token`)).status).not.toBe(401);
+    expect((await fetch(`${baseUrl}/api/attest/no-such-token`)).status).toBe(404); // reached the route: public, just an unknown link
     expect((await fetch(`${baseUrl}/api/v0/n8n-check`, json('POST'))).status).not.toBe(401);
   });
 
