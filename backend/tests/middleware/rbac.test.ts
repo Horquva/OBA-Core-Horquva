@@ -65,11 +65,17 @@ describe('RBAC enforcement (SEC-02)', () => {
       ['/api/departures', json('POST', { personId: 'person:omar@acme.com', leaveDate: '2026-12-01' })],
       ['/api/actions/a1/assign-backup', json('POST', { personId: 'person:x' })],
       ['/api/changes/ack-all', json('POST')],
-      ['/api/handovers/h1/accept', json('POST')],
+      ['/api/departures/d1/verify', json('POST')],
     ];
     for (const [path, init] of writes) {
       expect((await as('user:maya', path, init)).status, path).toBe(403);
     }
+  });
+
+  it('lets any role reach handover responses (the successor check happens in the service)', async () => {
+    expect(permissionFor('POST', '/handovers/h1/accept')).toBe('read');
+    // Passes RBAC as a viewer; 404 because the handover does not exist.
+    expect((await as('user:maya', '/api/handovers/nope/accept', json('POST'))).status).toBe(404);
   });
 
   it('blocks a reviewer from admin routes but allows editing', async () => {

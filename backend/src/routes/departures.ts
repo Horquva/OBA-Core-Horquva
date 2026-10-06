@@ -8,6 +8,7 @@
 // - POST /api/departures/:id/succession-test (Simulation & overload checks)
 // - PUT /api/departures/:id/successors (Update assigned successors)
 // - POST /api/departures/:id/acceptance-requests (Request successor acceptance)
+// - POST /api/departures/:id/account-disabled (Stage 4) and /verify (Stage 5)
 // =============================================================================
 
 import { Router, Request, Response } from 'express';
@@ -15,6 +16,21 @@ import { z } from 'zod';
 import { DataService, DepartureRecord } from '../services/dataService.js';
 import { CriticalityLevel, EvidenceGrade } from '@horquva/types';
 import { DepartureError, initiateDeparture } from '../handover/departureService.js';
+import {
+  SuccessionError,
+  markAccountDisabled,
+  nameSuccessors,
+  requestAcceptance,
+  verifyDeparture,
+} from '../handover/successionService.js';
+
+function sendSuccessionError(res: Response, err: any, fallback: string): void {
+  if (err instanceof SuccessionError) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+  res.status(500).json({ error: err?.message || fallback });
+}
 
 export const departuresRouter = Router();
 
@@ -347,21 +363,39 @@ departuresRouter.put('/:id/successors', (req: Request, res: Response) => {
   }
 
   try {
-    const dataService = DataService.getInstance();
-    dataService.updateSuccessors(String(req.params.id), parsed.data.assignments);
-    res.json({ success: true });
+    const dep = nameSuccessors(DataService.getInstance(), String(req.params.id), parsed.data.assignments);
+    res.json({ success: true, stage: dep.stage });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to update successors.' });
+    sendSuccessionError(res, err, 'Failed to update successors.');
   }
 });
 
 // 6. POST /api/departures/:id/acceptance-requests
 departuresRouter.post('/:id/acceptance-requests', (req: Request, res: Response) => {
   try {
-    const dataService = DataService.getInstance();
-    dataService.sendAcceptanceRequests(String(req.params.id));
-    res.json({ success: true });
+    const result = requestAcceptance(DataService.getInstance(), String(req.params.id));
+    res.json({ success: true, ...result });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to send acceptance requests.' });
+    sendSuccessionError(res, err, 'Failed to send acceptance requests.');
+  }
+});
+
+// 7. POST /api/departures/:id/account-disabled (stage 4)
+departuresRouter.post('/:id/account-disabled', (req: Request, res: Response) => {
+  try {
+    const dep = markAccountDisabled(DataService.getInstance(), String(req.params.id));
+    res.json({ success: true, stage: dep.stage });
+  } catch (err: any) {
+    sendSuccessionError(res, err, 'Failed to record account disable.');
+  }
+});
+
+// 8. POST /api/departures/:id/verify (stage 5)
+departuresRouter.post('/:id/verify', (req: Request, res: Response) => {
+  try {
+    const dep = verifyDeparture(DataService.getInstance(), String(req.params.id));
+    res.json({ success: true, stage: dep.stage });
+  } catch (err: any) {
+    sendSuccessionError(res, err, 'Failed to verify departure.');
   }
 });

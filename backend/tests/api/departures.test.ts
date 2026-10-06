@@ -18,6 +18,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
   let server: http.Server;
   let baseUrl: string;
   let omarDepartureId: string;
+  let davidDepartureId: string;
 
   beforeAll(async () => {
     await new Promise<void>((resolve) => {
@@ -133,6 +134,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     const detail = (await getRes.json()) as any;
     expect(detail.stage).toBe('successor_named');
     expect(detail.handover[0].successor.id).toBe('person:priya@acme.com');
+    davidDepartureId = depId;
   });
 
   it('POST /api/handovers/:id/accept immediately updates edge and creates confirmed fact (HND-04)', async () => {
@@ -161,10 +163,15 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     const detail = (await getRes.json()) as any;
     const handoverId = detail.handover[0].id;
 
-    // Accept handover
-    const acceptRes = await authedFetch(`${baseUrl}/api/handovers/${handoverId}/accept`, {
-      method: 'POST',
-    });
+    // Not requested yet → 409; admin is not the successor → 403 once requested.
+    const accept = (as: string) =>
+      authedFetch(`${baseUrl}/api/handovers/${handoverId}/accept`, { method: 'POST' }, as);
+    expect((await accept('user:chen')).status).toBe(409);
+    await authedFetch(`${baseUrl}/api/departures/${depId}/acceptance-requests`, { method: 'POST' });
+    expect((await accept('user:admin')).status).toBe(403);
+
+    // Chen (user:chen ↔ person:chen@acme.com) accepts his own handover.
+    const acceptRes = await accept('user:chen');
     expect(acceptRes.status).toBe(200);
 
     // Verify graph has confirmed owns edge for Chen -> 103
@@ -206,32 +213,29 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
   });
 
   it('POST /api/handovers/:id/decline records decline reason and updates status', async () => {
-    const initRes = await authedFetch(`${baseUrl}/api/departures`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        // Chen, not Maya: Maya's departure from the accept test is still open (one open departure per person).
-        personId: 'person:chen@acme.com',
-        leaveDate: '2026-12-31T00:00:00Z',
-        note: 'Handover decline test.',
-      }),
+    // David's departure (105 → Priya). Priya has no OBA account, so re-name Chen, who does.
+    const depId = davidDepartureId;
+    const json = { 'Content-Type': 'application/json' };
+    await authedFetch(`${baseUrl}/api/departures/${depId}/successors`, {
+      method: 'PUT',
+      headers: json,
+      body: JSON.stringify({ assignments: [{ assetId: 'automation:n8n:105', successorId: 'person:chen@acme.com' }] }),
     });
-    expect(initRes.status).toBe(201);
-    const { id: depId } = (await initRes.json()) as any;
-    const getRes = await authedFetch(`${baseUrl}/api/departures/${depId}`);
-    const detail = (await getRes.json()) as any;
+    await authedFetch(`${baseUrl}/api/departures/${depId}/acceptance-requests`, { method: 'POST' });
+    const detail = (await (await authedFetch(`${baseUrl}/api/departures/${depId}`)).json()) as any;
     const handoverId = detail.handover[0].id;
 
-    const declineRes = await authedFetch(`${baseUrl}/api/handovers/${handoverId}/decline`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: 'Insufficient capacity in Q4.' }),
-    });
-
+    const declineRes = await authedFetch(
+      `${baseUrl}/api/handovers/${handoverId}/decline`,
+      { method: 'POST', headers: json, body: JSON.stringify({ reason: 'Insufficient capacity in Q4.' }) },
+      'user:chen'
+    );
     expect(declineRes.status).toBe(200);
 
     const checkRes = await authedFetch(`${baseUrl}/api/departures/${depId}`);
     const checkDetail = (await checkRes.json()) as any;
     expect(checkDetail.handover[0].acceptance).toBe('declined');
+    // A decline re-opens naming: the departure drops back to 'initiated'.
+    expect(checkDetail.stage).toBe('initiated');
   });
 });

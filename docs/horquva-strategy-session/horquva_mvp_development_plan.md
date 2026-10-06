@@ -153,7 +153,7 @@
 | ✅ **D2 (Oct 7)** | SSO Authentication — Google OIDC | G-16 | `backend/src/auth/google.ts` — ID token validation, combined auth middleware | SEC-01 |
 | ✅ **D3 (Oct 8)** | RBAC Middleware + Audit Log middleware | G-14, G-15 | `backend/src/middleware/{rbac,auditLog}.ts` — role enforcement on every route, append-only audit writes | SEC-02, SEC-06 |
 | ✅ **D4 (Oct 9)** | Departure Workflow Backend — Initiation + Pack Compilation | G-04, G-05 | `backend/src/handover/departureService.ts` — POST /api/departures, auto-generate handover pack JSON from S1 simulation | HND-01, HND-02 |
-| **D5 (Oct 10)** | Departure Workflow Backend — Successor Assignment + Acceptance | G-06 | `backend/src/handover/successionService.ts` — successor naming, acceptance API, stage tracking (Initiated→Named→Accepted→Disabled→Verified) | HND-03, HND-04, HND-05 |
+| ✅ **D5 (Oct 10)** | Departure Workflow Backend — Successor Assignment + Acceptance | G-06 | `backend/src/handover/successionService.ts` — successor naming, acceptance API, stage tracking (Initiated→Named→Accepted→Disabled→Verified) | HND-03, HND-04, HND-05 |
 | **D6 (Oct 13)** | Departure Workflow Backend — Integration & Tests | G-04/G-05/G-06 | Integration tests: departure creation → pack generation → successor flow → stage transitions | HND-01 to HND-05 |
 
 **Sprint 1 / Engineer B Acceptance Criteria:**
@@ -161,8 +161,8 @@
 - [x] RBAC middleware blocks `viewer` from write operations, blocks `reviewer` from admin routes
 - [x] Every API call writes to audit_log *(scoped to every write, every denial and every sign-in/out — see D3 log for why successful reads are excluded)*
 - [x] `POST /api/departures` creates departure and triggers S1 simulation to build handover pack
-- [ ] Successor can accept via `POST /api/handover/{id}/accept`
-- [ ] Departure progresses through all 5 stages correctly
+- [x] Successor can accept via `POST /api/handover/{id}/accept` *(route is `/api/handovers/{id}/accept`; only the named successor)*
+- [x] Departure progresses through all 5 stages correctly
 
 **Sprint 1 / Engineer B Progress Log:**
 
@@ -200,6 +200,14 @@
   - Existing API test fix: the succession-test case silently created a second Omar departure; it now reuses the first one (the old code passed only because `succession-test` ignores the departure id).
   - Tests: `backend/tests/handover/departureService.test.ts` (12, hand-checked against `handCheckableTruth.json`) + 2 new API tests. Backend suite 154/154.
   - ⚠️ Found, not fixed (in `GET /api/departures/:id`, Engineer A's route; fix during D5/D6 or Sprint 2 D8 wiring): (1) `suggestion` falls back to a **hard-coded "Chen Wei"** for every asset with no backup — fabricated data; (2) `currentBackup.grade` is always `'confirmed'` and `observedAt` is "now" regardless of the real edge — misstated evidence; (3) `undocumented` counts assets with **no** `documented` fact as undocumented — unknown shown as "no" (DATA-03); (4) `team` is hard-coded `'Platform Engineering'`.
+- **D5 — Successor naming, acceptance + 5-stage lifecycle ✅ (Oct 6)**
+  - Gap vs plan: Engineer A's `DataService` methods named successors with no validation, let **any** reviewer accept or decline **anyone's** handover (even unrequested), duplicated ownership edges on repeat accepts, and had **no way** to reach `account_disabled` or `verified`.
+  - Built: `backend/src/handover/successionService.ts` (logic moved out of `DataService`; old methods removed). Routes: `PUT /api/departures/:id/successors`, `POST /api/departures/:id/acceptance-requests`, new `POST /api/departures/:id/account-disabled` and `POST /api/departures/:id/verify`, `POST /api/handovers/:id/{accept,decline}`.
+  - Stage rules: the first three stages are **derived** from handover rows — `successor_named` only when every asset has a successor, `accepted` only when every asset is accepted; a decline moves the departure back to `initiated` and clears later timestamps. `account_disabled` can be recorded at any point (accounts get disabled on the leave date whether or not handover finished; the audit entry records how many were unaccepted) and from then on the stage only moves forward. `verified` requires `account_disabled` **and** every handover accepted; a verified departure no longer counts as open.
+  - Naming (HND-03): asset must belong to the departure; successor must be a real `person`, not the leaver, and not someone with an open departure; validation is atomic (all-or-nothing); re-naming resets a pending request; accepted handovers are locked; no changes after account disable.
+  - Responding (HND-04): only when `requested`; **only the named successor** (signed-in user matched to their person record by email) — admins cannot accept on someone's behalf, since acceptance becomes a `confirmed` ownership fact. RBAC for accept/decline is therefore `read` (any role) with the identity check in the service. Accept writes one confirmed `owns` edge + confirmed `status=handed_over` fact (with `sourceRef` = handover id).
+  - Tests: `backend/tests/handover/successionService.test.ts` (18). Existing API tests updated to the real flow (name → request → successor accepts); `reviewer.test.ts` previously accepted a handover that had no successor at all. Backend suite 172/172.
+  - Open / later: acceptance requests don't send email yet (mailer exists — candidate for Sprint 3 D14 reviewer surfaces); successors without an OBA account (e.g. Priya) cannot respond until magic-link handover acceptance exists (D14); HND-06's 72h verifier (Engineer A, Sprint 3 D13) should call `verifyDeparture` automatically.
   - Note: `tests/ai/gemini.test.ts` and `tests/api/server.test.ts` can time out intermittently — they try the Postgres in `backend/.env` first (legacy Supabase, schema absent) and fall back after 5 s. Pre-existing; passes on re-run.
 
 ---

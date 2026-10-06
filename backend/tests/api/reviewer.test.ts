@@ -68,10 +68,21 @@ describe('Reviewer Tasks API (B-16)', () => {
     const targetHandover = initialData.handovers[0];
     expect(targetHandover).toBeDefined();
 
-    // 2. Accept the handover
-    const acceptRes = await authedFetch(`${baseUrl}/api/handovers/${targetHandover.id}/accept`, {
-      method: 'POST',
+    // 2. Real flow (HND-03/04): admin names Chen as successor and asks; Chen accepts.
+    const json = { 'Content-Type': 'application/json' };
+    const named = await authedFetch(`${baseUrl}/api/departures/dep_sarah_001/successors`, {
+      method: 'PUT',
+      headers: json,
+      body: JSON.stringify({ assignments: [{ assetId: 'automation:n8n:104', successorId: 'person:chen@acme.com' }] }),
     });
+    expect(named.status).toBe(200);
+    expect((await authedFetch(`${baseUrl}/api/departures/dep_sarah_001/acceptance-requests`, { method: 'POST' })).status).toBe(200);
+
+    const acceptRes = await authedFetch(
+      `${baseUrl}/api/handovers/${targetHandover.id}/accept`,
+      { method: 'POST' },
+      'user:chen'
+    );
     expect(acceptRes.status).toBe(200);
 
     // 3. Fetch again and verify target handover is no longer pending in reviewer queue

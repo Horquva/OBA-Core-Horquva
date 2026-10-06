@@ -52,12 +52,16 @@ export const POLICY: Rule[] = [
   rule(['POST'], '/departures', 'departure'),
   rule(['PUT'], `/departures/${ID}/successors`, 'departure'),
   rule(['POST'], `/departures/${ID}/acceptance-requests`, 'departure'),
+  rule(['POST'], `/departures/${ID}/(account-disabled|verify)`, 'departure'),
+
+  // Any signed-in user may respond to a handover; the service then requires
+  // them to be the named successor (HND-04), whatever their role.
+  rule(['POST'], `/handovers/${ID}/(accept|decline)`, 'read'),
 
   // Editing operational state.
   rule(['POST'], `/actions/${ID}/assign-backup`, 'edit'),
   rule(['POST'], `/changes/${ID}/ack`, 'edit'),
   rule(['POST'], '/changes/ack-all', 'edit'),
-  rule(['POST'], `/handovers/${ID}/(accept|decline)`, 'edit'),
 
   // POSTs that only compute (what-if, Ask) — readable by everyone signed in.
   rule(['POST'], '/continuity/simulations/[a-z-]+', 'read'),
