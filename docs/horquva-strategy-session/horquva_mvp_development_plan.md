@@ -149,20 +149,37 @@
 
 | Day | Task | Gap | Deliverable | SRS IDs |
 |---|---|---|---|---|
-| **D1 (Oct 6)** | SSO Authentication — Entra ID OAuth 2.0 | G-16 | `backend/src/auth/entra.ts` — MSAL token validation, user session creation | SEC-01 |
-| **D2 (Oct 7)** | SSO Authentication — Google OIDC | G-16 | `backend/src/auth/google.ts` — ID token validation, combined auth middleware | SEC-01 |
+| ✅ **D1 (Oct 6)** | SSO Authentication — Entra ID OAuth 2.0 | G-16 | `backend/src/auth/entra.ts` — MSAL token validation, user session creation | SEC-01 |
+| ✅ **D2 (Oct 7)** | SSO Authentication — Google OIDC | G-16 | `backend/src/auth/google.ts` — ID token validation, combined auth middleware | SEC-01 |
 | **D3 (Oct 8)** | RBAC Middleware + Audit Log middleware | G-14, G-15 | `backend/src/middleware/{rbac,auditLog}.ts` — role enforcement on every route, append-only audit writes | SEC-02, SEC-06 |
 | **D4 (Oct 9)** | Departure Workflow Backend — Initiation + Pack Compilation | G-04, G-05 | `backend/src/handover/departureService.ts` — POST /api/departures, auto-generate handover pack JSON from S1 simulation | HND-01, HND-02 |
 | **D5 (Oct 10)** | Departure Workflow Backend — Successor Assignment + Acceptance | G-06 | `backend/src/handover/successionService.ts` — successor naming, acceptance API, stage tracking (Initiated→Named→Accepted→Disabled→Verified) | HND-03, HND-04, HND-05 |
 | **D6 (Oct 13)** | Departure Workflow Backend — Integration & Tests | G-04/G-05/G-06 | Integration tests: departure creation → pack generation → successor flow → stage transitions | HND-01 to HND-05 |
 
 **Sprint 1 / Engineer B Acceptance Criteria:**
-- [ ] Microsoft Entra SSO and Google OIDC both produce valid session tokens
+- [x] Microsoft Entra SSO and Google OIDC both produce valid session tokens *(verified against fake IdPs in tests; live tenant sign-in pending app registrations)*
 - [ ] RBAC middleware blocks `viewer` from write operations, blocks `reviewer` from admin routes
 - [ ] Every API call writes to audit_log
 - [ ] `POST /api/departures` creates departure and triggers S1 simulation to build handover pack
 - [ ] Successor can accept via `POST /api/handover/{id}/accept`
 - [ ] Departure progresses through all 5 stages correctly
+
+**Sprint 1 / Engineer B Progress Log:**
+
+- **D1 — Entra SSO ✅ (Oct 6, `8fdf3d3b`)**
+  - Built: generic OIDC authorization-code + PKCE flow (`backend/src/auth/oidc.ts`), single-tenant Entra provider (`backend/src/auth/entra.ts`), HS256 httpOnly session cookie (`backend/src/auth/session.ts`), routes in `backend/src/routes/auth.ts`.
+  - Endpoints: `GET /api/auth/providers`, `GET /api/auth/session`, `POST /api/auth/sign-out`, `GET /api/auth/:provider/start`, `GET /api/auth/:provider/callback`, `POST /api/auth/dev/sign-in` (only with `AUTH_DEV_LOGIN=true`, never in production).
+  - Deviation from plan: used `jose` + standard OIDC instead of MSAL, so Google (D2) reuses the same flow. ID tokens verified against tenant JWKS with pinned issuer/audience/nonce.
+  - Access rule: SSO proves identity only; the email must match an existing user account (currently `DataService` in-memory users) or sign-in is refused (`not_provisioned`).
+  - Tests: `backend/tests/auth/entra.test.ts` (16). Backend suite 112/112.
+  - Open: needs a real Entra app registration (`ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, redirect URI `<PUBLIC_API_URL>/api/auth/microsoft/callback`) for a live sign-in. Frontend sign-in button wiring is Sprint 3 D13.
+- **D2 — Google OIDC + combined auth middleware ✅ (Oct 6)**
+  - Built: `backend/src/auth/google.ts` (reuses the D1 OIDC flow; accepts both Google issuer spellings), `backend/src/auth/middleware.ts` (`resolveUser`, `attachUser`, `requireAuth` → `req.user`, provider-agnostic).
+  - Workspace-only: `hd` claim must equal `GOOGLE_WORKSPACE_DOMAIN` and `email_verified` must be true; personal Gmail is refused (`account_rejected`). The `hd` authorize param is only a hint, so the claim is enforced after signature verification.
+  - Server now fails at boot if a provider is half-configured, and logs which SSO providers are active.
+  - Middleware is not mounted on API routes yet — enforcement is D3 (RBAC).
+  - Tests: `backend/tests/auth/google.test.ts` (11). Backend suite 123/123; live boot verified (`/api/auth/providers` 200, `/api/auth/session` 401 when signed out).
+  - Open: needs a Google OAuth client (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_WORKSPACE_DOMAIN`, redirect URI `<PUBLIC_API_URL>/api/auth/google/callback`).
 
 ---
 

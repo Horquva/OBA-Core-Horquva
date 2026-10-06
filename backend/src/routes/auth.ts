@@ -15,6 +15,8 @@
 import { Router, type Request, type Response } from 'express';
 import { DataService, type UserAccount } from '../services/dataService.js';
 import { getEntraProvider } from '../auth/entra.js';
+import { getGoogleProvider } from '../auth/google.js';
+import { resolveUser } from '../auth/middleware.js';
 import {
   AuthFlowError,
   buildAuthorizeUrl,
@@ -27,14 +29,12 @@ import {
 import {
   FLOW_TTL_SECONDS,
   OIDC_FLOW_COOKIE,
-  SESSION_COOKIE,
   clearSessionCookie,
   cookieOptions,
   readCookie,
   setSessionCookie,
   signFlowState,
   verifyFlowState,
-  verifySession,
 } from '../auth/session.js';
 
 export interface AuthRouterOptions {
@@ -44,7 +44,7 @@ export interface AuthRouterOptions {
 }
 
 export function defaultProviders(): OidcProvider[] {
-  return [getEntraProvider()].filter((p): p is OidcProvider => p !== null);
+  return [getEntraProvider(), getGoogleProvider()].filter((p): p is OidcProvider => p !== null);
 }
 
 function publicApiUrl(req: Request): string {
@@ -85,9 +85,7 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
   });
 
   router.get('/session', async (req, res) => {
-    const token = readCookie(req, SESSION_COOKIE);
-    const claims = token ? await verifySession(token) : null;
-    const user = claims ? DataService.getInstance().getUserById(claims.userId) : null;
+    const user = await resolveUser(req);
     if (!user) {
       res.status(401).json({ error: 'Not signed in.' });
       return;
@@ -167,7 +165,10 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
         fetchImpl
       );
       const mapped = provider.emailFromClaims(claims);
-      if ('error' in mapped) return failRedirect(res, 'no_email');
+      if ('error' in mapped) {
+        console.warn(`[auth] ${provider.id} account rejected: ${mapped.error}`);
+        return failRedirect(res, 'account_rejected');
+      }
 
       const user = DataService.getInstance().getUserByEmail(mapped.email);
       if (!user) return failRedirect(res, 'not_provisioned');

@@ -18,7 +18,8 @@ export interface OidcProvider {
   clientSecret: string;
   authorizationEndpoint: string;
   tokenEndpoint: string;
-  issuer: string;
+  /** Google signs with two equivalent issuer spellings, hence the array form. */
+  issuer: string | string[];
   jwks: JWTVerifyGetKey;
   scopes: string;
   /** Extra authorize-URL params (e.g. Google's `hd` domain hint). */
