@@ -76,7 +76,12 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
 
   const findProvider = (id: string) => providers().find((p) => p.id === id) ?? null;
 
-  const failRedirect = (res: Response, code: string) => {
+  // SEC-06: sign-in events are audited here; the generic audit middleware skips /api/auth.
+  const audit = (actor: string, action: string, details: string) =>
+    DataService.getInstance().addAuditEntry(actor, action, 'auth', details);
+
+  const failRedirect = (res: Response, code: string, provider = 'unknown') => {
+    audit('anonymous', 'SIGN_IN_FAILED', `${provider}: ${code}`);
     res.redirect(302, `${frontendUrl()}/sign-in?error=${encodeURIComponent(code)}`);
   };
 
@@ -93,7 +98,9 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
     res.json(toSessionView(user));
   });
 
-  router.post('/sign-out', (_req, res) => {
+  router.post('/sign-out', async (req, res) => {
+    const user = await resolveUser(req);
+    if (user) audit(user.id, 'SIGN_OUT', 'session cleared');
     clearSessionCookie(res);
     res.status(204).end();
   });
@@ -109,6 +116,7 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
       return;
     }
     await setSessionCookie(res, { userId: user.id, provider: 'dev' });
+    audit(user.id, 'SIGN_IN', 'dev');
     res.json(toSessionView(user));
   });
 
@@ -144,14 +152,14 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
     const provider = findProvider(req.params.provider);
     if (!provider) return failRedirect(res, 'provider_not_configured');
 
-    if (typeof req.query.error === 'string') return failRedirect(res, 'provider_denied');
+    if (typeof req.query.error === 'string') return failRedirect(res, 'provider_denied', provider.id);
 
     const flowToken = readCookie(req, OIDC_FLOW_COOKIE);
     const flow = flowToken ? await verifyFlowState(flowToken) : null;
     if (!flow || flow.provider !== provider.id || flow.state !== req.query.state) {
-      return failRedirect(res, 'invalid_state');
+      return failRedirect(res, 'invalid_state', provider.id);
     }
-    if (typeof req.query.code !== 'string') return failRedirect(res, 'missing_code');
+    if (typeof req.query.code !== 'string') return failRedirect(res, 'missing_code', provider.id);
 
     try {
       const claims = await exchangeCodeForClaims(
@@ -167,19 +175,20 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
       const mapped = provider.emailFromClaims(claims);
       if ('error' in mapped) {
         console.warn(`[auth] ${provider.id} account rejected: ${mapped.error}`);
-        return failRedirect(res, 'account_rejected');
+        return failRedirect(res, 'account_rejected', provider.id);
       }
 
       const user = DataService.getInstance().getUserByEmail(mapped.email);
-      if (!user) return failRedirect(res, 'not_provisioned');
+      if (!user) return failRedirect(res, 'not_provisioned', provider.id);
 
       await setSessionCookie(res, { userId: user.id, provider: provider.id });
+      audit(user.id, 'SIGN_IN', provider.id);
       res.redirect(302, `${frontendUrl()}${flow.returnTo}`);
     } catch (err) {
       // Express 4 does not catch async throws, so every failure must end in a redirect here.
       const code = err instanceof AuthFlowError ? err.code : 'server_error';
       console.warn(`[auth] ${provider.id} sign-in failed: ${(err as Error).message}`);
-      return failRedirect(res, code);
+      return failRedirect(res, code, provider.id);
     }
   });
 

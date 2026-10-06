@@ -10,6 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { authedFetch } from '../helpers/session.js';
 
 describe('Change Feed REST API (SRS CHG-01, CHG-02)', () => {
   let server: http.Server;
@@ -32,7 +33,7 @@ describe('Change Feed REST API (SRS CHG-01, CHG-02)', () => {
   });
 
   it('GET /api/changes returns unacknowledged change events', async () => {
-    const res = await fetch(`${baseUrl}/api/changes?acknowledged=false`);
+    const res = await authedFetch(`${baseUrl}/api/changes?acknowledged=false`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(Array.isArray(body.events)).toBe(true);
@@ -47,30 +48,30 @@ describe('Change Feed REST API (SRS CHG-01, CHG-02)', () => {
   });
 
   it('POST /api/changes/:id/ack acknowledges a specific event', async () => {
-    const initRes = await fetch(`${baseUrl}/api/changes?acknowledged=false`);
+    const initRes = await authedFetch(`${baseUrl}/api/changes?acknowledged=false`);
     const { events } = (await initRes.json()) as any;
     const target = events[0];
     expect(target).toBeDefined();
 
-    const ackRes = await fetch(`${baseUrl}/api/changes/${encodeURIComponent(target.id)}/ack`, {
+    const ackRes = await authedFetch(`${baseUrl}/api/changes/${encodeURIComponent(target.id)}/ack`, {
       method: 'POST',
     });
     expect(ackRes.status).toBe(200);
 
     // Verify it is removed from unacknowledged list
-    const afterRes = await fetch(`${baseUrl}/api/changes?acknowledged=false`);
+    const afterRes = await authedFetch(`${baseUrl}/api/changes?acknowledged=false`);
     const afterEvents = (await afterRes.json()) as any;
     const found = afterEvents.events.find((e: any) => e.id === target.id);
     expect(found).toBeUndefined();
   });
 
   it('POST /api/changes/ack-all acknowledges all pending events', async () => {
-    const ackAllRes = await fetch(`${baseUrl}/api/changes/ack-all`, {
+    const ackAllRes = await authedFetch(`${baseUrl}/api/changes/ack-all`, {
       method: 'POST',
     });
     expect(ackAllRes.status).toBe(200);
 
-    const checkRes = await fetch(`${baseUrl}/api/changes?acknowledged=false`);
+    const checkRes = await authedFetch(`${baseUrl}/api/changes?acknowledged=false`);
     const checkBody = (await checkRes.json()) as any;
     expect(checkBody.events.length).toBe(0);
   });

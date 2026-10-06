@@ -24,6 +24,9 @@ import {
 } from './routes/settings.js';
 import { reviewerRouter } from './routes/reviewer.js';
 import { authRouter } from './routes/auth.js';
+import { requestContext } from './middleware/requestContext.js';
+import { auditTrail } from './middleware/auditLog.js';
+import { authorize } from './middleware/rbac.js';
 
 export const app = express();
 
@@ -31,6 +34,8 @@ export const app = express();
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
+app.use(requestContext);
+app.use(auditTrail);
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
@@ -44,6 +49,8 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // Mount modular API routers
 app.use('/api/auth', authRouter);
+// SEC-02: every /api route below passes the RBAC policy table (middleware/rbac.ts).
+app.use('/api', authorize);
 app.use('/api/v0', v0Router);
 app.use('/api/continuity', continuityRouter);
 app.use('/api/attestation', attestationRouter);

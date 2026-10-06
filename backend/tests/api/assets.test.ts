@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { authedFetch } from '../helpers/session.js';
 
 describe('Assets REST API (SRS UI-03, DATA-05)', () => {
   let server: http.Server;
@@ -31,7 +32,7 @@ describe('Assets REST API (SRS UI-03, DATA-05)', () => {
   });
 
   it('GET /api/assets returns asset rows with complete fact states and evidence badges', async () => {
-    const res = await fetch(`${baseUrl}/api/assets`);
+    const res = await authedFetch(`${baseUrl}/api/assets`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(Array.isArray(body.assets)).toBe(true);
@@ -49,7 +50,7 @@ describe('Assets REST API (SRS UI-03, DATA-05)', () => {
   });
 
   it('GET /api/assets/:id returns asset detail with SCD2 temporal history and checks', async () => {
-    const res = await fetch(`${baseUrl}/api/assets/${encodeURIComponent('automation:n8n:101')}`);
+    const res = await authedFetch(`${baseUrl}/api/assets/${encodeURIComponent('automation:n8n:101')}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.asset).toBeDefined();

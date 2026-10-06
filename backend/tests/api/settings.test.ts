@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { authedFetch } from '../helpers/session.js';
 
 describe('Settings, Connections, Users & Audit Log REST API', () => {
   let server: http.Server;
@@ -26,7 +27,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
 
   describe('Connections API (B-17)', () => {
     it('GET /api/connections returns all configured data sources with masked secrets', async () => {
-      const res = await fetch(`${baseUrl}/api/connections`);
+      const res = await authedFetch(`${baseUrl}/api/connections`);
       expect(res.status).toBe(200);
 
       const data = (await res.json()) as any;
@@ -44,7 +45,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
     });
 
     it('POST /api/connections/:id/sync triggers manual sync and updates status', async () => {
-      const res = await fetch(`${baseUrl}/api/connections/conn_n8n_prod/sync`, {
+      const res = await authedFetch(`${baseUrl}/api/connections/conn_n8n_prod/sync`, {
         method: 'POST',
       });
       expect(res.status).toBe(200);
@@ -57,7 +58,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
     });
 
     it('POST /api/connections/:id/sync returns 404 for unknown connection', async () => {
-      const res = await fetch(`${baseUrl}/api/connections/conn_nonexistent_999/sync`, {
+      const res = await authedFetch(`${baseUrl}/api/connections/conn_nonexistent_999/sync`, {
         method: 'POST',
       });
       expect(res.status).toBe(404);
@@ -66,7 +67,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
 
   describe('Users Management API (B-02)', () => {
     it('GET /api/users returns registered users and their RBAC roles', async () => {
-      const res = await fetch(`${baseUrl}/api/users`);
+      const res = await authedFetch(`${baseUrl}/api/users`);
       expect(res.status).toBe(200);
 
       const data = (await res.json()) as any;
@@ -81,7 +82,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
     });
 
     it('PATCH /api/users/:id updates role and hr manager flag', async () => {
-      const res = await fetch(`${baseUrl}/api/users/user:maya`, {
+      const res = await authedFetch(`${baseUrl}/api/users/user:maya`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: 'reviewer', isHrManager: true }),
@@ -96,7 +97,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
     });
 
     it('PATCH /api/users/:id rejects invalid role with 400', async () => {
-      const res = await fetch(`${baseUrl}/api/users/user:maya`, {
+      const res = await authedFetch(`${baseUrl}/api/users/user:maya`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: 'super_admin_invalid' }),
@@ -107,7 +108,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
 
   describe('Organization Settings API (B-19)', () => {
     it('GET /api/settings/organization returns organization metadata and department mappings', async () => {
-      const res = await fetch(`${baseUrl}/api/settings/organization`);
+      const res = await authedFetch(`${baseUrl}/api/settings/organization`);
       expect(res.status).toBe(200);
 
       const data = (await res.json()) as any;
@@ -127,7 +128,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
         ],
       };
 
-      const res = await fetch(`${baseUrl}/api/settings/organization`, {
+      const res = await authedFetch(`${baseUrl}/api/settings/organization`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -144,7 +145,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
 
   describe('Audit Log API (B-20)', () => {
     it('GET /api/audit-log returns recorded governance actions', async () => {
-      const res = await fetch(`${baseUrl}/api/audit-log`);
+      const res = await authedFetch(`${baseUrl}/api/audit-log`);
       expect(res.status).toBe(200);
 
       const data = (await res.json()) as any;
@@ -161,7 +162,7 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
     });
 
     it('GET /api/audit-log supports filtering by action', async () => {
-      const res = await fetch(`${baseUrl}/api/audit-log?action=SYNC_CONNECTION`);
+      const res = await authedFetch(`${baseUrl}/api/audit-log?action=SYNC_CONNECTION`);
       expect(res.status).toBe(200);
 
       const data = (await res.json()) as any;

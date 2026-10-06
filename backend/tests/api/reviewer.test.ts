@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { authedFetch } from '../helpers/session.js';
 
 describe('Reviewer Tasks API (B-16)', () => {
   let server: http.Server;
@@ -25,7 +26,7 @@ describe('Reviewer Tasks API (B-16)', () => {
   });
 
   it('GET /api/me/tasks returns active confirmations and pending handovers', async () => {
-    const res = await fetch(`${baseUrl}/api/me/tasks`);
+    const res = await authedFetch(`${baseUrl}/api/me/tasks`);
     expect(res.status).toBe(200);
 
     const data = (await res.json()) as any;
@@ -62,19 +63,19 @@ describe('Reviewer Tasks API (B-16)', () => {
 
   it('POST /api/handovers/:id/accept updates handover and removes it from pending tasks', async () => {
     // 1. Fetch current pending handovers
-    const initialRes = await fetch(`${baseUrl}/api/me/tasks`);
+    const initialRes = await authedFetch(`${baseUrl}/api/me/tasks`);
     const initialData = (await initialRes.json()) as any;
     const targetHandover = initialData.handovers[0];
     expect(targetHandover).toBeDefined();
 
     // 2. Accept the handover
-    const acceptRes = await fetch(`${baseUrl}/api/handovers/${targetHandover.id}/accept`, {
+    const acceptRes = await authedFetch(`${baseUrl}/api/handovers/${targetHandover.id}/accept`, {
       method: 'POST',
     });
     expect(acceptRes.status).toBe(200);
 
     // 3. Fetch again and verify target handover is no longer pending in reviewer queue
-    const updatedRes = await fetch(`${baseUrl}/api/me/tasks`);
+    const updatedRes = await authedFetch(`${baseUrl}/api/me/tasks`);
     const updatedData = (await updatedRes.json()) as any;
     const exists = updatedData.handovers.some((h: any) => h.id === targetHandover.id);
     expect(exists).toBe(false);

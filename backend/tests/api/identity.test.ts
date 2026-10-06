@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { authedFetch } from '../helpers/session.js';
 
 describe('Identity Queue REST API (SRS ID-02, ID-03)', () => {
   let server: http.Server;
@@ -31,7 +32,7 @@ describe('Identity Queue REST API (SRS ID-02, ID-03)', () => {
   });
 
   it('GET /api/identity-queue returns pending items with suggestions', async () => {
-    const res = await fetch(`${baseUrl}/api/identity-queue`);
+    const res = await authedFetch(`${baseUrl}/api/identity-queue`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(Array.isArray(body.items)).toBe(true);
@@ -44,12 +45,12 @@ describe('Identity Queue REST API (SRS ID-02, ID-03)', () => {
   });
 
   it('POST /api/identity-queue/:id/resolve marks item resolved', async () => {
-    const listRes = await fetch(`${baseUrl}/api/identity-queue`);
+    const listRes = await authedFetch(`${baseUrl}/api/identity-queue`);
     const { items } = (await listRes.json()) as any;
     const target = items[0];
     expect(target).toBeDefined();
 
-    const resolveRes = await fetch(`${baseUrl}/api/identity-queue/${encodeURIComponent(target.id)}/resolve`, {
+    const resolveRes = await authedFetch(`${baseUrl}/api/identity-queue/${encodeURIComponent(target.id)}/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,7 +62,7 @@ describe('Identity Queue REST API (SRS ID-02, ID-03)', () => {
     expect(resolveRes.status).toBe(200);
 
     // Verify removed from pending
-    const afterRes = await fetch(`${baseUrl}/api/identity-queue`);
+    const afterRes = await authedFetch(`${baseUrl}/api/identity-queue`);
     const afterBody = (await afterRes.json()) as any;
     const found = afterBody.items.find((i: any) => i.id === target.id);
     expect(found).toBeUndefined();

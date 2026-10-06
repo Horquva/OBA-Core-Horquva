@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { authedFetch } from '../helpers/session.js';
 
 describe('Graph REST API', () => {
   let server: http.Server;
@@ -32,7 +33,7 @@ describe('Graph REST API', () => {
 
   it('GET /api/graph/neighbourhood extracts 2-hop neighbourhood around root node', async () => {
     const rootId = 'automation:n8n:105'; // Has owner David, calls model GPT-4o
-    const res = await fetch(`${baseUrl}/api/graph/neighbourhood?root=${encodeURIComponent(rootId)}&hops=2`);
+    const res = await authedFetch(`${baseUrl}/api/graph/neighbourhood?root=${encodeURIComponent(rootId)}&hops=2`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.rootId).toBe(rootId);
@@ -47,7 +48,7 @@ describe('Graph REST API', () => {
 
   it('GET /api/graph/blast-radius returns downstream and upstream reachable nodes', async () => {
     const rootId = 'model:openai:gpt-4o';
-    const res = await fetch(`${baseUrl}/api/graph/blast-radius?root=${encodeURIComponent(rootId)}`);
+    const res = await authedFetch(`${baseUrl}/api/graph/blast-radius?root=${encodeURIComponent(rootId)}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.rootId).toBe(rootId);

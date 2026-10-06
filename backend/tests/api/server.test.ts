@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { authedFetch } from '../helpers/session.js';
 
 describe('Server & API Routes Integration', () => {
   let server: http.Server;
@@ -27,7 +28,7 @@ describe('Server & API Routes Integration', () => {
   });
 
   it('GET /health returns healthy status', async () => {
-    const res = await fetch(`${baseUrl}/health`);
+    const res = await authedFetch(`${baseUrl}/health`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.status).toBe('healthy');
@@ -35,7 +36,7 @@ describe('Server & API Routes Integration', () => {
   });
 
   it('POST /api/v0/n8n-check validates request schema', async () => {
-    const res = await fetch(`${baseUrl}/api/v0/n8n-check`, {
+    const res = await authedFetch(`${baseUrl}/api/v0/n8n-check`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ n8nUrl: 'invalid-url' }), // missing n8nApiKey and invalid url
@@ -47,7 +48,7 @@ describe('Server & API Routes Integration', () => {
   });
 
   it('POST /api/continuity/simulations/leaver validates request schema', async () => {
-    const res = await fetch(`${baseUrl}/api/continuity/simulations/leaver`, {
+    const res = await authedFetch(`${baseUrl}/api/continuity/simulations/leaver`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -59,7 +60,7 @@ describe('Server & API Routes Integration', () => {
   });
 
   it('POST /api/attestation/campaigns validates request schema', async () => {
-    const res = await fetch(`${baseUrl}/api/attestation/campaigns`, {
+    const res = await authedFetch(`${baseUrl}/api/attestation/campaigns`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Q4 Review' }), // missing dueDate and tasks
@@ -71,7 +72,7 @@ describe('Server & API Routes Integration', () => {
   });
 
   it('POST /api/continuity/simulations/combined returns compound scenario result', async () => {
-    const res = await fetch(`${baseUrl}/api/continuity/simulations/combined`, {
+    const res = await authedFetch(`${baseUrl}/api/continuity/simulations/combined`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -88,7 +89,7 @@ describe('Server & API Routes Integration', () => {
   });
 
   it('GET /api/continuity/simulations/worst-losses returns ranked models/vendors and aggregate unbacked people count', async () => {
-    const res = await fetch(`${baseUrl}/api/continuity/simulations/worst-losses?threshold=2`);
+    const res = await authedFetch(`${baseUrl}/api/continuity/simulations/worst-losses?threshold=2`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.vendorsAndModels.length).toBeGreaterThan(0);

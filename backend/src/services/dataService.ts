@@ -27,6 +27,7 @@ import {
   EvidenceGrade,
 } from '@horquva/types';
 import { ContinuityGraph } from '../domain/graph/index.js';
+import { currentContext } from '../middleware/requestContext.js';
 import { FactStore, InMemoryFactStoreAdapter } from '../domain/facts/factStore.js';
 import { IdentityQueueService, InMemoryIdentityQueueAdapter } from '../identity/queue.js';
 import { evaluateAllChecks, calculateHeadlineMetrics } from '../domain/checks/index.js';
@@ -272,11 +273,17 @@ export class DataService {
     return this.queueService;
   }
 
+  /**
+   * Inside an HTTP request the signed-in user is the actor (SEC-06); `actor`
+   * is only the fallback for background work with no request (e.g. 'system').
+   */
   public addAuditEntry(actor: string, action: string, resource: string, details: string): void {
+    const ctx = currentContext();
+    if (ctx) ctx.audited = true;
     const entry: AuditEntry = {
       id: `audit_${crypto.randomUUID().slice(0, 8)}`,
       at: new Date().toISOString(),
-      actor,
+      actor: ctx?.user?.id ?? actor,
       action,
       resource,
       details,

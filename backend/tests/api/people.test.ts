@@ -10,6 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { authedFetch } from '../helpers/session.js';
 
 describe('People & Teams REST API (SRS UI-04, UI-05)', () => {
   let server: http.Server;
@@ -32,7 +33,7 @@ describe('People & Teams REST API (SRS UI-04, UI-05)', () => {
   });
 
   it('GET /api/people/teams returns teams summary and minGroupSize', async () => {
-    const res = await fetch(`${baseUrl}/api/people/teams`);
+    const res = await authedFetch(`${baseUrl}/api/people/teams`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(Array.isArray(body.teams)).toBe(true);
@@ -50,11 +51,11 @@ describe('People & Teams REST API (SRS UI-04, UI-05)', () => {
   });
 
   it('GET /api/people/teams/:id returns team detail and member asset holdings', async () => {
-    const teamsRes = await fetch(`${baseUrl}/api/people/teams`);
+    const teamsRes = await authedFetch(`${baseUrl}/api/people/teams`);
     const { teams } = (await teamsRes.json()) as any;
     const teamId = teams[0].id;
 
-    const res = await fetch(`${baseUrl}/api/people/teams/${encodeURIComponent(teamId)}`);
+    const res = await authedFetch(`${baseUrl}/api/people/teams/${encodeURIComponent(teamId)}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.team).toBeDefined();
@@ -68,7 +69,7 @@ describe('People & Teams REST API (SRS UI-04, UI-05)', () => {
   });
 
   it('GET /api/people/:id returns person detail with relations and open handovers', async () => {
-    const res = await fetch(`${baseUrl}/api/people/${encodeURIComponent('person:omar@acme.com')}`);
+    const res = await authedFetch(`${baseUrl}/api/people/${encodeURIComponent('person:omar@acme.com')}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.person.id).toBe('person:omar@acme.com');

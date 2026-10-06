@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
+import { authedFetch } from '../helpers/session.js';
 import { DataService } from '../../src/services/dataService.js';
 
 describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
@@ -34,7 +35,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
   });
 
   it('GET /api/departures returns array of departure summaries', async () => {
-    const res = await fetch(`${baseUrl}/api/departures`);
+    const res = await authedFetch(`${baseUrl}/api/departures`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(Array.isArray(body.departures)).toBe(true);
@@ -49,7 +50,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
   });
 
   it('POST /api/departures initiates departure and compiles handover pack', async () => {
-    const res = await fetch(`${baseUrl}/api/departures`, {
+    const res = await authedFetch(`${baseUrl}/api/departures`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -64,7 +65,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     expect(body.id).toBeDefined();
 
     // Verify detail
-    const detailRes = await fetch(`${baseUrl}/api/departures/${body.id}`);
+    const detailRes = await authedFetch(`${baseUrl}/api/departures/${body.id}`);
     expect(detailRes.status).toBe(200);
     const detail = (await detailRes.json()) as any;
     expect(detail.id).toBe(body.id);
@@ -77,7 +78,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
 
   it('POST /api/departures/:id/succession-test calculates succession feasibility and concentration', async () => {
     // Omar departure
-    const initRes = await fetch(`${baseUrl}/api/departures`, {
+    const initRes = await authedFetch(`${baseUrl}/api/departures`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -88,7 +89,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     });
     const { id: depId } = (await initRes.json()) as any;
 
-    const testRes = await fetch(`${baseUrl}/api/departures/${depId}/succession-test`, {
+    const testRes = await authedFetch(`${baseUrl}/api/departures/${depId}/succession-test`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -110,7 +111,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
   });
 
   it('PUT /api/departures/:id/successors updates successor assignments and stage', async () => {
-    const initRes = await fetch(`${baseUrl}/api/departures`, {
+    const initRes = await authedFetch(`${baseUrl}/api/departures`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -121,7 +122,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     });
     const { id: depId } = (await initRes.json()) as any;
 
-    const putRes = await fetch(`${baseUrl}/api/departures/${depId}/successors`, {
+    const putRes = await authedFetch(`${baseUrl}/api/departures/${depId}/successors`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -133,14 +134,14 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
 
     expect(putRes.status).toBe(200);
 
-    const getRes = await fetch(`${baseUrl}/api/departures/${depId}`);
+    const getRes = await authedFetch(`${baseUrl}/api/departures/${depId}`);
     const detail = (await getRes.json()) as any;
     expect(detail.stage).toBe('successor_named');
     expect(detail.handover[0].successor.id).toBe('person:priya@acme.com');
   });
 
   it('POST /api/handovers/:id/accept immediately updates edge and creates confirmed fact (HND-04)', async () => {
-    const initRes = await fetch(`${baseUrl}/api/departures`, {
+    const initRes = await authedFetch(`${baseUrl}/api/departures`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -152,7 +153,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     const { id: depId } = (await initRes.json()) as any;
 
     // Assign Chen as successor for Maya's asset (103)
-    await fetch(`${baseUrl}/api/departures/${depId}/successors`, {
+    await authedFetch(`${baseUrl}/api/departures/${depId}/successors`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -160,12 +161,12 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
       }),
     });
 
-    const getRes = await fetch(`${baseUrl}/api/departures/${depId}`);
+    const getRes = await authedFetch(`${baseUrl}/api/departures/${depId}`);
     const detail = (await getRes.json()) as any;
     const handoverId = detail.handover[0].id;
 
     // Accept handover
-    const acceptRes = await fetch(`${baseUrl}/api/handovers/${handoverId}/accept`, {
+    const acceptRes = await authedFetch(`${baseUrl}/api/handovers/${handoverId}/accept`, {
       method: 'POST',
     });
     expect(acceptRes.status).toBe(200);
@@ -177,14 +178,14 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     expect(ownerIds).toContain('person:chen@acme.com');
 
     // Verify departure stage advanced to accepted
-    const afterRes = await fetch(`${baseUrl}/api/departures/${depId}`);
+    const afterRes = await authedFetch(`${baseUrl}/api/departures/${depId}`);
     const afterDetail = (await afterRes.json()) as any;
     expect(afterDetail.stage).toBe('accepted');
     expect(afterDetail.handover[0].acceptance).toBe('accepted');
   });
 
   it('POST /api/handovers/:id/decline records decline reason and updates status', async () => {
-    const initRes = await fetch(`${baseUrl}/api/departures`, {
+    const initRes = await authedFetch(`${baseUrl}/api/departures`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -194,11 +195,11 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
       }),
     });
     const { id: depId } = (await initRes.json()) as any;
-    const getRes = await fetch(`${baseUrl}/api/departures/${depId}`);
+    const getRes = await authedFetch(`${baseUrl}/api/departures/${depId}`);
     const detail = (await getRes.json()) as any;
     const handoverId = detail.handover[0].id;
 
-    const declineRes = await fetch(`${baseUrl}/api/handovers/${handoverId}/decline`, {
+    const declineRes = await authedFetch(`${baseUrl}/api/handovers/${handoverId}/decline`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: 'Insufficient capacity in Q4.' }),
@@ -206,7 +207,7 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
 
     expect(declineRes.status).toBe(200);
 
-    const checkRes = await fetch(`${baseUrl}/api/departures/${depId}`);
+    const checkRes = await authedFetch(`${baseUrl}/api/departures/${depId}`);
     const checkDetail = (await checkRes.json()) as any;
     expect(checkDetail.handover[0].acceptance).toBe('declined');
   });

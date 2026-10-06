@@ -151,15 +151,15 @@
 |---|---|---|---|---|
 | ✅ **D1 (Oct 6)** | SSO Authentication — Entra ID OAuth 2.0 | G-16 | `backend/src/auth/entra.ts` — MSAL token validation, user session creation | SEC-01 |
 | ✅ **D2 (Oct 7)** | SSO Authentication — Google OIDC | G-16 | `backend/src/auth/google.ts` — ID token validation, combined auth middleware | SEC-01 |
-| **D3 (Oct 8)** | RBAC Middleware + Audit Log middleware | G-14, G-15 | `backend/src/middleware/{rbac,auditLog}.ts` — role enforcement on every route, append-only audit writes | SEC-02, SEC-06 |
+| ✅ **D3 (Oct 8)** | RBAC Middleware + Audit Log middleware | G-14, G-15 | `backend/src/middleware/{rbac,auditLog}.ts` — role enforcement on every route, append-only audit writes | SEC-02, SEC-06 |
 | **D4 (Oct 9)** | Departure Workflow Backend — Initiation + Pack Compilation | G-04, G-05 | `backend/src/handover/departureService.ts` — POST /api/departures, auto-generate handover pack JSON from S1 simulation | HND-01, HND-02 |
 | **D5 (Oct 10)** | Departure Workflow Backend — Successor Assignment + Acceptance | G-06 | `backend/src/handover/successionService.ts` — successor naming, acceptance API, stage tracking (Initiated→Named→Accepted→Disabled→Verified) | HND-03, HND-04, HND-05 |
 | **D6 (Oct 13)** | Departure Workflow Backend — Integration & Tests | G-04/G-05/G-06 | Integration tests: departure creation → pack generation → successor flow → stage transitions | HND-01 to HND-05 |
 
 **Sprint 1 / Engineer B Acceptance Criteria:**
 - [x] Microsoft Entra SSO and Google OIDC both produce valid session tokens *(verified against fake IdPs in tests; live tenant sign-in pending app registrations)*
-- [ ] RBAC middleware blocks `viewer` from write operations, blocks `reviewer` from admin routes
-- [ ] Every API call writes to audit_log
+- [x] RBAC middleware blocks `viewer` from write operations, blocks `reviewer` from admin routes
+- [x] Every API call writes to audit_log *(scoped to every write, every denial and every sign-in/out — see D3 log for why successful reads are excluded)*
 - [ ] `POST /api/departures` creates departure and triggers S1 simulation to build handover pack
 - [ ] Successor can accept via `POST /api/handover/{id}/accept`
 - [ ] Departure progresses through all 5 stages correctly
@@ -180,6 +180,16 @@
   - Middleware is not mounted on API routes yet — enforcement is D3 (RBAC).
   - Tests: `backend/tests/auth/google.test.ts` (11). Backend suite 123/123; live boot verified (`/api/auth/providers` 200, `/api/auth/session` 401 when signed out).
   - Open: needs a Google OAuth client (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_WORKSPACE_DOMAIN`, redirect URI `<PUBLIC_API_URL>/api/auth/google/callback`).
+- **D3 — RBAC + Audit Log middleware ✅ (Oct 6)**
+  - Built: `backend/src/middleware/rbac.ts` (single policy table, mounted once at `/api` in `server.ts`), `backend/src/middleware/auditLog.ts`, `backend/src/middleware/requestContext.ts` (AsyncLocalStorage so deep code knows the actor).
+  - Policy (mirrors `frontend/lib/permissions.ts`): **public** — `GET/POST /api/attestation/review/:token` (magic link), `POST /api/v0/n8n-check`; **read** (any signed-in role) — all GETs not listed below, what-if simulation POSTs, Ask, succession-test; **edit** (admin, reviewer) — assign-backup, change acks, handover accept/decline; **departure** (admin or HR manager) — initiate departure, name successors, send acceptance requests; **admin** — connections, users, audit-log, identity-queue, org settings PUT, campaign creation, accept-risk.
+  - Fails closed: any route not in the table needs a session for GET and **admin** for every other method, so a new route can't ship unprotected by accident.
+  - Roles are re-read per request, so a role change takes effect immediately (no stale cookie privileges).
+  - Audit: every write, every 401/403 (`ACCESS_DENIED`, with actor or `anonymous`), `SIGN_IN` / `SIGN_IN_FAILED` / `SIGN_OUT`. DataService domain entries (e.g. `INITIATE_DEPARTURE`) now record the **real** signed-in user instead of the hard-coded `user:admin`; writes with no domain entry get a generic `API_<METHOD>` entry; no double-logging.
+  - Deviation: successful reads are **not** audited — the store keeps the newest 500 entries, so logging page loads would evict real actions within minutes.
+  - Tests: `backend/tests/middleware/rbac.test.ts` (17); existing API tests now sign a real session via `backend/tests/helpers/session.ts` (`authedFetch`). Backend suite 140/140; live boot verified (anonymous 401, viewer 200 on reads / 403 on `/api/users`, audit entries carry the right actors).
+  - ⚠️ Impact on frontend: the backend now returns 401 to any request without a session. Local frontend development against the real backend needs a signed-in session (`AUTH_DEV_LOGIN=true` + `POST /api/auth/dev/sign-in`) until the sign-in page is wired (Sprint 3 D13). An automatic "act as this user when no session" dev bypass was considered and **not** added.
+  - Not done here: successor-only enforcement on handover accept/decline (any reviewer can currently act on any handover) — belongs to D5 (successor acceptance).
 
 ---
 
