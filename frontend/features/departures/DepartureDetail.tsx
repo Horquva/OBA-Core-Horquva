@@ -7,6 +7,7 @@ import type {
   SuccessorAssignment,
   SuccessionPlanResult,
   EntityRef,
+  HandoverAsset,
 } from '@/types/view';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -22,6 +23,7 @@ import {
   sendAcceptanceRequests,
   markAccountDisabled,
   verifyDeparture,
+  reassignHandover,
 } from '@/lib/api/departures';
 import { fetchPeople } from '@/lib/api/entities';
 import { useResource } from '@/lib/useResource';
@@ -83,6 +85,13 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
   const [lifecycleBusy, setLifecycleBusy] = React.useState<'disable' | 'verify' | null>(null);
+
+  // Reassigning one locked row (after the account is disabled): HR/admin swaps the
+  // successor and the new person is asked directly. Nobody accepts on their behalf.
+  const [reassigning, setReassigning] = React.useState<HandoverAsset | null>(null);
+  const [reassignTo, setReassignTo] = React.useState<EntityRef | null>(null);
+  const [reassignReason, setReassignReason] = React.useState('');
+  const [isReassigning, setIsReassigning] = React.useState(false);
 
   // Trigger succession simulation when assignments change
   React.useEffect(() => {
@@ -187,7 +196,7 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
         title: step === 'disable' ? 'Account disabled recorded' : 'Departure verified',
         description:
           step === 'disable'
-            ? `${detail.person.name}'s account is recorded as disabled. Successors can no longer be changed.`
+            ? `${detail.person.name}'s account is recorded as disabled. Unaccepted handovers can still be reassigned one at a time.`
             : 'Every asset has an accepted successor. This departure is closed.',
       });
       departureResource.reload();
@@ -195,6 +204,31 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
       toast({ title: 'Not done', description: err?.message || 'The backend refused this step.', variant: 'error' });
     } finally {
       setLifecycleBusy(null);
+    }
+  };
+
+  const openReassign = (item: HandoverAsset) => {
+    setReassigning(item);
+    setReassignTo(null);
+    setReassignReason('');
+  };
+
+  const handleReassign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reassigning || !reassignTo || !reassignReason.trim()) return;
+    setIsReassigning(true);
+    try {
+      await reassignHandover(reassigning.id, reassignTo.id, reassignReason.trim());
+      toast({
+        title: 'Successor reassigned',
+        description: `${reassignTo.name} was asked to accept ${reassigning.asset.name}. They respond after signing in to OBA.`,
+      });
+      setReassigning(null);
+      departureResource.reload();
+    } catch (err: any) {
+      toast({ title: 'Not reassigned', description: err?.message || 'The backend refused this reassignment.', variant: 'error' });
+    } finally {
+      setIsReassigning(false);
     }
   };
 
@@ -435,6 +469,16 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
                           >
                             {item.acceptance.toUpperCase()}
                           </span>
+                          {canManage && detail.stage === 'account_disabled' && item.acceptance !== 'accepted' && (
+                            <button
+                              type="button"
+                              onClick={() => openReassign(item)}
+                              className="ml-2 text-[11px] font-semibold text-amber-ink hover:underline cursor-pointer"
+                              aria-label={`Reassign ${item.asset.name}`}
+                            >
+                              Reassign
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -442,6 +486,56 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
                 </tbody>
               </table>
             </div>
+
+            {reassigning && (
+              <Card className="p-5 space-y-4 bg-surface border-amber/50">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-ink">Reassign {reassigning.asset.name}</h3>
+                  <p className="text-xs text-ink-3 leading-relaxed">
+                    {reassigning.successor
+                      ? `${reassigning.successor.name} hasn't accepted. `
+                      : 'Nobody was named for this asset. '}
+                    The person you choose is asked to accept and must accept themselves. The reason is kept in the audit trail.
+                  </p>
+                </div>
+                <form onSubmit={handleReassign} className="space-y-4 text-xs">
+                  <PersonPicker
+                    label="New successor"
+                    value={reassignTo}
+                    onChange={setReassignTo}
+                    options={successorOptions.filter((p) => p.id !== reassigning.successor?.id)}
+                    placeholder={peopleResource.status === 'error' ? "Couldn't load people" : 'Choose the new successor...'}
+                  />
+                  <div className="space-y-1">
+                    <label htmlFor="reassign-reason" className="font-semibold text-ink block">
+                      Reason (required)
+                    </label>
+                    <textarea
+                      id="reassign-reason"
+                      required
+                      rows={2}
+                      value={reassignReason}
+                      onChange={(e) => setReassignReason(e.target.value)}
+                      placeholder="e.g. Original successor is on extended leave."
+                      className="w-full rounded-control border border-rule bg-surface p-2.5 text-xs text-ink placeholder:text-ink-3 focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="sm"
+                      disabled={!reassignTo || !reassignReason.trim() || isReassigning}
+                    >
+                      {isReassigning ? 'Reassigning…' : 'Reassign and ask to accept'}
+                    </Button>
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setReassigning(null)} disabled={isReassigning}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </Card>
+            )}
           </div>
 
           {/* Personal Credential Automations Warning */}

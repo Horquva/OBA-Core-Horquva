@@ -43,3 +43,10 @@ export function markAccountDisabled(departureId: string): Promise<{ stage: strin
 export function verifyDeparture(departureId: string): Promise<{ stage: string }> {
   return request<{ stage: string }>(`/api/departures/${encodeURIComponent(departureId)}/verify`, { method: 'POST' });
 }
+
+/** HR/admin: hand one unaccepted row to someone else (works after the account is disabled). The new successor is asked directly. */
+export function reassignHandover(handoverId: string, successorId: string, reason: string): Promise<{ stage: string }> {
+  return request<{ stage: string }>(`/api/handovers/${encodeURIComponent(handoverId)}/reassign`, {
+    method: 'POST', body: JSON.stringify({ successorId, reason }),
+  });
+}

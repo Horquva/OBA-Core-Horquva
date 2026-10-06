@@ -116,6 +116,8 @@ export interface DepartureSummary {
 }
 export interface SuccessorSuggestion { person: EntityRef; reason: string }
 export interface HandoverAsset {
+  /** Handover row id: the target of accept / decline / reassign. */
+  id: string;
   asset: EntityRef; criticality: CriticalityLevel; currentBackup: FactView;
   successor: EntityRef | null; suggestion: SuccessorSuggestion | null;
   acceptance: 'none' | 'requested' | 'accepted' | 'declined';

@@ -16,6 +16,7 @@ import {
   markAccountDisabled,
   nameSuccessors,
   personIdForUser,
+  reassignSuccessor,
   requestAcceptance,
   verifyDeparture,
 } from '../../src/handover/successionService.js';
@@ -205,6 +206,71 @@ describe('Disable and verify', () => {
     markAccountDisabled(ds, depId);
     await acceptHandover(ds, hndFor('automation:n8n:101').id, user('user:chen'));
     expect(ds.getDeparture(depId)!.stage).toBe('account_disabled');
+  });
+});
+
+describe('Reassigning a successor (unblocks a stuck departure)', () => {
+  beforeEach(() => {
+    nameSuccessors(ds, depId, BOTH);
+    requestAcceptance(ds, depId);
+  });
+
+  it('after the account is disabled, swaps an unreachable successor and asks the new one directly', async () => {
+    markAccountDisabled(ds, depId);
+    const id = hndFor('automation:n8n:102').id; // Maya's, she is unreachable
+    reassignSuccessor(ds, id, 'person:chen@acme.com', 'Maya is on extended leave');
+
+    expect(hndFor('automation:n8n:102')).toMatchObject({ successorId: 'person:chen@acme.com', acceptance: 'requested' });
+    expect(ds.getDeparture(depId)!.stage).toBe('account_disabled'); // never moves back
+    expect(ds.getAuditLog()[0]).toMatchObject({ action: 'REASSIGN_SUCCESSOR', resource: `handover:${id}` });
+    expect(ds.getAuditLog()[0].details).toContain('person:maya@acme.com → person:chen@acme.com');
+    expect(ds.getAuditLog()[0].details).toContain('Maya is on extended leave');
+
+    // The old successor can no longer answer; the new one can, and the departure can then close.
+    await expect(acceptHandover(ds, id, user('user:maya'))).rejects.toMatchObject({ status: 403 });
+    await acceptHandover(ds, hndFor('automation:n8n:101').id, user('user:chen'));
+    await acceptHandover(ds, id, user('user:chen'));
+    expect(status(() => verifyDeparture(ds, depId))).toBe('ok');
+  });
+
+  it('assigns a successor to a row that never had one, even after the account is disabled', () => {
+    const fresh = initiateDeparture(ds, { personId: 'person:chen@acme.com', leaveDate: '2026-12-31', note: null });
+    const row = fresh.handovers[0];
+    markAccountDisabled(ds, fresh.id);
+    reassignSuccessor(ds, row.id, 'person:maya@acme.com', 'Nobody was named before the leave date');
+    expect(row).toMatchObject({ successorId: 'person:maya@acme.com', acceptance: 'requested' });
+    expect(ds.getAuditLog()[0].details).toContain('nobody → person:maya@acme.com');
+  });
+
+  it('refuses what would break the record', async () => {
+    const id = hndFor('automation:n8n:101').id;
+    expect(status(() => reassignSuccessor(ds, id, 'person:elena@acme.com', '  '))).toBe(400); // reason required
+    expect(status(() => reassignSuccessor(ds, id, 'person:chen@acme.com', 'same'))).toBe(400); // already them
+    expect(status(() => reassignSuccessor(ds, id, 'person:omar@acme.com', 'x'))).toBe(400); // the leaver
+    expect(status(() => reassignSuccessor(ds, id, 'person:sarah@acme.com', 'x'))).toBe(400); // also leaving
+    expect(status(() => reassignSuccessor(ds, id, 'person:ghost@acme.com', 'x'))).toBe(400); // not a person
+    expect(status(() => reassignSuccessor(ds, 'hnd_missing', 'person:elena@acme.com', 'x'))).toBe(404);
+    expect(hndFor('automation:n8n:101').successorId).toBe('person:chen@acme.com'); // nothing changed
+
+    await acceptHandover(ds, id, user('user:chen'));
+    expect(status(() => reassignSuccessor(ds, id, 'person:elena@acme.com', 'x'))).toBe(409); // ownership already moved
+  });
+
+  it('a verified departure is closed for reassignment', async () => {
+    await acceptHandover(ds, hndFor('automation:n8n:101').id, user('user:chen'));
+    await acceptHandover(ds, hndFor('automation:n8n:102').id, user('user:maya'));
+    markAccountDisabled(ds, depId);
+    verifyDeparture(ds, depId);
+    // Every row is accepted by then, so the accepted check answers first; both mean "closed".
+    expect(status(() => reassignSuccessor(ds, hndFor('automation:n8n:102').id, 'person:elena@acme.com', 'x'))).toBe(409);
+  });
+
+  it('a declined row can be reassigned too, and the stage follows the rows before disable', () => {
+    declineHandover(ds, hndFor('automation:n8n:101').id, user('user:chen'), 'No capacity');
+    expect(ds.getDeparture(depId)!.stage).toBe('initiated');
+    reassignSuccessor(ds, hndFor('automation:n8n:101').id, 'person:elena@acme.com', 'Chen declined');
+    expect(hndFor('automation:n8n:101')).toMatchObject({ acceptance: 'requested', declineReason: null });
+    expect(ds.getDeparture(depId)!.stage).toBe('successor_named');
   });
 });
 

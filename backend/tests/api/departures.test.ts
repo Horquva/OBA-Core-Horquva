@@ -238,4 +238,21 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     // A decline re-opens naming: the departure drops back to 'initiated'.
     expect(checkDetail.stage).toBe('initiated');
   });
+
+  it('POST /api/handovers/:id/reassign is HR/admin only, needs a reason, and audits the signed-in user', async () => {
+    const json = { 'Content-Type': 'application/json' };
+    const detail = (await (await authedFetch(`${baseUrl}/api/departures/${davidDepartureId}`)).json()) as any;
+    const handoverId = detail.handover[0].id; // declined by Chen in the previous test
+    const url = `${baseUrl}/api/handovers/${handoverId}/reassign`;
+    const body = JSON.stringify({ successorId: 'person:elena@acme.com', reason: 'Chen has no capacity' });
+
+    expect((await authedFetch(url, { method: 'POST', headers: json, body }, 'user:chen')).status).toBe(403); // reviewer
+    expect((await authedFetch(url, { method: 'POST', headers: json, body: JSON.stringify({ successorId: 'person:elena@acme.com' }) })).status).toBe(400);
+
+    const res = await authedFetch(url, { method: 'POST', headers: json, body });
+    expect(res.status).toBe(200);
+    const after = (await (await authedFetch(`${baseUrl}/api/departures/${davidDepartureId}`)).json()) as any;
+    expect(after.handover[0]).toMatchObject({ successor: { id: 'person:elena@acme.com' }, acceptance: 'requested' });
+    expect(DataService.getInstance().getAuditLog().find((e) => e.action === 'REASSIGN_SUCCESSOR')).toMatchObject({ actor: 'user:admin' });
+  });
 });

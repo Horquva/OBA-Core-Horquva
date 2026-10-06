@@ -55,6 +55,7 @@ export const POLICY: Rule[] = [
   rule(['PUT'], `/departures/${ID}/successors`, 'departure'),
   rule(['POST'], `/departures/${ID}/acceptance-requests`, 'departure'),
   rule(['POST'], `/departures/${ID}/(account-disabled|verify)`, 'departure'),
+  rule(['POST'], `/handovers/${ID}/reassign`, 'departure'),
 
   // Any signed-in user may respond to a handover; the service then requires
   // them to be the named successor (HND-04), whatever their role.

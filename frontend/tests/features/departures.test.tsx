@@ -56,6 +56,7 @@ const sampleDetail: DepartureDetailType = {
   },
   handover: [
     {
+      id: 'hnd-1',
       asset: { id: 'w-1', name: 'Stripe Billing Pipeline', kind: 'workflow' },
       criticality: 'critical',
       currentBackup: { state: 'none', display: null, grade: 'confirmed', source: 'Manual', observedAt: null },
@@ -67,6 +68,7 @@ const sampleDetail: DepartureDetailType = {
       acceptance: 'none',
     },
     {
+      id: 'hnd-2',
       asset: { id: 'w-2', name: 'Customer Identity Sync', kind: 'workflow' },
       criticality: 'high',
       currentBackup: { state: 'value', display: 'Marcus Brody', grade: 'confirmed', source: 'Manual', observedAt: null },
@@ -113,6 +115,7 @@ vi.mock('@/lib/api/departures', () => ({
   sendAcceptanceRequests: vi.fn(),
   markAccountDisabled: vi.fn(),
   verifyDeparture: vi.fn(),
+  reassignHandover: vi.fn(),
 }));
 
 vi.mock('@/lib/api/entities', () => ({
@@ -129,6 +132,7 @@ import {
   saveSuccessors,
   sendAcceptanceRequests,
   markAccountDisabled,
+  reassignHandover,
 } from '@/lib/api/departures';
 
 const admin: Session = { userId: 'user:admin', name: 'Alex Rivera', email: 'alex@acme.com', role: 'admin', isHrManager: true, title: null };
@@ -263,5 +267,42 @@ describe('Departures & Handover Workbench (Tasks 21–23)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Request Successor Acceptance' }));
     expect(await screen.findByText(/1 successor was asked to accept/)).toBeInTheDocument();
     expect(screen.queryByText(/email/i)).not.toBeInTheDocument();
+  });
+
+  it('after the account is disabled, HR/admin reassigns a stuck row with a reason (never accepts it for them)', async () => {
+    const stuck = {
+      ...sampleDetail,
+      stage: 'account_disabled' as const,
+      handover: [
+        { ...sampleDetail.handover[0], successor: { id: 'p-3', name: 'Marcus Brody', kind: 'person' as const }, acceptance: 'requested' as const },
+        sampleDetail.handover[1],
+      ],
+    };
+    (fetchDeparture as any).mockResolvedValue(stuck);
+    (reassignHandover as any).mockResolvedValue({ stage: 'account_disabled' });
+    renderAs(admin, <DepartureDetail id="dep-1" initialDetail={stuck} />);
+
+    // Only the unaccepted row offers it; the accepted one doesn't.
+    expect(screen.queryByRole('button', { name: 'Reassign Customer Identity Sync' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reassign Stripe Billing Pipeline' }));
+
+    const submit = screen.getByRole('button', { name: 'Reassign and ask to accept' });
+    expect(submit).toBeDisabled(); // needs a person and a reason
+
+    fireEvent.focus(screen.getByRole('combobox', { name: 'New successor' }));
+    fireEvent.click(await screen.findByRole('option', { name: /Priya Sharma/ }));
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Marcus is on extended leave' } });
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(reassignHandover).toHaveBeenCalledWith('hnd-1', 'p-4', 'Marcus is on extended leave'));
+    expect(await screen.findByText(/Priya Sharma was asked to accept Stripe Billing Pipeline/)).toBeInTheDocument();
+  });
+
+  it('viewers never see the reassign action', async () => {
+    const stuck = { ...sampleDetail, stage: 'account_disabled' as const };
+    (fetchDeparture as any).mockResolvedValue(stuck);
+    renderAs(viewer, <DepartureDetail id="dep-1" initialDetail={stuck} />);
+    await screen.findByRole('link', { name: 'Stripe Billing Pipeline' });
+    expect(screen.queryByRole('button', { name: /^Reassign/ })).not.toBeInTheDocument();
   });
 });

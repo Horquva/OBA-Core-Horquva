@@ -175,6 +175,7 @@ export function PersonPicker({
             ref={inputRef}
             type="text"
             role="combobox"
+            aria-label={label}
             aria-autocomplete="list"
             aria-expanded={isOpen}
             aria-controls={listboxId}

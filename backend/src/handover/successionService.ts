@@ -7,7 +7,8 @@
 // back (a decline re-opens naming). Once the account is disabled the lifecycle
 // only moves forward. Only the named successor may accept or decline their own
 // handover: acceptance is recorded as a *confirmed* ownership fact (HND-04),
-// so nobody can confirm it on someone else's behalf.
+// so nobody can confirm it on someone else's behalf. If a successor can't
+// respond, HR/admin reassigns the row (reassignSuccessor) — never accepts it.
 // =============================================================================
 
 import crypto from 'node:crypto';
@@ -75,6 +76,17 @@ export function personIdForUser(graph: ContinuityGraph, user: UserAccount): stri
   return match?.entity?.id ?? null;
 }
 
+/** Throws unless `successorId` is a person who can take over assets from `dep`. */
+function requireEligibleSuccessor(ds: DataService, dep: DepartureRecord, successorId: string): void {
+  const successor = ds.getGraph().getNode(successorId)?.entity;
+  if (!successor || successor.kind !== 'person') {
+    throw new SuccessionError(400, `Successor ${successorId} is not a person in the organization.`);
+  }
+  if (successorId === dep.personId) throw new SuccessionError(400, 'The departing person cannot be their own successor.');
+  const leaving = ds.getDepartures().some((d) => d.stage !== 'verified' && d.personId === successorId);
+  if (leaving) throw new SuccessionError(400, `${successor.name} has an open departure and cannot take over assets.`);
+}
+
 // ── HND-03: name successors ───────────────────────────────────────────────
 
 export function nameSuccessors(
@@ -84,12 +96,9 @@ export function nameSuccessors(
 ): DepartureRecord {
   const dep = requireDeparture(ds, departureId);
   if (dep.stage === 'account_disabled' || dep.stage === 'verified') {
-    throw new SuccessionError(409, 'Successors can no longer change once the account is disabled.');
+    throw new SuccessionError(409, 'Successors can no longer change once the account is disabled; reassign a single handover instead.');
   }
   if (assignments.length === 0) throw new SuccessionError(400, 'Name at least one successor.');
-
-  const graph = ds.getGraph();
-  const leaving = new Set(ds.getDepartures().filter((d) => d.stage !== 'verified').map((d) => d.personId));
 
   // Validate everything before changing anything.
   for (const a of assignments) {
@@ -99,14 +108,7 @@ export function nameSuccessors(
     if (hnd.acceptance === 'accepted') {
       throw new SuccessionError(409, `${a.assetId} was already accepted by its successor.`);
     }
-    const successor = graph.getNode(a.successorId)?.entity;
-    if (!successor || successor.kind !== 'person') {
-      throw new SuccessionError(400, `Successor ${a.successorId} is not a person in the organization.`);
-    }
-    if (a.successorId === dep.personId) throw new SuccessionError(400, 'The departing person cannot be their own successor.');
-    if (leaving.has(a.successorId)) {
-      throw new SuccessionError(400, `${successor.name} has an open departure and cannot take over assets.`);
-    }
+    requireEligibleSuccessor(ds, dep, a.successorId);
   }
 
   for (const a of assignments) {
@@ -120,6 +122,37 @@ export function nameSuccessors(
 
   refreshStage(dep, new Date().toISOString());
   ds.addAuditEntry('user:admin', 'ASSIGN_SUCCESSORS', `departure:${departureId}`, `Assigned ${assignments.length} successor(s).`);
+  return dep;
+}
+
+/**
+ * HR/admin unblock: hand one unaccepted row to someone else, at any stage before
+ * verified — including after the account is disabled, when bulk naming is locked.
+ * The admin never accepts on anyone's behalf: the new successor is asked directly
+ * and must still accept themselves. A reason is required for the audit trail.
+ */
+export function reassignSuccessor(ds: DataService, handoverId: string, successorId: string, reason: string): DepartureRecord {
+  const { dep, hnd } = findHandover(ds, handoverId);
+  const why = reason.trim();
+  if (!why) throw new SuccessionError(400, 'Give a reason for reassigning this handover.');
+  if (hnd.acceptance === 'accepted') {
+    throw new SuccessionError(409, `${hnd.assetId} was already accepted by its successor.`);
+  }
+  if (dep.stage === 'verified') throw new SuccessionError(409, 'This departure is verified and closed.');
+  if (hnd.successorId === successorId) throw new SuccessionError(400, 'That person is already the named successor.');
+  requireEligibleSuccessor(ds, dep, successorId);
+
+  const previous = hnd.successorId;
+  hnd.successorId = successorId;
+  hnd.acceptance = 'requested';
+  hnd.declineReason = null;
+  refreshStage(dep, new Date().toISOString());
+  ds.addAuditEntry(
+    'user:admin',
+    'REASSIGN_SUCCESSOR',
+    `handover:${handoverId}`,
+    `${hnd.assetId}: ${previous ?? 'nobody'} → ${successorId}. Reason: ${why}`
+  );
   return dep;
 }
 
