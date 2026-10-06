@@ -221,4 +221,307 @@ export class SimulationEngine {
       },
     };
   }
+
+  /**
+   * S4: Combined Multi-Failure Scenario (SIM-03).
+   * Evaluates compound blast radius when leavers, outages, and failing assets happen simultaneously.
+   */
+  public simulateCombined(input: {
+    departingPersonIds?: string[];
+    unavailableIds?: string[];
+    failingAssetIds?: string[];
+  }): {
+    orphanedCriticalAssets: Array<{
+      asset: { id: string; kind: any; name: string };
+      priorOwner: { id: string; kind: any; name: string } | null;
+      criticality: CriticalityLevel;
+    }>;
+    stoppedAutomations: Array<{
+      workflow: { id: string; kind: any; name: string };
+      credentialOwner: { id: string; kind: any; name: string } | null;
+      weeklyRuns: number;
+    }>;
+    runsPerWeekAffected: number;
+    downstream: Array<{ id: string; kind: any; name: string }>;
+    unknownFactsEncountered: number;
+  } {
+    const departingIds = input.departingPersonIds || [];
+    const unavailableIds = input.unavailableIds || [];
+    const failingAssetIds = input.failingAssetIds || [];
+
+    const departingSet = new Set(departingIds);
+    const orphanedMap = new Map<string, { asset: any; priorOwner: any; criticality: CriticalityLevel }>();
+    const stoppedMap = new Map<string, { workflow: any; credentialOwner: any; weeklyRuns: number }>();
+    const downstreamMap = new Map<string, any>();
+    const countedRunsMap = new Map<string, number>();
+    let unknownFactsCount = 0;
+
+    const toRef = (entity: any) => ({
+      id: entity.id,
+      kind: entity.kind,
+      name: entity.name,
+    });
+
+    // 1. Process departing people
+    for (const personId of departingIds) {
+      const personNode = this.graph.getNode(personId);
+      const personRef = personNode?.entity ? toRef(personNode.entity) : null;
+
+      // Assets owned by departing person
+      const owned = this.graph.getOwnedAssets(personId);
+      for (const asset of owned) {
+        const node = this.graph.getNode(asset.id);
+        const critFact = node?.facts.get('criticality');
+        const criticality = (critFact?.value as CriticalityLevel) || 'unknown';
+
+        if (critFact?.grade === 'unknown' || criticality === 'unknown') {
+          unknownFactsCount++;
+        }
+
+        const owners = this.graph.getOwners(asset.id);
+        const backups = this.graph.getBackups(asset.id);
+
+        const remainingOwners = owners.filter((o) => !departingSet.has(o.id));
+        const remainingBackups = backups.filter((b) => !departingSet.has(b.id));
+
+        if (remainingOwners.length === 0 && remainingBackups.length === 0) {
+          if (!orphanedMap.has(asset.id)) {
+            orphanedMap.set(asset.id, {
+              asset: toRef(asset),
+              priorOwner: personRef,
+              criticality,
+            });
+          }
+
+          const weeklyRunsFact = node?.facts.get('run_volume_weekly');
+          const runs = typeof weeklyRunsFact?.value === 'number' ? weeklyRunsFact.value : 0;
+          if (!countedRunsMap.has(asset.id)) {
+            countedRunsMap.set(asset.id, runs);
+          }
+
+          const downstreamIds = this.graph.getDownstreamImpact(asset.id);
+          for (const dsId of downstreamIds) {
+            const dsNode = this.graph.getNode(dsId);
+            if (dsNode?.entity) {
+              downstreamMap.set(dsId, toRef(dsNode.entity));
+            }
+          }
+        }
+      }
+
+      // Automations running on credentials of departing person
+      const edges = this.graph.getEdgesForEntity(personId);
+      for (const edge of edges) {
+        if (edge.type === 'runs_on_credentials_of' && edge.toId === personId) {
+          const wfNode = this.graph.getNode(edge.fromId);
+          if (wfNode?.entity) {
+            const runs = typeof wfNode.facts.get('run_volume_weekly')?.value === 'number'
+              ? (wfNode.facts.get('run_volume_weekly')!.value as number)
+              : 0;
+
+            if (!stoppedMap.has(wfNode.entity.id)) {
+              stoppedMap.set(wfNode.entity.id, {
+                workflow: toRef(wfNode.entity),
+                credentialOwner: personRef,
+                weeklyRuns: runs,
+              });
+            }
+
+            if (!countedRunsMap.has(wfNode.entity.id)) {
+              countedRunsMap.set(wfNode.entity.id, runs);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Process unavailable models / vendors / services
+    for (const unavailId of unavailableIds) {
+      const edges = this.graph.getEdgesForEntity(unavailId);
+      for (const edge of edges) {
+        if (
+          (edge.type === 'calls_model' || edge.type === 'depends_on') &&
+          edge.toId === unavailId
+        ) {
+          const wfNode = this.graph.getNode(edge.fromId);
+          if (wfNode?.entity) {
+            const runs = typeof wfNode.facts.get('run_volume_weekly')?.value === 'number'
+              ? (wfNode.facts.get('run_volume_weekly')!.value as number)
+              : 0;
+
+            if (!stoppedMap.has(wfNode.entity.id)) {
+              stoppedMap.set(wfNode.entity.id, {
+                workflow: toRef(wfNode.entity),
+                credentialOwner: null,
+                weeklyRuns: runs,
+              });
+            }
+
+            if (!countedRunsMap.has(wfNode.entity.id)) {
+              countedRunsMap.set(wfNode.entity.id, runs);
+            }
+
+            const downstreamIds = this.graph.getDownstreamImpact(wfNode.entity.id);
+            for (const dsId of downstreamIds) {
+              const dsNode = this.graph.getNode(dsId);
+              if (dsNode?.entity) {
+                downstreamMap.set(dsId, toRef(dsNode.entity));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Process failing assets
+    for (const failId of failingAssetIds) {
+      const failNode = this.graph.getNode(failId);
+      if (failNode?.entity) {
+        const weeklyRuns = typeof failNode.facts.get('run_volume_weekly')?.value === 'number'
+          ? (failNode.facts.get('run_volume_weekly')!.value as number)
+          : 0;
+
+        if (!stoppedMap.has(failId)) {
+          stoppedMap.set(failId, {
+            workflow: toRef(failNode.entity),
+            credentialOwner: null,
+            weeklyRuns,
+          });
+        }
+
+        if (!countedRunsMap.has(failId)) {
+          countedRunsMap.set(failId, weeklyRuns);
+        }
+
+        const downstreamIds = this.graph.getDownstreamImpact(failId);
+        for (const dsId of downstreamIds) {
+          const dsNode = this.graph.getNode(dsId);
+          if (dsNode?.entity) {
+            downstreamMap.set(dsId, toRef(dsNode.entity));
+          }
+        }
+      }
+    }
+
+    let totalRunsPerWeek = 0;
+    for (const runs of countedRunsMap.values()) {
+      totalRunsPerWeek += runs;
+    }
+
+    return {
+      orphanedCriticalAssets: Array.from(orphanedMap.values()),
+      stoppedAutomations: Array.from(stoppedMap.values()),
+      runsPerWeekAffected: totalRunsPerWeek,
+      downstream: Array.from(downstreamMap.values()),
+      unknownFactsEncountered: unknownFactsCount,
+    };
+  }
+
+  /**
+   * S6: Worst Single Loss Ranking (SIM-06).
+   * Ranks vendors and models by total downstream impact (weekly runs and automations halted).
+   * In strict adherence to Product Invariant SEC-07, PEOPLE ARE NEVER RANKED.
+   * Reports only an aggregate count of individuals holding >= threshold unbacked critical assets.
+   */
+  public rankWorstLosses(threshold: number = 2): {
+    vendorsAndModels: Array<{
+      entity: { id: string; kind: any; name: string };
+      automationsHalted: number;
+      runsPerWeekAffected: number;
+    }>;
+    peopleHoldingManyUnbacked: number;
+    threshold: number;
+  } {
+    const allNodes = this.graph.getAllNodes();
+    const vendorsAndModels: Array<{
+      entity: { id: string; kind: any; name: string };
+      automationsHalted: number;
+      runsPerWeekAffected: number;
+    }> = [];
+
+    const toRef = (entity: any) => ({
+      id: entity.id,
+      kind: entity.kind,
+      name: entity.name,
+    });
+
+    for (const node of allNodes) {
+      if (node.entity.kind === 'model' || node.entity.kind === 'vendor') {
+        const entityId = node.entity.id;
+        const affectedWorkflows = new Map<string, number>();
+
+        const edges = this.graph.getEdgesForEntity(entityId);
+        for (const edge of edges) {
+          if (
+            (edge.type === 'calls_model' || edge.type === 'depends_on') &&
+            edge.toId === entityId
+          ) {
+            const wfNode = this.graph.getNode(edge.fromId);
+            if (wfNode?.entity) {
+              const runs = typeof wfNode.facts.get('run_volume_weekly')?.value === 'number'
+                ? (wfNode.facts.get('run_volume_weekly')!.value as number)
+                : 0;
+              affectedWorkflows.set(wfNode.entity.id, runs);
+            }
+          }
+        }
+
+        let totalRuns = 0;
+        for (const r of affectedWorkflows.values()) {
+          totalRuns += r;
+        }
+
+        vendorsAndModels.push({
+          entity: toRef(node.entity),
+          automationsHalted: affectedWorkflows.size,
+          runsPerWeekAffected: totalRuns,
+        });
+      }
+    }
+
+    vendorsAndModels.sort((a, b) => {
+      if (b.runsPerWeekAffected !== a.runsPerWeekAffected) {
+        return b.runsPerWeekAffected - a.runsPerWeekAffected;
+      }
+      return b.automationsHalted - a.automationsHalted;
+    });
+
+    let peopleHoldingManyUnbacked = 0;
+
+    for (const node of allNodes) {
+      if (node.entity.kind === 'person') {
+        const statusFact = node.facts.get('status');
+        if (statusFact?.value === 'departed') {
+          continue;
+        }
+
+        const ownedAssets = this.graph.getOwnedAssets(node.entity.id);
+        let unbackedCriticalCount = 0;
+
+        for (const asset of ownedAssets) {
+          const assetNode = this.graph.getNode(asset.id);
+          const crit = assetNode?.facts.get('criticality')?.value;
+          const isCritical = crit === 'critical' || crit === 'high';
+
+          if (isCritical) {
+            const backups = this.graph.getBackups(asset.id);
+            if (backups.length === 0) {
+              unbackedCriticalCount++;
+            }
+          }
+        }
+
+        if (unbackedCriticalCount >= threshold) {
+          peopleHoldingManyUnbacked++;
+        }
+      }
+    }
+
+    return {
+      vendorsAndModels,
+      peopleHoldingManyUnbacked,
+      threshold,
+    };
+  }
 }
+

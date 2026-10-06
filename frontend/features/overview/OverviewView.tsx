@@ -143,14 +143,14 @@ export function OverviewView() {
           <ErrorState onRetry={actionsResource.reload} message="We couldn't load priority actions." />
         )}
 
-        {actionsResource.status === 'ready' && actionsResource.data.length === 0 && (
+        {actionsResource.status === 'ready' && (!actionsResource.data || actionsResource.data.length === 0) && (
           <EmptyState
             title="Zero failing checks"
             description="All critical continuity invariants are currently satisfied."
           />
         )}
 
-        {actionsResource.status === 'ready' && actionsResource.data.length > 0 && (
+        {actionsResource.status === 'ready' && actionsResource.data && actionsResource.data.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {actionsResource.data.slice(0, 3).map((action, idx) => (
               <PriorityCard

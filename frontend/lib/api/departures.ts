@@ -2,8 +2,9 @@ import type { DepartureDetail, DepartureSummary, SuccessionPlanResult, Successor
 import { request } from './client';
 
 export async function fetchDepartures(): Promise<DepartureSummary[]> {
-  const r = await request<{ departures: DepartureSummary[] }>('/api/departures'); // (planned) B-09
-  return r.departures;
+  const r = await request<any>('/api/departures'); // (planned) B-09
+  if (Array.isArray(r)) return r;
+  return r?.departures ?? [];
 }
 
 export function fetchDeparture(id: string): Promise<DepartureDetail> {

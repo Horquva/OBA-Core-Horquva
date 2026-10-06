@@ -6,8 +6,9 @@ export async function fetchActions(params: { status?: ActionStatus; limit?: numb
   if (params.status) q.set('status', params.status);
   if (params.limit) q.set('limit', String(params.limit));
   const qs = q.toString();
-  const r = await request<{ actions: ActionView[] }>(`/api/actions${qs ? `?${qs}` : ''}`); // (planned) B-07
-  return r.actions;
+  const r = await request<any>(`/api/actions${qs ? `?${qs}` : ''}`);
+  if (Array.isArray(r)) return r;
+  return r?.actions ?? [];
 }
 
 export function assignBackup(actionId: string, personId: string): Promise<void> {

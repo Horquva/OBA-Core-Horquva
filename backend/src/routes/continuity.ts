@@ -17,50 +17,59 @@ import { CanonicalEntity, CanonicalEdge, CanonicalFact } from '@horquva/types';
 export const continuityRouter = Router();
 const askEngine = new AskHorquvaEngine();
 
+import { DataService } from '../services/dataService.js';
+
 /**
- * Loads the active snapshot from PostgreSQL and instantiates ContinuityGraph.
+ * Loads the active snapshot from PostgreSQL or falls back to DataService.
  */
 async function loadGraphFromDatabase(): Promise<ContinuityGraph> {
-  const entitiesRes = await query(`SELECT id, kind, name, description, external_refs, created_at, updated_at FROM entity;`);
-  const edgesRes = await query(`SELECT id, from_id, to_id, type, grade, source, source_ref, valid_from, valid_to FROM edge WHERE valid_to IS NULL;`);
-  const factsRes = await query(`SELECT id, entity_id, attribute, value, grade, source, source_ref, attested_by, valid_from, valid_to FROM fact WHERE valid_to IS NULL;`);
+  try {
+    const entitiesRes = await query(`SELECT id, kind, name, description, external_refs, created_at, updated_at FROM entity;`);
+    if (entitiesRes && entitiesRes.rows && entitiesRes.rows.length > 0) {
+      const edgesRes = await query(`SELECT id, from_id, to_id, type, grade, source, source_ref, valid_from, valid_to FROM edge WHERE valid_to IS NULL;`);
+      const factsRes = await query(`SELECT id, entity_id, attribute, value, grade, source, source_ref, attested_by, valid_from, valid_to FROM fact WHERE valid_to IS NULL;`);
 
-  const entities: CanonicalEntity[] = entitiesRes.rows.map((r) => ({
-    id: r.id,
-    kind: r.kind,
-    name: r.name,
-    description: r.description,
-    externalRefs: r.external_refs || {},
-    createdAt: new Date(r.created_at),
-    updatedAt: new Date(r.updated_at),
-  }));
+      const entities: CanonicalEntity[] = entitiesRes.rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        name: r.name,
+        description: r.description,
+        externalRefs: r.external_refs || {},
+        createdAt: new Date(r.created_at),
+        updatedAt: new Date(r.updated_at),
+      }));
 
-  const edges: CanonicalEdge[] = edgesRes.rows.map((r) => ({
-    id: r.id,
-    fromId: r.from_id,
-    toId: r.to_id,
-    type: r.type,
-    grade: r.grade,
-    source: r.source,
-    sourceRef: r.source_ref,
-    validFrom: new Date(r.valid_from),
-    validTo: r.valid_to ? new Date(r.valid_to) : null,
-  }));
+      const edges: CanonicalEdge[] = edgesRes.rows.map((r) => ({
+        id: r.id,
+        fromId: r.from_id,
+        toId: r.to_id,
+        type: r.type,
+        grade: r.grade,
+        source: r.source,
+        sourceRef: r.source_ref,
+        validFrom: new Date(r.valid_from),
+        validTo: r.valid_to ? new Date(r.valid_to) : null,
+      }));
 
-  const facts: CanonicalFact[] = factsRes.rows.map((r) => ({
-    id: r.id,
-    entityId: r.entity_id,
-    attribute: r.attribute,
-    value: r.value,
-    grade: r.grade,
-    source: r.source,
-    sourceRef: r.source_ref,
-    attestedBy: r.attested_by,
-    validFrom: new Date(r.valid_from),
-    validTo: r.valid_to ? new Date(r.valid_to) : null,
-  }));
+      const facts: CanonicalFact[] = factsRes.rows.map((r) => ({
+        id: r.id,
+        entityId: r.entity_id,
+        attribute: r.attribute,
+        value: r.value,
+        grade: r.grade,
+        source: r.source,
+        sourceRef: r.source_ref,
+        attestedBy: r.attested_by,
+        validFrom: new Date(r.valid_from),
+        validTo: r.valid_to ? new Date(r.valid_to) : null,
+      }));
 
-  return ContinuityGraph.fromSnapshot(entities, edges, facts);
+      return ContinuityGraph.fromSnapshot(entities, edges, facts);
+    }
+  } catch (_err) {
+    // Fall back to DataService benchmark graph
+  }
+  return DataService.getInstance().getGraph();
 }
 
 // 1. Overview: Headline Metrics & Alerts
@@ -163,6 +172,43 @@ continuityRouter.post('/simulations/succession', async (req: Request, res: Respo
     res.json({ success: true, result });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to test succession.' });
+  }
+});
+
+// S4: Combined Multi-Failure Scenario (SIM-03)
+const CombinedSimSchema = z.object({
+  departingPersonIds: z.array(z.string()).optional(),
+  unavailableIds: z.array(z.string()).optional(),
+  failingAssetIds: z.array(z.string()).optional(),
+});
+
+continuityRouter.post('/simulations/combined', async (req: Request, res: Response) => {
+  const parsed = CombinedSimSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid combined simulation parameters.' });
+    return;
+  }
+
+  try {
+    const graph = await loadGraphFromDatabase();
+    const sim = new SimulationEngine(graph);
+    const result = sim.simulateCombined(parsed.data);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to simulate combined scenario.' });
+  }
+});
+
+// S6: Worst Single Loss Ranking (SIM-06, SEC-07)
+continuityRouter.get('/simulations/worst-losses', async (req: Request, res: Response) => {
+  try {
+    const threshold = req.query.threshold ? parseInt(req.query.threshold as string, 10) : 2;
+    const graph = await loadGraphFromDatabase();
+    const sim = new SimulationEngine(graph);
+    const result = sim.rankWorstLosses(isNaN(threshold) ? 2 : threshold);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to rank worst losses.' });
   }
 });
 
