@@ -51,14 +51,16 @@ function formatSummary(dep: DepartureRecord, dataService: DataService) {
   const assetsTotal = dep.handovers.length;
   const assetsHandedOver = dep.handovers.filter((h) => h.acceptance === 'accepted').length;
 
-  const now = new Date();
-  const leaveTime = new Date(dep.leaveDate).getTime();
-  let group: 'upcoming' | 'in_handover' | 'departed' = 'upcoming';
-  if (leaveTime < now.getTime()) {
-    group = 'departed';
-  } else if (dep.stage === 'successor_named' || dep.stage === 'accepted') {
-    group = 'in_handover';
-  }
+  // departed: the leave date passed or the account is already disabled/verified.
+  // in_handover: a successor has been named or asked. upcoming: nothing started yet.
+  const leftAlready =
+    new Date(dep.leaveDate).getTime() < Date.now() || dep.stage === 'account_disabled' || dep.stage === 'verified';
+  const handoverStarted = dep.handovers.some((h) => h.successorId !== null || h.acceptance !== 'none');
+  const group: 'upcoming' | 'in_handover' | 'departed' = leftAlready
+    ? 'departed'
+    : handoverStarted
+      ? 'in_handover'
+      : 'upcoming';
 
   // Has alert if any handover is for a critical asset without an accepted successor
   let hasAlert = false;
@@ -202,15 +204,9 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
       }
     }
 
-    // Watch log
-    const watchLog = [
-      {
-        at: dep.createdAt,
-        workflow: handover.length > 0 ? handover[0].asset : { id: 'sys', kind: 'system' as const, name: 'System' },
-        message: `Departure workflow initiated for ${summary.person.name}. Handover checklist generated.`,
-        severity: 'info' as const,
-      },
-    ];
+    // Post-departure watch log (HND-06) is filled by the 72h verifier (Engineer A, Sprint 3).
+    // Until it exists there are no watch events — don't invent one.
+    const watchLog: Array<{ at: string; workflow: any; message: string; severity: 'info' | 'alert' }> = [];
 
     res.json({
       ...summary,

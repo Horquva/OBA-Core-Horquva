@@ -6,6 +6,8 @@ import { SideSheet } from '@/components/ui/SideSheet';
 import { Button } from '@/components/ui/Button';
 import { PersonPicker, PersonItem } from '@/components/ui/PersonPicker';
 import { initiateDeparture } from '@/lib/api/departures';
+import { fetchPeople } from '@/lib/api/entities';
+import { useResource } from '@/lib/useResource';
 import { useToast } from '@/components/ui/Toast';
 
 export interface InitiateDepartureSideSheetProps {
@@ -19,9 +21,13 @@ export function InitiateDepartureSideSheet({
   open,
   onClose,
   onSuccess,
-  availablePeople = [],
+  availablePeople,
 }: InitiateDepartureSideSheetProps) {
   const { toast } = useToast();
+  // Real people from the backend unless the caller supplies them (tests/stories).
+  const peopleResource = useResource(open && !availablePeople ? 'people-picker' : null, fetchPeople);
+  const people: PersonItem[] = availablePeople ?? (peopleResource.status === 'ready' ? peopleResource.data : []);
+  const peopleError = !availablePeople && peopleResource.status === 'error';
   const [selectedPerson, setSelectedPerson] = React.useState<EntityRef | null>(null);
   const [leaveDate, setLeaveDate] = React.useState('');
   const [note, setNote] = React.useState('');
@@ -97,9 +103,15 @@ export function InitiateDepartureSideSheet({
           <PersonPicker
             value={selectedPerson}
             onChange={setSelectedPerson}
-            options={availablePeople}
+            options={people}
             placeholder="Search employee by name..."
           />
+          {peopleError && (
+            <p className="text-[11px] text-st-fail">
+              Couldn't load people.{' '}
+              <button type="button" className="underline" onClick={peopleResource.reload}>Retry</button>
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">

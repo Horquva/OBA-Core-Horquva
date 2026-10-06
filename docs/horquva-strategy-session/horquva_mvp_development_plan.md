@@ -246,7 +246,7 @@
 | Day | Task | Gap | Deliverable | SRS IDs |
 |---|---|---|---|---|
 | ✅ **D7 (Oct 14)** | Wire Overview + Assets screens to live backend | G-19 | `frontend/features/overview/OverviewView.tsx` → real `/api/continuity/overview`. `frontend/features/assets/AssetsView.tsx` → real `/api/assets` | UI-01, UI-04 |
-| **D8 (Oct 15)** | Wire Departures + Handover screens to live backend | G-19 | `frontend/features/departures/*.tsx` → real `/api/departures`. Initiate departure side sheet → POST. Succession panel → live S3 calls | UI-02 |
+| ✅ **D8 (Oct 15)** | Wire Departures + Handover screens to live backend | G-19 | `frontend/features/departures/*.tsx` → real `/api/departures`. Initiate departure side sheet → POST. Succession panel → live S3 calls | UI-02 |
 | **D9 (Oct 16)** | Wire People/Teams + Actions screens | G-19 | `frontend/features/people/*.tsx` → real `/api/people/teams`. `frontend/features/actions/*.tsx` → real `/api/actions` | UI-03, UI-07 |
 | **D10 (Oct 17)** | Wire Map + What-If screens | G-19 | `frontend/features/map/MapView.tsx` → real `/api/graph/neighbourhood`. `frontend/features/what-if/WhatIfView.tsx` → real S1-S4 + S6 | UI-05, UI-06 |
 | **D11 (Oct 18)** | Wire Settings (Connections, Identity Queue, Audit Log) | G-19 | `frontend/features/settings/*.tsx` → real settings APIs. Identity queue interactive resolution | UI-08 |
@@ -255,7 +255,7 @@
 **Sprint 2 / Engineer B Acceptance Criteria:**
 - [ ] All 7 core screens render real data from backend (no mock data paths remain)
 - [x] Overview shows real headline count ("X of Y critical assets fully covered") *(D7; now also separates unknown from exposed)*
-- [ ] Departures screen shows real departures with correct stage progression
+- [x] Departures screen shows real departures with correct stage progression *(D8; stages 4–5 recorded from the workbench, 1–3 follow the handover table)*
 - [ ] What-If screen executes combined scenarios and shows blast radius
 - [ ] Attestation form submits answers and facts update to `confirmed`
 - [ ] Ask OBA returns grounded answers with entity chip links
@@ -270,6 +270,13 @@
   - Tests: backend `tests/api/overview.test.ts` (12, hand-checked against the fixture); frontend overview failure-path + hero wording tests, assets kind-tab test, briefing preview tests; fixed the asset fixtures' fake `'workflow'` kind. Backend 195/195; frontend 188/189 (the one pre-existing `EmptyState` failure).
   - Verified live (dev sign-in as Alex): every Overview request 200; Overview shows "1 of 4 critical assets fully covered", 3 SPOFs (Billing Sync 500/wk → Omar, Customer Onboarding 350/wk → Sarah, Payroll 120/wk → Omar); Assets shows all 6 automations with real owners/backups/runs and "Automations 6".
   - Not in D7: the bell still shows "All caught up" if `/api/changes` fails (bell wiring is D12); Actions still default missing criticality to `medium` (D9).
+- **D8 — Departures + Handover screens on the live backend ✅ (Oct 6)**
+  - Found: **both person pickers were empty** (the "Initiate Departure" sheet and the successor picker got neither options nor a search function), so the flow could not be used from the UI at all; the people endpoint (`/api/continuity/inventory`) only read Postgres and failed locally. "Save" re-sent every row, so after the first acceptance the D5 lock rejected every save. No UI for stages 4–5. The acceptance toast claimed "Confirmation emails dispatched" (no email is sent). A failed succession test was swallowed and the old projection stayed on screen. "Request acceptance" only enabled when a *critical* asset had a successor. The overload text said 30% (backend rule: ≥40% and ≥3). No role gating (viewers saw pickers and buttons). List grouping used only the leave date (a verified departure with a future date sat under "Upcoming"). The detail API invented a "watch log" event, and the Overview labelled `hasAlert` as "Post-departure watch alerts detected".
+  - Backend: inventory now reads the same graph as every other screen (Postgres snapshot, else DataService); `nameSuccessors` treats an unchanged accepted row as a no-op; grouping = departed (leave date passed, or account disabled/verified) → in_handover (any successor named/asked) → upcoming; watch log is empty until the HND-06 verifier exists.
+  - Frontend: pickers load real people (`fetchPeople`; the leaver is excluded from successor options) with a retry on failure; workbench saves only changed rows, locks accepted rows and closed departures, gates editing to HR/admin (viewers see successor names as text); new "Record account disabled" / "Verify & close departure" actions (verify disabled with the reason until every asset is accepted); honest toasts with real counts; succession panel shows a failure state and keeps Save available; overload copy matches the backend rule; "Initiate Departure" hidden from roles that can't use it; empty-state text no longer shown while loading/failed.
+  - Tests: backend `tests/api/departuresScreen.test.ts` (4) + no-op re-save unit test; frontend departures suite 2 → 8 (viewer read-only, changed-rows-only save, simulation failure, stage 4, stage 5 gating, honest acceptance toast). Backend 200/200; frontend 194/195 (pre-existing `EmptyState` failure).
+  - Verified live as Alex: picked Omar in the side sheet → `POST /api/departures` 201 → workbench → picked Chen as successor → `PUT …/successors` 200 → succession test re-ran → "Request Successor Acceptance" → "1 successor was asked to accept. They respond after signing in to OBA." and the row shows REQUESTED.
+  - Still open: successors answer only via the API until the reviewer surface `/my` is wired (Sprint 3 D14); no email is sent with the request.
 
 ---
 

@@ -103,7 +103,7 @@ export function UpcomingDeparturesCard({
             {dep.hasAlert && (
               <div className="mt-2.5 flex items-center gap-1.5 text-xs text-st-fail font-medium">
                 <span className="h-1.5 w-1.5 rounded-full bg-st-fail shrink-0" aria-hidden="true" />
-                <span>Post-departure watch alerts detected</span>
+                <span>Critical assets without an accepted successor</span>
               </div>
             )}
           </Link>

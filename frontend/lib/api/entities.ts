@@ -13,6 +13,14 @@ export async function fetchEntities(kind: EntityKind): Promise<EntityRef[]> {
   return refs;
 }
 
+/** People for the person pickers (departing employee, successors), with emails for search. */
+export async function fetchPeople(): Promise<Array<EntityRef & { email?: string }>> {
+  const r = await request<{ entities: Array<{ id: string; kind: EntityKind; name: string; external_refs?: { email?: string } }> }>(
+    '/api/continuity/inventory?kind=person',
+  );
+  return r.entities.map((e) => ({ id: e.id, kind: e.kind, name: e.name, email: e.external_refs?.email }));
+}
+
 /** Name for an id seen by fetchEntities; falls back to the id itself. */
 export function lookupEntityName(id: string): string {
   return nameCache.get(id) ?? id;

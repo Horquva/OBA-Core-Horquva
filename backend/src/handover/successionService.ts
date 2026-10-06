@@ -95,6 +95,7 @@ export function nameSuccessors(
   for (const a of assignments) {
     const hnd = dep.handovers.find((h) => h.assetId === a.assetId);
     if (!hnd) throw new SuccessionError(400, `${a.assetId} is not part of this departure's handover.`);
+    if (hnd.acceptance === 'accepted' && hnd.successorId === a.successorId) continue; // unchanged: no-op
     if (hnd.acceptance === 'accepted') {
       throw new SuccessionError(409, `${a.assetId} was already accepted by its successor.`);
     }

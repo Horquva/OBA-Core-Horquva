@@ -20,8 +20,13 @@ import {
   simulateSuccessionPlan,
   saveSuccessors,
   sendAcceptanceRequests,
+  markAccountDisabled,
+  verifyDeparture,
 } from '@/lib/api/departures';
+import { fetchPeople } from '@/lib/api/entities';
 import { useResource } from '@/lib/useResource';
+import { useSession } from '@/lib/session';
+import { canInitiateDeparture } from '@/lib/permissions';
 import { formatDate, formatRelative, formatRunsPerWeek } from '@/lib/format';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
@@ -33,16 +38,27 @@ export interface DepartureDetailProps {
 
 export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
   const { toast } = useToast();
+  const { session } = useSession();
+  // HR managers and admins run departures (backend RBAC enforces the same rule).
+  const canManage = canInitiateDeparture(session);
 
   const departureResource = useResource<DepartureDetailType>(
     `departure-${id}`,
     () => fetchDeparture(id),
   );
+  const peopleResource = useResource(canManage ? 'people-picker' : null, fetchPeople);
 
   const detail =
     departureResource.status === 'ready'
       ? departureResource.data
       : initialDetail;
+
+  // Successor options: everyone except the leaver (the backend also rejects people who are leaving).
+  const successorOptions = React.useMemo(
+    () => (peopleResource.status === 'ready' && detail ? peopleResource.data.filter((p) => p.id !== detail.person.id) : []),
+    [peopleResource, detail],
+  );
+  const isClosed = detail?.stage === 'account_disabled' || detail?.stage === 'verified';
 
   // Local successor assignment state: assetId -> successor EntityRef
   const [assignments, setAssignments] = React.useState<Record<string, EntityRef | null>>({});
@@ -62,9 +78,11 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
 
   // Simulation results state
   const [simResult, setSimResult] = React.useState<SuccessionPlanResult | null>(null);
+  const [simError, setSimError] = React.useState(false);
   const [isSimulating, setIsSimulating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
+  const [lifecycleBusy, setLifecycleBusy] = React.useState<'disable' | 'verify' | null>(null);
 
   // Trigger succession simulation when assignments change
   React.useEffect(() => {
@@ -81,10 +99,15 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
       .then((res) => {
         if (active) {
           setSimResult(res);
+          setSimError(false);
         }
       })
-      .catch((err) => {
-        console.warn('Succession simulation fallback:', err);
+      .catch(() => {
+        // Show the failure; don't leave a stale projection on screen as if it were current.
+        if (active) {
+          setSimResult(null);
+          setSimError(true);
+        }
       })
       .finally(() => {
         if (active) setIsSimulating(false);
@@ -102,16 +125,22 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
 
   const handleSave = async () => {
     if (!detail) return;
+    // Send only rows that changed: accepted handovers are locked server-side.
+    const saved = new Map(detail.handover.map((h) => [h.asset.id, h.successor?.id ?? null]));
+    const assignmentList: SuccessorAssignment[] = Object.entries(assignments)
+      .filter(([assetId, succ]) => succ !== null && saved.get(assetId) !== succ.id)
+      .map(([assetId, succ]) => ({ assetId, successorId: succ!.id }));
+    if (assignmentList.length === 0) {
+      setHasChanges(false);
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const assignmentList: SuccessorAssignment[] = Object.entries(assignments)
-        .filter(([_, succ]) => succ !== null)
-        .map(([assetId, succ]) => ({ assetId, successorId: succ!.id }));
-
       await saveSuccessors(detail.id, assignmentList);
       toast({
         title: 'Successors saved',
-        description: 'Successor assignments recorded for handover tracking.',
+        description: `${assignmentList.length} successor ${assignmentList.length === 1 ? 'assignment' : 'assignments'} recorded.`,
       });
       setHasChanges(false);
       departureResource.reload();
@@ -130,10 +159,11 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
     if (!detail) return;
     setIsSending(true);
     try {
-      await sendAcceptanceRequests(detail.id);
+      const requested = await sendAcceptanceRequests(detail.id);
       toast({
-        title: 'Acceptance requests dispatched',
-        description: 'Confirmation emails dispatched to proposed successor operators.',
+        title: 'Acceptance requested',
+        // No email is sent yet: successors answer from their own OBA account.
+        description: `${requested} ${requested === 1 ? 'successor was' : 'successors were'} asked to accept. They respond after signing in to OBA.`,
       });
       departureResource.reload();
     } catch (err: any) {
@@ -144,6 +174,27 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
       });
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const runLifecycle = async (step: 'disable' | 'verify') => {
+    if (!detail) return;
+    setLifecycleBusy(step);
+    try {
+      if (step === 'disable') await markAccountDisabled(detail.id);
+      else await verifyDeparture(detail.id);
+      toast({
+        title: step === 'disable' ? 'Account disabled recorded' : 'Departure verified',
+        description:
+          step === 'disable'
+            ? `${detail.person.name}'s account is recorded as disabled. Successors can no longer be changed.`
+            : 'Every asset has an accepted successor. This departure is closed.',
+      });
+      departureResource.reload();
+    } catch (err: any) {
+      toast({ title: 'Not done', description: err?.message || 'The backend refused this step.', variant: 'error' });
+    } finally {
+      setLifecycleBusy(null);
     }
   };
 
@@ -243,6 +294,36 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
               Handover Lifecycle Stage
             </h2>
             <StageStepper currentStage={detail.stage} />
+
+            {/* Stages 4–5 are recorded by HR/admin; 1–3 follow the handover table. */}
+            {canManage && detail.stage !== 'verified' && (
+              <div className="flex flex-wrap items-center gap-3 pt-3">
+                {detail.stage !== 'account_disabled' ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => runLifecycle('disable')}
+                    disabled={lifecycleBusy !== null}
+                  >
+                    {lifecycleBusy === 'disable' ? 'Recording…' : 'Record account disabled'}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => runLifecycle('verify')}
+                    disabled={lifecycleBusy !== null || detail.assetsHandedOver < detail.assetsTotal}
+                  >
+                    {lifecycleBusy === 'verify' ? 'Verifying…' : 'Verify & close departure'}
+                  </Button>
+                )}
+                {detail.stage === 'account_disabled' && detail.assetsHandedOver < detail.assetsTotal && (
+                  <span className="text-xs text-ink-3">
+                    {detail.assetsTotal - detail.assetsHandedOver} of {detail.assetsTotal} assets still need an accepted successor before verifying.
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -289,7 +370,7 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
                           >
                             {item.asset.name}
                           </Link>
-                          {item.suggestion && (
+                          {item.suggestion && canManage && !isClosed && item.acceptance !== 'accepted' && (
                             <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-3">
                               <span className="text-amber-ink font-semibold">Suggested:</span>
                               <span>{item.suggestion.person.name}</span>
@@ -328,11 +409,17 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
 
                         {/* Successor Assignment */}
                         <td className="p-3.5 min-w-[180px]">
-                          <PersonPicker
-                            value={assigned}
-                            onChange={(p) => handleAssignSuccessor(item.asset.id, p)}
-                            placeholder="Assign successor..."
-                          />
+                          {canManage ? (
+                            <PersonPicker
+                              value={assigned}
+                              onChange={(p) => handleAssignSuccessor(item.asset.id, p)}
+                              options={successorOptions}
+                              disabled={isClosed || item.acceptance === 'accepted'}
+                              placeholder={peopleResource.status === 'error' ? "Couldn't load people" : 'Assign successor...'}
+                            />
+                          ) : (
+                            <span className="text-ink-2">{assigned?.name ?? <NoneValue />}</span>
+                          )}
                         </td>
 
                         {/* Acceptance Status */}
@@ -449,6 +536,11 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
           <SuccessionPanel
             result={simResult}
             isLoading={isSimulating}
+            error={simError}
+            canEdit={canManage && !isClosed}
+            canRequestAcceptance={
+              !hasChanges && detail.handover.some((h) => h.successor !== null && h.acceptance === 'none')
+            }
             onSave={handleSave}
             onSendAcceptance={handleSendAcceptance}
             isSaving={isSaving}

@@ -13,6 +13,8 @@ import { fetchDepartures } from '@/lib/api/departures';
 import { formatDate, formatRelative } from '@/lib/format';
 import { InitiateDepartureSideSheet } from './InitiateDepartureSideSheet';
 import { cn } from '@/lib/cn';
+import { useSession } from '@/lib/session';
+import { canInitiateDeparture } from '@/lib/permissions';
 
 export interface DeparturesListProps {
   initialDepartures?: DepartureSummary[];
@@ -20,6 +22,8 @@ export interface DeparturesListProps {
 
 export function DeparturesList({ initialDepartures }: DeparturesListProps) {
   const [isSideSheetOpen, setIsSideSheetOpen] = React.useState(false);
+  const { session } = useSession();
+  const canInitiate = canInitiateDeparture(session);
   const [selectedTab, setSelectedTab] = React.useState<'upcoming' | 'in_handover' | 'departed'>('upcoming');
 
   const departuresResource = useResource<DepartureSummary[]>(
@@ -61,13 +65,15 @@ export function DeparturesList({ initialDepartures }: DeparturesListProps) {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          onClick={() => setIsSideSheetOpen(true)}
-          className="self-start sm:self-auto text-xs"
-        >
-          <span>+ Initiate Departure</span>
-        </Button>
+        {canInitiate && (
+          <Button
+            variant="primary"
+            onClick={() => setIsSideSheetOpen(true)}
+            className="self-start sm:self-auto text-xs"
+          >
+            <span>+ Initiate Departure</span>
+          </Button>
+        )}
       </div>
 
       {/* Group Navigation Tabs */}
@@ -90,7 +96,7 @@ export function DeparturesList({ initialDepartures }: DeparturesListProps) {
           {renderList(inHandover, 'No active handover workbenches open.')}
         </TabPanel>
         <TabPanel id="departed" activeTab={selectedTab}>
-          {renderList(departed, 'No departures recorded in the past 30 days.')}
+          {renderList(departed, 'No departed employees on record.')}
         </TabPanel>
       </div>
 
@@ -124,13 +130,14 @@ export function DeparturesList({ initialDepartures }: DeparturesListProps) {
   );
 
   function renderList(items: DepartureSummary[], emptyMsg: string) {
+    if (departuresResource.status !== 'ready' && !initialDepartures) return null;
     if (items.length === 0) {
       return (
         <EmptyState
           title="No records found"
           description={emptyMsg}
-          actionLabel="Initiate Departure"
-          onAction={() => setIsSideSheetOpen(true)}
+          actionLabel={canInitiate ? 'Initiate Departure' : undefined}
+          onAction={canInitiate ? () => setIsSideSheetOpen(true) : undefined}
           className="mt-4"
         />
       );

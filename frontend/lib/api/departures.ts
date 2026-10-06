@@ -28,6 +28,18 @@ export function saveSuccessors(departureId: string, assignments: SuccessorAssign
   }); // (planned) B-09
 }
 
-export function sendAcceptanceRequests(departureId: string): Promise<void> {
-  return request<void>(`/api/departures/${encodeURIComponent(departureId)}/acceptance-requests`, { method: 'POST' }); // (planned) B-09
+/** Marks named successors as asked to accept; returns how many were asked. No email is sent yet. */
+export async function sendAcceptanceRequests(departureId: string): Promise<number> {
+  const r = await request<{ requested: number }>(`/api/departures/${encodeURIComponent(departureId)}/acceptance-requests`, { method: 'POST' });
+  return r.requested;
+}
+
+/** Stage 4: the leaver's account was disabled (allowed at any point). */
+export function markAccountDisabled(departureId: string): Promise<{ stage: string }> {
+  return request<{ stage: string }>(`/api/departures/${encodeURIComponent(departureId)}/account-disabled`, { method: 'POST' });
+}
+
+/** Stage 5: close the departure. Backend requires account disabled + every handover accepted. */
+export function verifyDeparture(departureId: string): Promise<{ stage: string }> {
+  return request<{ stage: string }>(`/api/departures/${encodeURIComponent(departureId)}/verify`, { method: 'POST' });
 }

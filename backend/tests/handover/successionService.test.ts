@@ -111,6 +111,15 @@ describe('Naming successors (HND-03)', () => {
     expect(status(() => nameSuccessors(ds, depId, [{ assetId: 'automation:n8n:101', successorId: 'person:elena@acme.com' }]))).toBe(409);
   });
 
+  it('re-sending an accepted row unchanged is a no-op, not an error (the workbench saves all rows)', async () => {
+    nameSuccessors(ds, depId, BOTH);
+    requestAcceptance(ds, depId);
+    await acceptHandover(ds, hndFor('automation:n8n:101').id, user('user:chen'));
+    expect(status(() => nameSuccessors(ds, depId, [BOTH[0], { assetId: 'automation:n8n:102', successorId: 'person:elena@acme.com' }]))).toBe('ok');
+    expect(hndFor('automation:n8n:101')).toMatchObject({ successorId: 'person:chen@acme.com', acceptance: 'accepted' });
+    expect(hndFor('automation:n8n:102').successorId).toBe('person:elena@acme.com');
+  });
+
   it('cannot change successors after the account is disabled', () => {
     markAccountDisabled(ds, depId);
     expect(status(() => nameSuccessors(ds, depId, BOTH))).toBe(409);

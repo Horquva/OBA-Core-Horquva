@@ -99,17 +99,17 @@ continuityRouter.get('/spof-assets', (req: Request, res: Response) => {
 // 2. Inventory: Filterable catalog
 continuityRouter.get('/inventory', async (req: Request, res: Response) => {
   try {
-    const kind = req.query.kind as string;
-    let sql = `SELECT id, kind, name, description, external_refs, updated_at FROM entity`;
-    const params: any[] = [];
-    if (kind) {
-      sql += ` WHERE kind = $1`;
-      params.push(kind);
-    }
-    sql += ` ORDER BY name ASC;`;
-
-    const entitiesRes = await query(sql, params);
-    res.json({ entities: entitiesRes.rows });
+    // Same source as every other screen (Postgres snapshot, else the DataService graph),
+    // so pickers work wherever the rest of the app does.
+    const kind = typeof req.query.kind === 'string' ? req.query.kind : undefined;
+    const graph = await loadGraphFromDatabase();
+    const entities = graph
+      .getAllNodes()
+      .map((n) => n.entity)
+      .filter((e) => !kind || e.kind === kind)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((e) => ({ id: e.id, kind: e.kind, name: e.name, description: e.description ?? null, external_refs: e.externalRefs ?? {} }));
+    res.json({ entities });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch inventory.' });
   }
