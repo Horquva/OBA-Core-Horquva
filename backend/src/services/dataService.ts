@@ -194,7 +194,8 @@ export class DataService {
         title: 'Sarah Connor marked departed in Entra ID',
         impact: 'Single-owner automation "Customer Onboarding Flow" has no active owner.',
         href: '/assets/automation:n8n:104',
-        detectedAt: new Date(Date.now() - 86400000).toISOString(),
+        // Dated from the fixture (Sarah's departure), not relative to server start.
+        detectedAt: '2025-01-15T00:00:00.000Z',
         acknowledged: false,
       },
       {
@@ -203,7 +204,7 @@ export class DataService {
         title: 'Personal Credential bound to AI Ticket Routing',
         impact: 'David Miller personal token executes 2,500 runs/week.',
         href: '/assets/automation:n8n:105',
-        detectedAt: new Date(Date.now() - 43200000).toISOString(),
+        detectedAt: '2025-01-01T00:00:00.000Z',
         acknowledged: false,
       },
     ];
@@ -348,26 +349,33 @@ export class DataService {
     return this.changeEvents;
   }
 
-  public acknowledgeChange(id: string, actor: string = 'Alex Rivera'): void {
+  /** Returns false when there is no such change. `actor` is the signed-in user's name. */
+  public acknowledgeChange(id: string, actor: string): boolean {
     const c = this.changeEvents.find((e) => e.id === id);
-    if (c) {
+    if (!c) return false;
+    if (!c.acknowledged) {
       c.acknowledged = true;
       c.acknowledgedAt = new Date().toISOString();
       c.acknowledgedBy = actor;
       this.addAuditEntry(actor, 'ACKNOWLEDGE_CHANGE', `change:${id}`, `Acknowledged change: ${c.title}`);
     }
+    return true;
   }
 
-  public acknowledgeAllChanges(actor: string = 'Alex Rivera'): void {
+  /** Acknowledges every open change; returns how many were open. */
+  public acknowledgeAllChanges(actor: string): number {
     const now = new Date().toISOString();
+    let count = 0;
     for (const c of this.changeEvents) {
       if (!c.acknowledged) {
         c.acknowledged = true;
         c.acknowledgedAt = now;
         c.acknowledgedBy = actor;
+        count++;
       }
     }
-    this.addAuditEntry(actor, 'ACKNOWLEDGE_ALL_CHANGES', 'change_events', 'Acknowledged all pending changes.');
+    this.addAuditEntry(actor, 'ACKNOWLEDGE_ALL_CHANGES', 'change_events', `Acknowledged ${count} open change(s).`);
+    return count;
   }
 
   // ── Settings & Connections ──────────────────────────────────

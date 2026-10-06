@@ -7,14 +7,20 @@ import { cn } from '@/lib/cn';
 import { formatTime } from '@/lib/format';
 
 export interface BellPopoverProps {
+  /** undefined while loading. */
   events?: ChangeEventView[];
+  /** Set when the change feed (or an acknowledgement) failed; never shown as "All caught up". */
+  error?: string | null;
+  onRetry?: () => void;
   onAcknowledge?: (id: string) => void;
   onAcknowledgeAll?: () => void;
   className?: string;
 }
 
 export function BellPopover({
-  events = [],
+  events,
+  error,
+  onRetry,
   onAcknowledge,
   onAcknowledgeAll,
   className,
@@ -33,7 +39,9 @@ export function BellPopover({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const count = events.length;
+  const list = events ?? [];
+  const count = list.length;
+  const loaded = events !== undefined;
 
   return (
     <div ref={containerRef} className={cn('relative inline-block', className)}>
@@ -41,7 +49,7 @@ export function BellPopover({
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
-        aria-label={`Notifications: ${count} unread changes`}
+        aria-label={error && !loaded ? 'Notifications: could not load changes' : loaded ? `Notifications: ${count} unread changes` : 'Notifications: loading'}
         className="relative rounded-control p-2 text-ink-2 hover:bg-surface-sunken hover:text-ink transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber"
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -53,7 +61,9 @@ export function BellPopover({
           />
         </svg>
 
-        {count > 0 && (
+        {error && !loaded ? (
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-st-fail" aria-hidden="true" />
+        ) : count > 0 && (
           <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber px-1 text-[10px] font-bold text-ink-night tabular-nums leading-none">
             {count > 99 ? '99+' : count}
           </span>
@@ -88,14 +98,27 @@ export function BellPopover({
             )}
           </div>
 
+          {error && (
+            <div role="alert" className="rounded-control border border-st-fail/30 bg-st-fail/10 p-2.5 text-xs text-st-fail flex items-center justify-between gap-2">
+              <span>{error}</span>
+              {onRetry && (
+                <button type="button" onClick={onRetry} className="underline cursor-pointer shrink-0">
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="max-h-80 overflow-y-auto divide-y divide-rule">
-            {count === 0 ? (
+            {!loaded ? (
+              error ? null : <p className="py-6 text-center text-xs text-ink-3">Loading changes…</p>
+            ) : count === 0 ? (
               <div className="py-8 text-center text-xs text-ink-3">
                 <p className="font-medium text-ink mb-0.5">All caught up</p>
                 <p>No unacknowledged graph changes or departure alerts.</p>
               </div>
             ) : (
-              events.map((event) => (
+              list.map((event) => (
                 <div key={event.id} className="py-3 space-y-1.5 text-xs">
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-semibold text-ink leading-tight">{event.title}</p>

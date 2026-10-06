@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { cn } from '@/lib/cn';
 import { useSession } from '@/lib/session';
-import { FreshnessIndicator, FreshnessSource } from './FreshnessIndicator';
+import { FreshnessIndicator } from './FreshnessIndicator';
+import type { DataFreshness } from '@/lib/api/changes';
 import { AskField } from './AskField';
 import { BellPopover } from './BellPopover';
 import type { ChangeEventView } from '@/types/view';
@@ -11,11 +12,11 @@ import type { ChangeEventView } from '@/types/view';
 export interface TopBarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'title'> {
   title?: React.ReactNode;
   onOpenMobileNav?: () => void;
-  lastSyncedAt?: string | null;
-  syncedSources?: number;
-  totalSources?: number;
-  sources?: FreshnessSource[];
+  /** undefined while loading, null when it failed. */
+  freshness?: DataFreshness | null;
   events?: ChangeEventView[];
+  eventsError?: string | null;
+  onRetryEvents?: () => void;
   onAcknowledgeEvent?: (id: string) => void;
   onAcknowledgeAllEvents?: () => void;
 }
@@ -23,11 +24,10 @@ export interface TopBarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'ti
 export function TopBar({
   title,
   onOpenMobileNav,
-  lastSyncedAt,
-  syncedSources,
-  totalSources,
-  sources,
+  freshness,
   events,
+  eventsError,
+  onRetryEvents,
   onAcknowledgeEvent,
   onAcknowledgeAllEvents,
   className,
@@ -73,15 +73,12 @@ export function TopBar({
 
       {/* Right Area: Freshness, Bell & Dev Session */}
       <div className="flex items-center gap-2 sm:gap-3">
-        <FreshnessIndicator
-          lastSyncedAt={lastSyncedAt}
-          syncedSources={syncedSources}
-          totalSources={totalSources}
-          sources={sources}
-        />
+        <FreshnessIndicator freshness={freshness} />
 
         <BellPopover
           events={events}
+          error={eventsError}
+          onRetry={onRetryEvents}
           onAcknowledge={onAcknowledgeEvent}
           onAcknowledgeAll={onAcknowledgeAllEvents}
         />

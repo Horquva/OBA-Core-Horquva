@@ -50,7 +50,10 @@ changesRouter.get('/', (req: Request, res: Response) => {
 changesRouter.post('/:id/ack', (req: Request, res: Response) => {
   try {
     const dataService = DataService.getInstance();
-    dataService.acknowledgeChange(String(req.params.id));
+    if (!dataService.acknowledgeChange(String(req.params.id), req.user!.name)) {
+      res.status(404).json({ error: 'Change not found.' });
+      return;
+    }
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to acknowledge change.' });
@@ -58,11 +61,11 @@ changesRouter.post('/:id/ack', (req: Request, res: Response) => {
 });
 
 // 3. POST /api/changes/ack-all
-changesRouter.post('/ack-all', (_req: Request, res: Response) => {
+changesRouter.post('/ack-all', (req: Request, res: Response) => {
   try {
     const dataService = DataService.getInstance();
-    dataService.acknowledgeAllChanges();
-    res.json({ success: true });
+    const acknowledged = dataService.acknowledgeAllChanges(req.user!.name);
+    res.json({ success: true, acknowledged });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to acknowledge all changes.' });
   }

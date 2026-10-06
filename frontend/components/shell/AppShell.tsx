@@ -7,7 +7,10 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { BottomTabBar } from './BottomTabBar';
 import { useResource } from '@/lib/useResource';
-import { fetchChanges, acknowledgeChange, acknowledgeAllChanges } from '@/lib/api/changes';
+import { fetchChanges, acknowledgeChange, acknowledgeAllChanges, fetchFreshness, type DataFreshness } from '@/lib/api/changes';
+import { toApiError } from '@/lib/api/client';
+import { canEdit } from '@/lib/permissions';
+import { useSession } from '@/lib/session';
 import { fetchNavCounts } from '@/lib/api/overview';
 import type { ChangeEventView, NavCounts } from '@/types/view';
 
@@ -18,6 +21,7 @@ export interface AppShellProps {
 
 export function AppShell({ children, className }: AppShellProps) {
   const pathname = usePathname();
+  const { session } = useSession();
 
   // Dynamic Page Title
   const getPageTitle = (path: string): string => {
@@ -36,35 +40,38 @@ export function AppShell({ children, className }: AppShellProps) {
   };
 
   // Changes / Alerts resource
-  const changesResource = useResource<ChangeEventView[]>('shell-changes', async () => {
-    try {
-      return await fetchChanges();
-    } catch {
-      return [];
-    }
-  });
+  // A failed load is shown as a failure in the bell, never as "All caught up".
+  const changesResource = useResource<ChangeEventView[]>('shell-changes', fetchChanges);
+  const freshnessResource = useResource<DataFreshness>('shell-freshness', fetchFreshness);
+  const [ackError, setAckError] = React.useState<string | null>(null);
 
   // Nav badge counts. On failure badges are hidden (undefined), not shown as 0.
   const navCountsResource = useResource<NavCounts>('shell-nav-counts', () => fetchNavCounts());
 
-  const events = changesResource.status === 'ready' ? changesResource.data : [];
+  const events = changesResource.status === 'ready' ? changesResource.data : undefined;
+  const eventsError =
+    changesResource.status === 'error' ? `Could not load changes: ${changesResource.error.message}` : ackError;
+  const freshness =
+    freshnessResource.status === 'ready' ? freshnessResource.data : freshnessResource.status === 'error' ? null : undefined;
   const navCounts = navCountsResource.status === 'ready' ? navCountsResource.data : undefined;
 
   const handleAcknowledge = async (id: string) => {
+    setAckError(null);
     try {
       await acknowledgeChange(id);
       changesResource.reload();
     } catch (e) {
-      console.error('Failed to acknowledge change', e);
+      setAckError(`Could not acknowledge: ${toApiError(e).message}`);
     }
   };
 
   const handleAcknowledgeAll = async () => {
+    setAckError(null);
     try {
       await acknowledgeAllChanges();
       changesResource.reload();
     } catch (e) {
-      console.error('Failed to acknowledge all changes', e);
+      setAckError(`Could not acknowledge: ${toApiError(e).message}`);
     }
   };
 
@@ -84,8 +91,15 @@ export function AppShell({ children, className }: AppShellProps) {
         <TopBar
           title={getPageTitle(pathname)}
           events={events}
-          onAcknowledgeEvent={handleAcknowledge}
-          onAcknowledgeAllEvents={handleAcknowledgeAll}
+          eventsError={eventsError}
+          onRetryEvents={() => {
+            setAckError(null);
+            changesResource.reload();
+          }}
+          freshness={freshness}
+          // Acknowledging needs edit rights (RBAC); viewers just read the feed.
+          onAcknowledgeEvent={canEdit(session) ? handleAcknowledge : undefined}
+          onAcknowledgeAllEvents={canEdit(session) ? handleAcknowledgeAll : undefined}
         />
 
         <main

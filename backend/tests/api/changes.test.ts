@@ -75,4 +75,24 @@ describe('Change Feed REST API (SRS CHG-01, CHG-02)', () => {
     const checkBody = (await checkRes.json()) as any;
     expect(checkBody.events.length).toBe(0);
   });
+
+  it('acknowledging an unknown change is a 404, not a silent success', async () => {
+    const res = await authedFetch(`${baseUrl}/api/changes/chg_nope/ack`, { method: 'POST' });
+    expect(res.status).toBe(404);
+  });
+
+  it('acknowledgements are credited to the signed-in user', async () => {
+    const { DataService } = await import('../../src/services/dataService.js');
+    const all = DataService.getInstance().getChangeEvents();
+    expect(all.every((c) => !c.acknowledged || c.acknowledgedBy === 'Alex Rivera')).toBe(true);
+    // Seeded events carry their fixture dates, not "server start minus a day".
+    expect(all.map((c) => c.detectedAt)).toEqual(expect.arrayContaining(['2025-01-15T00:00:00.000Z']));
+  });
+
+  it('GET /api/freshness reports the newest data per source and never claims a sync count', async () => {
+    const body = (await (await authedFetch(`${baseUrl}/api/freshness`)).json()) as any;
+    expect(body.syncStatus).toBe('not_tracked');
+    expect(body.sources.map((s: any) => s.source)).toEqual(expect.arrayContaining(['entra', 'n8n']));
+    expect(body.latestDataAt).toBe(body.sources.map((s: any) => s.latestAt).filter(Boolean).sort().at(-1));
+  });
 });

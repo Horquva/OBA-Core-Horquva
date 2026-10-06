@@ -2,28 +2,30 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/cn';
-import { formatTime } from '@/lib/format';
+import { formatDate } from '@/lib/format';
+import type { DataFreshness } from '@/lib/api/changes';
 
-export interface FreshnessSource {
-  name: string;
-  syncedAt: string | null;
-  status: 'ok' | 'failed' | 'syncing';
-  error?: string;
-}
+const SOURCE_LABELS: Record<string, string> = {
+  entra: 'Microsoft Entra ID',
+  google: 'Google Workspace',
+  n8n: 'n8n',
+  csv: 'CSV import',
+  attestation: 'Confirmed by people',
+  manual_assignment: 'Assigned in OBA',
+};
 
 export interface FreshnessIndicatorProps extends React.HTMLAttributes<HTMLDivElement> {
-  lastSyncedAt?: string | null;
-  syncedSources?: number;
-  totalSources?: number;
-  sources?: FreshnessSource[];
+  /** undefined while loading; null when it could not be loaded. */
+  freshness?: DataFreshness | null;
   staleHoursThreshold?: number;
 }
 
+/**
+ * "How recent is what I'm looking at?" — the newest relationship or fact in the
+ * graph, per source. Never claims connectors are synced: sync runs aren't tracked yet.
+ */
 export function FreshnessIndicator({
-  lastSyncedAt,
-  syncedSources = 3,
-  totalSources = 3,
-  sources = [],
+  freshness,
   staleHoursThreshold = 24,
   className,
   ...props
@@ -31,7 +33,6 @@ export function FreshnessIndicator({
   const [isOpen, setIsOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
-  // Close popover on outside click
   React.useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -42,22 +43,12 @@ export function FreshnessIndicator({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const isStale = React.useMemo(() => {
-    if (!lastSyncedAt) return false;
-    const diffMs = Date.now() - new Date(lastSyncedAt).getTime();
-    return diffMs > staleHoursThreshold * 60 * 60 * 1000;
-  }, [lastSyncedAt, staleHoursThreshold]);
+  if (freshness === undefined) return null;
 
-  const hasFailedSource = syncedSources < totalSources;
-
-  let dotColor = 'bg-st-pass';
-  if (isStale) {
-    dotColor = 'bg-st-fail';
-  } else if (hasFailedSource) {
-    dotColor = 'bg-amber';
-  }
-
-  const timeDisplay = lastSyncedAt ? formatTime(lastSyncedAt) : 'just now';
+  const latest = freshness?.latestDataAt ?? null;
+  const isStale = latest ? Date.now() - new Date(latest).getTime() > staleHoursThreshold * 3_600_000 : false;
+  const label = freshness === null ? 'Data age unavailable' : latest ? `Newest data ${formatDate(latest)}` : 'No data yet';
+  const dotColor = freshness === null || !latest ? 'bg-ink-3' : isStale ? 'bg-amber' : 'bg-st-pass';
 
   return (
     <div ref={containerRef} className={cn('relative inline-block text-xs', className)} {...props}>
@@ -69,11 +60,9 @@ export function FreshnessIndicator({
         className="flex items-center gap-2 rounded-control px-2.5 py-1 text-ink-2 hover:bg-surface-sunken hover:text-ink transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber"
       >
         <span className={cn('h-2 w-2 rounded-full shrink-0', dotColor)} aria-hidden="true" />
-        <span className="hidden sm:inline">Data as of {timeDisplay}</span>
-        <span className="text-ink-3 tabular-nums">· {syncedSources}/{totalSources} synced</span>
+        <span className="hidden sm:inline">{label}</span>
       </button>
 
-      {/* Detail Popover */}
       {isOpen && (
         <div
           role="dialog"
@@ -81,43 +70,24 @@ export function FreshnessIndicator({
           className="absolute right-0 mt-2 w-72 rounded-card border border-rule bg-surface p-4 shadow-xl z-50 space-y-3 font-sans"
         >
           <div className="flex items-center justify-between border-b border-rule pb-2">
-            <span className="font-semibold text-ink">Connector Sync Status</span>
-            <span className={cn('text-[11px] font-medium', isStale ? 'text-st-fail' : 'text-st-pass')}>
-              {isStale ? 'Sync Stale (>24h)' : 'Operational'}
-            </span>
+            <span className="font-semibold text-ink">Newest data by source</span>
+            {isStale && <span className="text-[11px] font-medium text-amber-ink">Older than {staleHoursThreshold}h</span>}
           </div>
-
-          <div className="space-y-2 text-xs">
-            <p className="text-ink-2">
-              Last global graph refresh: <span className="font-medium text-ink">{timeDisplay}</span>
-            </p>
-
-            {sources.length > 0 ? (
-              <ul className="divide-y divide-rule border-t border-rule pt-2">
-                {sources.map((src, idx) => (
-                  <li key={idx} className="flex items-center justify-between py-1.5">
-                    <span className="text-ink font-medium">{src.name}</span>
-                    <span
-                      className={cn(
-                        'text-[10px] font-semibold uppercase tracking-wider',
-                        src.status === 'ok'
-                          ? 'text-st-pass'
-                          : src.status === 'syncing'
-                          ? 'text-amber-ink'
-                          : 'text-st-fail'
-                      )}
-                    >
-                      {src.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-ink-3 text-[11px]">
-                Active connectors (n8n, Entra/Google, AI Admin) are synchronized.
-              </p>
-            )}
-          </div>
+          {freshness === null ? (
+            <p className="text-xs text-st-fail">Could not load data freshness.</p>
+          ) : freshness.sources.length === 0 ? (
+            <p className="text-xs text-ink-3">No data has been loaded yet.</p>
+          ) : (
+            <ul className="divide-y divide-rule text-xs">
+              {freshness.sources.map((src) => (
+                <li key={src.source} className="flex items-center justify-between py-1.5">
+                  <span className="text-ink font-medium">{SOURCE_LABELS[src.source] ?? src.source}</span>
+                  <span className="text-ink-3 tabular-nums">{src.latestAt ? formatDate(src.latestAt) : 'Unknown'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-[11px] text-ink-3">Connector sync status isn't tracked yet.</p>
         </div>
       )}
     </div>

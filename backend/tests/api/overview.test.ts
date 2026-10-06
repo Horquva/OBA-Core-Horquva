@@ -145,7 +145,9 @@ describe('GET /api/changes/summary (B-03)', () => {
     expect(status).toBe(200);
     expect(body.sinceKind).toBe('first_visit_window');
     expect(Date.now() - new Date(body.since).getTime()).toBeGreaterThan(6.9 * 86_400_000);
-    expect(body).toMatchObject({ peopleLeft: 1, backupsLost: null, newlyExposed: null, resolved: 0 });
+    // Sarah's departure event carries its real date (Jan 2025), so nobody left in the last 7 days.
+    // (Before D12 the seed was dated "a day before server start" and this read 1.)
+    expect(body).toMatchObject({ peopleLeft: 0, backupsLost: null, newlyExposed: null, resolved: 0 });
   });
 
   it('after signing in again, "since" is the previous sign-in', async () => {

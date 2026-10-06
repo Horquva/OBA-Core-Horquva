@@ -17,6 +17,7 @@ vi.mock('@/lib/api/changes', () => ({
   fetchChanges: vi.fn().mockResolvedValue([]),
   acknowledgeChange: vi.fn().mockResolvedValue(undefined),
   acknowledgeAllChanges: vi.fn().mockResolvedValue(undefined),
+  fetchFreshness: vi.fn().mockResolvedValue({ latestDataAt: null, sources: [], syncStatus: 'not_tracked' }),
 }));
 
 vi.mock('@/lib/api/overview', () => ({

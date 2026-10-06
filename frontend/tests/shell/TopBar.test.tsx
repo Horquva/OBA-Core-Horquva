@@ -37,22 +37,32 @@ describe('TopBar & Navigation Shell (Task 16)', () => {
   ];
 
   describe('FreshnessIndicator', () => {
-    it('renders sync counts and toggles detail popover', async () => {
-      const { container } = render(
-        <FreshnessIndicator
-          lastSyncedAt="2026-10-01T12:00:00Z"
-          syncedSources={3}
-          totalSources={3}
-        />
-      );
+    const freshness = {
+      latestDataAt: '2025-01-01T00:00:00.000Z',
+      sources: [
+        { source: 'entra', latestAt: '2025-01-01T00:00:00.000Z' },
+        { source: 'n8n', latestAt: null },
+      ],
+      syncStatus: 'not_tracked' as const,
+    };
 
-      expect(screen.getByText(/3\/3 synced/)).toBeInTheDocument();
+    it('shows the newest real data date and never a made-up sync count', async () => {
+      const { container } = render(<FreshnessIndicator freshness={freshness} />);
+      expect(screen.getByText(/Newest data Jan 1, 2025/)).toBeInTheDocument();
+      expect(screen.queryByText(/synced/)).toBeNull();
 
-      const btn = screen.getByRole('button', { name: 'View data freshness details' });
-      fireEvent.click(btn);
-
-      expect(screen.getByRole('dialog', { name: 'Data freshness breakdown' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'View data freshness details' }));
+      const dialog = screen.getByRole('dialog', { name: 'Data freshness breakdown' });
+      expect(dialog).toHaveTextContent('Microsoft Entra ID');
+      expect(dialog).toHaveTextContent('Unknown');
+      expect(dialog).toHaveTextContent("Connector sync status isn't tracked yet.");
+      expect(screen.queryByText(/operational|synchronized/i)).toBeNull();
       expect(await axe(container)).toHaveNoViolations();
+    });
+
+    it('says when freshness could not be loaded', () => {
+      render(<FreshnessIndicator freshness={null} />);
+      expect(screen.getByText('Data age unavailable')).toBeInTheDocument();
     });
   });
 
@@ -89,13 +99,38 @@ describe('TopBar & Navigation Shell (Task 16)', () => {
     });
   });
 
+  describe('BellPopover failure states', () => {
+    it('a failed load is shown as a failure with retry, never "All caught up"', () => {
+      const retry = vi.fn();
+      render(<BellPopover error="Could not load changes: offline" onRetry={retry} />);
+      const bell = screen.getByRole('button', { name: 'Notifications: could not load changes' });
+      fireEvent.click(bell);
+      expect(screen.getByRole('alert')).toHaveTextContent('Could not load changes: offline');
+      expect(screen.queryByText('All caught up')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      expect(retry).toHaveBeenCalled();
+    });
+
+    it('shows loading, not "All caught up", before the feed arrives', () => {
+      render(<BellPopover />);
+      fireEvent.click(screen.getByRole('button', { name: 'Notifications: loading' }));
+      expect(screen.getByText('Loading changes…')).toBeInTheDocument();
+      expect(screen.queryByText('All caught up')).toBeNull();
+    });
+
+    it('viewers get no Acknowledge buttons when no handler is passed', () => {
+      render(<BellPopover events={sampleEvents} />);
+      fireEvent.click(screen.getByRole('button', { name: /Notifications: 1 unread/ }));
+      expect(screen.queryByRole('button', { name: 'Acknowledge' })).toBeNull();
+    });
+  });
+
   describe('TopBar', () => {
     it('renders all components and dev session badge', async () => {
       const { container } = render(
         <SessionProvider initialSession={adminSession}>
           <TopBar
             title="Overview"
-            lastSyncedAt="2026-10-01T12:00:00Z"
             events={sampleEvents}
           />
         </SessionProvider>
