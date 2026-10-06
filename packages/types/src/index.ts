@@ -119,6 +119,8 @@ export interface HeadlineMetrics {
   totalCriticalAssets: number;
   fullyCoveredCriticalAssets: number;
   exposedCriticalAssets: number;
+  /** Critical assets with no known gap but at least one unconfirmed/unrecorded fact (covered + exposed + unknown = total). */
+  unknownCriticalAssets: number;
   unknownCriticalFacts: number;
   definition: string;
 }

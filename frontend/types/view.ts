@@ -32,9 +32,14 @@ export interface CoverageMetrics {
   unknown: number | null;
   definition: string;
 }
-export interface ChangeSummary { since: string | null; peopleLeft: number; backupsLost: number; newlyExposed: number; resolved: number }
+/** null counts = not tracked yet by the backend (never shown as 0). */
+export interface ChangeSummary {
+  since: string | null; sinceKind?: 'last_sign_in' | 'first_visit_window';
+  peopleLeft: number; backupsLost: number | null; newlyExposed: number | null; resolved: number;
+}
 export interface SpofAsset { asset: EntityRef; reason: string; dependsOn: EntityRef; runsPerWeek: number | null }
-export interface NavCounts { departuresSoon: number; openCriticalActions: number; identityPending: number }
+/** identityPending is null for non-admins (they can't see the queue). */
+export interface NavCounts { departuresSoon: number; openCriticalActions: number; identityPending: number | null }
 
 // ── Changes (bell) ─────────────────────────────────────────
 export interface ChangeEventView {

@@ -18,6 +18,7 @@ export const continuityRouter = Router();
 const askEngine = new AskHorquvaEngine();
 
 import { DataService } from '../services/dataService.js';
+import { spofAssets } from '../views/overviewViews.js';
 
 /**
  * Loads the active snapshot from PostgreSQL or falls back to DataService.
@@ -87,6 +88,12 @@ continuityRouter.get('/overview', async (_req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch overview metrics.' });
   }
+});
+
+// 1b. Single points of failure for the Overview card (critical assets hanging on one person)
+continuityRouter.get('/spof-assets', (req: Request, res: Response) => {
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '5'), 10) || 5, 1), 50);
+  res.json({ assets: spofAssets(DataService.getInstance(), limit) });
 });
 
 // 2. Inventory: Filterable catalog

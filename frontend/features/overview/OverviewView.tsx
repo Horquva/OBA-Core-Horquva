@@ -21,19 +21,20 @@ import type { ActionView, CoverageMetrics, ChangeSummary, SpofAsset, DepartureSu
 export function OverviewView() {
   const router = useRouter();
 
-  // Resources
+  // Resources. No .catch() fallbacks: a failed request shows its error state,
+  // never fabricated "no changes" / "zero failing checks" / empty lists.
   const coverageResource = useResource<CoverageMetrics>('overview-coverage', () => fetchCoverage());
-  const changeSummaryResource = useResource<ChangeSummary>('overview-changes', () => fetchChangeSummary().catch(() => ({
-    since: null,
-    peopleLeft: 0,
-    backupsLost: 0,
-    newlyExposed: 0,
-    resolved: 0,
-  })));
-  const actionsResource = useResource<ActionView[]>('overview-actions', () => fetchActions({ limit: 3, status: 'open' }).catch(() => []));
-  const departuresResource = useResource<DepartureSummary[]>('overview-departures', () => fetchDepartures().catch(() => []));
-  const spofResource = useResource<SpofAsset[]>('overview-spof', () => fetchSpofAssets(5).catch(() => []));
-  const briefingResource = useResource<string>('overview-briefing', () => fetchBriefing().catch(() => ''));
+  const changeSummaryResource = useResource<ChangeSummary>('overview-changes', () => fetchChangeSummary());
+  const actionsResource = useResource<ActionView[]>('overview-actions', () => fetchActions({ limit: 3, status: 'open' }));
+  const departuresResource = useResource<DepartureSummary[]>('overview-departures', () => fetchDepartures());
+  const spofResource = useResource<SpofAsset[]>('overview-spof', () => fetchSpofAssets(5));
+  const briefingResource = useResource<string>('overview-briefing', () => fetchBriefing());
+
+  // HeroGreeting: undefined = loading, null = failed.
+  const changeSummary =
+    changeSummaryResource.status === 'ready' ? changeSummaryResource.data
+      : changeSummaryResource.status === 'error' ? null
+        : undefined;
 
   // First-run / Empty state detection (no assets or total === 0)
   const isFirstRun = coverageResource.status === 'ready' && coverageResource.data.total === 0;
@@ -41,7 +42,7 @@ export function OverviewView() {
   if (isFirstRun) {
     return (
       <div className="space-y-8">
-        <HeroGreeting changeSummary={changeSummaryResource.status === 'ready' ? changeSummaryResource.data : null} />
+        <HeroGreeting changeSummary={changeSummary} />
 
         <div className="relative overflow-hidden rounded-card border border-rule bg-surface p-8 sm:p-12 shadow-card">
           <div className="relative z-10 max-w-xl space-y-4">
@@ -95,7 +96,7 @@ export function OverviewView() {
   return (
     <div className="space-y-8">
       {/* Hero Greeting */}
-      <HeroGreeting changeSummary={changeSummaryResource.status === 'ready' ? changeSummaryResource.data : null} />
+      <HeroGreeting changeSummary={changeSummary} />
 
       {/* Coverage Strip */}
       {coverageResource.status === 'loading' && (
@@ -188,6 +189,7 @@ export function OverviewView() {
       <BriefingCard
         briefingText={briefingResource.status === 'ready' ? briefingResource.data : null}
         isLoading={briefingResource.status === 'loading'}
+        error={briefingResource.status === 'error'}
       />
     </div>
   );

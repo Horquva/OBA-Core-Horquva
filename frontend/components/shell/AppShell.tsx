@@ -16,12 +16,6 @@ export interface AppShellProps {
   className?: string;
 }
 
-const fallbackNavCounts: NavCounts = {
-  departuresSoon: 0,
-  openCriticalActions: 0,
-  identityPending: 0,
-};
-
 export function AppShell({ children, className }: AppShellProps) {
   const pathname = usePathname();
 
@@ -50,14 +44,8 @@ export function AppShell({ children, className }: AppShellProps) {
     }
   });
 
-  // Nav counts resource (e.g. departures, actions, settings)
-  const navCountsResource = useResource<NavCounts>('shell-nav-counts', async () => {
-    try {
-      return await fetchNavCounts();
-    } catch {
-      return fallbackNavCounts;
-    }
-  });
+  // Nav badge counts. On failure badges are hidden (undefined), not shown as 0.
+  const navCountsResource = useResource<NavCounts>('shell-nav-counts', () => fetchNavCounts());
 
   const events = changesResource.status === 'ready' ? changesResource.data : [];
   const navCounts = navCountsResource.status === 'ready' ? navCountsResource.data : undefined;
@@ -88,7 +76,7 @@ export function AppShell({ children, className }: AppShellProps) {
       <Sidebar
         departuresCount={navCounts?.departuresSoon}
         actionsCount={navCounts?.openCriticalActions}
-        settingsCount={navCounts?.identityPending}
+        settingsCount={navCounts?.identityPending ?? undefined}
       />
 
       {/* Main Content Column */}

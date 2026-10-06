@@ -26,7 +26,7 @@ const CRIT_WEIGHT: Record<string, number> = {
   unknown: 0,
 };
 
-function buildActions(dataService: DataService): any[] {
+export function buildActions(dataService: DataService): any[] {
   const graph = dataService.getGraph();
   const checks = evaluateAllChecks(graph);
 

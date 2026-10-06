@@ -9,147 +9,37 @@
 import { Router, Request, Response } from 'express';
 import { DataService } from '../services/dataService.js';
 import { evaluateAllChecks } from '../domain/checks/index.js';
-import { CriticalityLevel, EvidenceGrade, CheckStatus, FactAttribute } from '@horquva/types';
+import { CheckResult, CheckStatus, FactAttribute } from '@horquva/types';
+import { booleanFactView, criticalityView, edgeFactView, numberFactView, toIso } from '../views/factViews.js';
 
 export const assetsRouter = Router();
 
-function toIso(d: any): string | null {
-  if (!d) return null;
-  if (d instanceof Date) return d.toISOString();
-  try {
-    return new Date(d).toISOString();
-  } catch {
-    return String(d);
-  }
-}
-
-function formatAssetRow(node: any, dataService: DataService) {
+/** checks is computed once per request by the caller; evaluating per row made the catalog O(n²). */
+function formatAssetRow(node: any, dataService: DataService, checks: CheckResult[]) {
   const graph = dataService.getGraph();
   const entity = node.entity;
   const facts = node.facts;
 
-  // Owners
-  const owners = graph.getOwners(entity.id);
-  const ownerFact = owners.length > 0
-    ? {
-        state: 'value' as const,
-        display: owners[0].name,
-        grade: 'confirmed' as EvidenceGrade,
-        source: 'n8n',
-        observedAt: new Date().toISOString(),
-        ref: { id: owners[0].id, kind: owners[0].kind, name: owners[0].name },
-      }
-    : {
-        state: 'none' as const,
-        display: null,
-        grade: 'unknown' as EvidenceGrade,
-        source: null,
-        observedAt: null,
-        ref: null,
-      };
+  // Evidence comes from the records themselves (factViews.ts) — no assumed grades, sources or defaults.
+  const criticality = criticalityView(facts.get('criticality'));
+  const isCritical = criticality.level === 'critical' || criticality.level === 'high';
 
-  // Backups
-  const backups = graph.getBackups(entity.id);
-  const backupFact = backups.length > 0
-    ? {
-        state: 'value' as const,
-        display: backups[0].name,
-        grade: 'confirmed' as EvidenceGrade,
-        source: 'attestation',
-        observedAt: new Date().toISOString(),
-        ref: { id: backups[0].id, kind: backups[0].kind, name: backups[0].name },
-      }
-    : {
-        state: 'none' as const,
-        display: null,
-        grade: 'unknown' as EvidenceGrade,
-        source: null,
-        observedAt: null,
-        ref: null,
-      };
-
-  // Criticality
-  const critF = facts.get('criticality');
-  const level: CriticalityLevel = (critF?.value as CriticalityLevel) || 'medium';
-  const isCritical = level === 'critical' || level === 'high';
-  const criticality = {
-    level,
-    grade: (critF?.grade as EvidenceGrade) || 'stated',
-    source: critF?.source || 'attestation',
-    observedAt: toIso(critF?.validFrom),
-  };
-
-  // Documented
-  const docF = facts.get('documented');
-  const documented = docF
-    ? {
-        state: (docF.value ? 'value' : 'none') as any,
-        display: docF.value ? 'Runbook documented' : 'Undocumented',
-        grade: (docF.grade as EvidenceGrade) || 'stated',
-        source: docF.source,
-        observedAt: toIso(docF.validFrom),
-      }
-    : {
-        state: 'unknown' as const,
-        display: 'Unknown',
-        grade: 'unknown' as EvidenceGrade,
-        source: null,
-        observedAt: null,
-      };
-
-  // Fallback
-  const fallF = facts.get('fallback_exists');
-  const fallback = fallF
-    ? {
-        state: (fallF.value ? 'value' : 'none') as any,
-        display: fallF.value ? 'Configured' : 'None',
-        grade: (fallF.grade as EvidenceGrade) || 'stated',
-        source: fallF.source,
-        observedAt: toIso(fallF.validFrom),
-      }
-    : {
-        state: 'unknown' as const,
-        display: 'Unknown',
-        grade: 'unknown' as EvidenceGrade,
-        source: null,
-        observedAt: null,
-      };
-
-  // Runs per week
-  const runF = facts.get('run_volume_weekly');
-  const runsPerWeek = runF && typeof runF.value === 'number'
-    ? {
-        state: 'value' as const,
-        display: String(runF.value),
-        grade: (runF.grade as EvidenceGrade) || 'stated',
-        source: runF.source,
-        observedAt: toIso(runF.validFrom),
-      }
-    : {
-        state: 'none' as const,
-        display: '0',
-        grade: 'unknown' as EvidenceGrade,
-        source: null,
-        observedAt: null,
-      };
-
-  // Checks evaluation for this entity
-  const checks = evaluateAllChecks(graph).filter((c) => c.entityId === entity.id);
   let checkStatus: CheckStatus = 'PASS';
-  if (checks.some((c) => c.status === 'FAIL')) checkStatus = 'FAIL';
-  else if (checks.some((c) => c.status === 'UNKNOWN')) checkStatus = 'UNKNOWN';
+  const mine = checks.filter((c) => c.entityId === entity.id);
+  if (mine.some((c) => c.status === 'FAIL')) checkStatus = 'FAIL';
+  else if (mine.some((c) => c.status === 'UNKNOWN')) checkStatus = 'UNKNOWN';
 
   return {
     id: entity.id,
     kind: entity.kind,
     name: entity.name,
     isCritical,
-    owner: ownerFact,
-    backup: backupFact,
+    owner: edgeFactView(graph, entity.id, 'owns'),
+    backup: edgeFactView(graph, entity.id, 'backs_up'),
     criticality,
-    documented,
-    fallback,
-    runsPerWeek,
+    documented: booleanFactView(facts.get('documented'), { yes: 'Runbook documented', no: 'Undocumented' }),
+    fallback: booleanFactView(facts.get('fallback_exists'), { yes: 'Configured', no: 'None' }),
+    runsPerWeek: numberFactView(facts.get('run_volume_weekly')),
     checkStatus,
   };
 }
@@ -166,7 +56,8 @@ assetsRouter.get('/', (_req: Request, res: Response) => {
       (n) => n.entity.kind === 'automation' || n.entity.kind === 'process' || n.entity.kind === 'app'
     );
 
-    const assets = assetNodes.map((n) => formatAssetRow(n, dataService));
+    const checks = evaluateAllChecks(graph);
+    const assets = assetNodes.map((n) => formatAssetRow(n, dataService, checks));
     res.json({ assets });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch assets.' });
@@ -186,8 +77,9 @@ assetsRouter.get('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    const asset = formatAssetRow(node, dataService);
-    const checks = evaluateAllChecks(graph).filter((c) => c.entityId === assetId);
+    const allChecks = evaluateAllChecks(graph);
+    const asset = formatAssetRow(node, dataService, allChecks);
+    const checks = allChecks.filter((c) => c.entityId === assetId);
 
     // Dependencies (upstream and downstream)
     const upstream: any[] = [];
@@ -219,7 +111,7 @@ assetsRouter.get('/:id', async (req: Request, res: Response) => {
         history.push({
           attribute: r.attribute,
           display: typeof r.value === 'object' ? JSON.stringify(r.value) : String(r.value),
-          state: r.value !== undefined ? 'value' : 'none',
+          state: r.grade === 'unknown' || r.value === undefined || r.value === null ? 'unknown' : 'value',
           grade: r.grade,
           source: r.source,
           changedBy: r.attestedBy || null,

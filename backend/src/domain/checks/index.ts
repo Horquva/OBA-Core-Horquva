@@ -287,6 +287,7 @@ export function calculateHeadlineMetrics(graph: ContinuityGraph): HeadlineMetric
   let totalCritical = 0;
   let fullyCovered = 0;
   let exposed = 0;
+  let unknownAssets = 0;
   let unknownFacts = 0;
 
   for (const node of nodes) {
@@ -316,10 +317,17 @@ export function calculateHeadlineMetrics(graph: ContinuityGraph): HeadlineMetric
         unknownFacts++;
       }
 
+      // DATA-03: only a *known* gap makes an asset exposed. No backup on record
+      // is known (C1); documentation/fallback only when recorded as false.
+      const knownFalse = (f: typeof docFact) => !!f && f.grade !== 'unknown' && f.value === false;
+      const hasKnownGap = !hasBackup || knownFalse(docFact) || knownFalse(fallbackFact);
+
       if (hasBackup && isDocumented && hasFallback) {
         fullyCovered++;
-      } else {
+      } else if (hasKnownGap) {
         exposed++;
+      } else {
+        unknownAssets++; // nothing known to be missing, but something is unconfirmed or unrecorded
       }
     }
   }
@@ -328,7 +336,11 @@ export function calculateHeadlineMetrics(graph: ContinuityGraph): HeadlineMetric
     totalCriticalAssets: totalCritical,
     fullyCoveredCriticalAssets: fullyCovered,
     exposedCriticalAssets: exposed,
+    unknownCriticalAssets: unknownAssets,
     unknownCriticalFacts: unknownFacts,
-    definition: 'Count of critical & high assets where confirmed backup exists, documentation is verified, and fallback exists.',
+    definition:
+      'Critical & high assets. Covered: a backup on record, and documentation and fallback both confirmed. ' +
+      'Exposed: a known gap — no backup, or recorded as undocumented or without fallback. ' +
+      'Unknown: no known gap, but something is unconfirmed or not yet recorded.',
   };
 }

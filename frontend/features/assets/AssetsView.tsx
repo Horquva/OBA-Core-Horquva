@@ -23,7 +23,20 @@ export interface AssetsViewProps {
   defaultSelectedAssetId?: string | null;
 }
 
-type KindTab = 'all' | 'workflow' | 'model' | 'credential' | 'vendor' | 'system';
+type KindTab = 'all' | 'automation' | 'model' | 'credential' | 'vendor' | 'system';
+
+/** Tabs map to backend EntityKind values ('system' covers apps and processes). */
+const TAB_KINDS: Record<Exclude<KindTab, 'all'>, string[]> = {
+  automation: ['automation'],
+  model: ['model'],
+  credential: ['credential'],
+  vendor: ['vendor'],
+  system: ['app', 'process'],
+};
+
+function inTab(kind: string, tab: KindTab): boolean {
+  return tab === 'all' || TAB_KINDS[tab].includes(kind);
+}
 type CriticalityFilter = 'all' | 'critical_only';
 type StatusFilter = 'all' | 'fail' | 'unknown' | 'pass';
 
@@ -56,7 +69,7 @@ export function AssetsView({
   const filteredAssets = React.useMemo(() => {
     return assetsData.filter((asset) => {
       // Kind Tab
-      if (activeTab !== 'all' && asset.kind !== activeTab) {
+      if (!inTab(asset.kind, activeTab)) {
         return false;
       }
 
@@ -140,11 +153,14 @@ export function AssetsView({
     const total = assetsData.length;
     const critical = assetsData.filter((a) => a.isCritical).length;
     const failing = assetsData.filter((a) => a.checkStatus.toUpperCase() === 'FAIL').length;
+    // Same definition as the "Has unknown facts" filter, so the counter and the filter agree.
     const unknown = assetsData.filter(
       (a) =>
         a.owner.state === 'unknown' ||
         a.backup.state === 'unknown' ||
-        a.documented.state === 'unknown',
+        a.documented.state === 'unknown' ||
+        a.fallback.state === 'unknown' ||
+        a.runsPerWeek.state === 'unknown',
     ).length;
 
     return { total, critical, failing, unknown };
@@ -152,7 +168,7 @@ export function AssetsView({
 
   const tabs: Array<{ id: KindTab; label: string }> = [
     { id: 'all', label: 'All Assets' },
-    { id: 'workflow', label: 'Automations' },
+    { id: 'automation', label: 'Automations' },
     { id: 'model', label: 'AI Models' },
     { id: 'credential', label: 'Credentials' },
     { id: 'vendor', label: 'Vendors' },
@@ -205,7 +221,7 @@ export function AssetsView({
           const count =
             tab.id === 'all'
               ? assetsData.length
-              : assetsData.filter((a) => a.kind === tab.id).length;
+              : assetsData.filter((a) => inTab(a.kind, tab.id)).length;
           const isActive = activeTab === tab.id;
 
           return (

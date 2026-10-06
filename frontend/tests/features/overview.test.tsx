@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { axe } from 'vitest-axe';
 import { OverviewView } from '@/features/overview/OverviewView';
@@ -102,6 +102,19 @@ vi.mock('@/lib/api/departures', () => ({
   fetchDepartures: vi.fn().mockImplementation(() => Promise.resolve(mockDepartures)),
 }));
 
+// vitest.setup's restoreAllMocks() clears these implementations after each test; re-apply them.
+beforeEach(async () => {
+  const overviewApi = await import('@/lib/api/overview');
+  const actionsApi = await import('@/lib/api/actions');
+  const departuresApi = await import('@/lib/api/departures');
+  vi.mocked(overviewApi.fetchCoverage).mockImplementation(() => Promise.resolve(mockCoverage));
+  vi.mocked(overviewApi.fetchChangeSummary).mockImplementation(() => Promise.resolve(mockChanges));
+  vi.mocked(overviewApi.fetchSpofAssets).mockImplementation(() => Promise.resolve(mockSpof));
+  vi.mocked(overviewApi.fetchBriefing).mockImplementation(() => Promise.resolve('Executive Briefing text.'));
+  vi.mocked(actionsApi.fetchActions).mockImplementation(() => Promise.resolve(mockActions));
+  vi.mocked(departuresApi.fetchDepartures).mockImplementation(() => Promise.resolve(mockDepartures));
+});
+
 describe('OverviewView Component (Task 19)', () => {
   const adminSession: Session = {
     userId: 'u1',
@@ -148,5 +161,49 @@ describe('OverviewView Component (Task 19)', () => {
 
     // Verify accessibility
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it('shows failures as failures — never "no changes", "zero failing checks" or empty lists', async () => {
+    const overviewApi = await import('@/lib/api/overview');
+    const actionsApi = await import('@/lib/api/actions');
+    const departuresApi = await import('@/lib/api/departures');
+    const boom = () => Promise.reject(new Error('backend down'));
+    vi.mocked(overviewApi.fetchChangeSummary).mockImplementationOnce(boom);
+    vi.mocked(overviewApi.fetchSpofAssets).mockImplementationOnce(boom);
+    vi.mocked(overviewApi.fetchBriefing).mockImplementationOnce(boom);
+    vi.mocked(actionsApi.fetchActions).mockImplementationOnce(boom);
+    vi.mocked(departuresApi.fetchDepartures).mockImplementationOnce(boom);
+
+    render(
+      <SessionProvider initialSession={adminSession}>
+        <OverviewView />
+      </SessionProvider>
+    );
+
+    expect(await screen.findByText("We couldn't check recent changes.")).toBeInTheDocument();
+    expect(await screen.findByText("We couldn't load priority actions.")).toBeInTheDocument();
+    expect(await screen.findByText("This week's briefing couldn't be loaded.")).toBeInTheDocument();
+    expect(screen.queryByText('Zero failing checks')).not.toBeInTheDocument();
+    expect(screen.queryByText(/No changes since/)).not.toBeInTheDocument();
+  });
+
+  it('words the hero sentence from real ISO dates and leaves untracked kinds out', async () => {
+    const overviewApi = await import('@/lib/api/overview');
+    vi.mocked(overviewApi.fetchChangeSummary).mockResolvedValueOnce({
+      since: new Date(Date.now() - 7 * 86_400_000).toISOString(),
+      sinceKind: 'first_visit_window',
+      peopleLeft: 1,
+      backupsLost: null,
+      newlyExposed: null,
+      resolved: 0,
+    });
+
+    render(
+      <SessionProvider initialSession={adminSession}>
+        <OverviewView />
+      </SessionProvider>
+    );
+
+    expect(await screen.findByText('1 person left in the last 7 days.')).toBeInTheDocument();
   });
 });

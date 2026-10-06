@@ -245,7 +245,7 @@
 
 | Day | Task | Gap | Deliverable | SRS IDs |
 |---|---|---|---|---|
-| **D7 (Oct 14)** | Wire Overview + Assets screens to live backend | G-19 | `frontend/features/overview/OverviewView.tsx` → real `/api/continuity/overview`. `frontend/features/assets/AssetsView.tsx` → real `/api/assets` | UI-01, UI-04 |
+| ✅ **D7 (Oct 14)** | Wire Overview + Assets screens to live backend | G-19 | `frontend/features/overview/OverviewView.tsx` → real `/api/continuity/overview`. `frontend/features/assets/AssetsView.tsx` → real `/api/assets` | UI-01, UI-04 |
 | **D8 (Oct 15)** | Wire Departures + Handover screens to live backend | G-19 | `frontend/features/departures/*.tsx` → real `/api/departures`. Initiate departure side sheet → POST. Succession panel → live S3 calls | UI-02 |
 | **D9 (Oct 16)** | Wire People/Teams + Actions screens | G-19 | `frontend/features/people/*.tsx` → real `/api/people/teams`. `frontend/features/actions/*.tsx` → real `/api/actions` | UI-03, UI-07 |
 | **D10 (Oct 17)** | Wire Map + What-If screens | G-19 | `frontend/features/map/MapView.tsx` → real `/api/graph/neighbourhood`. `frontend/features/what-if/WhatIfView.tsx` → real S1-S4 + S6 | UI-05, UI-06 |
@@ -254,11 +254,22 @@
 
 **Sprint 2 / Engineer B Acceptance Criteria:**
 - [ ] All 7 core screens render real data from backend (no mock data paths remain)
-- [ ] Overview shows real headline count ("X of Y critical assets fully covered")
+- [x] Overview shows real headline count ("X of Y critical assets fully covered") *(D7; now also separates unknown from exposed)*
 - [ ] Departures screen shows real departures with correct stage progression
 - [ ] What-If screen executes combined scenarios and shows blast radius
 - [ ] Attestation form submits answers and facts update to `confirmed`
 - [ ] Ask OBA returns grounded answers with entity chip links
+
+**Sprint 2 / Engineer B Progress Log:**
+
+- **D7 — Overview + Assets on the live backend ✅ (Oct 6)**
+  - Found: the Overview called three endpoints that didn't exist (`/api/changes/summary`, `/api/continuity/spof-assets`, `/api/nav-counts` → 404) and **hid every failure behind fabricated data** — "No changes since your last visit", "Zero failing checks", empty departure/SPOF lists, sidebar badges of 0. The headline count put *unknown* assets under *exposed* (DATA-03). The Assets catalog stamped every owner/backup `confirmed` with an invented source and "now", defaulted missing criticality to `medium` and missing run volume to `0`, re-ran all checks per row (O(n²)), and its "Automations" tab counted kind `'workflow'`, which the backend never sends (always 0; the tests used the same wrong kind, so they passed).
+  - Backend: new `GET /api/changes/summary` ("since your last sign-in", from the audit log's `SIGN_IN` entries; first visit = last 7 days; `backupsLost` / `newlyExposed` return `null` = not tracked until snapshots exist, TRD-01), `GET /api/continuity/spof-assets` (critical/high assets with a sole owner and no backup, or on someone's personal credentials; lists assets, never ranks people — SEC-07), `GET /api/nav-counts` (open departures due ≤30 days, open critical actions, pending identities — `null` for non-admins). Read models in `backend/src/views/overviewViews.ts`.
+  - Backend: headline metrics now **covered / exposed (known gap) / unknown (no known gap, something unconfirmed)**, adding `unknownCriticalAssets` to the shared `HeadlineMetrics` type (B-01). Shared evidence helpers `backend/src/views/factViews.ts`: grades/sources/dates come from the real edge or fact; missing owner → `unknown` (ID-02), missing backup → `none` (what C1 checks), missing criticality/docs/fallback/runs → `unknown`. Assets route uses them and evaluates checks once per request.
+  - Frontend: removed every `.catch()` fallback on the Overview and the nav-count fallback in `AppShell` — failures now show their error state (badges are hidden, not 0). Hero sentence words real dates ("1 person left in the last 7 days.") and omits untracked kinds instead of claiming "no changes". Briefing preview strips markdown and has an error state. Assets kind tabs map to backend kinds (`automation`; "Systems" = `app` + `process`); the "Unknown Facts" counter matches its filter.
+  - Tests: backend `tests/api/overview.test.ts` (12, hand-checked against the fixture); frontend overview failure-path + hero wording tests, assets kind-tab test, briefing preview tests; fixed the asset fixtures' fake `'workflow'` kind. Backend 195/195; frontend 188/189 (the one pre-existing `EmptyState` failure).
+  - Verified live (dev sign-in as Alex): every Overview request 200; Overview shows "1 of 4 critical assets fully covered", 3 SPOFs (Billing Sync 500/wk → Omar, Customer Onboarding 350/wk → Sarah, Payroll 120/wk → Omar); Assets shows all 6 automations with real owners/backups/runs and "Automations 6".
+  - Not in D7: the bell still shows "All caught up" if `/api/changes` fails (bell wiring is D12); Actions still default missing criticality to `medium` (D9).
 
 ---
 

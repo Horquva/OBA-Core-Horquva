@@ -11,7 +11,7 @@ const sampleAssets: AssetRow[] = [
   // 1. Non-critical asset (should be sorted LAST by default)
   {
     id: 'w-non-crit',
-    kind: 'workflow',
+    kind: 'automation',
     name: 'Slack Emoji Sync',
     isCritical: false,
     owner: { state: 'value', display: 'Sarah Connor', grade: 'confirmed', source: 'Manual', observedAt: null },
@@ -25,7 +25,7 @@ const sampleAssets: AssetRow[] = [
   // 2. Covered critical asset (priority 3 in default sort)
   {
     id: 'w-covered-crit',
-    kind: 'workflow',
+    kind: 'automation',
     name: 'Customer Identity Sync',
     isCritical: true,
     owner: { state: 'value', display: 'Sarah Connor', grade: 'confirmed', source: 'Manual', observedAt: null },
@@ -39,7 +39,7 @@ const sampleAssets: AssetRow[] = [
   // 3. Unknown critical asset (priority 2 in default sort)
   {
     id: 'w-unknown-crit',
-    kind: 'workflow',
+    kind: 'automation',
     name: 'AWS Deploy Bot',
     isCritical: true,
     owner: { state: 'value', display: 'Sarah Connor', grade: 'inferred', source: 'Scanner', observedAt: null },
@@ -53,7 +53,7 @@ const sampleAssets: AssetRow[] = [
   // 4. Failing critical asset (priority 1 in default sort - MUST BE FIRST)
   {
     id: 'w-failing-crit',
-    kind: 'workflow',
+    kind: 'automation',
     name: 'Stripe Billing Pipeline',
     isCritical: true,
     owner: { state: 'value', display: 'Sarah Connor', grade: 'confirmed', source: 'Manual', observedAt: null },
@@ -103,7 +103,7 @@ const sampleDetail: AssetDetail = {
     { id: 'c-stripe-secret', kind: 'credential', name: 'Stripe Live Secret Key' },
   ],
   downstream: [
-    { id: 'w-invoice-gen', kind: 'workflow', name: 'Monthly Invoice Dispatcher' },
+    { id: 'w-invoice-gen', kind: 'automation', name: 'Monthly Invoice Dispatcher' },
   ],
   history: [
     {
@@ -175,6 +175,18 @@ describe('Assets Catalog & Drawer (Task 25)', () => {
 
       expect(screen.getByText('OpenAI Enterprise API')).toBeDefined();
       expect(screen.queryByText('Stripe Billing Pipeline')).toBeNull();
+    });
+
+    it('counts and filters automations by the backend kind "automation"', async () => {
+      render(<AssetsView initialAssets={sampleAssets} />);
+      const automationsTab = screen.getByRole('button', { name: /automations/i });
+      const expected = sampleAssets.filter((a) => a.kind === 'automation').length;
+      expect(expected).toBeGreaterThan(0);
+      expect(automationsTab.textContent).toContain(String(expected));
+
+      fireEvent.click(automationsTab);
+      expect(screen.getByText('Stripe Billing Pipeline')).toBeDefined();
+      expect(screen.queryByText('OpenAI Enterprise API')).toBeNull();
     });
 
     it('filters assets by search query', async () => {
