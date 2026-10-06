@@ -34,6 +34,13 @@ function sendSuccessionError(res: Response, err: any, fallback: string): void {
 
 export const departuresRouter = Router();
 
+/** The person's team from a `member_of` edge; null when the graph doesn't say (never a guess). */
+function teamOf(personId: string, dataService: DataService): string | null {
+  const graph = dataService.getGraph();
+  const edge = graph.getEdgesForEntity(personId).find((e) => e.type === 'member_of' && e.fromId === personId);
+  return edge ? graph.getNode(edge.toId)?.entity?.name ?? null : null;
+}
+
 function formatSummary(dep: DepartureRecord, dataService: DataService) {
   const graph = dataService.getGraph();
   const personNode = graph.getNode(dep.personId);
@@ -68,7 +75,7 @@ function formatSummary(dep: DepartureRecord, dataService: DataService) {
     id: dep.id,
     person,
     role: personNode?.entity?.description || null,
-    team: 'Platform Engineering',
+    team: teamOf(dep.personId, dataService),
     leaveDate: dep.leaveDate,
     stage: dep.stage,
     assetsTotal,
@@ -115,15 +122,19 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
       const critFact = assetNode?.facts.get('criticality');
       const criticality: CriticalityLevel = (critFact?.value as CriticalityLevel) || 'medium';
 
-      const backups = graph.getBackups(h.assetId);
-      const currentBackup = backups.length > 0
+      // Report the backup edge's real evidence, not a blanket 'confirmed'.
+      const backupEdge = graph
+        .getEdgesForEntity(h.assetId)
+        .find((e) => e.type === 'backs_up' && e.toId === h.assetId && e.fromId !== dep.personId);
+      const backupEntity = backupEdge ? graph.getNode(backupEdge.fromId)?.entity : undefined;
+      const currentBackup = backupEdge && backupEntity
         ? {
             state: 'value' as const,
-            display: backups[0].name,
-            grade: 'confirmed' as EvidenceGrade,
-            source: 'attestation',
-            observedAt: new Date().toISOString(),
-            ref: { id: backups[0].id, kind: backups[0].kind, name: backups[0].name },
+            display: backupEntity.name,
+            grade: backupEdge.grade as EvidenceGrade,
+            source: backupEdge.source,
+            observedAt: new Date(backupEdge.validFrom).toISOString(),
+            ref: { id: backupEntity.id, kind: backupEntity.kind, name: backupEntity.name },
           }
         : {
             state: 'none' as const,
@@ -142,22 +153,13 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
           : { id: h.successorId, kind: 'person' as const, name: h.successorId.replace('person:', '') };
       }
 
-      // Suggestion if none assigned
-      let suggestion = null;
-      if (!successor) {
-        const potentialBackups = graph.getBackups(h.assetId);
-        if (potentialBackups.length > 0) {
-          suggestion = {
-            person: { id: potentialBackups[0].id, kind: potentialBackups[0].kind, name: potentialBackups[0].name },
+      // Suggest only someone the graph backs: the existing backup. No backup → no suggestion.
+      const suggestion = !successor && backupEntity
+        ? {
+            person: { id: backupEntity.id, kind: backupEntity.kind, name: backupEntity.name },
             reason: 'Existing designated backup',
-          };
-        } else {
-          suggestion = {
-            person: { id: 'person:chen@acme.com', kind: 'person' as const, name: 'Chen Wei' },
-            reason: 'Senior team peer with platform experience',
-          };
-        }
-      }
+          }
+        : null;
 
       return {
         id: h.id,
@@ -188,12 +190,12 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
       }
     }
 
-    // Undocumented assets
+    // Undocumented assets: only a recorded "documented = false". A missing fact is unknown, not undocumented (DATA-03).
     const undocumented: any[] = [];
     for (const h of dep.handovers) {
       const node = graph.getNode(h.assetId);
-      const isDoc = node?.facts.get('documented')?.value;
-      if (isDoc === false || isDoc === undefined) {
+      const docFact = node?.facts.get('documented');
+      if (docFact && docFact.grade !== 'unknown' && docFact.value === false) {
         if (node?.entity) {
           undocumented.push({ id: node.entity.id, kind: node.entity.kind, name: node.entity.name });
         }

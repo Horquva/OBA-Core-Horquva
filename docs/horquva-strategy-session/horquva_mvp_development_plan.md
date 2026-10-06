@@ -154,7 +154,7 @@
 | ✅ **D3 (Oct 8)** | RBAC Middleware + Audit Log middleware | G-14, G-15 | `backend/src/middleware/{rbac,auditLog}.ts` — role enforcement on every route, append-only audit writes | SEC-02, SEC-06 |
 | ✅ **D4 (Oct 9)** | Departure Workflow Backend — Initiation + Pack Compilation | G-04, G-05 | `backend/src/handover/departureService.ts` — POST /api/departures, auto-generate handover pack JSON from S1 simulation | HND-01, HND-02 |
 | ✅ **D5 (Oct 10)** | Departure Workflow Backend — Successor Assignment + Acceptance | G-06 | `backend/src/handover/successionService.ts` — successor naming, acceptance API, stage tracking (Initiated→Named→Accepted→Disabled→Verified) | HND-03, HND-04, HND-05 |
-| **D6 (Oct 13)** | Departure Workflow Backend — Integration & Tests | G-04/G-05/G-06 | Integration tests: departure creation → pack generation → successor flow → stage transitions | HND-01 to HND-05 |
+| ✅ **D6 (Oct 13)** | Departure Workflow Backend — Integration & Tests | G-04/G-05/G-06 | Integration tests: departure creation → pack generation → successor flow → stage transitions | HND-01 to HND-05 |
 
 **Sprint 1 / Engineer B Acceptance Criteria:**
 - [x] Microsoft Entra SSO and Google OIDC both produce valid session tokens *(verified against fake IdPs in tests; live tenant sign-in pending app registrations)*
@@ -208,6 +208,11 @@
   - Responding (HND-04): only when `requested`; **only the named successor** (signed-in user matched to their person record by email) — admins cannot accept on someone's behalf, since acceptance becomes a `confirmed` ownership fact. RBAC for accept/decline is therefore `read` (any role) with the identity check in the service. Accept writes one confirmed `owns` edge + confirmed `status=handed_over` fact (with `sourceRef` = handover id).
   - Tests: `backend/tests/handover/successionService.test.ts` (18). Existing API tests updated to the real flow (name → request → successor accepts); `reviewer.test.ts` previously accepted a handover that had no successor at all. Backend suite 172/172.
   - Open / later: acceptance requests don't send email yet (mailer exists — candidate for Sprint 3 D14 reviewer surfaces); successors without an OBA account (e.g. Priya) cannot respond until magic-link handover acceptance exists (D14); HND-06's 72h verifier (Engineer A, Sprint 3 D13) should call `verifyDeparture` automatically.
+- **D6 — Departure workflow integration + detail-view truthfulness ✅ (Oct 6)**
+  - Built: `backend/tests/integration/departureLifecycle.test.ts` — one departure driven end to end through the real HTTP server, RBAC and signed sessions (admin, Chen as reviewer, Maya as viewer): initiate → pack checked against the fixture → viewer blocked → successors named → requests sent → non-successors (incl. admin) refused → accept → decline re-opens naming → re-name → accept → S1 re-run shows **no orphaned assets** (ownership really moved, confirmed edges) → verify refused until account disabled → disabled → verified → closed departure refuses changes → the **exact audit trail** (15 entries, real actors, denials included).
+  - Fixed the four D4 findings in `GET /api/departures/:id` (they would have made the integration test assert false data): `suggestion` is now the recorded backup or `null` (removed the hard-coded "Chen Wei"); `currentBackup` reports the backup edge's real grade / source / since-date instead of always `confirmed` / "now"; `undocumented` lists only assets with a recorded `documented = false` (missing fact ≠ undocumented, DATA-03); `team` comes from a `member_of` edge or is `null` (removed hard-coded "Platform Engineering"). All four fields were already nullable in the frontend's `DepartureDetail` type.
+  - Tests: 10 integration steps. Backend suite 182/182.
+  - **Sprint 1 / Engineer B complete** — all six acceptance criteria checked.
   - Note: `tests/ai/gemini.test.ts` and `tests/api/server.test.ts` can time out intermittently — they try the Postgres in `backend/.env` first (legacy Supabase, schema absent) and fall back after 5 s. Pre-existing; passes on re-run.
 
 ---
