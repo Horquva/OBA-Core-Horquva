@@ -69,4 +69,32 @@ describe('Server & API Routes Integration', () => {
     const body = (await res.json()) as any;
     expect(body.error).toContain('Invalid campaign');
   });
+
+  it('POST /api/continuity/simulations/combined returns compound scenario result', async () => {
+    const res = await fetch(`${baseUrl}/api/continuity/simulations/combined`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        departingPersonIds: ['person:omar@acme.com'],
+        unavailableIds: ['model:openai:gpt-4o'],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.orphanedCriticalAssets.length).toBe(2);
+    expect(body.stoppedAutomations.length).toBe(1);
+    expect(body.runsPerWeekAffected).toBe(3120);
+  });
+
+  it('GET /api/continuity/simulations/worst-losses returns ranked models/vendors and aggregate unbacked people count', async () => {
+    const res = await fetch(`${baseUrl}/api/continuity/simulations/worst-losses?threshold=2`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.vendorsAndModels.length).toBeGreaterThan(0);
+    expect(body.vendorsAndModels[0].entity.id).toBe('model:openai:gpt-4o');
+    // SEC-07: zero individual person ranking
+    expect(body.people).toBeUndefined();
+    expect(typeof body.peopleHoldingManyUnbacked).toBe('number');
+  });
 });

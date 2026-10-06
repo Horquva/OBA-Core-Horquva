@@ -8,6 +8,21 @@ import helmet from 'helmet';
 import { v0Router } from './routes/v0.js';
 import { continuityRouter } from './routes/continuity.js';
 import { attestationRouter } from './routes/attestation.js';
+import { departuresRouter } from './routes/departures.js';
+import { handoversRouter } from './routes/handovers.js';
+import { actionsRouter } from './routes/actions.js';
+import { changesRouter } from './routes/changes.js';
+import { peopleRouter } from './routes/people.js';
+import { assetsRouter } from './routes/assets.js';
+import { graphRouter } from './routes/graph.js';
+import { identityRouter } from './routes/identity.js';
+import {
+  connectionsRouter,
+  usersRouter,
+  settingsRouter,
+  auditLogRouter,
+} from './routes/settings.js';
+import { reviewerRouter } from './routes/reviewer.js';
 
 export const app = express();
 
@@ -30,6 +45,19 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use('/api/v0', v0Router);
 app.use('/api/continuity', continuityRouter);
 app.use('/api/attestation', attestationRouter);
+app.use('/api/departures', departuresRouter);
+app.use('/api/handovers', handoversRouter);
+app.use('/api/actions', actionsRouter);
+app.use('/api/changes', changesRouter);
+app.use('/api/people', peopleRouter);
+app.use('/api/assets', assetsRouter);
+app.use('/api/graph', graphRouter);
+app.use('/api/identity-queue', identityRouter);
+app.use('/api/connections', connectionsRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/settings', settingsRouter);
+app.use('/api/audit-log', auditLogRouter);
+app.use('/api/me', reviewerRouter);
 
 // Central error handling middleware
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
