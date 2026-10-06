@@ -171,28 +171,41 @@ export class ContinuityGraph {
   }
 
   /**
-   * Performs a BFS reachability walk downstream from a failing node,
-   * returning all affected downstream asset IDs.
+   * Everything that stops working if `startNodeId` fails or leaves — its blast radius.
+   *
+   * Dependency edges point from the dependant to what it needs
+   * (`A depends_on B`, `A calls_model M`, `A runs_on_credentials_of P`), so the
+   * things affected by a failure are found by walking those edges *backwards*.
+   * (Before D10 this walked them forwards, which returned what the node needs
+   * — e.g. "GPT-4o going down affects nothing", "workflow 105 failing stops David".)
    */
   public getDownstreamImpact(startNodeId: string): string[] {
+    return this.walkDependencies(startNodeId, 'inbound');
+  }
+
+  /** Everything `startNodeId` relies on, transitively (models, apps, credentials' holders). */
+  public getDependencies(startNodeId: string): string[] {
+    return this.walkDependencies(startNodeId, 'outbound');
+  }
+
+  private walkDependencies(startNodeId: string, direction: 'inbound' | 'outbound'): string[] {
     if (!this.graph.hasNode(startNodeId)) return [];
     const visited = new Set<string>();
     const queue: string[] = [startNodeId];
 
     while (queue.length > 0) {
       const current = queue.shift()!;
-      this.graph.forEachOutboundEdge(current, (_edge, attributes, _source, target) => {
-        if (
-          attributes.edge.type === 'depends_on' ||
-          attributes.edge.type === 'calls_model' ||
-          attributes.edge.type === 'runs_on_credentials_of'
-        ) {
-          if (!visited.has(target) && target !== startNodeId) {
-            visited.add(target);
-            queue.push(target);
-          }
+      const visit = (_edge: string, attributes: GraphEdgeAttributes, source: string, target: string) => {
+        const type = attributes.edge.type;
+        if (type !== 'depends_on' && type !== 'calls_model' && type !== 'runs_on_credentials_of') return;
+        const next = direction === 'inbound' ? source : target;
+        if (!visited.has(next) && next !== startNodeId) {
+          visited.add(next);
+          queue.push(next);
         }
-      });
+      };
+      if (direction === 'inbound') this.graph.forEachInboundEdge(current, visit);
+      else this.graph.forEachOutboundEdge(current, visit);
     }
 
     return Array.from(visited);

@@ -3,7 +3,7 @@
 // =============================================================================
 // Implements SRS Graph Visualization & Ego-Graph Extraction:
 // - GET /api/graph/neighbourhood (1-hop or 2-hop BFS neighbourhood)
-// - GET /api/graph/blast-radius (Downstream and upstream impact paths)
+// - GET /api/graph/blast-radius (downstream = what breaks if root fails; upstream = what root needs)
 // =============================================================================
 
 import { Router, Request, Response } from 'express';
@@ -17,10 +17,14 @@ export const graphRouter = Router();
 graphRouter.get('/neighbourhood', (req: Request, res: Response) => {
   try {
     const rootId = req.query.root as string;
-    const hops = parseInt((req.query.hops as string) || '2', 10);
+    const hops = Number((req.query.hops as string) || '2');
 
     if (!rootId) {
       res.status(400).json({ error: 'root query parameter is required.' });
+      return;
+    }
+    if (hops !== 1 && hops !== 2) {
+      res.status(400).json({ error: 'hops must be 1 or 2.' });
       return;
     }
 
@@ -127,32 +131,19 @@ graphRouter.get('/blast-radius', (req: Request, res: Response) => {
       return;
     }
 
-    const downstream = graph.getDownstreamImpact(rootId);
-
-    // Upstream walk: entities pointing into rootId following dependency edges
-    const upstreamVisited = new Set<string>();
-    const queue: string[] = [rootId];
-
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      const edges = graph.getEdgesForEntity(current);
-      for (const e of edges) {
-        if (
-          e.toId === current &&
-          e.fromId !== rootId &&
-          !upstreamVisited.has(e.fromId) &&
-          (e.type === 'depends_on' || e.type === 'calls_model' || e.type === 'runs_on_credentials_of')
-        ) {
-          upstreamVisited.add(e.fromId);
-          queue.push(e.fromId);
-        }
-      }
-    }
+    const toRefs = (ids: string[]) =>
+      ids
+        .map((id) => graph.getNode(id)?.entity)
+        .filter((e): e is NonNullable<typeof e> => !!e)
+        .map((e) => ({ id: e.id, kind: e.kind as EntityKind, name: e.name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
     res.json({
       rootId,
-      downstream,
-      upstream: Array.from(upstreamVisited),
+      // What stops if the root fails (dependants, walked backwards along dependency edges).
+      downstream: toRefs(graph.getDownstreamImpact(rootId)),
+      // What the root itself relies on.
+      upstream: toRefs(graph.getDependencies(rootId)),
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch blast radius.' });

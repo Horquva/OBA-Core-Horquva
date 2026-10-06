@@ -32,6 +32,7 @@ const sampleResult: ScenarioResult = {
     },
   ],
   runsPerWeekAffected: 4600,
+  runsUnknownCount: 0,
   downstream: [
     { id: 'w-4', name: 'Monthly Financial Audit', kind: 'automation' as EntityKind },
     { id: 'w-5', name: 'Tier-1 SLA Monitor', kind: 'automation' as EntityKind },
@@ -46,11 +47,13 @@ const sampleWorstLosses: WorstLosses = {
       entity: { id: 'v-1', name: 'OpenAI Enterprise API', kind: 'vendor' },
       automationsHalted: 14,
       runsPerWeekAffected: 45000,
+      runsUnknownCount: 0,
     },
     {
       entity: { id: 'm-1', name: 'Anthropic Claude 3.5 Sonnet', kind: 'model' },
       automationsHalted: 8,
       runsPerWeekAffected: 21000,
+      runsUnknownCount: 0,
     },
   ],
   peopleHoldingManyUnbacked: 7,
@@ -66,14 +69,81 @@ vi.mock('@/lib/api/simulations', () => ({
   runScenario: vi.fn(),
   fetchWorstLosses: vi.fn(),
 }));
+vi.mock('@/lib/api/entities', () => ({ fetchAllEntities: vi.fn() }));
 
 import { runScenario, fetchWorstLosses } from '@/lib/api/simulations';
+import { fetchAllEntities } from '@/lib/api/entities';
+
+const inventory = [
+  { id: 'person:omar@acme.com', kind: 'person', name: 'Omar Farooq' },
+  { id: 'model:openai:gpt-4o', kind: 'model', name: 'OpenAI GPT-4o' },
+  { id: 'app:stripe', kind: 'app', name: 'Stripe' },
+  { id: 'automation:n8n:101', kind: 'automation', name: 'Billing Sync to Stripe' },
+  { id: 'group:platform-engineering', kind: 'group', name: 'Platform Engineering' },
+];
 
 describe('What-If Simulator Feature (Task 27)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (runScenario as any).mockResolvedValue(sampleResult);
     (fetchWorstLosses as any).mockResolvedValue(sampleWorstLosses);
+    (fetchAllEntities as any).mockResolvedValue(inventory);
+  });
+
+  it('starts empty: no invented people or vendors, and nothing simulated', async () => {
+    render(<WhatIfView />);
+    expect(screen.queryByText('Sarah Connor')).toBeNull();
+    expect(screen.getByText(/pick one or more people/i)).toBeDefined();
+    expect(runScenario).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /simulate impact/i }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('pickers offer real people and services; services go down, automations fail', async () => {
+    render(<WhatIfView />);
+    await waitFor(() => expect(fetchAllEntities).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: '+ person' }));
+    fireEvent.change(screen.getByPlaceholderText('Pick person...'), { target: { value: 'Omar' } });
+    fireEvent.click(await screen.findByText('Omar Farooq'));
+
+    for (const name of ['OpenAI GPT-4o', 'Stripe', 'Billing Sync to Stripe']) {
+      fireEvent.click(screen.getByRole('button', { name: '+ service or automation' }));
+      const input = screen.getByPlaceholderText('Pick a service or automation...');
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: name } });
+      fireEvent.click(await screen.findByRole('option', { name: new RegExp(`^${name}`) }));
+    }
+    // Groups are not something that "goes down".
+    fireEvent.click(screen.getByRole('button', { name: '+ service or automation' }));
+    const input = screen.getByPlaceholderText('Pick a service or automation...');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'Platform' } });
+    expect(screen.queryByRole('option', { name: /platform engineering/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /simulate impact/i }));
+    await waitFor(() => expect(runScenario).toHaveBeenCalledTimes(1));
+    const sel = (runScenario as any).mock.calls[0][0];
+    expect(sel.people.map((p: any) => p.id)).toEqual(['person:omar@acme.com']);
+    expect(sel.unavailable.map((u: any) => u.id)).toEqual(['model:openai:gpt-4o', 'app:stripe']);
+    expect(sel.failing.map((f: any) => f.id)).toEqual(['automation:n8n:101']);
+  });
+
+  it('shows an unknown run volume as Unknown, never 0', async () => {
+    render(
+      <WhatIfView
+        initialSentence={sampleSentence}
+        initialWorstLosses={sampleWorstLosses}
+        initialResult={{
+          ...sampleResult,
+          stoppedAutomations: [{ workflow: { id: 'w-9', kind: 'automation', name: 'Mystery Flow' }, credentialOwner: null, weeklyRuns: null }],
+          runsPerWeekAffected: 0,
+          runsUnknownCount: 1,
+        }}
+      />,
+    );
+    expect(screen.getByLabelText('Run volume unknown')).toBeDefined();
+    expect(screen.getByText(/1 affected automation has no run volume on record/i)).toBeDefined();
+    expect(screen.queryByText('0 runs/wk')).toBeNull();
   });
 
   it('renders WhatIfView with SentenceBuilder, results strip, and passes axe', async () => {
@@ -128,7 +198,7 @@ describe('What-If Simulator Feature (Task 27)', () => {
     expect(screen.getByText('Anthropic Claude 3.5 Sonnet')).toBeDefined();
 
     // People are strictly represented as an aggregate count floor
-    expect(screen.getByText(/7 people/i)).toBeDefined();
+    expect(screen.getByText(/7\s+people/i)).toBeDefined();
     expect(screen.getByText(/each hold 3\+ unbacked critical assets/i)).toBeDefined();
     expect(screen.getByText(/zero employee scoring guarantee/i)).toBeDefined();
 

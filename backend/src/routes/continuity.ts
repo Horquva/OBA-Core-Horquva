@@ -196,8 +196,23 @@ continuityRouter.post('/simulations/combined', async (req: Request, res: Respons
     return;
   }
 
+  const { departingPersonIds = [], unavailableIds = [], failingAssetIds = [] } = parsed.data;
+  if (departingPersonIds.length + unavailableIds.length + failingAssetIds.length === 0) {
+    res.status(400).json({ error: 'Pick at least one person, service or asset.' });
+    return;
+  }
+
   try {
     const graph = await loadGraphFromDatabase();
+    // An id the graph doesn't know would silently simulate "no impact" — reject it instead.
+    const unknownIds = [...departingPersonIds, ...unavailableIds, ...failingAssetIds].filter((id) => !graph.getNode(id));
+    const notPeople = departingPersonIds.filter((id) => graph.getNode(id) && graph.getNode(id)!.entity.kind !== 'person');
+    if (unknownIds.length > 0 || notPeople.length > 0) {
+      res.status(400).json({
+        error: unknownIds.length > 0 ? `Unknown ids: ${unknownIds.join(', ')}` : `Not people: ${notPeople.join(', ')}`,
+      });
+      return;
+    }
     const sim = new SimulationEngine(graph);
     const result = sim.simulateCombined(parsed.data);
     res.json(result);

@@ -112,7 +112,7 @@ export function AutomationNode({ data }: NodeProps<CustomMapNode>) {
 
       <div className="flex items-center justify-between gap-1 mb-1">
         <span className="rounded-badge bg-bronze/15 px-1.5 py-0.2 text-[10px] font-mono font-semibold uppercase text-bronze-deep">
-          Workflow
+          Automation
         </span>
         {ring === 'fail' && (
           <span className="h-2 w-2 rounded-full bg-st-fail shrink-0" title="Check Failed" />
@@ -134,17 +134,27 @@ export function AutomationNode({ data }: NodeProps<CustomMapNode>) {
   );
 }
 
+const SERVICE_LABELS: Record<string, string> = {
+  model: 'AI Model',
+  vendor: 'Vendor',
+  app: 'App',
+  process: 'Process',
+  system: 'System',
+  group: 'Team',
+};
+
 /**
- * Vendor & AI Model Node: Rectangular card
+ * Vendor & AI Model Node: Rectangular card (also apps, processes and directory groups)
  */
 export function VendorModelNode({ data }: NodeProps<CustomMapNode>) {
   const { name, kind, ring, isDimmed, isBlastRadius, isRoot } = data;
+  const label = SERVICE_LABELS[kind] ?? 'Vendor';
 
   return (
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${kind === 'model' ? 'AI Model' : 'Vendor'}: ${name}`}
+      aria-label={`${label}: ${name}`}
       onClick={() => data.onSelect?.(data.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -162,7 +172,7 @@ export function VendorModelNode({ data }: NodeProps<CustomMapNode>) {
 
       <div className="flex items-center justify-between gap-1 mb-1">
         <span className="rounded-badge bg-surface-sunken px-1.5 py-0.2 text-[10px] font-mono capitalize text-ink-3">
-          {kind === 'model' ? 'AI Model' : 'Vendor'}
+          {label}
         </span>
       </div>
 
@@ -216,9 +226,15 @@ export function CredentialNode({ data }: NodeProps<CustomMapNode>) {
   );
 }
 
+// Keyed by the entity kinds the backend sends (packages/types EntityKind), plus the
+// older mock kinds. A kind missing here renders as React Flow's blank default box.
 export const nodeTypes = {
   person: PersonNode,
+  automation: AutomationNode,
   workflow: AutomationNode,
+  app: VendorModelNode,
+  process: VendorModelNode,
+  group: VendorModelNode,
   model: VendorModelNode,
   vendor: VendorModelNode,
   system: VendorModelNode,

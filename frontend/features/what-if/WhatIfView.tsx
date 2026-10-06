@@ -24,6 +24,7 @@ import {
 import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { runScenario, fetchWorstLosses } from '@/lib/api/simulations';
+import { fetchAllEntities } from '@/lib/api/entities';
 import { formatNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -39,10 +40,18 @@ export function WhatIfView({
   initialSentence,
 }: WhatIfViewProps) {
   const [sentence, setSentence] = React.useState<SentenceBuilderState>(
-    initialSentence || {
-      persons: [{ id: 'p-1', kind: 'person', name: 'Sarah Connor' }],
-      entities: [{ id: 'v-openai', kind: 'vendor', name: 'OpenAI Enterprise API' }],
-    },
+    initialSentence || { persons: [], entities: [] },
+  );
+
+  // Real people and entities for the sentence pickers.
+  const entitiesResource = useResource<EntityRef[]>('what-if-entities', fetchAllEntities);
+  const peopleOptions = React.useMemo(
+    () => (entitiesResource.status === 'ready' ? entitiesResource.data.filter((e) => e.kind === 'person') : []),
+    [entitiesResource],
+  );
+  const entityOptions = React.useMemo(
+    () => (entitiesResource.status === 'ready' ? entitiesResource.data.filter((e) => e.kind !== 'person' && e.kind !== 'group') : []),
+    [entitiesResource],
   );
 
   const [isRunning, setIsRunning] = React.useState(false);
@@ -65,11 +74,13 @@ export function WhatIfView({
     setIsRunning(true);
     setError(null);
     try {
+      // Services (vendors, models, apps) go down for everything that uses them;
+      // anything else picked fails itself.
+      const isService = (e: EntityRef) => e.kind === 'vendor' || e.kind === 'model' || e.kind === 'app';
       const sel: ScenarioSelection = {
         people: state.persons,
-        unavailable: state.entities.filter((e) => e.kind === 'vendor' || e.kind === 'model'),
-        failing: state.entities.filter((e) => (e.kind as string) === 'automation' || (e.kind as string) === 'workflow' || e.kind === 'credential'),
-
+        unavailable: state.entities.filter(isService),
+        failing: state.entities.filter((e) => !isService(e)),
       };
       const res = await runScenario(sel);
       setResult(res);
@@ -80,11 +91,12 @@ export function WhatIfView({
     }
   };
 
-  // Run initial simulation on mount if default values exist and no initial result
+  // Run once on mount only when the page was opened with a scenario already picked.
   React.useEffect(() => {
     if (!initialResult && (sentence.persons.length > 0 || sentence.entities.length > 0)) {
       handleSimulate(sentence);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -115,7 +127,12 @@ export function WhatIfView({
           onChange={setSentence}
           onSimulate={handleSimulate}
           isLoading={isRunning}
+          peopleOptions={peopleOptions}
+          entityOptions={entityOptions}
         />
+        {entitiesResource.status === 'error' && (
+          <p className="text-xs text-st-fail">Could not load people and services for the pickers.</p>
+        )}
       </div>
 
       {/* Simulation Results Section */}
@@ -147,7 +164,7 @@ export function WhatIfView({
               <span className="font-serif text-3xl text-st-fail mt-1 block tabular-nums">
                 {result.orphanedCriticalAssets.length}
               </span>
-              <span className="text-[11px] text-ink-3 mt-1 block">Critical assets without backup</span>
+              <span className="text-[11px] text-ink-3 mt-1 block">Critical assets left with no owner or backup</span>
             </Card>
 
             <Card className="p-5 bg-surface shadow-xs">
@@ -155,15 +172,20 @@ export function WhatIfView({
               <span className="font-serif text-3xl text-amber-ink mt-1 block tabular-nums">
                 {result.stoppedAutomations.length}
               </span>
-              <span className="text-[11px] text-ink-3 mt-1 block">Workflows directly stopped</span>
+              <span className="text-[11px] text-ink-3 mt-1 block">Automations directly stopped</span>
             </Card>
 
             <Card className="p-5 bg-surface shadow-xs">
               <span className="text-xs text-ink-3 font-mono block">Runs / Wk Affected</span>
               <span className="font-serif text-3xl text-ink mt-1 block tabular-nums">
-                {formatNumber(result.runsPerWeekAffected)}
+                {result.runsUnknownCount > 0 && result.runsPerWeekAffected > 0 ? 'at least ' : ''}
+                {result.runsUnknownCount > 0 && result.runsPerWeekAffected === 0 ? 'Unknown' : formatNumber(result.runsPerWeekAffected)}
               </span>
-              <span className="text-[11px] text-ink-3 mt-1 block">Weekly executions disrupted</span>
+              <span className="text-[11px] text-ink-3 mt-1 block">
+                {result.runsUnknownCount > 0
+                  ? `${result.runsUnknownCount} affected ${result.runsUnknownCount === 1 ? 'automation has' : 'automations have'} no run volume on record`
+                  : 'Weekly executions disrupted'}
+              </span>
             </Card>
 
             <Card className="p-5 bg-surface shadow-xs">
@@ -171,7 +193,7 @@ export function WhatIfView({
               <span className="font-serif text-3xl text-ink mt-1 block tabular-nums">
                 {result.downstream.length}
               </span>
-              <span className="text-[11px] text-ink-3 mt-1 block">Connected cascading assets</span>
+              <span className="text-[11px] text-ink-3 mt-1 block">Automations that depend on what stopped</span>
             </Card>
           </div>
 
@@ -188,7 +210,7 @@ export function WhatIfView({
 
               {result.orphanedCriticalAssets.length === 0 ? (
                 <p className="text-xs text-ink-3 italic">
-                  No critical assets orphaned under this scenario. All have secondary backups.
+                  No critical asset is left without an owner or backup in this scenario.
                 </p>
               ) : (
                 <div className="divide-y divide-rule text-xs">
@@ -228,7 +250,7 @@ export function WhatIfView({
 
               {result.stoppedAutomations.length === 0 ? (
                 <p className="text-xs text-ink-3 italic">
-                  No automated workflows are halted by personal credential revocations or vendor outages.
+                  Nothing on record stops directly in this scenario.
                 </p>
               ) : (
                 <div className="divide-y divide-rule text-xs">
@@ -247,16 +269,47 @@ export function WhatIfView({
                           </p>
                         )}
                       </div>
-                      <span className="font-mono text-ink-2 font-semibold">
-                        {formatNumber(item.weeklyRuns)} runs/wk
-                      </span>
+                      {item.weeklyRuns === null ? (
+                        <UnknownValue aria-label="Run volume unknown" />
+                      ) : (
+                        <span className="font-mono text-ink-2 font-semibold">
+                          {formatNumber(item.weeklyRuns)} runs/wk
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </Card>
           </div>
+
+          {result.downstream.length > 0 && (
+            <Card className="p-6 bg-surface shadow-card space-y-3">
+              <h3 className="text-sm font-semibold text-ink">
+                Also affected downstream ({result.downstream.length})
+              </h3>
+              <p className="text-xs text-ink-3">Automations that depend on something above and would stop with it.</p>
+              <ul className="flex flex-wrap gap-2 text-xs" aria-label="Downstream dependents">
+                {result.downstream.map((d) => (
+                  <li key={d.id}>
+                    <Link
+                      href={`/map?root=${encodeURIComponent(d.id)}`}
+                      className="inline-block rounded-badge border border-rule px-2 py-1 text-ink hover:text-amber-ink"
+                    >
+                      {d.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
+      )}
+
+      {!result && !isRunning && !error && (
+        <p className="text-sm text-ink-3">
+          Pick one or more people, services or automations above and press Simulate Impact.
+        </p>
       )}
 
       {/* S6: Worst Losses Section (Strict Fairness: Ranked Vendors & Models ONLY; People Aggregate Count) */}
@@ -299,6 +352,11 @@ export function WhatIfView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-rule font-sans">
+                    {worstLosses.vendorsAndModels.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-3 text-ink-3 italic">No vendors or models on record yet.</td>
+                      </tr>
+                    )}
                     {worstLosses.vendorsAndModels.map((item, index) => (
                       <tr key={item.entity.id} className="hover:bg-surface-sunken/20">
                         <td className="py-2.5 font-medium">
@@ -314,7 +372,9 @@ export function WhatIfView({
                           {item.automationsHalted}
                         </td>
                         <td className="py-2.5 text-right font-mono font-semibold text-amber-ink tabular-nums">
-                          {formatNumber(item.runsPerWeekAffected)}
+                          {item.runsUnknownCount > 0 && item.runsPerWeekAffected === 0
+                            ? 'Unknown'
+                            : `${item.runsUnknownCount > 0 ? '\u2265 ' : ''}${formatNumber(item.runsPerWeekAffected)}`}
                         </td>
                       </tr>
                     ))}
@@ -331,9 +391,10 @@ export function WhatIfView({
                 </h3>
                 <p className="font-serif text-2xl text-ink leading-tight">
                   <strong className="text-amber-ink font-semibold">
-                    {worstLosses.peopleHoldingManyUnbacked} people
+                    {worstLosses.peopleHoldingManyUnbacked}{' '}
+                    {worstLosses.peopleHoldingManyUnbacked === 1 ? 'person' : 'people'}
                   </strong>{' '}
-                  each hold {worstLosses.threshold}+ unbacked critical assets.
+                  {worstLosses.peopleHoldingManyUnbacked === 1 ? 'holds' : 'each hold'} {worstLosses.threshold}+ unbacked critical assets.
                 </p>
               </div>
 

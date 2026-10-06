@@ -61,13 +61,13 @@ describe('API contracts', () => {
     expect(call(spy)).toMatchObject({ url, method });
   });
 
-  it('routes a people-only scenario to the existing leaver endpoint', async () => {
-    const spy = respond({ result: { orphanedCriticalAssets: [], stoppedPersonalCredentialAutomations: [], totalRunsPerWeekAffected: 0, affectedDownstreamAssetIds: [], unknownFactsEncountered: 0 } });
+  it('sends a people-only scenario to the combined endpoint too (one shape, real names)', async () => {
+    const spy = respond({ orphanedCriticalAssets: [], stoppedAutomations: [], runsPerWeekAffected: 0, runsUnknownCount: 0, downstream: [], unknownFactsEncountered: 0 });
     await sims.runScenario({ people: [{ id: 'person:a', kind: 'person', name: 'A' }], unavailable: [], failing: [] });
-    expect(call(spy)).toMatchObject({ url: '/api/continuity/simulations/leaver', method: 'POST' });
+    expect(call(spy)).toMatchObject({ url: '/api/continuity/simulations/combined', method: 'POST' });
   });
 
-  it('routes a combined scenario to the planned combined endpoint', async () => {
+  it('routes a combined scenario to the combined endpoint', async () => {
     const spy = respond({ orphanedCriticalAssets: [], stoppedAutomations: [], runsPerWeekAffected: 0, downstream: [], unknownFactsEncountered: 0 });
     await sims.runScenario({
       people: [{ id: 'person:a', kind: 'person', name: 'A' }],

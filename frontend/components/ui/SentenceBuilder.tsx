@@ -36,6 +36,12 @@ export function SentenceBuilder({
   className,
 }: SentenceBuilderProps) {
   const [addingType, setAddingType] = React.useState<'person' | 'entity' | null>(null);
+  const pickerRef = React.useRef<HTMLDivElement>(null);
+
+  // Opening a picker puts the cursor straight into its search box.
+  React.useEffect(() => {
+    if (addingType) pickerRef.current?.querySelector('input')?.focus();
+  }, [addingType]);
 
   const handleRemovePerson = (id: string) => {
     onChange({
@@ -105,7 +111,7 @@ export function SentenceBuilder({
 
         {/* Add Person Trigger */}
         {addingType === 'person' ? (
-          <div className="inline-block w-64 font-sans text-sm">
+          <div ref={pickerRef} className="inline-block w-64 font-sans text-sm">
             <PersonPicker
               options={peopleOptions}
               onSearch={onSearchPeople}
@@ -150,12 +156,12 @@ export function SentenceBuilder({
 
         {/* Add Entity Trigger */}
         {addingType === 'entity' ? (
-          <div className="inline-block w-64 font-sans text-sm">
+          <div ref={pickerRef} className="inline-block w-64 font-sans text-sm">
             <EntityPicker
               options={entityOptions}
               onSearch={onSearchEntities}
               onChange={handleAddEntity}
-              placeholder="Pick vendor or model..."
+              placeholder="Pick a service or automation..."
               allowedKinds={['vendor', 'model', 'automation', 'credential', 'app'] as EntityKind[]}
             />
           </div>
@@ -165,7 +171,7 @@ export function SentenceBuilder({
             onClick={() => setAddingType('entity')}
             className="inline-flex items-center rounded-control border border-dashed border-ink-3/40 px-2.5 py-0.5 font-sans text-xs font-medium text-ink-2 hover:border-amber hover:text-amber-ink transition-colors cursor-pointer"
           >
-            + vendor or model
+            + service or automation
           </button>
         )}
 

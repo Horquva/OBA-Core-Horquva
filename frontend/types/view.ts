@@ -148,14 +148,18 @@ export interface PersonDetail {
 export interface GraphNodeView { id: string; kind: EntityKind; name: string; ring: 'fail' | 'unknown' | null }
 export interface GraphEdgeView { id: string; from: string; to: string; type: EdgeType; grade: EvidenceGrade }
 export interface Neighbourhood { rootId: string; nodes: GraphNodeView[]; edges: GraphEdgeView[] }
-export interface BlastRadius { rootId: string; downstream: string[]; upstream: string[] }
+/** downstream = what stops if the root fails; upstream = what the root relies on. */
+export interface BlastRadius { rootId: string; downstream: EntityRef[]; upstream: EntityRef[] }
 
 // ── What-If ────────────────────────────────────────────────
 export interface ScenarioSelection { people: EntityRef[]; unavailable: EntityRef[]; failing: EntityRef[] }
 export interface ScenarioResult {
   orphanedCriticalAssets: Array<{ asset: EntityRef; priorOwner: EntityRef | null; criticality: CriticalityLevel }>;
-  stoppedAutomations: Array<{ workflow: EntityRef; credentialOwner: EntityRef | null; weeklyRuns: number }>;
+  /** weeklyRuns is null when the run volume is unknown (DATA-03: never shown as 0). */
+  stoppedAutomations: Array<{ workflow: EntityRef; credentialOwner: EntityRef | null; weeklyRuns: number | null }>;
+  /** Sum of the known volumes only; runsUnknownCount says how many were missing. */
   runsPerWeekAffected: number;
+  runsUnknownCount: number;
   downstream: EntityRef[];
   unknownFactsEncountered: number;
 }
@@ -163,7 +167,7 @@ export interface SuccessionTestView {
   coveredCount: number; stillExposedCount: number; totalCriticalAssetsOwned: number; sharePct: number; overloadWarning: boolean;
 }
 export interface WorstLosses {
-  vendorsAndModels: Array<{ entity: EntityRef; automationsHalted: number; runsPerWeekAffected: number }>;
+  vendorsAndModels: Array<{ entity: EntityRef; automationsHalted: number; runsPerWeekAffected: number; runsUnknownCount: number }>;
   peopleHoldingManyUnbacked: number; threshold: number;
 }
 

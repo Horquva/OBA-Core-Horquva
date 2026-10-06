@@ -21,16 +21,20 @@ import type {
   GraphNodeView,
   GraphEdgeView,
   EvidenceGrade,
+  EntityRef,
 } from '@/types/view';
 import { nodeTypes, type MapNodeData, type CustomMapNode } from './nodes';
 import { Card } from '@/components/ui/Card';
 import { EvidenceBadge, CheckStatusBadge } from '@/components/ui/marks';
 import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
+import { EntityPicker } from '@/components/ui/EntityPicker';
 import { useResource } from '@/lib/useResource';
 import { fetchNeighbourhood, fetchBlastRadius } from '@/lib/api/graph';
+import { fetchAllEntities } from '@/lib/api/entities';
 import { cn } from '@/lib/cn';
 
 export interface MapViewProps {
+  /** From `/map?root=<entity id>`; with none, the page asks which entity to centre on. */
   initialRootId?: string;
   initialNeighbourhood?: Neighbourhood;
   initialBlastRadius?: BlastRadius;
@@ -56,7 +60,7 @@ function layoutGraph(
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: 'LR', nodesep: 50, ranksep: 100 });
 
-  const downstreamSet = new Set(blastRadius?.downstream || []);
+  const downstreamSet = new Set((blastRadius?.downstream || []).map((d) => d.id));
 
   nodes.forEach((n) => {
     // Width and height per node kind
@@ -128,43 +132,63 @@ function layoutGraph(
 }
 
 export function MapView({
-  initialRootId = 'w-1',
+  initialRootId,
   initialNeighbourhood,
   initialBlastRadius,
 }: MapViewProps) {
-  const [rootId, setRootId] = React.useState<string>(initialRootId);
+  const [rootId, setRootIdState] = React.useState<string | null>(initialRootId ?? null);
   const [hops, setHops] = React.useState<1 | 2>(2);
   const [viewMode, setViewMode] = React.useState<'canvas' | 'list'>('canvas');
   const [showBlastRadius, setShowBlastRadius] = React.useState(false);
 
-  // Fetch neighbourhood
+  // Keep the URL shareable (/map?root=...) without a navigation.
+  const setRootId = React.useCallback((id: string) => {
+    setRootIdState(id);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('root', id);
+      window.history.replaceState(null, '', url);
+    } catch {
+      /* non-browser environment */
+    }
+  }, []);
+
+  const entitiesResource = useResource<EntityRef[]>('graph-entities', fetchAllEntities);
+  const entityOptions = React.useMemo(
+    () => (entitiesResource.status === 'ready' ? entitiesResource.data : []),
+    [entitiesResource],
+  );
+
   const neighbourhoodResource = useResource<Neighbourhood>(
-    `graph-neighbourhood-${rootId}-${hops}`,
-    () => fetchNeighbourhood(rootId, hops),
+    rootId ? `graph-neighbourhood-${rootId}-${hops}` : null,
+    () => fetchNeighbourhood(rootId!, hops),
   );
-
-  // Fetch blast radius
   const blastResource = useResource<BlastRadius>(
-    `graph-blast-radius-${rootId}`,
-    () => fetchBlastRadius(rootId),
+    rootId ? `graph-blast-radius-${rootId}` : null,
+    () => fetchBlastRadius(rootId!),
   );
 
+  // Initial data only stands in for the root it was loaded for.
   const neighbourhoodData =
     neighbourhoodResource.status === 'ready'
       ? neighbourhoodResource.data
-      : initialNeighbourhood;
+      : initialNeighbourhood?.rootId === rootId
+        ? initialNeighbourhood
+        : undefined;
 
   const blastData =
     blastResource.status === 'ready'
       ? blastResource.data
-      : initialBlastRadius;
+      : initialBlastRadius?.rootId === rootId
+        ? initialBlastRadius
+        : undefined;
 
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomMapNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   // Update layout when data changes
   React.useEffect(() => {
-    if (!neighbourhoodData) return;
+    if (!neighbourhoodData || !rootId) return;
 
     const { nodes: lNodes, edges: lEdges } = layoutGraph(
       neighbourhoodData.nodes,
@@ -172,18 +196,28 @@ export function MapView({
       rootId,
       blastData || null,
       showBlastRadius,
-      (clickedId) => {
-        setRootId(clickedId);
-      },
+      setRootId,
     );
 
     setNodes(lNodes);
     setEdges(lEdges);
-  }, [neighbourhoodData, blastData, rootId, showBlastRadius, setNodes, setEdges]);
+  }, [neighbourhoodData, blastData, rootId, showBlastRadius, setNodes, setEdges, setRootId]);
 
   const rootNode = React.useMemo(() => {
     return neighbourhoodData?.nodes.find((n) => n.id === rootId) || null;
   }, [neighbourhoodData, rootId]);
+
+  const rootPicker = (
+    <EntityPicker
+      label="Centre the map on"
+      placeholder={entitiesResource.status === 'error' ? 'Could not load entities' : 'Search people, automations, models…'}
+      options={entityOptions}
+      value={null}
+      onChange={(e) => e && setRootId(e.id)}
+      disabled={entitiesResource.status === 'error'}
+      className="w-72"
+    />
+  );
 
   return (
     <div className="flex h-[calc(100vh-100px)] w-full flex-col overflow-hidden pb-4">
@@ -208,6 +242,7 @@ export function MapView({
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          {rootPicker}
           {/* Hops toggle */}
           <div className="flex items-center border border-rule rounded-control p-0.5 bg-surface">
             <button
@@ -297,25 +332,36 @@ export function MapView({
 
       {/* Main Content Area */}
       <div className="flex-1 relative bg-canvas">
-        {neighbourhoodResource.status === 'loading' && !neighbourhoodData ? (
+        {!rootId ? (
+          <div className="flex h-full w-full items-center justify-center p-8">
+            <EmptyState
+              title="Pick something to centre the map on"
+              description="Choose a person, automation, model or app above to see what it connects to and what would stop if it failed."
+            />
+          </div>
+        ) : neighbourhoodResource.status === 'loading' && !neighbourhoodData ? (
           <div className="flex h-full w-full items-center justify-center p-8">
             <div className="space-y-4 w-72 text-center">
               <Skeleton variant="card" className="h-40" />
               <p className="text-xs text-ink-3">Computing dependency graph...</p>
             </div>
           </div>
-        ) : neighbourhoodResource.status === 'error' && !neighbourhoodData ? (
+        ) : neighbourhoodResource.status === 'error' ? (
           <div className="flex h-full w-full items-center justify-center p-8">
             <ErrorState
               onRetry={neighbourhoodResource.reload}
-              message="Could not load topology for this asset."
+              message={
+                neighbourhoodResource.error.status === 404
+                  ? 'That entity is not in the graph. Pick another one above.'
+                  : 'Could not load the map for this entity.'
+              }
             />
           </div>
-        ) : !neighbourhoodData || neighbourhoodData.nodes.length === 0 ? (
+        ) : !neighbourhoodData || neighbourhoodData.nodes.length <= 1 ? (
           <div className="flex h-full w-full items-center justify-center p-8">
             <EmptyState
               title="No dependencies found"
-              description="This asset is not connected to other people or automated systems."
+              description="Nothing on record connects this entity to people, automations or services."
             />
           </div>
         ) : viewMode === 'list' ? (
@@ -352,29 +398,26 @@ export function MapView({
                     <span className="font-mono text-ink">{blastData.downstream.length}</span>
                   </h3>
                   <p className="text-xs text-ink-3">
-                    Assets and automations that would immediately halt if this entity fails.
+                    Everything that relies on this entity, directly or through other automations, and would stop if it failed.
                   </p>
                   <ul className="divide-y divide-rule text-xs" aria-label="Downstream blast radius list">
                     {blastData.downstream.length === 0 ? (
-                      <li className="py-2 text-ink-3 italic">None (no downstream dependants)</li>
+                      <li className="py-2 text-ink-3 italic">Nothing on record depends on it</li>
                     ) : (
-                      blastData.downstream.map((id) => {
-                        const node = neighbourhoodData.nodes.find((n) => n.id === id);
-                        return (
-                          <li key={id} className="py-2 flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setRootId(id)}
-                              className="font-medium text-ink hover:text-amber-ink transition-colors cursor-pointer text-left truncate"
-                            >
-                              {node?.name || id}
-                            </button>
-                            <span className="px-1.5 py-0.2 rounded-badge bg-surface-sunken text-[10px] font-mono capitalize text-ink-3 shrink-0">
-                              {node?.kind || 'entity'}
-                            </span>
-                          </li>
-                        );
-                      })
+                      blastData.downstream.map((ref) => (
+                        <li key={ref.id} className="py-2 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setRootId(ref.id)}
+                            className="font-medium text-ink hover:text-amber-ink transition-colors cursor-pointer text-left truncate"
+                          >
+                            {ref.name}
+                          </button>
+                          <span className="px-1.5 py-0.2 rounded-badge bg-surface-sunken text-[10px] font-mono capitalize text-ink-3 shrink-0">
+                            {ref.kind}
+                          </span>
+                        </li>
+                      ))
                     )}
                   </ul>
                 </Card>
@@ -385,29 +428,26 @@ export function MapView({
                     <span className="font-mono text-ink">{blastData.upstream.length}</span>
                   </h3>
                   <p className="text-xs text-ink-3">
-                    Prerequisites, human operators, and credentials this entity relies upon.
+                    Models, apps and personal credentials this entity relies on.
                   </p>
                   <ul className="divide-y divide-rule text-xs" aria-label="Upstream dependencies list">
                     {blastData.upstream.length === 0 ? (
-                      <li className="py-2 text-ink-3 italic">None (independent root entity)</li>
+                      <li className="py-2 text-ink-3 italic">No dependencies on record</li>
                     ) : (
-                      blastData.upstream.map((id) => {
-                        const node = neighbourhoodData.nodes.find((n) => n.id === id);
-                        return (
-                          <li key={id} className="py-2 flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setRootId(id)}
-                              className="font-medium text-ink hover:text-amber-ink transition-colors cursor-pointer text-left truncate"
-                            >
-                              {node?.name || id}
-                            </button>
-                            <span className="px-1.5 py-0.2 rounded-badge bg-surface-sunken text-[10px] font-mono capitalize text-ink-3 shrink-0">
-                              {node?.kind || 'entity'}
-                            </span>
-                          </li>
-                        );
-                      })
+                      blastData.upstream.map((ref) => (
+                        <li key={ref.id} className="py-2 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setRootId(ref.id)}
+                            className="font-medium text-ink hover:text-amber-ink transition-colors cursor-pointer text-left truncate"
+                          >
+                            {ref.name}
+                          </button>
+                          <span className="px-1.5 py-0.2 rounded-badge bg-surface-sunken text-[10px] font-mono capitalize text-ink-3 shrink-0">
+                            {ref.kind}
+                          </span>
+                        </li>
+                      ))
                     )}
                   </ul>
                 </Card>
@@ -443,7 +483,7 @@ export function MapView({
                       )}
                       {n.ring === 'unknown' && (
                         <span className="px-2 py-0.5 rounded-badge bg-ev-unknown/15 text-ev-unknown font-semibold">
-                          Unknown Critical
+                          Unknown facts
                         </span>
                       )}
                       <button

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { ApiError } from '@/lib/api/client';
 import { axe } from 'vitest-axe';
 import { ReactFlowProvider } from '@xyflow/react';
 import { MapView } from '@/features/map/MapView';
@@ -9,6 +10,7 @@ import {
   AutomationNode,
   VendorModelNode,
   CredentialNode,
+  nodeTypes,
 } from '@/features/map/nodes';
 import type { Neighbourhood, BlastRadius } from '@/types/view';
 
@@ -40,22 +42,53 @@ const sampleNeighbourhood: Neighbourhood = {
 
 const sampleBlastRadius: BlastRadius = {
   rootId: 'w-1',
-  downstream: ['w-2'],
-  upstream: ['p-1', 'c-1', 'v-1'],
+  downstream: [{ id: 'w-2', kind: 'workflow', name: 'Monthly Invoice Dispatcher' }],
+  upstream: [
+    { id: 'p-1', kind: 'person', name: 'Sarah Connor' },
+    { id: 'c-1', kind: 'credential', name: 'Stripe Live Secret Key' },
+    { id: 'v-1', kind: 'vendor', name: 'Stripe Payments API' },
+  ],
 };
 
 vi.mock('@/lib/api/graph', () => ({
   fetchNeighbourhood: vi.fn(),
   fetchBlastRadius: vi.fn(),
 }));
+vi.mock('@/lib/api/entities', () => ({ fetchAllEntities: vi.fn() }));
 
 import { fetchNeighbourhood, fetchBlastRadius } from '@/lib/api/graph';
+import { fetchAllEntities } from '@/lib/api/entities';
 
 describe('Dependency Map Feature (Task 26)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (fetchNeighbourhood as any).mockResolvedValue(sampleNeighbourhood);
     (fetchBlastRadius as any).mockResolvedValue(sampleBlastRadius);
+    (fetchAllEntities as any).mockResolvedValue(sampleNeighbourhood.nodes.map(({ id, kind, name }) => ({ id, kind, name })));
+  });
+
+  describe('MapView without a root (D10)', () => {
+    it('asks what to centre on instead of loading a made-up default', async () => {
+      render(<MapView />);
+      expect(screen.getByText(/pick something to centre the map on/i)).toBeDefined();
+      expect(fetchNeighbourhood).not.toHaveBeenCalled();
+    });
+
+    it('picking an entity loads its real neighbourhood', async () => {
+      render(<MapView />);
+      const input = screen.getByRole('combobox');
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: 'Stripe Billing' } });
+      fireEvent.click(await screen.findByRole('option', { name: /stripe billing pipeline/i }));
+      await waitFor(() => expect(fetchNeighbourhood).toHaveBeenCalledWith('w-1', 2));
+      expect(fetchBlastRadius).toHaveBeenCalledWith('w-1');
+    });
+
+    it('says when the entity is not in the graph', async () => {
+      (fetchNeighbourhood as any).mockRejectedValue(new ApiError(404, 'not found'));
+      render(<MapView initialRootId="gone" />);
+      expect(await screen.findByText(/not in the graph/i)).toBeDefined();
+    });
   });
 
   describe('MapView', () => {
@@ -171,11 +204,23 @@ describe('Dependency Map Feature (Task 26)', () => {
           <AutomationNode {...nodeProps} />
         </ReactFlowProvider>,
       );
-      expect(screen.getByText('Workflow')).toBeDefined();
+      expect(screen.getByText('Automation')).toBeDefined();
       expect(screen.getByText('Stripe Billing Pipeline')).toBeDefined();
 
       const results = await axe(container);
       expect(results).toHaveNoViolations();
+    });
+
+    it('registers every entity kind the backend sends, so none renders as a blank box', () => {
+      for (const kind of ['person', 'automation', 'credential', 'model', 'vendor', 'group', 'app', 'process']) {
+        expect(nodeTypes[kind as keyof typeof nodeTypes]).toBeDefined();
+      }
+      render(
+        <ReactFlowProvider>
+          <AutomationNode {...({ data: { id: 'a', name: 'AI Ticket Routing', kind: 'automation', ring: null } } as any)} />
+        </ReactFlowProvider>,
+      );
+      expect(screen.getByText('Automation')).toBeDefined();
     });
 
     it('renders CredentialNode and VendorModelNode', async () => {

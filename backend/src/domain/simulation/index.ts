@@ -15,6 +15,17 @@ import {
 } from '@horquva/types';
 import { ContinuityGraph } from '../graph/index.js';
 
+type Ref = { id: string; kind: any; name: string };
+
+export interface CombinedScenarioResult {
+  orphanedCriticalAssets: Array<{ asset: Ref; priorOwner: Ref | null; criticality: CriticalityLevel }>;
+  stoppedAutomations: Array<{ workflow: Ref; credentialOwner: Ref | null; weeklyRuns: number | null }>;
+  runsPerWeekAffected: number;
+  runsUnknownCount: number;
+  downstream: Ref[];
+  unknownFactsEncountered: number;
+}
+
 export class SimulationEngine {
   private graph: ContinuityGraph;
 
@@ -225,195 +236,102 @@ export class SimulationEngine {
   /**
    * S4: Combined Multi-Failure Scenario (SIM-03).
    * Evaluates compound blast radius when leavers, outages, and failing assets happen simultaneously.
+   *
+   * DATA-03: a missing run volume is `null` (never 0) and counted in `runsUnknownCount`;
+   * `runsPerWeekAffected` is the sum of the known volumes only. Orphaned assets are the
+   * critical/high ones plus those whose criticality is unknown (shown as unknown, not dropped).
    */
   public simulateCombined(input: {
     departingPersonIds?: string[];
     unavailableIds?: string[];
     failingAssetIds?: string[];
-  }): {
-    orphanedCriticalAssets: Array<{
-      asset: { id: string; kind: any; name: string };
-      priorOwner: { id: string; kind: any; name: string } | null;
-      criticality: CriticalityLevel;
-    }>;
-    stoppedAutomations: Array<{
-      workflow: { id: string; kind: any; name: string };
-      credentialOwner: { id: string; kind: any; name: string } | null;
-      weeklyRuns: number;
-    }>;
-    runsPerWeekAffected: number;
-    downstream: Array<{ id: string; kind: any; name: string }>;
-    unknownFactsEncountered: number;
-  } {
+  }): CombinedScenarioResult {
     const departingIds = input.departingPersonIds || [];
     const unavailableIds = input.unavailableIds || [];
     const failingAssetIds = input.failingAssetIds || [];
 
     const departingSet = new Set(departingIds);
-    const orphanedMap = new Map<string, { asset: any; priorOwner: any; criticality: CriticalityLevel }>();
-    const stoppedMap = new Map<string, { workflow: any; credentialOwner: any; weeklyRuns: number }>();
-    const downstreamMap = new Map<string, any>();
-    const countedRunsMap = new Map<string, number>();
-    let unknownFactsCount = 0;
+    const orphanedMap = new Map<string, CombinedScenarioResult['orphanedCriticalAssets'][number]>();
+    const stoppedMap = new Map<string, CombinedScenarioResult['stoppedAutomations'][number]>();
+    const runsById = new Map<string, number | null>();
+    const cascadeSources = new Set<string>();
+    let unknownCriticality = 0;
 
-    const toRef = (entity: any) => ({
-      id: entity.id,
-      kind: entity.kind,
-      name: entity.name,
-    });
+    const toRef = (entity: { id: string; kind: any; name: string }) => ({ id: entity.id, kind: entity.kind, name: entity.name });
+    const weeklyRuns = (id: string): number | null => {
+      const v = this.graph.getNode(id)?.facts.get('run_volume_weekly')?.value;
+      return typeof v === 'number' ? v : null;
+    };
+    const stop = (id: string, credentialOwner: ReturnType<typeof toRef> | null) => {
+      const entity = this.graph.getNode(id)?.entity;
+      if (!entity) return;
+      if (!stoppedMap.has(id)) stoppedMap.set(id, { workflow: toRef(entity), credentialOwner, weeklyRuns: weeklyRuns(id) });
+      runsById.set(id, weeklyRuns(id));
+      cascadeSources.add(id);
+    };
 
-    // 1. Process departing people
+    // 1. Departing people: assets left with no remaining owner or backup, and
+    //    automations running on their personal credentials.
     for (const personId of departingIds) {
       const personNode = this.graph.getNode(personId);
       const personRef = personNode?.entity ? toRef(personNode.entity) : null;
 
-      // Assets owned by departing person
-      const owned = this.graph.getOwnedAssets(personId);
-      for (const asset of owned) {
-        const node = this.graph.getNode(asset.id);
-        const critFact = node?.facts.get('criticality');
-        const criticality = (critFact?.value as CriticalityLevel) || 'unknown';
+      for (const asset of this.graph.getOwnedAssets(personId)) {
+        const critFact = this.graph.getNode(asset.id)?.facts.get('criticality');
+        const criticality = (critFact?.grade === 'unknown' ? 'unknown' : (critFact?.value as CriticalityLevel)) || 'unknown';
+        if (criticality !== 'critical' && criticality !== 'high' && criticality !== 'unknown') continue;
 
-        if (critFact?.grade === 'unknown' || criticality === 'unknown') {
-          unknownFactsCount++;
-        }
+        const remainingOwners = this.graph.getOwners(asset.id).filter((o) => !departingSet.has(o.id));
+        const remainingBackups = this.graph.getBackups(asset.id).filter((b) => !departingSet.has(b.id));
+        if (remainingOwners.length > 0 || remainingBackups.length > 0) continue;
 
-        const owners = this.graph.getOwners(asset.id);
-        const backups = this.graph.getBackups(asset.id);
-
-        const remainingOwners = owners.filter((o) => !departingSet.has(o.id));
-        const remainingBackups = backups.filter((b) => !departingSet.has(b.id));
-
-        if (remainingOwners.length === 0 && remainingBackups.length === 0) {
-          if (!orphanedMap.has(asset.id)) {
-            orphanedMap.set(asset.id, {
-              asset: toRef(asset),
-              priorOwner: personRef,
-              criticality,
-            });
-          }
-
-          const weeklyRunsFact = node?.facts.get('run_volume_weekly');
-          const runs = typeof weeklyRunsFact?.value === 'number' ? weeklyRunsFact.value : 0;
-          if (!countedRunsMap.has(asset.id)) {
-            countedRunsMap.set(asset.id, runs);
-          }
-
-          const downstreamIds = this.graph.getDownstreamImpact(asset.id);
-          for (const dsId of downstreamIds) {
-            const dsNode = this.graph.getNode(dsId);
-            if (dsNode?.entity) {
-              downstreamMap.set(dsId, toRef(dsNode.entity));
-            }
-          }
+        if (!orphanedMap.has(asset.id)) {
+          if (criticality === 'unknown') unknownCriticality++;
+          orphanedMap.set(asset.id, { asset: toRef(asset), priorOwner: personRef, criticality });
+          runsById.set(asset.id, weeklyRuns(asset.id));
+          cascadeSources.add(asset.id);
         }
       }
 
-      // Automations running on credentials of departing person
-      const edges = this.graph.getEdgesForEntity(personId);
-      for (const edge of edges) {
-        if (edge.type === 'runs_on_credentials_of' && edge.toId === personId) {
-          const wfNode = this.graph.getNode(edge.fromId);
-          if (wfNode?.entity) {
-            const runs = typeof wfNode.facts.get('run_volume_weekly')?.value === 'number'
-              ? (wfNode.facts.get('run_volume_weekly')!.value as number)
-              : 0;
-
-            if (!stoppedMap.has(wfNode.entity.id)) {
-              stoppedMap.set(wfNode.entity.id, {
-                workflow: toRef(wfNode.entity),
-                credentialOwner: personRef,
-                weeklyRuns: runs,
-              });
-            }
-
-            if (!countedRunsMap.has(wfNode.entity.id)) {
-              countedRunsMap.set(wfNode.entity.id, runs);
-            }
-          }
-        }
+      for (const edge of this.graph.getEdgesForEntity(personId)) {
+        if (edge.type === 'runs_on_credentials_of' && edge.toId === personId) stop(edge.fromId, personRef);
       }
     }
 
-    // 2. Process unavailable models / vendors / services
+    // 2. Unavailable models / vendors / apps: whatever calls or depends on them directly stops.
     for (const unavailId of unavailableIds) {
-      const edges = this.graph.getEdgesForEntity(unavailId);
-      for (const edge of edges) {
-        if (
-          (edge.type === 'calls_model' || edge.type === 'depends_on') &&
-          edge.toId === unavailId
-        ) {
-          const wfNode = this.graph.getNode(edge.fromId);
-          if (wfNode?.entity) {
-            const runs = typeof wfNode.facts.get('run_volume_weekly')?.value === 'number'
-              ? (wfNode.facts.get('run_volume_weekly')!.value as number)
-              : 0;
-
-            if (!stoppedMap.has(wfNode.entity.id)) {
-              stoppedMap.set(wfNode.entity.id, {
-                workflow: toRef(wfNode.entity),
-                credentialOwner: null,
-                weeklyRuns: runs,
-              });
-            }
-
-            if (!countedRunsMap.has(wfNode.entity.id)) {
-              countedRunsMap.set(wfNode.entity.id, runs);
-            }
-
-            const downstreamIds = this.graph.getDownstreamImpact(wfNode.entity.id);
-            for (const dsId of downstreamIds) {
-              const dsNode = this.graph.getNode(dsId);
-              if (dsNode?.entity) {
-                downstreamMap.set(dsId, toRef(dsNode.entity));
-              }
-            }
-          }
-        }
+      for (const edge of this.graph.getEdgesForEntity(unavailId)) {
+        if ((edge.type === 'calls_model' || edge.type === 'depends_on') && edge.toId === unavailId) stop(edge.fromId, null);
       }
     }
 
-    // 3. Process failing assets
-    for (const failId of failingAssetIds) {
-      const failNode = this.graph.getNode(failId);
-      if (failNode?.entity) {
-        const weeklyRuns = typeof failNode.facts.get('run_volume_weekly')?.value === 'number'
-          ? (failNode.facts.get('run_volume_weekly')!.value as number)
-          : 0;
+    // 3. Failing assets stop themselves.
+    for (const failId of failingAssetIds) stop(failId, null);
 
-        if (!stoppedMap.has(failId)) {
-          stoppedMap.set(failId, {
-            workflow: toRef(failNode.entity),
-            credentialOwner: null,
-            weeklyRuns,
-          });
-        }
-
-        if (!countedRunsMap.has(failId)) {
-          countedRunsMap.set(failId, weeklyRuns);
-        }
-
-        const downstreamIds = this.graph.getDownstreamImpact(failId);
-        for (const dsId of downstreamIds) {
-          const dsNode = this.graph.getNode(dsId);
-          if (dsNode?.entity) {
-            downstreamMap.set(dsId, toRef(dsNode.entity));
-          }
-        }
+    // Cascade: everything that depends on something already broken, minus what is already listed.
+    const listed = new Set<string>([...orphanedMap.keys(), ...stoppedMap.keys(), ...unavailableIds, ...departingIds]);
+    const downstreamMap = new Map<string, ReturnType<typeof toRef>>();
+    for (const src of cascadeSources) {
+      for (const dsId of this.graph.getDownstreamImpact(src)) {
+        const ds = this.graph.getNode(dsId)?.entity;
+        if (ds && !listed.has(dsId)) downstreamMap.set(dsId, toRef(ds));
       }
     }
 
-    let totalRunsPerWeek = 0;
-    for (const runs of countedRunsMap.values()) {
-      totalRunsPerWeek += runs;
+    let runsPerWeekAffected = 0;
+    let runsUnknownCount = 0;
+    for (const runs of runsById.values()) {
+      if (runs === null) runsUnknownCount++;
+      else runsPerWeekAffected += runs;
     }
 
     return {
       orphanedCriticalAssets: Array.from(orphanedMap.values()),
       stoppedAutomations: Array.from(stoppedMap.values()),
-      runsPerWeekAffected: totalRunsPerWeek,
-      downstream: Array.from(downstreamMap.values()),
-      unknownFactsEncountered: unknownFactsCount,
+      runsPerWeekAffected,
+      runsUnknownCount,
+      downstream: Array.from(downstreamMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
+      unknownFactsEncountered: unknownCriticality + runsUnknownCount,
     };
   }
 
@@ -424,20 +342,12 @@ export class SimulationEngine {
    * Reports only an aggregate count of individuals holding >= threshold unbacked critical assets.
    */
   public rankWorstLosses(threshold: number = 2): {
-    vendorsAndModels: Array<{
-      entity: { id: string; kind: any; name: string };
-      automationsHalted: number;
-      runsPerWeekAffected: number;
-    }>;
+    vendorsAndModels: Array<{ entity: Ref; automationsHalted: number; runsPerWeekAffected: number; runsUnknownCount: number }>;
     peopleHoldingManyUnbacked: number;
     threshold: number;
   } {
     const allNodes = this.graph.getAllNodes();
-    const vendorsAndModels: Array<{
-      entity: { id: string; kind: any; name: string };
-      automationsHalted: number;
-      runsPerWeekAffected: number;
-    }> = [];
+    const vendorsAndModels: Array<{ entity: Ref; automationsHalted: number; runsPerWeekAffected: number; runsUnknownCount: number }> = [];
 
     const toRef = (entity: any) => ({
       id: entity.id,
@@ -448,7 +358,7 @@ export class SimulationEngine {
     for (const node of allNodes) {
       if (node.entity.kind === 'model' || node.entity.kind === 'vendor') {
         const entityId = node.entity.id;
-        const affectedWorkflows = new Map<string, number>();
+        const affectedWorkflows = new Map<string, number | null>();
 
         const edges = this.graph.getEdgesForEntity(entityId);
         for (const edge of edges) {
@@ -458,23 +368,24 @@ export class SimulationEngine {
           ) {
             const wfNode = this.graph.getNode(edge.fromId);
             if (wfNode?.entity) {
-              const runs = typeof wfNode.facts.get('run_volume_weekly')?.value === 'number'
-                ? (wfNode.facts.get('run_volume_weekly')!.value as number)
-                : 0;
-              affectedWorkflows.set(wfNode.entity.id, runs);
+              const runs = wfNode.facts.get('run_volume_weekly')?.value;
+              affectedWorkflows.set(wfNode.entity.id, typeof runs === 'number' ? runs : null); // unknown ≠ 0
             }
           }
         }
 
         let totalRuns = 0;
+        let runsUnknownCount = 0;
         for (const r of affectedWorkflows.values()) {
-          totalRuns += r;
+          if (r === null) runsUnknownCount++;
+          else totalRuns += r;
         }
 
         vendorsAndModels.push({
           entity: toRef(node.entity),
           automationsHalted: affectedWorkflows.size,
           runsPerWeekAffected: totalRuns,
+          runsUnknownCount,
         });
       }
     }

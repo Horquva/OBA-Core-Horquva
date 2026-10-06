@@ -248,7 +248,7 @@
 | ✅ **D7 (Oct 14)** | Wire Overview + Assets screens to live backend | G-19 | `frontend/features/overview/OverviewView.tsx` → real `/api/continuity/overview`. `frontend/features/assets/AssetsView.tsx` → real `/api/assets` | UI-01, UI-04 |
 | ✅ **D8 (Oct 15)** | Wire Departures + Handover screens to live backend | G-19 | `frontend/features/departures/*.tsx` → real `/api/departures`. Initiate departure side sheet → POST. Succession panel → live S3 calls | UI-02 |
 | ✅ **D9 (Oct 16)** | Wire People/Teams + Actions screens | G-19 | `frontend/features/people/*.tsx` → real `/api/people/teams`. `frontend/features/actions/*.tsx` → real `/api/actions` | UI-03, UI-07 |
-| **D10 (Oct 17)** | Wire Map + What-If screens | G-19 | `frontend/features/map/MapView.tsx` → real `/api/graph/neighbourhood`. `frontend/features/what-if/WhatIfView.tsx` → real S1-S4 + S6 | UI-05, UI-06 |
+| ✅ **D10 (Oct 17)** | Wire Map + What-If screens | G-19 | `frontend/features/map/MapView.tsx` → real `/api/graph/neighbourhood`. `frontend/features/what-if/WhatIfView.tsx` → real S1-S4 + S6 | UI-05, UI-06 |
 | **D11 (Oct 18)** | Wire Settings (Connections, Identity Queue, Audit Log) | G-19 | `frontend/features/settings/*.tsx` → real settings APIs. Identity queue interactive resolution | UI-08 |
 | **D12 (Oct 21)** | Wire Ask OBA + Attestation Form + Change Feed | G-19 | `frontend/features/ask/AskView.tsx` → real assistant API. `frontend/features/attest/AttestForm.tsx` → real attestation. `frontend/components/shell/BellPopover.tsx` → real `/api/changes` | AI-01, CHK-02 |
 
@@ -256,7 +256,7 @@
 - [ ] All 7 core screens render real data from backend (no mock data paths remain)
 - [x] Overview shows real headline count ("X of Y critical assets fully covered") *(D7; now also separates unknown from exposed)*
 - [x] Departures screen shows real departures with correct stage progression *(D8; stages 4–5 recorded from the workbench, 1–3 follow the handover table)*
-- [ ] What-If screen executes combined scenarios and shows blast radius
+- [x] What-If screen executes combined scenarios and shows blast radius *(D10; also fixed the impact walk, which ran in the wrong direction)*
 - [ ] Attestation form submits answers and facts update to `confirmed`
 - [ ] Ask OBA returns grounded answers with entity chip links
 
@@ -286,6 +286,15 @@
   - Tests: backend `tests/api/peopleActions.test.ts` (9, hand-checked); frontend actions suite wrapped in session/toast providers + role-gating and refused-assignment tests. Backend 209/209; frontend 196/197 (pre-existing `EmptyState` failure).
   - Verified live as Alex: People shows Platform Engineering (1 of 3 covered, "1 person holds 67%…") and Revenue Operations; Actions → Assign Backup → picked Priya Sharma → `POST …/assign-backup` 200 → "Backup assigned" → action "Resolved on Oct 6, 2026".
   - Note: the fixture change (teams as data) affects Engineer A's test fixture; existing tests all pass.
+- **D10 — Map + What-If on the live backend ✅ (Oct 6)**
+  - Found (engine): **`getDownstreamImpact` walked dependency edges the wrong way.** Edges point from the dependant to what it needs (`105 calls_model GPT-4o`, `105 runs_on_credentials_of David`), and the walk followed them forwards — so it returned what an asset *needs*, not what *breaks*: "GPT-4o going down affects nothing", "AI Ticket Routing failing stops David". This fed the Map's blast radius, S1/S4 "downstream", and the change feed's blast radius (`diffEngine`). No test checked direction, so all passed.
+  - Found (Map): opened on a hard-coded root `w-1` that doesn't exist (404 on every visit) with no way to pick another; blast-radius lists showed raw ids for anything beyond 2 hops; node shapes were registered only for mock kinds (`workflow`, `system`), so every real **automation, app, process and group rendered as a blank white box**; the picker's label wasn't tied to its input (no accessible name).
+  - Found (What-If): opened with invented selections ("Sarah Connor", "OpenAI Enterprise API", ids `p-1`/`v-openai`) and auto-ran them on load; both pickers were **empty** (no options passed); people-only and single-model scenarios went to the S1/S2 endpoints, whose results were re-labelled with ids as names. S4 listed **low/medium assets under "Orphaned Critical"**, counted missing run volumes as **0** (S4 and S6), and silently simulated "no impact" for unknown ids.
+  - Backend: graph walk fixed — `getDownstreamImpact` = what stops if X fails (inbound), new `getDependencies` = what X needs (outbound). `GET /api/graph/blast-radius` returns `{id, kind, name}` refs (downstream = breaks, upstream = needs); neighbourhood rejects hops other than 1/2. S4 rewritten: orphaned = critical/high **plus unknown-criticality** (shown as unknown), run volume `null` when unknown with `runsUnknownCount`, cascade from everything broken, already-listed items not double-counted; route rejects an empty selection, unknown ids and non-people as leavers (400). S6 rows gain `runsUnknownCount`.
+  - Frontend: Map reads `/map?root=…` (URL updates as you click around), asks what to centre on when there's no root, has a search picker over all entities, says "not in the graph" on 404, renders real kinds. What-If starts empty, pickers load real people and entities (groups excluded), all scenarios go through S4 (vendors/models/apps "go down", anything else "fails"), unknown run volumes show **Unknown** / "at least N", downstream list links to the Map, "1 person holds…" grammar; opening a picker focuses its search box.
+  - Tests: backend `tests/api/mapWhatIf.test.ts` (9, hand-checked: direction, refs, S4 numbers, low-crit exclusion, validation, unknown runs + cascade, S6); frontend map 6 → 10, what-if 3 → 6, contract test updated. Backend 218/218; frontend 203/204 (pre-existing `EmptyState` failure).
+  - Verified live as Alex: Map on GPT-4o → blast radius (1) highlights AI Ticket Routing; Map on AI Ticket Routing → needs David Miller + OpenAI GPT-4o, blast radius (0). What-If "Omar Farooq leaves and OpenAI GPT-4o goes down" → 2 orphaned critical (Billing Sync, Payroll), AI Ticket Routing stopped 2,500/wk, 3,120 runs/wk total; S6 ranks GPT-4o (1 halted, 2,500/wk), "1 person holds 2+ unbacked critical assets."
+  - Notes: the engine fix touches Engineer A's `domain/graph` and `domain/simulation`; the handover pack and the change feed's blast radius now get the correct direction too. The asset detail's upstream/downstream lists (`routes/assets.ts`) mix ownership and dependency edges — left for whoever owns that screen.
 
 ---
 
