@@ -47,6 +47,7 @@ let baseUrl: string;
 
 beforeAll(async () => {
   process.env.FRONTEND_URL = 'http://app.test';
+  delete process.env.AUTH_DEV_LOGIN; // a developer's backend/.env may turn it on; tests set it explicitly
   trusted = await generateKeyPair('RS256');
   untrusted = await generateKeyPair('RS256');
   const jwk = { ...(await exportJWK(trusted.publicKey)), kid: 'k1', alg: 'RS256' };

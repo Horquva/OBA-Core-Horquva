@@ -179,11 +179,18 @@ describe('Departure lifecycle, end to end (HND-01..05)', () => {
 
   it('10. the audit trail tells the same story with the real actors (SEC-06)', () => {
     const ours = new Set([`departure:${depId}`, `handover:${handoverId[A101]}`, `handover:${handoverId[A102]}`]);
-    const trail = DataService.getInstance()
+    const entries = DataService.getInstance()
       .getAuditLog()
       .filter((e) => ours.has(e.resource) || e.resource.includes(depId) || Object.values(handoverId).some((h) => e.resource.includes(h)))
-      .reverse() // oldest first
-      .map((e) => `${e.actor} ${e.action}`);
+      .reverse(); // oldest first
+
+    // Reads are audited too: the admin's detail and pack views are on record.
+    const reads = entries.filter((e) => e.action === 'API_GET');
+    expect(reads.length).toBeGreaterThanOrEqual(5);
+    expect(reads.every((e) => e.actor === 'user:admin')).toBe(true);
+    expect(reads.map((e) => e.resource)).toContain(`/api/departures/${depId}/handover-pack`);
+
+    const trail = entries.filter((e) => e.action !== 'API_GET').map((e) => `${e.actor} ${e.action}`);
 
     expect(trail).toEqual([
       'user:admin INITIATE_DEPARTURE',

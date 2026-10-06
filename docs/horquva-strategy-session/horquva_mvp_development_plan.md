@@ -159,7 +159,7 @@
 **Sprint 1 / Engineer B Acceptance Criteria:**
 - [x] Microsoft Entra SSO and Google OIDC both produce valid session tokens *(verified against fake IdPs in tests; live tenant sign-in pending app registrations)*
 - [x] RBAC middleware blocks `viewer` from write operations, blocks `reviewer` from admin routes
-- [x] Every API call writes to audit_log *(scoped to every write, every denial and every sign-in/out — see D3 log for why successful reads are excluded)*
+- [x] Every API call writes to audit_log *(reads, writes, denials and sign-in/out — reads added Oct 6 at owner's request)*
 - [x] `POST /api/departures` creates departure and triggers S1 simulation to build handover pack
 - [x] Successor can accept via `POST /api/handover/{id}/accept` *(route is `/api/handovers/{id}/accept`; only the named successor)*
 - [x] Departure progresses through all 5 stages correctly
@@ -186,7 +186,7 @@
   - Fails closed: any route not in the table needs a session for GET and **admin** for every other method, so a new route can't ship unprotected by accident.
   - Roles are re-read per request, so a role change takes effect immediately (no stale cookie privileges).
   - Audit: every write, every 401/403 (`ACCESS_DENIED`, with actor or `anonymous`), `SIGN_IN` / `SIGN_IN_FAILED` / `SIGN_OUT`. DataService domain entries (e.g. `INITIATE_DEPARTURE`) now record the **real** signed-in user instead of the hard-coded `user:admin`; writes with no domain entry get a generic `API_<METHOD>` entry; no double-logging.
-  - Deviation: successful reads are **not** audited — the store keeps the newest 500 entries, so logging page loads would evict real actions within minutes.
+  - ~~Deviation: successful reads are not audited~~ — **reversed Oct 6 at the owner's request:** every successful read is now logged as API_GET (actor, path, status, IP); CORS preflights are skipped. In-memory retention raised from 500 to 20,000 entries (AUDIT_LOG_CAPACITY) so page loads don't evict real actions; it should move to the Postgres udit_log table when persistence lands. The Audit Log screen will now show reads too — filter by action to hide them.
   - Tests: `backend/tests/middleware/rbac.test.ts` (17); existing API tests now sign a real session via `backend/tests/helpers/session.ts` (`authedFetch`). Backend suite 140/140; live boot verified (anonymous 401, viewer 200 on reads / 403 on `/api/users`, audit entries carry the right actors).
   - ⚠️ Impact on frontend: the backend now returns 401 to any request without a session. Local frontend development against the real backend needs a signed-in session (`AUTH_DEV_LOGIN=true` + `POST /api/auth/dev/sign-in`) until the sign-in page is wired (Sprint 3 D13). An automatic "act as this user when no session" dev bypass was considered and **not** added.
   - Not done here: successor-only enforcement on handover accept/decline (any reviewer can currently act on any handover) — belongs to D5 (successor acceptance).

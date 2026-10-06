@@ -34,6 +34,9 @@ import { IdentityQueueService, InMemoryIdentityQueueAdapter } from '../identity/
 import { evaluateAllChecks, calculateHeadlineMetrics } from '../domain/checks/index.js';
 import { query } from '../db/client.js';
 
+/** In-memory audit retention until the audit log moves to Postgres. */
+export const AUDIT_LOG_CAPACITY = 20000;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -292,7 +295,8 @@ export class DataService {
       details,
     };
     this.auditLogs.unshift(entry);
-    if (this.auditLogs.length > 500) {
+    // Reads are audited too (SEC-06), so keep enough history that page loads don't evict real actions.
+    if (this.auditLogs.length > AUDIT_LOG_CAPACITY) {
       this.auditLogs.pop();
     }
   }

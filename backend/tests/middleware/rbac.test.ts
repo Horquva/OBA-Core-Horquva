@@ -171,10 +171,18 @@ describe('Audit trail (SEC-06)', () => {
     expect(newest()).toMatchObject({ actor: 'anonymous', action: 'ACCESS_DENIED' });
   });
 
-  it('does not log successful reads', async () => {
+  it('logs successful reads as API_GET with the reader', async () => {
     const before = ds().getAuditLog().length;
     await as('user:maya', '/api/departures');
-    await as('user:maya', '/api/assets');
+    await as('user:maya', '/api/assets?kind=automation');
+    expect(ds().getAuditLog().length).toBe(before + 2);
+    expect(newest()).toMatchObject({ actor: 'user:maya', action: 'API_GET', resource: '/api/assets' });
+    expect(newest().details).toContain('200');
+  });
+
+  it('does not log CORS preflights', async () => {
+    const before = ds().getAuditLog().length;
+    await fetch(`${baseUrl}/api/departures`, { method: 'OPTIONS' });
     expect(ds().getAuditLog().length).toBe(before);
   });
 
