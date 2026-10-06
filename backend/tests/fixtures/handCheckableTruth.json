@@ -18,7 +18,9 @@
     { "id": "automation:n8n:105", "kind": "automation", "name": "AI Ticket Routing", "externalRefs": { "n8n": "105" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
     { "id": "automation:n8n:106", "kind": "automation", "name": "Slack Notifications", "externalRefs": { "n8n": "106" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
 
-    { "id": "model:openai:gpt-4o", "kind": "model", "name": "OpenAI GPT-4o", "externalRefs": { "vendor": "openai" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" }
+    { "id": "model:openai:gpt-4o", "kind": "model", "name": "OpenAI GPT-4o", "externalRefs": { "vendor": "openai" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "group:platform-engineering", "kind": "group", "name": "Platform Engineering", "externalRefs": { "source": "entra" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" },
+    { "id": "group:revenue-operations", "kind": "group", "name": "Revenue Operations", "externalRefs": { "source": "entra" }, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" }
   ],
   "edges": [
     { "fromId": "person:omar@acme.com", "toId": "automation:n8n:101", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
@@ -29,7 +31,17 @@
     { "fromId": "person:david@acme.com", "toId": "automation:n8n:105", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
     { "fromId": "automation:n8n:105", "toId": "person:david@acme.com", "type": "runs_on_credentials_of", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
     { "fromId": "automation:n8n:105", "toId": "model:openai:gpt-4o", "type": "calls_model", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
-    { "fromId": "person:chen@acme.com", "toId": "automation:n8n:106", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" }
+    { "fromId": "person:chen@acme.com", "toId": "automation:n8n:106", "type": "owns", "grade": "stated", "source": "n8n", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:omar@acme.com", "toId": "group:platform-engineering", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:chen@acme.com", "toId": "group:platform-engineering", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:maya@acme.com", "toId": "group:platform-engineering", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:david@acme.com", "toId": "group:platform-engineering", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:elena@acme.com", "toId": "group:platform-engineering", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:sarah@acme.com", "toId": "group:revenue-operations", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:liam@acme.com", "toId": "group:revenue-operations", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:priya@acme.com", "toId": "group:revenue-operations", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:carlos@acme.com", "toId": "group:revenue-operations", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },
+    { "fromId": "person:aisha@acme.com", "toId": "group:revenue-operations", "type": "member_of", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" }
   ],
   "facts": [
     { "entityId": "person:sarah@acme.com", "attribute": "status", "value": "departed", "grade": "stated", "source": "entra", "validFrom": "2025-01-01T00:00:00Z" },

@@ -76,7 +76,7 @@ describe('Departure lifecycle, end to end (HND-01..05)', () => {
   it('2. the detail view tells the truth: no fabricated suggestions, team or undocumented items', async () => {
     const d = await detail();
     expect(d.stage).toBe('initiated');
-    expect(d.team).toBeNull(); // fixture has no team membership
+    expect(d.team).toBe('Platform Engineering'); // from the directory's member_of edge, not a hard-coded value
     expect(d.handover).toHaveLength(2);
     for (const h of d.handover) {
       expect(h.successor).toBeNull();

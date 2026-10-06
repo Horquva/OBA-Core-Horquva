@@ -185,7 +185,7 @@ export function TeamDetail({ id, initialDetail }: TeamDetailProps) {
                         {member.person.name}
                       </Link>
                       <p className="text-xs text-ink-3">
-                        {member.title || 'Team Member'}
+                        {member.title ?? 'Title not on record'}
                       </p>
                     </div>
                   </div>

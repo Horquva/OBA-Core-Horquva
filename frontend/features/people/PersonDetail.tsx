@@ -94,7 +94,7 @@ export function PersonDetail({ id, initialDetail }: PersonDetailProps) {
                   {detail.person.name}
                 </h1>
                 <p className="text-sm text-ink-3">
-                  {detail.title || 'Team Member'}
+                  {detail.title ?? 'Title not on record'}
                   {detail.team && (
                     <span>
                       {' '}·{' '}
@@ -290,7 +290,11 @@ export function PersonDetail({ id, initialDetail }: PersonDetailProps) {
           {/* Pending Confirmations */}
           <Card className="p-6 space-y-4 bg-surface">
             <h3 className="text-sm font-semibold text-ink">Pending Ownership Confirmations</h3>
-            {detail.pendingConfirmations > 0 ? (
+            {detail.pendingConfirmations === null ? (
+              <p className="text-xs text-ink-3">
+                Confirmation requests aren&apos;t counted on this page yet. See Actions → Confirmations.
+              </p>
+            ) : detail.pendingConfirmations > 0 ? (
               <div className="space-y-3">
                 <p className="text-xs text-ink-2 leading-relaxed">
                   <strong>{detail.pendingConfirmations} facts</strong> require ownership or backup confirmation from {detail.person.name}.

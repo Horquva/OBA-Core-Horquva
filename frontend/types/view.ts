@@ -140,7 +140,8 @@ export interface TeamDetail { team: TeamSummary; members: TeamMember[] }
 export interface PersonDetail {
   person: EntityRef; title: string | null; team: EntityRef | null; holdings: Holding[];
   openHandovers: Array<{ departureId: string; from: EntityRef; assetCount: number }>;
-  pendingConfirmations: number;
+  /** null = not counted by the backend yet (never shown as "all verified"). */
+  pendingConfirmations: number | null;
 }
 
 // ── Graph ──────────────────────────────────────────────────

@@ -361,51 +361,7 @@ export class DataService {
     return this.actionOverrides;
   }
 
-  public assignBackupAction(actionId: string, personId: string): void {
-    const parts = actionId.split(':');
-    const entityId = parts.slice(1).join(':');
-
-    // Add backs_up edge in graph
-    this.graph.addEdge({
-      id: crypto.randomUUID(),
-      fromId: personId,
-      toId: entityId,
-      type: 'backs_up',
-      grade: 'confirmed',
-      source: 'manual_remediation',
-      validFrom: new Date(),
-      validTo: null,
-    });
-
-    this.actionOverrides.set(actionId, {
-      id: actionId,
-      checkId: parts[0],
-      entityId,
-      status: 'resolved',
-      resolvedAt: new Date().toISOString(),
-    });
-
-    this.addAuditEntry('user:admin', 'ASSIGN_BACKUP', `action:${actionId}`, `Assigned backup ${personId} to ${entityId}`);
-  }
-
-  public acceptRiskAction(actionId: string, reason: string, expiresAt: string, acceptedBy: string = 'Alex Rivera'): void {
-    const parts = actionId.split(':');
-    const entityId = parts.slice(1).join(':');
-
-    this.actionOverrides.set(actionId, {
-      id: actionId,
-      checkId: parts[0],
-      entityId,
-      status: 'accepted_risk',
-      acceptedRisk: {
-        reason,
-        expiresAt,
-        acceptedBy,
-      },
-    });
-
-    this.addAuditEntry(acceptedBy, 'ACCEPT_RISK', `action:${actionId}`, `Accepted risk: ${reason} (expires ${expiresAt})`);
-  }
+  // Assign-backup and accept-risk live in actions/actionService.ts (validated, honest evidence grades).
 
   // ── Changes ─────────────────────────────────────────────────
   public getChangeEvents(filterAcknowledged?: boolean): StoredChangeEvent[] {

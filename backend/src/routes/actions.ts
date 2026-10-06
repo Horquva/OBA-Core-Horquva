@@ -11,9 +11,18 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { DataService } from '../services/dataService.js';
 import { evaluateAllChecks } from '../domain/checks/index.js';
-import { CriticalityLevel } from '@horquva/types';
+import { criticalityView } from '../views/factViews.js';
+import { ActionError, acceptRisk, assignBackup } from '../actions/actionService.js';
 
 export const actionsRouter = Router();
+
+function sendActionError(res: Response, err: any, fallback: string): void {
+  if (err instanceof ActionError) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+  res.status(500).json({ error: err?.message || fallback });
+}
 
 export type ActionType = 'assign_backup' | 'confirm_facts' | 'name_successor' | 'move_credential' | 'document' | 'add_fallback';
 export type ActionStatus = 'open' | 'in_progress' | 'resolved' | 'accepted_risk';
@@ -40,10 +49,10 @@ export function buildActions(dataService: DataService): any[] {
         : { id: check.entityId, kind: 'automation' as const, name: check.entityId };
 
       const critFact = node?.facts.get('criticality');
-      const criticality = (critFact?.value as CriticalityLevel) || 'medium';
+      const criticality = criticalityView(critFact).level; // unknown stays unknown, never 'medium'
 
       const runsFact = node?.facts.get('run_volume_weekly');
-      const runs = typeof runsFact?.value === 'number' ? runsFact.value : 0;
+      const runs: number | null = typeof runsFact?.value === 'number' ? runsFact.value : null; // unknown volume sorts last, not as 0
 
       const checkId = check.checkId;
       let type: ActionType = 'assign_backup';
@@ -84,6 +93,11 @@ export function buildActions(dataService: DataService): any[] {
         status = override.status;
         acceptedRisk = override.acceptedRisk || null;
         resolvedAt = override.resolvedAt || null;
+        // An accepted risk lapses at its expiry: the still-failing check is open again.
+        if (status === 'accepted_risk' && acceptedRisk && new Date(acceptedRisk.expiresAt).getTime() <= Date.now()) {
+          status = 'open';
+          acceptedRisk = null;
+        }
       }
 
       const backups = graph.getBackups(check.entityId);
@@ -118,9 +132,9 @@ export function buildActions(dataService: DataService): any[] {
         ? { id: node.entity.id, kind: node.entity.kind, name: node.entity.name }
         : { id: override.entityId, kind: 'automation' as const, name: override.entityId };
       const critFact = node?.facts.get('criticality');
-      const criticality = (critFact?.value as CriticalityLevel) || 'medium';
+      const criticality = criticalityView(critFact).level; // unknown stays unknown, never 'medium'
       const runsFact = node?.facts.get('run_volume_weekly');
-      const runs = typeof runsFact?.value === 'number' ? runsFact.value : 0;
+      const runs: number | null = typeof runsFact?.value === 'number' ? runsFact.value : null; // unknown volume sorts last, not as 0
 
       actions.push({
         id: actionId,
@@ -165,7 +179,7 @@ export function buildActions(dataService: DataService): any[] {
       return a._isUnbacked ? -1 : 1;
     }
 
-    return b._weeklyRuns - a._weeklyRuns;
+    return (b._weeklyRuns ?? -1) - (a._weeklyRuns ?? -1);
   });
 
   // Assign 1-indexed ranks
@@ -213,11 +227,10 @@ actionsRouter.post('/:id/assign-backup', (req: Request, res: Response) => {
   }
 
   try {
-    const dataService = DataService.getInstance();
-    dataService.assignBackupAction(String(req.params.id), parsed.data.personId);
+    assignBackup(DataService.getInstance(), String(req.params.id), parsed.data.personId);
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to assign backup.' });
+    sendActionError(res, err, 'Failed to assign backup.');
   }
 });
 
@@ -234,11 +247,14 @@ actionsRouter.post('/:id/accept-risk', (req: Request, res: Response) => {
     return;
   }
 
+  if (!req.user) {
+    res.status(401).json({ error: 'Sign in to continue.' });
+    return;
+  }
   try {
-    const dataService = DataService.getInstance();
-    dataService.acceptRiskAction(String(req.params.id), parsed.data.reason, parsed.data.expiresAt);
+    acceptRisk(DataService.getInstance(), String(req.params.id), parsed.data, req.user);
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to accept risk.' });
+    sendActionError(res, err, 'Failed to accept risk.');
   }
 });

@@ -9,6 +9,10 @@ import { PersonPicker, type PersonItem } from '@/components/ui/PersonPicker';
 import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchActions, assignBackup, acceptRisk } from '@/lib/api/actions';
+import { fetchPeople } from '@/lib/api/entities';
+import { useSession } from '@/lib/session';
+import { canEdit, canManageSettings } from '@/lib/permissions';
+import { useToast } from '@/components/ui/Toast';
 import { ConfirmationsTab } from './ConfirmationsTab';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -44,6 +48,14 @@ export function ActionsView({
     return list.sort((a, b) => a.rank - b.rank);
   }, [actionsData, statusFilter]);
 
+  const { toast } = useToast();
+  const { session } = useSession();
+  // Same rules as the backend RBAC: admins/reviewers assign backups; only admins accept risk.
+  const mayAssign = canEdit(session);
+  const mayAcceptRisk = canManageSettings(session);
+  const peopleResource = useResource(mayAssign ? 'people-picker' : null, fetchPeople);
+  const peopleOptions: PersonItem[] = peopleResource.status === 'ready' ? peopleResource.data : [];
+
   // Modal / Inline State for Assign Backup
   const [assigningActionId, setAssigningActionId] = React.useState<string | null>(null);
   const [isAssigning, setIsAssigning] = React.useState(false);
@@ -61,9 +73,13 @@ export function ActionsView({
     try {
       await assignBackup(actionId, person.id);
       setAssigningActionId(null);
+      toast({
+        title: 'Backup assigned',
+        description: `${person.name} is recorded as backup (stated). It becomes confirmed when they confirm it themselves.`,
+      });
       actionsResource.reload();
-    } catch (err) {
-      // handled
+    } catch (err: any) {
+      toast({ title: "Backup wasn't assigned", description: err?.message || 'The backend refused the assignment.', variant: 'error' });
     } finally {
       setIsAssigning(false);
     }
@@ -80,9 +96,10 @@ export function ActionsView({
       await acceptRisk(riskAction.id, { reason: riskReason.trim(), expiresAt });
       setRiskAction(null);
       setRiskReason('');
+      toast({ title: 'Risk accepted', description: `Until ${formatDate(expiresAt)}. It reopens automatically after that.` });
       actionsResource.reload();
-    } catch (err) {
-      // handled
+    } catch (err: any) {
+      toast({ title: "Risk wasn't accepted", description: err?.message || 'The backend refused it.', variant: 'error' });
     } finally {
       setIsAcceptingRisk(false);
     }
@@ -263,6 +280,7 @@ export function ActionsView({
                         {action.status === 'open' && (
                           <>
                             {action.primary.kind === 'assign_backup' ? (
+                              mayAssign && (
                               <button
                                 type="button"
                                 onClick={() => setAssigningActionId(isAssigningHere ? null : action.id)}
@@ -270,6 +288,7 @@ export function ActionsView({
                               >
                                 {isAssigningHere ? 'Cancel' : 'Assign Backup'}
                               </button>
+                              )
                             ) : (
                               <Link
                                 href={action.primary.href}
@@ -279,6 +298,7 @@ export function ActionsView({
                               </Link>
                             )}
 
+                            {mayAcceptRisk && (
                             <button
                               type="button"
                               onClick={() => {
@@ -289,6 +309,7 @@ export function ActionsView({
                             >
                               Accept Risk
                             </button>
+                            )}
                           </>
                         )}
 
@@ -319,7 +340,9 @@ export function ActionsView({
                         </label>
                         <div className="w-full sm:w-80">
                           <PersonPicker
-                            placeholder="Choose person..."
+                            placeholder={peopleResource.status === 'error' ? "Couldn't load people" : 'Choose person...'}
+                            options={peopleOptions}
+                            disabled={isAssigning}
                             onChange={(p) => handleAssignBackup(action.id, p)}
                           />
                         </div>

@@ -5,6 +5,31 @@ import { axe } from 'vitest-axe';
 import { ActionsView } from '@/features/actions/ActionsView';
 import { ConfirmationsTab } from '@/features/actions/ConfirmationsTab';
 import { NewCampaignWizard } from '@/features/actions/NewCampaignWizard';
+import { SessionProvider } from '@/lib/session';
+import { ToastProvider } from '@/components/ui/Toast';
+import type { Session } from '@/types/view';
+import * as entitiesApi from '@/lib/api/entities';
+
+const sessions: Record<'admin' | 'reviewer' | 'viewer', Session> = {
+  admin: { userId: 'user:admin', name: 'Alex Rivera', email: 'alex@acme.com', role: 'admin', isHrManager: true, title: null },
+  reviewer: { userId: 'user:chen', name: 'Chen Wei', email: 'chen@acme.com', role: 'reviewer', isHrManager: false, title: null },
+  viewer: { userId: 'user:maya', name: 'Maya Lin', email: 'maya@acme.com', role: 'viewer', isHrManager: false, title: null },
+};
+
+// ActionsView needs a session (role-gated buttons) and toasts (honest feedback).
+function renderActions(as: keyof typeof sessions = 'admin') {
+  vi.spyOn(entitiesApi, 'fetchPeople').mockResolvedValue([
+    { id: 'person:chen@acme.com', kind: 'person', name: 'Chen Wei' },
+    { id: 'person:priya@acme.com', kind: 'person', name: 'Priya Sharma' },
+  ]);
+  return render(
+    <SessionProvider initialSession={sessions[as]}>
+      <ToastProvider>
+        <ActionsView initialActions={sampleActions} />
+      </ToastProvider>
+    </SessionProvider>,
+  );
+}
 import type {
   ActionView,
   CampaignSummary,
@@ -143,7 +168,7 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
 
   describe('ActionsView Component', () => {
     it('renders ranked remediation actions list ordered by rank', async () => {
-      render(<ActionsView initialActions={sampleActions} />);
+      renderActions();
 
       expect(screen.getByText('Actions & Confirmations')).toBeInTheDocument();
       expect(screen.getByText('#1')).toBeInTheDocument();
@@ -154,7 +179,7 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
     });
 
     it('filters actions by status pills correctly', async () => {
-      render(<ActionsView initialActions={sampleActions} />);
+      renderActions();
 
       // Filter to Accepted Risk only
       const acceptedRiskPill = screen.getByRole('button', { name: 'Accepted Risk' });
@@ -169,7 +194,7 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
     });
 
     it('displays empty state when filter yields zero actions', async () => {
-      render(<ActionsView initialActions={sampleActions} />);
+      renderActions();
 
       // Filter to Resolved
       const resolvedPill = screen.getByRole('button', { name: 'Resolved' });
@@ -179,8 +204,33 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
       expect(screen.getByText('All identified continuity actions matching this status filter have been addressed.')).toBeInTheDocument();
     });
 
+    it('shows only the actions each role may take (matches backend RBAC)', async () => {
+      const { unmount } = renderActions('viewer');
+      expect(screen.queryByRole('button', { name: 'Assign Backup' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Accept Risk' })).not.toBeInTheDocument();
+      unmount();
+
+      renderActions('reviewer');
+      expect(screen.getAllByRole('button', { name: 'Assign Backup' }).length).toBeGreaterThan(0);
+      expect(screen.queryByRole('button', { name: 'Accept Risk' })).not.toBeInTheDocument();
+    });
+
+    it('lists real people in the backup picker and reports a refused assignment', async () => {
+      vi.spyOn(actionsApi, 'assignBackup').mockRejectedValue(new Error('Omar Farooq already owns it; a backup must be someone else.'));
+      renderActions();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Assign Backup' })[0]);
+
+      const input = screen.getByPlaceholderText('Choose person...');
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: 'Priya' } });
+      fireEvent.click(await screen.findByText('Priya Sharma'));
+
+      expect(await screen.findByText("Backup wasn't assigned")).toBeInTheDocument();
+      expect(screen.getByText(/a backup must be someone else/)).toBeInTheDocument();
+    });
+
     it('allows toggling inline backup assignment picker', async () => {
-      render(<ActionsView initialActions={sampleActions} />);
+      renderActions();
 
       const assignButtons = screen.getAllByRole('button', { name: 'Assign Backup' });
       fireEvent.click(assignButtons[0]);
@@ -196,7 +246,7 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
     });
 
     it('opens accept risk modal with invariant notice and submits justification', async () => {
-      render(<ActionsView initialActions={sampleActions} />);
+      renderActions();
 
       const acceptRiskButtons = screen.getAllByRole('button', { name: 'Accept Risk' });
       fireEvent.click(acceptRiskButtons[0]);
@@ -228,7 +278,7 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
     });
 
     it('switches to Confirmation Campaigns tab', async () => {
-      render(<ActionsView initialActions={sampleActions} />);
+      renderActions();
 
       const campaignsTabBtn = screen.getByRole('button', { name: /Confirmation Campaigns/ });
       fireEvent.click(campaignsTabBtn);
@@ -238,7 +288,7 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
     });
 
     it('satisfies axe accessibility standards in ActionsView', async () => {
-      const { container } = render(<ActionsView initialActions={sampleActions} />);
+      const { container } = renderActions();
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });
