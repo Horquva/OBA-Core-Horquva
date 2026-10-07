@@ -15,12 +15,14 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
-import type { DataService } from '../dataService.js';
+import type { DataService, DepartureRecord } from '../dataService.js';
 import { calculateHeadlineMetrics } from '../../domain/checks/index.js';
 
 dotenv.config();
 
 const DAY_MS = 86_400_000;
+
+const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -65,10 +67,15 @@ export interface BriefingContent {
     totalCriticalAssets: number;
   };
   upcomingDepartures: UpcomingDepartureBriefing[];
+  /** Past their leave date and still not verified. */
+  overdueDepartures: UpcomingDepartureBriefing[];
   spofAssets: SpofBriefing[];
   credentialExposures: CredentialExposureBriefing[];
   recentFailures: FailureSpikeBriefing[];
   prose: string;
+  /** 'ai' when the model wrote the prose; 'template' when it fell back to fixed wording. */
+  writtenBy: 'ai' | 'template';
+  generatedAt: string;
 }
 
 export class WeeklyBriefingService {
@@ -104,7 +111,7 @@ export class WeeklyBriefingService {
   /**
    * Compiles continuity data for the briefing.
    */
-  public static compileBriefingData(ds: DataService, now: Date = new Date()): Omit<BriefingContent, 'prose'> {
+  public static compileBriefingData(ds: DataService, now: Date = new Date()): Omit<BriefingContent, 'prose' | 'writtenBy' | 'generatedAt'> {
     const graph = ds.getGraph();
     const metrics = calculateHeadlineMetrics(graph);
     const headline = {
@@ -116,10 +123,7 @@ export class WeeklyBriefingService {
     const horizonMs = now.getTime() + DEPARTURE_HORIZON_DAYS * DAY_MS;
 
     // 1. Upcoming departures (next 14 days, non-verified)
-    const upcomingDepartures: UpcomingDepartureBriefing[] = ds
-      .getDepartures()
-      .filter((d) => d.stage !== 'verified' && new Date(d.leaveDate).getTime() <= horizonMs)
-      .map((d) => {
+    const toBriefing = (d: DepartureRecord): UpcomingDepartureBriefing => {
         const personNode = graph.getNode(d.personId);
         return {
           id: d.id,
@@ -128,7 +132,16 @@ export class WeeklyBriefingService {
           stage: d.stage,
           unacceptedHandovers: d.handovers.filter((h) => h.acceptance !== 'accepted').length,
         };
-      });
+    };
+    const open = ds.getDepartures().filter((d) => d.stage !== 'verified');
+    const nowMs = now.getTime();
+    const upcomingDepartures = open
+      .filter((d) => {
+        const t = new Date(d.leaveDate).getTime();
+        return t >= nowMs && t <= horizonMs;
+      })
+      .map(toBriefing);
+    const overdueDepartures = open.filter((d) => new Date(d.leaveDate).getTime() < nowMs).map(toBriefing);
 
     // 2. SPOF critical assets (critical/high, sole owner, 0 backups)
     const spofAssets: SpofBriefing[] = [];
@@ -184,6 +197,7 @@ export class WeeklyBriefingService {
       asOfDate: now.toISOString().slice(0, 10),
       headline,
       upcomingDepartures,
+      overdueDepartures,
       spofAssets,
       credentialExposures,
       recentFailures,
@@ -194,7 +208,14 @@ export class WeeklyBriefingService {
    * Generates executive prose synthesis. Uses Gemini if GEMINI_API_KEY is configured,
    * otherwise deterministic structured markdown fallback.
    */
-  public static async generateProse(data: Omit<BriefingContent, 'prose'>): Promise<string> {
+  public static async generateProse(data: Omit<BriefingContent, 'prose' | 'writtenBy' | 'generatedAt'>): Promise<string> {
+    return (await this.generateProseWithSource(data)).text;
+  }
+
+  /** The prose plus who wrote it, so readers are never told "AI" when it was the template. */
+  public static async generateProseWithSource(
+    data: Omit<BriefingContent, 'prose' | 'writtenBy' | 'generatedAt'>
+  ): Promise<{ text: string; writtenBy: 'ai' | 'template' }> {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (apiKey && apiKey !== 'mock-key' && apiKey !== 'test-key') {
@@ -229,32 +250,38 @@ Write professional, clear executive prose with actionable recommendations.
           contents: prompt,
         });
         const text = response.text?.trim();
-        if (text) return text;
+        if (text) return { text, writtenBy: 'ai' };
       } catch (err: any) {
         console.warn('[WeeklyBriefing] Gemini prose generation failed, falling back to deterministic template:', err.message);
       }
     }
 
     // Deterministic fallback prose
+    const awaiting = data.upcomingDepartures.reduce((acc, d) => acc + d.unacceptedHandovers, 0);
     const depSummary =
-      data.upcomingDepartures.length > 0
-        ? `There are ${data.upcomingDepartures.length} scheduled departures in the next 14 days, with ${data.upcomingDepartures.reduce((acc, d) => acc + d.unacceptedHandovers, 0)} handovers awaiting acceptance.`
-        : 'There are no departures scheduled within the next 14 days.';
+      (data.upcomingDepartures.length > 0
+        ? `${n(data.upcomingDepartures.length, 'departure is', 'departures are')} due in the next 14 days, with ${n(awaiting, 'handover', 'handovers')} not yet accepted.`
+        : 'No departures are due in the next 14 days.') +
+      (data.overdueDepartures.length > 0
+        ? ` ${n(data.overdueDepartures.length, 'departure is', 'departures are')} past the leave date and not yet verified.`
+        : '');
 
     const spofSummary =
       data.spofAssets.length > 0
-        ? `We have identified ${data.spofAssets.length} critical single points of failure with no secondary owner on record.`
+        ? `${n(data.spofAssets.length, 'critical asset has', 'critical assets have')} a single owner and no backup on record.`
         : 'No critical asset is held by a single owner with no backup on record.';
 
     const credSummary =
       data.credentialExposures.length > 0
-        ? `${data.credentialExposures.length} production automations remain bound to individual employee credentials, posing immediate disruption risk upon account deactivation.`
+        ? `${n(data.credentialExposures.length, 'automation runs', 'automations run')} on an individual employee's credentials and will stop when that account is disabled.`
         : "No automation is recorded as running on an individual employee's credentials.";
 
-    return `### Executive Continuity Summary (${data.asOfDate})\n\n` +
-      `**Current Posture:** ${data.headline.coveredCount} of ${data.headline.totalCriticalAssets} critical assets are fully covered. ${data.headline.exposedCount} are exposed, and ${data.headline.unknownCount} are unknown until their facts are confirmed.\n\n` +
-      `**Operational Exposure:** ${depSummary} ${spofSummary}\n\n` +
-      `**Credential & Failure Health:** ${credSummary} During the preceding period, ${data.recentFailures.length} continuity change events were detected across active workflows.`;
+    // Plain text (no markdown emphasis): it is shown on screen and sent in email as-is.
+    const text = `### Executive Continuity Summary (${data.asOfDate})\n\n` +
+      `Current posture: ${data.headline.coveredCount} of ${data.headline.totalCriticalAssets} critical assets are fully covered. ${data.headline.exposedCount} are exposed, and ${data.headline.unknownCount} are unknown until their facts are confirmed.\n\n` +
+      `Departures and exposure: ${depSummary} ${spofSummary}\n\n` +
+      `Credentials and failures: ${credSummary} ${n(data.recentFailures.length, 'failure event was', 'failure events were')} recorded in the last 7 days.`;
+    return { text, writtenBy: 'template' };
   }
 
   /**
@@ -262,8 +289,8 @@ Write professional, clear executive prose with actionable recommendations.
    */
   public static async compileBriefing(ds: DataService, now: Date = new Date()): Promise<BriefingContent> {
     const raw = this.compileBriefingData(ds, now);
-    const prose = await this.generateProse(raw);
-    return { ...raw, prose };
+    const { text, writtenBy } = await this.generateProseWithSource(raw);
+    return { ...raw, prose: text, writtenBy, generatedAt: now.toISOString() };
   }
 
   /**

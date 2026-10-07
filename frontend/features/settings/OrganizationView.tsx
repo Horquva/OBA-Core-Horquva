@@ -3,26 +3,14 @@
 import * as React from 'react';
 import type { OrganizationSettings } from '@/types/view';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Skeleton, ErrorState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchOrganization, saveOrganization } from '@/lib/api/settings';
-import { cn } from '@/lib/cn';
+import { toApiError } from '@/lib/api/client';
 
 export interface OrganizationViewProps {
   initialSettings?: OrganizationSettings;
 }
-
-const defaultOrg: OrganizationSettings = {
-  companyName: 'Horquva Technologies',
-  logoUrl: '',
-  minGroupSize: 5,
-  departmentMappings: [
-    { raw: 'Eng', mapped: 'Engineering' },
-    { raw: 'FinOps', mapped: 'Finance' },
-    { raw: 'SecOps', mapped: 'Security' },
-  ],
-};
 
 export function OrganizationView({ initialSettings }: OrganizationViewProps) {
   const orgResource = useResource<OrganizationSettings>(
@@ -30,30 +18,40 @@ export function OrganizationView({ initialSettings }: OrganizationViewProps) {
     fetchOrganization,
   );
 
-  const orgData =
-    orgResource.status === 'ready'
-      ? orgResource.data
-      : initialSettings || defaultOrg;
+  // No invented starting values: the form only shows once real settings are here.
+  const orgData = orgResource.status === 'ready' ? orgResource.data : initialSettings ?? null;
 
-  const [companyName, setCompanyName] = React.useState(orgData.companyName);
-  const [logoUrl, setLogoUrl] = React.useState(orgData.logoUrl || '');
-  const [minGroupSize, setMinGroupSize] = React.useState(orgData.minGroupSize);
-  const [mappings, setMappings] = React.useState(orgData.departmentMappings);
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div className="border-b border-rule/50 pb-4">
+        <h2 className="text-base font-semibold text-ink">Organization & Aggregation Rules</h2>
+        <p className="text-xs text-ink-3 mt-0.5">
+          Configure branding, logo display, and statistical aggregation floor rules.
+        </p>
+      </div>
+
+      {orgResource.status === 'loading' && !initialSettings ? (
+        <div className="space-y-4">
+          <Skeleton variant="card" className="h-40" />
+        </div>
+      ) : !orgData ? (
+        <ErrorState onRetry={orgResource.reload} message="Could not load organization settings." />
+      ) : (
+        // Keyed by the loaded values: a reload after saving starts the form from the server's copy.
+        <OrganizationForm key={JSON.stringify(orgData)} settings={orgData} onSaved={orgResource.reload} />
+      )}
+    </div>
+  );
+}
+
+function OrganizationForm({ settings, onSaved }: { settings: OrganizationSettings; onSaved: () => void }) {
+  const [companyName, setCompanyName] = React.useState(settings.companyName);
+  const [logoUrl, setLogoUrl] = React.useState(settings.logoUrl || '');
+  const [minGroupSize, setMinGroupSize] = React.useState(settings.minGroupSize);
+  const mappings = settings.departmentMappings;
 
   const [isSaving, setIsSaving] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
-
-  const orgResourceData = orgResource.status === 'ready' ? orgResource.data : null;
-
-  // Sync state if resource updates
-  React.useEffect(() => {
-    if (orgResourceData) {
-      setCompanyName(orgResourceData.companyName);
-      setLogoUrl(orgResourceData.logoUrl || '');
-      setMinGroupSize(orgResourceData.minGroupSize);
-      setMappings(orgResourceData.departmentMappings);
-    }
-  }, [orgResourceData]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,42 +68,25 @@ export function OrganizationView({ initialSettings }: OrganizationViewProps) {
     try {
       await saveOrganization(payload);
       setNotice('Organization settings updated successfully.');
-      orgResource.reload();
-    } catch {
-      setNotice('Failed to update organization settings.');
+      onSaved();
+    } catch (err) {
+      setNotice(`Could not save organization settings: ${toApiError(err).message}`);
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="border-b border-rule/50 pb-4">
-        <h2 className="text-base font-semibold text-ink">Organization & Aggregation Rules</h2>
-        <p className="text-xs text-ink-3 mt-0.5">
-          Configure branding, logo display, and statistical aggregation floor rules.
-        </p>
-      </div>
-
+    <div className="space-y-6">
       {notice && (
         <div className="rounded-control bg-amber/10 border border-amber/30 p-3 text-xs text-amber-ink font-mono">
           {notice}
         </div>
       )}
 
-      {orgResource.status === 'loading' && !initialSettings ? (
-        <div className="space-y-4">
-          <Skeleton variant="card" className="h-40" />
-        </div>
-      ) : orgResource.status === 'error' && !initialSettings ? (
-        <ErrorState
-          onRetry={orgResource.reload}
-          message="Could not load organization settings."
-        />
-      ) : (
-        <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSave} className="space-y-6">
           <Card className="p-6 bg-surface shadow-card border border-rule space-y-4 text-xs">
-            <h3 className="font-serif text-lg font-normal text-ink">
+            <h3 className="text-lg font-semibold text-ink">
               Company Branding
             </h3>
 
@@ -139,7 +120,7 @@ export function OrganizationView({ initialSettings }: OrganizationViewProps) {
           </Card>
 
           <Card className="p-6 bg-surface shadow-card border border-rule space-y-4 text-xs">
-            <h3 className="font-serif text-lg font-normal text-ink">
+            <h3 className="text-lg font-semibold text-ink">
               Privacy & Aggregation Floor
             </h3>
 
@@ -173,8 +154,7 @@ export function OrganizationView({ initialSettings }: OrganizationViewProps) {
               {isSaving ? 'Saving...' : 'Save Organization Settings'}
             </button>
           </div>
-        </form>
-      )}
+      </form>
     </div>
   );
 }

@@ -55,7 +55,7 @@ export function BriefingCard({
               Executive Briefing
             </span>
           </div>
-          <h3 className="font-serif text-lg font-normal text-ink">
+          <h3 className="text-lg font-semibold text-ink">
             This Week’s Continuity Briefing
           </h3>
           <p className="text-xs text-ink-3 line-clamp-1 max-w-xl">
@@ -63,7 +63,7 @@ export function BriefingCard({
               ? "This week's briefing couldn't be loaded."
               : briefingText
                 ? plainPreview(briefingText, 140)
-                : 'Synthesized insights from verified SCD2 continuity changes.'}
+                : 'No briefing text yet.'}
           </p>
         </div>
 

@@ -198,6 +198,9 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
       expect(screen.getByRole('heading', { level: 2, name: 'n8n Ownership & Exposure Check' })).toBeInTheDocument();
       expect(screen.getByLabelText('n8n Instance URL')).toBeInTheDocument();
 
+      // No invented default instance URL.
+      expect(screen.getByLabelText('n8n Instance URL')).toHaveValue('');
+      fireEvent.change(screen.getByLabelText('n8n Instance URL'), { target: { value: 'https://n8n.example.test' } });
       const apiKeyInput = screen.getByLabelText('n8n API Key');
       fireEvent.change(apiKeyInput, { target: { value: 'n8n_api_secret123' } });
 
@@ -206,7 +209,7 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
 
       await waitFor(() => {
         expect(settingsApi.runN8nCheck).toHaveBeenCalledWith(
-          'https://n8n.internal:5678',
+          'https://n8n.example.test',
           'n8n_api_secret123'
         );
       });
@@ -227,6 +230,19 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
 
       expect(screen.getByText('Abandoned / Dormant Workflows')).toBeInTheDocument();
       expect(screen.getByText('Legacy Slack Bot')).toBeInTheDocument();
+    });
+
+    it("shows a check that didn't run as not checked, never as a green pass", () => {
+      render(
+        <N8nCheckView
+          initialReport={{ ...sampleN8nReport, failing: null as never, abandoned: [] }}
+        />
+      );
+      // failing: not produced → unknown, dashed
+      expect(screen.getByText('Not checked: this scan did not produce this result.')).toBeInTheDocument();
+      expect(screen.queryByText(/No failing executions detected/)).toBeNull();
+      // abandoned: produced and empty → a real "none"
+      expect(screen.getByText(/No abandoned workflows identified/)).toBeInTheDocument();
     });
 
     it('satisfies axe accessibility standards in N8nCheckView', async () => {

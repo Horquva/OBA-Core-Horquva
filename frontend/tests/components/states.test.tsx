@@ -55,7 +55,8 @@ describe('Data States & Toast', () => {
         onAction={onAction}
       />
     );
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('No connections configured');
+    // Default heading is h2 since the a11y sweep (Task 34); callers nest it with headingLevel.
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('No connections configured');
     expect(screen.getByText(/Connect your workflow engines/)).toBeInTheDocument();
 
     const actionBtn = screen.getByRole('button', { name: 'Connect n8n' });

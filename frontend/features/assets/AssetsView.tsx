@@ -186,7 +186,7 @@ export function AssetsView({
               System Inventory
             </span>
           </div>
-          <h1 className="font-serif text-3xl sm:text-4xl text-ink font-normal tracking-tight">
+          <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
             Assets Catalog
           </h1>
           <p className="text-sm text-ink-3 mt-1">
@@ -505,11 +505,13 @@ export function AssetsView({
 
                     {/* Runs / Wk */}
                     <td className="px-3 py-2.5 font-mono text-ink-3 tabular-nums">
-                      {asset.runsPerWeek.state === 'value'
-                        ? asset.runsPerWeek.display
-                        : asset.runsPerWeek.state === 'unknown'
-                        ? '—'
-                        : '0'}
+                      {asset.runsPerWeek.state === 'value' ? (
+                        asset.runsPerWeek.display
+                      ) : asset.runsPerWeek.state === 'unknown' ? (
+                        <UnknownValue />
+                      ) : (
+                        '0'
+                      )}
                     </td>
 
                     {/* Action */}

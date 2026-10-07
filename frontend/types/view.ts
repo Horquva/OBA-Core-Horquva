@@ -101,6 +101,20 @@ export interface CampaignEmailPreview {
   reviewerCount: number;
   subject: string; html: string; text: string;
 }
+/** GET /api/continuity/briefing — written on request; says who wrote it and from what. */
+export interface BriefingDetail {
+  text: string;
+  writtenBy: 'ai' | 'template';
+  generatedAt: string;
+  figures: {
+    headline: { coveredCount: number; exposedCount: number; unknownCount: number; totalCriticalAssets: number };
+    upcomingDepartures: number;
+    overdueDepartures: number;
+    singlePointsOfFailure: number;
+    personalCredentialAutomations: number;
+    recentFailures: number;
+  };
+}
 export interface CampaignCreated { campaignId: string; reviewers: number; emailsSent: number; emailDelivery: 'smtp' | 'logged' }
 export interface CreateCampaignInput {
   name: string; dueDate: string; sendAt: string | null; introLine: string | null;

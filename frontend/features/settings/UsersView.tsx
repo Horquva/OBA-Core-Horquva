@@ -2,10 +2,10 @@
 
 import * as React from 'react';
 import type { UserView, Role } from '@/types/view';
-import { Card } from '@/components/ui/Card';
 import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchUsers, updateUser } from '@/lib/api/settings';
+import { toApiError } from '@/lib/api/client';
 import { cn } from '@/lib/cn';
 
 export interface UsersViewProps {
@@ -33,8 +33,8 @@ export function UsersView({ initialUsers }: UsersViewProps) {
       await updateUser(user.id, { role: newRole });
       setNotice(`Updated role for ${user.name} to ${newRole}.`);
       usersResource.reload();
-    } catch {
-      setNotice(`Failed to update role for ${user.name}.`);
+    } catch (err) {
+      setNotice(`Could not update the role for ${user.name}: ${toApiError(err).message}`);
     } finally {
       setSavingId(null);
     }
@@ -47,8 +47,8 @@ export function UsersView({ initialUsers }: UsersViewProps) {
       await updateUser(user.id, { isHrManager: !user.isHrManager });
       setNotice(`Updated HR permissions for ${user.name}.`);
       usersResource.reload();
-    } catch {
-      setNotice(`Failed to update HR permissions for ${user.name}.`);
+    } catch (err) {
+      setNotice(`Could not update HR permissions for ${user.name}: ${toApiError(err).message}`);
     } finally {
       setSavingId(null);
     }

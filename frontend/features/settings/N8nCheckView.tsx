@@ -4,18 +4,25 @@ import * as React from 'react';
 import Link from 'next/link';
 import type { N8nCheckReport } from '@/types/view';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Skeleton, ErrorState } from '@/components/ui/states';
 import { runN8nCheck } from '@/lib/api/settings';
+import { toApiError } from '@/lib/api/client';
 import { formatDate } from '@/lib/format';
-import { cn } from '@/lib/cn';
 
 export interface N8nCheckViewProps {
   initialReport?: N8nCheckReport;
 }
 
+/** A check that didn't run is unknown, never a pass (DATA-03). */
+function NotChecked() {
+  return (
+    <p className="inline-flex items-center rounded-badge border border-dashed border-ev-unknown px-2 py-1 text-xs text-ev-unknown">
+      Not checked: this scan did not produce this result.
+    </p>
+  );
+}
+
 export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
-  const [n8nUrl, setN8nUrl] = React.useState('https://n8n.internal:5678');
+  const [n8nUrl, setN8nUrl] = React.useState('');
   const [n8nApiKey, setN8nApiKey] = React.useState('');
   const [report, setReport] = React.useState<N8nCheckReport | null>(initialReport || null);
   const [isScanning, setIsScanning] = React.useState(false);
@@ -31,8 +38,8 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
     try {
       const res = await runN8nCheck(n8nUrl.trim(), n8nApiKey.trim());
       setReport(res);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to scan n8n instance. Check your URL and API key.');
+    } catch (err) {
+      setError(`Could not scan the n8n instance: ${toApiError(err).message}`);
     } finally {
       setIsScanning(false);
     }
@@ -57,7 +64,7 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
                 Stateless Diagnostic
               </span>
             </div>
-            <h2 className="font-serif text-3xl text-ink font-normal tracking-tight">
+            <h2 className="text-3xl text-ink font-semibold tracking-tight">
               n8n Ownership & Exposure Check
             </h2>
             <p className="text-xs text-ink-3 mt-1">
@@ -84,7 +91,7 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
         /* Scan Form */
         <Card className="p-6 bg-surface shadow-card border border-rule space-y-6">
           <div className="space-y-1">
-            <h3 className="font-serif text-xl font-normal text-ink">
+            <h3 className="text-xl font-semibold text-ink">
               Connect to n8n Instance
             </h3>
             <p className="text-xs text-ink-3">
@@ -190,12 +197,12 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
               <div className="flex items-center justify-between border-b border-rule/50 pb-2">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-st-fail" aria-hidden="true" />
-                  <h3 className="font-serif text-lg font-normal text-ink">
+                  <h3 className="text-lg font-semibold text-ink">
                     Single Owner Workflows
                   </h3>
                 </div>
                 <span className="text-xs font-mono text-ink-3">
-                  {report.singleOwner ? `${report.singleOwner.length} items` : 'Not produced yet'}
+                  {report.singleOwner ? `${report.singleOwner.length} items` : 'Not checked'}
                 </span>
               </div>
               <p className="text-xs text-ink-3">
@@ -211,6 +218,8 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
                     </div>
                   ))}
                 </div>
+              ) : report.singleOwner === null || report.singleOwner === undefined ? (
+                <NotChecked />
               ) : (
                 <p className="text-xs font-mono text-st-pass">
                   ✓ No single-owner workflow bottlenecks identified.
@@ -223,12 +232,12 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
               <div className="flex items-center justify-between border-b border-rule/50 pb-2">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-amber" aria-hidden="true" />
-                  <h3 className="font-serif text-lg font-normal text-ink">
+                  <h3 className="text-lg font-semibold text-ink">
                     Personal Credential Workflows
                   </h3>
                 </div>
                 <span className="text-xs font-mono text-ink-3">
-                  {report.personalCredential ? `${report.personalCredential.length} items` : 'Not produced yet'}
+                  {report.personalCredential ? `${report.personalCredential.length} items` : 'Not checked'}
                 </span>
               </div>
               <p className="text-xs text-ink-3">
@@ -244,6 +253,8 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
                     </div>
                   ))}
                 </div>
+              ) : report.personalCredential === null || report.personalCredential === undefined ? (
+                <NotChecked />
               ) : (
                 <p className="text-xs font-mono text-st-pass">
                   ✓ Zero workflows using personal credentials.
@@ -256,12 +267,12 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
               <div className="flex items-center justify-between border-b border-rule/50 pb-2">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-st-fail" aria-hidden="true" />
-                  <h3 className="font-serif text-lg font-normal text-ink">
+                  <h3 className="text-lg font-semibold text-ink">
                     Failing Executions
                   </h3>
                 </div>
                 <span className="text-xs font-mono text-ink-3">
-                  {report.failing ? `${report.failing.length} items` : 'Not produced yet'}
+                  {report.failing ? `${report.failing.length} items` : 'Not checked'}
                 </span>
               </div>
               <p className="text-xs text-ink-3">
@@ -277,6 +288,8 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
                     </div>
                   ))}
                 </div>
+              ) : report.failing === null || report.failing === undefined ? (
+                <NotChecked />
               ) : (
                 <p className="text-xs font-mono text-st-pass">
                   ✓ No failing executions detected.
@@ -289,12 +302,12 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
               <div className="flex items-center justify-between border-b border-rule/50 pb-2">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-surface-sunken" aria-hidden="true" />
-                  <h3 className="font-serif text-lg font-normal text-ink">
+                  <h3 className="text-lg font-semibold text-ink">
                     Abandoned / Dormant Workflows
                   </h3>
                 </div>
                 <span className="text-xs font-mono text-ink-3">
-                  {report.abandoned ? `${report.abandoned.length} items` : 'Not produced yet'}
+                  {report.abandoned ? `${report.abandoned.length} items` : 'Not checked'}
                 </span>
               </div>
               <p className="text-xs text-ink-3">
@@ -310,6 +323,8 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
                     </div>
                   ))}
                 </div>
+              ) : report.abandoned === null || report.abandoned === undefined ? (
+                <NotChecked />
               ) : (
                 <p className="text-xs font-mono text-ink-3">
                   ✓ No abandoned workflows identified.

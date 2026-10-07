@@ -19,6 +19,7 @@ const askEngine = new AskHorquvaEngine();
 
 import { DataService } from '../services/dataService.js';
 import { spofAssets } from '../views/overviewViews.js';
+import { WeeklyBriefingService } from '../services/briefing/weeklyBriefing.js';
 
 /**
  * Loads the active snapshot from PostgreSQL or falls back to DataService.
@@ -255,12 +256,25 @@ continuityRouter.post('/assistant/ask', async (req: Request, res: Response) => {
   }
 });
 
-// 7. Weekly Briefing
+// 7. Weekly Briefing — written on request by the same service that emails it (CHG-03).
+// Returns the figures the prose was written from, and whether AI or the template wrote it.
 continuityRouter.get('/briefing', async (_req: Request, res: Response) => {
   try {
-    const graph = await loadGraphFromDatabase();
-    const briefing = await askEngine.generateWeeklyBriefing(graph);
-    res.json({ success: true, briefing });
+    const b = await WeeklyBriefingService.compileBriefing(DataService.getInstance());
+    res.json({
+      success: true,
+      briefing: b.prose,
+      writtenBy: b.writtenBy,
+      generatedAt: b.generatedAt,
+      figures: {
+        headline: b.headline,
+        upcomingDepartures: b.upcomingDepartures.length,
+        overdueDepartures: b.overdueDepartures.length,
+        singlePointsOfFailure: b.spofAssets.length,
+        personalCredentialAutomations: b.credentialExposures.length,
+        recentFailures: b.recentFailures.length,
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to generate weekly briefing.' });
   }

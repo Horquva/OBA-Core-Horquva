@@ -4,105 +4,86 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { axe } from 'vitest-axe';
 import { ToastProvider } from '@/components/ui/Toast';
 import { BriefingView } from '@/features/briefing/BriefingView';
+import type { BriefingDetail } from '@/types/view';
 
-const sampleBriefing = `
+const sampleText = `
 # Executive Summary
-The organization tracks 52 critical operational assets. 38 are fully protected with confirmed human backups. 14 assets are currently exposed to operational discontinuity.
+1 of 4 critical assets are fully covered. 3 are exposed, and 0 are unknown until their facts are confirmed.
 
 # Critical Exposure
-- Billing Gateway: Lacks secondary human owner.
-- Customer Data Sync: Lacks verified fallback documentation.
-
-# Immediate Actions
-1. Launch Confirmation Campaign to verify unconfirmed assets.
-2. Cross-train backup operators for exposed automations.
+- Billing Sync to Stripe: only Omar Farooq owns it.
 `.trim();
 
-const sampleCoverage = {
-  total: 52,
-  covered: 38,
-  exposed: 14,
-  unknown: 4,
-  definition: 'An asset is covered if it has a confirmed backup owner and documented runbook.',
-};
+const detail = (over: Partial<BriefingDetail> = {}): BriefingDetail => ({
+  text: sampleText,
+  writtenBy: 'template',
+  generatedAt: '2026-10-07T09:30:00.000Z',
+  figures: {
+    headline: { coveredCount: 1, exposedCount: 3, unknownCount: 0, totalCriticalAssets: 4 },
+    upcomingDepartures: 1,
+    overdueDepartures: 1,
+    singlePointsOfFailure: 3,
+    personalCredentialAutomations: 1,
+    recentFailures: 0,
+  },
+  ...over,
+});
 
-vi.mock('@/lib/api/overview', () => ({
-  fetchBriefing: vi.fn(),
-  fetchCoverage: vi.fn(),
-}));
+vi.mock('@/lib/api/overview', () => ({ fetchBriefingDetail: vi.fn() }));
+import { fetchBriefingDetail } from '@/lib/api/overview';
 
-import { fetchBriefing, fetchCoverage } from '@/lib/api/overview';
+const renderView = (props: React.ComponentProps<typeof BriefingView> = {}) =>
+  render(
+    <ToastProvider>
+      <BriefingView {...props} />
+    </ToastProvider>,
+  );
 
-describe('BriefingView Component (Task 20)', () => {
+describe('BriefingView (D16: honest about who wrote it and from what)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (fetchBriefing as any).mockResolvedValue(sampleBriefing);
-    (fetchCoverage as any).mockResolvedValue(sampleCoverage);
-
-    Object.assign(navigator, {
-      clipboard: {
-        writeText: vi.fn().mockResolvedValue(undefined),
-      },
-    });
+    vi.mocked(fetchBriefingDetail).mockResolvedValue(detail());
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
   });
 
-  it('renders briefing reading view with editorial typography and AI transparency marker', async () => {
-    const { container } = render(
-      <ToastProvider>
-        <BriefingView />
-      </ToastProvider>,
-    );
+  it('renders the text, says the template wrote it, and lists the real figures', async () => {
+    const { container } = renderView();
+    expect(await screen.findByText('Executive Summary')).toBeInTheDocument();
+    expect(screen.getByText('Written from a fixed template (AI not used)')).toBeInTheDocument();
+    expect(screen.queryByText(/Written by AI/)).toBeNull();
+    expect(screen.getByText(/^Written .* from OBA's current records\.$/)).toBeInTheDocument();
 
-    // Verify title and AI marker
-    expect(screen.getByText('Continuity Executive Briefing')).toBeInTheDocument();
-    expect(
-      screen.getByText('Written by AI from counted deterministic facts'),
-    ).toBeInTheDocument();
+    // Figures, not invented citations.
+    expect(screen.getByText('Figures this briefing was written from')).toBeInTheDocument();
+    expect(screen.getByText('1 of 4')).toBeInTheDocument();
+    expect(screen.queryByText(/Citation Ledger|immutable|SCD2|Monday 8:00/)).toBeNull();
 
-    // Wait for briefing data to load
-    await waitFor(() => {
-      expect(screen.getByText('Executive Summary')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText(/The organization tracks 52 critical operational assets/)).toBeInTheDocument();
-    expect(screen.getByText(/Billing Gateway: Lacks secondary human owner/)).toBeInTheDocument();
-
-    // Verify Grounding & Citation Ledger
-    expect(screen.getByText('Grounding & Citation Ledger')).toBeInTheDocument();
-    expect(screen.getByText(/4 immutable fact references/)).toBeInTheDocument();
-
-    // Check accessibility
     expect(await axe(container)).toHaveNoViolations();
   });
 
-  it('handles copy briefing action and notifies via toast', async () => {
-    render(
-      <ToastProvider>
-        <BriefingView initialBriefing={sampleBriefing} />
-      </ToastProvider>,
-    );
+  it('only says "AI" when the model actually wrote it', async () => {
+    vi.mocked(fetchBriefingDetail).mockResolvedValue(detail({ writtenBy: 'ai' }));
+    renderView();
+    expect(await screen.findByText('Written by AI from the counted figures below')).toBeInTheDocument();
+  });
 
-    const copyBtn = screen.getByRole('button', { name: 'Copy briefing' });
-    fireEvent.click(copyBtn);
-
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(sampleBriefing);
+  it('copies the briefing text', async () => {
+    renderView({ initialBriefing: sampleText });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy briefing' }));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(sampleText);
     expect(await screen.findByText('Briefing copied')).toBeInTheDocument();
   });
 
-  it('renders honest empty state when no briefing is available', async () => {
-    (fetchBriefing as any).mockResolvedValue('');
+  it('shows an error with retry when the briefing fails to load', async () => {
+    vi.mocked(fetchBriefingDetail).mockRejectedValueOnce(new Error('boom'));
+    renderView();
+    expect(await screen.findByText(/couldn't generate or load/)).toBeInTheDocument();
+  });
 
-    render(
-      <ToastProvider>
-        <BriefingView />
-      </ToastProvider>,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('No briefing available yet')).toBeInTheDocument();
-    });
-    expect(
-      screen.getByText(/Weekly briefings compile every Monday at 8:00 AM/),
-    ).toBeInTheDocument();
+  it('is honest when no text comes back (no invented schedule)', async () => {
+    vi.mocked(fetchBriefingDetail).mockResolvedValue(detail({ text: '' }));
+    renderView();
+    await waitFor(() => expect(screen.getByText('No briefing text came back')).toBeInTheDocument());
+    expect(screen.queryByText(/Monday/)).toBeNull();
   });
 });

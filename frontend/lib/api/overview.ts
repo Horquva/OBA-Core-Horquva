@@ -1,5 +1,5 @@
 import type { HeadlineMetrics } from '@horquva/types';
-import type { ChangeSummary, CoverageMetrics, NavCounts, SpofAsset } from '@/types/view';
+import type { BriefingDetail, ChangeSummary, CoverageMetrics, NavCounts, SpofAsset } from '@/types/view';
 import { request } from './client';
 
 type OverviewResponse = { metrics: HeadlineMetrics & { unknownCriticalAssets?: number } };
@@ -27,8 +27,14 @@ export async function fetchSpofAssets(limit = 5): Promise<SpofAsset[]> {
 
 /** Existing: GET /api/continuity/briefing */
 export async function fetchBriefing(): Promise<string> {
-  const r = await request<{ briefing: string }>('/api/continuity/briefing');
-  return r.briefing;
+  return (await fetchBriefingDetail()).text;
+}
+
+export async function fetchBriefingDetail(): Promise<BriefingDetail> {
+  const r = await request<{ briefing: string; writtenBy: BriefingDetail['writtenBy']; generatedAt: string; figures: BriefingDetail['figures'] }>(
+    '/api/continuity/briefing',
+  );
+  return { text: r.briefing, writtenBy: r.writtenBy, generatedAt: r.generatedAt, figures: r.figures };
 }
 
 export function fetchNavCounts(): Promise<NavCounts> {
