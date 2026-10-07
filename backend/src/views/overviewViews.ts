@@ -32,7 +32,7 @@ export interface ChangeSummary {
  * session). With no earlier sign-in, the last 7 days. Deterministic and
  * side-effect free, so refreshes and double renders don't reset it.
  */
-export function changeSummaryFor(ds: DataService, user: UserAccount, now: Date = new Date()): ChangeSummary {
+export async function changeSummaryFor(ds: DataService, user: UserAccount, now: Date = new Date()): Promise<ChangeSummary> {
   const signIns = ds
     .getAuditLog({ action: 'SIGN_IN' })
     .filter((e) => e.actor === user.id)
@@ -42,12 +42,29 @@ export function changeSummaryFor(ds: DataService, user: UserAccount, now: Date =
   const sinceMs = new Date(since).getTime();
   const after = (iso: string | null | undefined) => !!iso && new Date(iso).getTime() >= sinceMs;
 
+  let backupsLost: number | null = null;
+  let newlyExposed: number | null = null;
+
+  try {
+    const { SnapshotService } = await import('../services/snapshot/snapshotService.js');
+    const pastSnapshot = await SnapshotService.getLatestSnapshotBefore(since);
+    const latestSnapshot = await SnapshotService.getLatestSnapshotBefore(now.toISOString());
+
+    if (pastSnapshot && latestSnapshot && pastSnapshot.snapshotDate !== latestSnapshot.snapshotDate) {
+      const diff = SnapshotService.diffSnapshots(pastSnapshot, latestSnapshot);
+      backupsLost = diff.backupsLost;
+      newlyExposed = diff.newlyExposed;
+    }
+  } catch {
+    // If snapshot service unavailable, retain honest null
+  }
+
   return {
     since,
     sinceKind: previous ? 'last_sign_in' : 'first_visit_window',
     peopleLeft: ds.getChangeEvents().filter((c) => c.kind === 'person_left' && after(c.detectedAt)).length,
-    backupsLost: null,
-    newlyExposed: null,
+    backupsLost,
+    newlyExposed,
     resolved: [...ds.getAllActionOverrides().values()].filter((a) => a.status === 'resolved' && after(a.resolvedAt)).length,
   };
 }

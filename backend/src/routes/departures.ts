@@ -23,6 +23,7 @@ import {
   requestAcceptance,
   verifyDeparture,
 } from '../handover/successionService.js';
+import { verifyDepartureExecutions } from '../handover/postDepartureVerifier.js';
 
 function sendSuccessionError(res: Response, err: any, fallback: string): void {
   if (err instanceof SuccessionError) {
@@ -205,8 +206,7 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
     }
 
     // Post-departure watch log (HND-06) is filled by the 72h verifier (Engineer A, Sprint 3).
-    // Until it exists there are no watch events — don't invent one.
-    const watchLog: Array<{ at: string; workflow: any; message: string; severity: 'info' | 'alert' }> = [];
+    const watchLog = dep.watchLog ?? [];
 
     res.json({
       ...summary,
@@ -263,6 +263,20 @@ departuresRouter.get('/:id/handover-pack', (req: Request, res: Response) => {
     return;
   }
   res.json(dep.handoverPack);
+});
+
+// 3c. GET /api/departures/:id/handover-pack/pdf (RPT-01 PDF export)
+departuresRouter.get('/:id/handover-pack/pdf', async (req: Request, res: Response) => {
+  try {
+    const { generateHandoverPackPdf } = await import('../reports/pdfGenerator.js');
+    const pdfBuffer = await generateHandoverPackPdf(DataService.getInstance(), String(req.params.id));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="handover-pack-${req.params.id}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err: any) {
+    const status = err.message?.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: err.message || 'Failed to generate handover pack PDF.' });
+  }
 });
 
 // 4. POST /api/departures/:id/succession-test
@@ -397,3 +411,14 @@ departuresRouter.post('/:id/verify', (req: Request, res: Response) => {
     sendSuccessionError(res, err, 'Failed to verify departure.');
   }
 });
+
+// 9. POST /api/departures/:id/verify-executions (HND-06 on-demand trigger)
+departuresRouter.post('/:id/verify-executions', async (req: Request, res: Response) => {
+  try {
+    const result = await verifyDepartureExecutions(DataService.getInstance(), String(req.params.id), req.body);
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to verify departure executions.' });
+  }
+});
+

@@ -40,6 +40,13 @@ export const AUDIT_LOG_CAPACITY = 20000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+export interface DepartureWatchEvent {
+  at: string;
+  workflow: { id: string; name: string };
+  message: string;
+  severity: 'info' | 'alert';
+}
+
 export interface DepartureRecord {
   id: string;
   personId: string;
@@ -57,6 +64,8 @@ export interface DepartureRecord {
   }>;
   /** HND-02 handover pack, frozen at initiation (absent on seeded/legacy departures). */
   handoverPack?: HandoverPack;
+  /** HND-06 post-departure watch log for 72h monitoring */
+  watchLog?: DepartureWatchEvent[];
   createdAt: string;
   updatedAt: string;
 }
@@ -150,6 +159,11 @@ export class DataService {
     if (!DataService.instance) {
       DataService.instance = new DataService();
     }
+    return DataService.instance;
+  }
+
+  public static resetInstance(): DataService {
+    DataService.instance = new DataService();
     return DataService.instance;
   }
 
@@ -326,6 +340,15 @@ export class DataService {
     this.departures.set(id, dep);
     this.addAuditEntry('user:admin', 'INITIATE_DEPARTURE', `departure:${id}`, `Initiated departure for ${input.personId}`);
     return dep;
+  }
+
+  public addDepartureWatchEvent(departureId: string, event: DepartureWatchEvent): void {
+    const dep = this.departures.get(departureId);
+    if (dep) {
+      if (!dep.watchLog) dep.watchLog = [];
+      dep.watchLog.push(event);
+      dep.updatedAt = new Date().toISOString();
+    }
   }
 
   // Successor naming, acceptance and stage transitions live in handover/successionService.ts.

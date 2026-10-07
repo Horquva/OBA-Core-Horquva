@@ -27,6 +27,7 @@ import {
 import { reviewerRouter } from './routes/reviewer.js';
 import { authRouter } from './routes/auth.js';
 import { navRouter } from './routes/nav.js';
+import { reportsRouter } from './routes/reports.js';
 import { requestContext } from './middleware/requestContext.js';
 import { auditTrail } from './middleware/auditLog.js';
 import { authorize } from './middleware/rbac.js';
@@ -74,6 +75,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/audit-log', auditLogRouter);
 app.use('/api/me', reviewerRouter);
 app.use('/api/nav-counts', navRouter);
+app.use('/api/reports', reportsRouter);
 
 // Central error handling middleware
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

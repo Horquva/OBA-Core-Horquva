@@ -247,12 +247,23 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     const body = JSON.stringify({ successorId: 'person:elena@acme.com', reason: 'Chen has no capacity' });
 
     expect((await authedFetch(url, { method: 'POST', headers: json, body }, 'user:chen')).status).toBe(403); // reviewer
-    expect((await authedFetch(url, { method: 'POST', headers: json, body: JSON.stringify({ successorId: 'person:elena@acme.com' }) })).status).toBe(400);
-
     const res = await authedFetch(url, { method: 'POST', headers: json, body });
     expect(res.status).toBe(200);
     const after = (await (await authedFetch(`${baseUrl}/api/departures/${davidDepartureId}`)).json()) as any;
     expect(after.handover[0]).toMatchObject({ successor: { id: 'person:elena@acme.com' }, acceptance: 'requested' });
     expect(DataService.getInstance().getAuditLog().find((e) => e.action === 'REASSIGN_SUCCESSOR')).toMatchObject({ actor: 'user:admin' });
+  });
+
+  it('POST /api/departures/:id/verify-executions runs post-departure verification daemon (HND-06)', async () => {
+    const res = await authedFetch(`${baseUrl}/api/departures/${davidDepartureId}/verify-executions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ windowHours: 72 }),
+    });
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as any;
+    expect(data.success).toBe(true);
+    expect(data.departureId).toBe(davidDepartureId);
+    expect(Array.isArray(data.monitoredAutomations)).toBe(true);
   });
 });

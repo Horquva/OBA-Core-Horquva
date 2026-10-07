@@ -29,6 +29,7 @@
     "helmet": "^8.0.0",
     "jose": "^6.2.12",
     "nodemailer": "^6.9.16",
+    "pdfkit": "^0.20.2",
     "pg": "^8.13.1",
     "pg-boss": "^10.1.4",
     "zod": "^3.24.1"
@@ -38,6 +39,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.4",
     "@types/nodemailer": "^6.4.17",
+    "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.11.11",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",

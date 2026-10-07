@@ -61,6 +61,41 @@ export class JobScheduler {
       if (process.env.DEBUG_JOBS === 'true') {
         console.log('[JobScheduler] Triggering weekly continuity briefing digest...');
       }
+      try {
+        const { DataService } = await import('../services/dataService.js');
+        const { WeeklyBriefingService } = await import('../services/briefing/weeklyBriefing.js');
+        await new WeeklyBriefingService().sendBriefing(DataService.getInstance());
+      } catch (err: any) {
+        console.warn('[JobScheduler] Weekly briefing error:', err.message);
+      }
+    });
+
+    // 4. Post-departure 72h verification scan (HND-06)
+    this.registerJob('post-departure-verification-hourly', '0 * * * *', async () => {
+      if (process.env.DEBUG_JOBS === 'true') {
+        console.log('[JobScheduler] Executing post-departure 72h verification scan...');
+      }
+      try {
+        const { DataService } = await import('../services/dataService.js');
+        const { verifyAllActiveDepartures } = await import('../handover/postDepartureVerifier.js');
+        await verifyAllActiveDepartures(DataService.getInstance());
+      } catch (err: any) {
+        console.warn('[JobScheduler] Post-departure verification error:', err.message);
+      }
+    });
+
+    // 5. Daily continuity snapshot capture (TRD-01)
+    this.registerJob('daily-snapshot-capture', '0 0 * * *', async () => {
+      if (process.env.DEBUG_JOBS === 'true') {
+        console.log('[JobScheduler] Capturing daily continuity snapshot...');
+      }
+      try {
+        const { DataService } = await import('../services/dataService.js');
+        const { SnapshotService } = await import('../services/snapshot/snapshotService.js');
+        await SnapshotService.captureDailySnapshot(DataService.getInstance());
+      } catch (err: any) {
+        console.warn('[JobScheduler] Daily snapshot capture error:', err.message);
+      }
     });
   }
 

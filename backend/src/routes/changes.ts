@@ -15,12 +15,12 @@ export const changesRouter = Router();
 
 // 1. GET /api/changes
 // GET /api/changes/summary — Overview hero sentence ("since your last sign-in")
-changesRouter.get('/summary', (req: Request, res: Response) => {
+changesRouter.get('/summary', async (req: Request, res: Response) => {
   if (!req.user) {
     res.status(401).json({ error: 'Sign in to continue.' });
     return;
   }
-  res.json(changeSummaryFor(DataService.getInstance(), req.user));
+  res.json(await changeSummaryFor(DataService.getInstance(), req.user));
 });
 
 changesRouter.get('/', (req: Request, res: Response) => {
