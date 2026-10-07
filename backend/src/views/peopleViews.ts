@@ -6,7 +6,8 @@
 //
 // SEC-07 / UX rule 4: people are never ranked. Members are listed
 // alphabetically. The one approved exception (UX D-23) is the team card's
-// named share bar; its sentence stays aggregate ("2 people hold 70% …").
+// named share bar; its sentence stays aggregate ("2 people hold 5 of the team's 7 …").
+// Counts, never percentages: "2 of 3" also says how small the base is.
 // Teams below the minimum group size show no per-person breakdown at all.
 // =============================================================================
 
@@ -58,7 +59,12 @@ export interface TeamSummary {
   memberCount: number;
   rolledUp: boolean;
   coverage: { total: number; covered: number; exposed: number; unknown: number | null; definition: string };
-  concentration: { sentence: string; holders: Array<{ person: Ref; sharePct: number }> } | null;
+  concentration: {
+    sentence: string;
+    /** The team's critical assets; each holder's `count` is out of this. */
+    total: number;
+    holders: Array<{ person: Ref; count: number; sharePct: number }>;
+  } | null;
 }
 
 export function teamSummary(graph: ContinuityGraph, team: Team, minGroupSize: number): TeamSummary {
@@ -91,10 +97,15 @@ export function teamSummary(graph: ContinuityGraph, team: Team, minGroupSize: nu
       people++;
       if (held * 2 > total) break;
     }
-    const pct = Math.round((held / total) * 100);
+    const teamName = possessive(team.group.name);
+    const share =
+      held < total ? `${held} of ${teamName} ${total} critical assets`
+      : total === 1 ? `${teamName} only critical asset`
+      : `all ${total} of ${teamName} critical assets`;
     concentration = {
-      sentence: `${people} ${people === 1 ? 'person holds' : 'people hold'} ${pct}% of ${possessive(team.group.name)} critical assets.`,
-      holders: holders.map(({ person, sharePct }) => ({ person, sharePct })),
+      sentence: `${people} ${people === 1 ? 'person holds' : 'people hold'} ${share}.`,
+      total,
+      holders: holders.map(({ person, count, sharePct }) => ({ person, count, sharePct })),
     };
   }
 

@@ -48,7 +48,7 @@ export function PeopleView({ initialTeams, minGroupSize: initialMinSize = 5 }: P
               Organizational Concentration
             </span>
           </div>
-          <h1 className="font-serif text-3xl sm:text-4xl text-ink font-normal tracking-tight">
+          <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
             People & Teams
           </h1>
           <p className="text-sm text-ink-3 mt-1">
@@ -157,7 +157,7 @@ export function PeopleView({ initialTeams, minGroupSize: initialMinSize = 5 }: P
                     <div>
                       <Link
                         href={`/people/teams/${team.id}`}
-                        className="font-serif text-xl sm:text-2xl text-ink font-normal hover:text-amber-ink transition-colors"
+                        className="text-xl sm:text-2xl text-ink font-semibold hover:text-amber-ink transition-colors"
                       >
                         {team.name}
                       </Link>
@@ -189,7 +189,7 @@ export function PeopleView({ initialTeams, minGroupSize: initialMinSize = 5 }: P
                           <p className="text-xs font-semibold text-ink-3 uppercase font-mono">
                             Ownership Concentration
                           </p>
-                          <p className="font-serif text-base text-ink leading-snug">
+                          <p className="font-semibold text-base text-ink leading-snug">
                             {team.concentration.sentence}
                           </p>
                         </div>
@@ -198,7 +198,7 @@ export function PeopleView({ initialTeams, minGroupSize: initialMinSize = 5 }: P
                       {/* Named Share Bar */}
                       {team.concentration && team.concentration.holders.length > 0 && (
                         <div className="space-y-1.5 pt-1">
-                          <NamedShareBar holders={team.concentration.holders} />
+                          <NamedShareBar holders={team.concentration.holders} total={team.concentration.total} />
                         </div>
                       )}
 

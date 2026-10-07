@@ -121,6 +121,8 @@ export interface HandoverAsset {
   asset: EntityRef; criticality: CriticalityLevel; currentBackup: FactView;
   successor: EntityRef | null; suggestion: SuccessorSuggestion | null;
   acceptance: 'none' | 'requested' | 'accepted' | 'declined';
+  /** The successor's reason, when they declined (HND-05). */
+  declineReason?: string | null;
 }
 export interface WatchLogEntry { at: string; workflow: EntityRef; message: string; severity: 'info' | 'alert' }
 export interface DepartureDetail extends DepartureSummary {
@@ -139,7 +141,7 @@ export interface SuccessionPlanResult { coveredCount: number; stillExposedCount:
 // ── People & teams ─────────────────────────────────────────
 export interface TeamSummary {
   id: string; name: string; memberCount: number; rolledUp: boolean; coverage: CoverageMetrics;
-  concentration: { sentence: string; holders: Array<{ person: EntityRef; sharePct: number }> } | null;
+  concentration: { sentence: string; total: number; holders: Array<{ person: EntityRef; count: number; sharePct: number }> } | null;
 }
 export interface Holding { asset: EntityRef; relation: 'owns' | 'backs_up' | 'credential'; criticality: CriticalityLevel; backup: FactView }
 export interface TeamMember { person: EntityRef; title: string | null; holdings: Holding[] }
@@ -218,9 +220,13 @@ export type AttestAnswers =
 // ── Reviewer app ───────────────────────────────────────────
 export interface ReviewerTasks {
   confirmations: Array<{ token: string; campaignName: string; assetCount: number; dueDate: string }>;
+  /** One card per departure; accept/decline is per asset row (`handoverId`). */
   handovers: Array<{
-    id: string; from: EntityRef;
-    assets: Array<{ asset: EntityRef; criticality: CriticalityLevel; runbookUrl: string | null; credentialNote: string | null }>;
+    departureId: string; from: EntityRef; leaveDate: string;
+    assets: Array<{
+      handoverId: string; asset: EntityRef; criticality: CriticalityLevel; criticalityGrade: EvidenceGrade;
+      runbookUrl: string | null; credentialNote: string | null;
+    }>;
   }>;
 }
 

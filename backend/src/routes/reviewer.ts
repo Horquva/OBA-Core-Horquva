@@ -1,20 +1,20 @@
 // =============================================================================
 // Horquva Continuity Platform — Reviewer REST API (/api/me)
 // =============================================================================
-// Implements B-16 (Reviewer Task Queue: confirmations & handovers).
+// GET /api/me/tasks — the signed-in person's own confirmations and handover
+// requests (B-16, HND-04). Read model in views/reviewerViews.ts.
 // =============================================================================
 
 import { Router, Request, Response } from 'express';
 import { DataService } from '../services/dataService.js';
+import { reviewerTasksFor } from '../views/reviewerViews.js';
 
 export const reviewerRouter = Router();
 
-reviewerRouter.get('/tasks', (_req: Request, res: Response) => {
-  try {
-    const dataService = DataService.getInstance();
-    const tasks = dataService.getReviewerTasks();
-    res.json(tasks);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to fetch reviewer tasks.' });
+reviewerRouter.get('/tasks', (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Sign in to continue.' });
+    return;
   }
+  res.json(reviewerTasksFor(DataService.getInstance(), req.user));
 });

@@ -37,15 +37,24 @@ export function toIso(d: unknown): string | null {
  * is exactly what check C1 acts on); a missing owner is 'unknown', because an
  * unmatched account must never read as "no owner" (ID-02).
  */
+const GRADE_RANK: Record<EvidenceGrade, number> = { confirmed: 3, stated: 2, inferred: 1, unknown: 0 };
+
 export function edgeFactView(
   graph: ContinuityGraph,
   assetId: string,
   type: 'owns' | 'backs_up',
   exclude?: (personId: string) => boolean
 ): FactView {
+  // Open edges only; the strongest evidence wins, then the newest (a successor's
+  // confirmed acceptance outranks the leaver's older stated ownership).
   const edge = graph
     .getEdgesForEntity(assetId)
-    .find((e) => e.type === type && e.toId === assetId && !(exclude?.(e.fromId) ?? false));
+    .filter((e) => e.type === type && e.toId === assetId && !e.validTo && !(exclude?.(e.fromId) ?? false))
+    .sort(
+      (a, b) =>
+        GRADE_RANK[b.grade as EvidenceGrade] - GRADE_RANK[a.grade as EvidenceGrade] ||
+        new Date(b.validFrom).getTime() - new Date(a.validFrom).getTime()
+    )[0];
   const person = edge ? graph.getNode(edge.fromId)?.entity : undefined;
   if (!edge || !person) {
     return { state: type === 'backs_up' ? 'none' : 'unknown', display: null, grade: 'unknown', source: null, observedAt: null, ref: null };

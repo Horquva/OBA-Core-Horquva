@@ -40,14 +40,25 @@ const sampleReviewerTasks: ReviewerTasks = {
   ],
   handovers: [
     {
-      id: 'ho-1',
+      departureId: 'dep-omar',
       from: { id: 'p-omar', name: 'Omar Haddad', kind: 'person' },
+      leaveDate: '2026-11-15T00:00:00.000Z',
       assets: [
         {
+          handoverId: 'ho-1',
           asset: { id: 'w-infra-bot', name: 'AWS Deploy Bot', kind: 'automation' },
           criticality: 'high',
+          criticalityGrade: 'confirmed',
           runbookUrl: 'https://wiki/runbooks/aws-deploy',
-          credentialNote: 'Personal OAuth token must be rotated to service account',
+          credentialNote: "Runs on Omar Haddad's personal credentials. Move it to a service account before their account is disabled.",
+        },
+        {
+          handoverId: 'ho-2',
+          asset: { id: 'w-payroll', name: 'Payroll Trigger', kind: 'automation' },
+          criticality: 'unknown',
+          criticalityGrade: 'unknown',
+          runbookUrl: null,
+          credentialNote: null,
         },
       ],
     },
@@ -222,39 +233,51 @@ describe('Reviewer Surfaces (Task 31)', () => {
         '/attest/tok-abc-123'
       );
 
-      expect(screen.getByText('Successor Handover Requests (1)')).toBeInTheDocument();
-      expect(screen.getByText('Omar Haddad is handing over 1 system')).toBeInTheDocument();
+      expect(screen.getByText('Successor Handover Requests (2)')).toBeInTheDocument();
+      expect(screen.getByText('Omar Haddad is handing over 2 systems to you')).toBeInTheDocument();
       expect(screen.getByText('AWS Deploy Bot')).toBeInTheDocument();
-      expect(
-        screen.getByText(/Personal OAuth token must be rotated to service account/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Omar Haddad's personal credentials/)).toBeInTheDocument();
+      // Missing facts stay missing: unknown criticality, no invented runbook.
+      expect(screen.getByLabelText('Criticality: Unknown')).toBeInTheDocument();
+      expect(screen.getByText('No runbook link on record')).toBeInTheDocument();
+      // One answer per system, not one button for the whole card.
+      expect(screen.getAllByRole('button', { name: /^Accept / })).toHaveLength(2);
     });
 
     it('handles handover acceptance action', async () => {
       render(<ReviewerView initialTasks={sampleReviewerTasks} />);
 
-      const acceptBtn = screen.getByRole('button', { name: 'Accept Handover' });
-      fireEvent.click(acceptBtn);
+      fireEvent.click(screen.getByRole('button', { name: 'Accept Payroll Trigger' }));
 
       await waitFor(() => {
-        expect(reviewerApi.acceptHandover).toHaveBeenCalledWith('ho-1');
+        expect(reviewerApi.acceptHandover).toHaveBeenCalledWith('ho-2');
       });
+      expect(reviewerApi.acceptHandover).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText(/You now own Payroll Trigger/)).toBeInTheDocument();
+    });
 
-      expect(await screen.findByText('Handover successfully accepted.')).toBeInTheDocument();
+    it("shows the server's reason when accepting fails", async () => {
+      vi.mocked(reviewerApi.acceptHandover).mockRejectedValueOnce(
+        new Error('This handover is not awaiting a response (status: accepted).')
+      );
+      render(<ReviewerView initialTasks={sampleReviewerTasks} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Accept AWS Deploy Bot' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Could not accept AWS Deploy Bot: This handover is not awaiting a response (status: accepted).'
+      );
     });
 
     it('handles decline handover workflow with mandatory reason', async () => {
       render(<ReviewerView initialTasks={sampleReviewerTasks} />);
 
-      const declineToggleBtn = screen.getByRole('button', { name: "I can't take this" });
-      fireEvent.click(declineToggleBtn);
+      fireEvent.click(screen.getByRole('button', { name: "I can't take AWS Deploy Bot" }));
 
-      const reasonTextarea = screen.getByLabelText(/Reason you cannot take over these assets/i);
+      const reasonTextarea = screen.getByLabelText(/Why can't you take over AWS Deploy Bot/i);
       fireEvent.change(reasonTextarea, {
         target: { value: 'Moving to mobile team; lacks AWS admin role.' },
       });
 
-      const confirmDeclineBtn = screen.getByRole('button', { name: 'Confirm Decline' });
+      const confirmDeclineBtn = screen.getByRole('button', { name: 'Confirm decline' });
       fireEvent.click(confirmDeclineBtn);
 
       await waitFor(() => {
@@ -264,7 +287,7 @@ describe('Reviewer Surfaces (Task 31)', () => {
         );
       });
 
-      expect(await screen.findByText('Handover declined with feedback.')).toBeInTheDocument();
+      expect(await screen.findByText(/Declined AWS Deploy Bot/)).toBeInTheDocument();
     });
 
     it('renders empty state when reviewer has zero tasks', async () => {

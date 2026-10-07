@@ -282,13 +282,13 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
         <Card className="p-6 sm:p-8 bg-surface shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-rule/50">
             <div className="flex items-start gap-4">
-              <span className="h-14 w-14 rounded-full bg-surface-sunken border border-rule font-serif text-2xl font-normal flex items-center justify-center text-ink shrink-0">
+              <span className="h-14 w-14 rounded-full bg-surface-sunken border border-rule text-2xl font-semibold flex items-center justify-center text-ink shrink-0">
                 {initials}
               </span>
 
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-serif text-2xl sm:text-3xl font-normal text-ink">
+                  <h1 className="text-2xl sm:text-3xl font-semibold text-ink">
                     {detail.person.name}
                   </h1>
 
@@ -469,6 +469,11 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
                           >
                             {item.acceptance.toUpperCase()}
                           </span>
+                          {item.acceptance === 'declined' && item.declineReason && (
+                            <p className="mt-1 max-w-[16rem] whitespace-normal text-[11px] text-ink-2">
+                              Reason: {item.declineReason}
+                            </p>
+                          )}
                           {canManage && detail.stage === 'account_disabled' && item.acceptance !== 'accepted' && (
                             <button
                               type="button"

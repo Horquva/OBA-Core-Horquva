@@ -73,14 +73,20 @@ export function SegmentedBar({ segments, total: explicitTotal, label = 'Distribu
 
 export interface NamedShareHolder {
   person: EntityRef;
+  /** Sizes the segment. */
   sharePct: number;
+  /** Assets held, out of the bar's `total`; labelled "2 of 3" when both are given. */
+  count?: number;
 }
 
 export interface NamedShareBarProps extends React.HTMLAttributes<HTMLDivElement> {
   holders: NamedShareHolder[];
+  total?: number;
 }
 
-export function NamedShareBar({ holders, className, ...props }: NamedShareBarProps) {
+export function NamedShareBar({ holders, total, className, ...props }: NamedShareBarProps) {
+  const label = (h: NamedShareHolder) =>
+    h.count !== undefined && total !== undefined ? `${h.count} of ${total}` : `${h.sharePct}%`;
   const colors = ['bg-bronze', 'bg-bronze-deep', 'bg-amber', 'bg-ink-3', 'bg-ev-stated'];
 
   return (
@@ -90,7 +96,7 @@ export function NamedShareBar({ holders, className, ...props }: NamedShareBarPro
           <div
             key={holder.person.id}
             style={{ width: `${holder.sharePct}%` }}
-            title={`${holder.person.name}: ${holder.sharePct}%`}
+            title={`${holder.person.name}: ${label(holder)}`}
             className={cn('h-full transition-all', colors[idx % colors.length])}
           />
         ))}
@@ -100,7 +106,7 @@ export function NamedShareBar({ holders, className, ...props }: NamedShareBarPro
           <span key={holder.person.id} className="inline-flex items-center gap-1.5 text-ink-2">
             <span className={cn('h-2 w-2 rounded-full shrink-0', colors[idx % colors.length])} aria-hidden="true" />
             <span className="font-medium text-ink">{holder.person.name}</span>
-            <span className="text-ink-3 tabular-nums font-mono">{holder.sharePct}%</span>
+            <span className="text-ink-3 tabular-nums font-mono">{label(holder)}</span>
           </span>
         ))}
       </div>

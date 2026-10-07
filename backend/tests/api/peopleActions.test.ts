@@ -53,14 +53,14 @@ describe('People & Teams (UI-03, SEC-07)', () => {
   it('coverage and concentration are counted from the graph; the sentence names nobody', async () => {
     const platform = (await call('GET', '/api/people/teams')).body.teams[0];
     expect(platform.coverage).toMatchObject({ total: 3, covered: 1, exposed: 2 });
-    expect(platform.concentration.sentence).toBe("1 person holds 67% of Platform Engineering's critical assets.");
+    expect(platform.concentration.sentence).toBe("1 person holds 2 of Platform Engineering's 3 critical assets.");
     expect(platform.concentration.sentence).not.toMatch(/Omar|Maya/);
     const revops = (await call('GET', '/api/people/teams')).body.teams[1];
-    expect(revops.concentration.sentence).toBe("1 person holds 100% of Revenue Operations' critical assets.");
+    expect(revops.concentration.sentence).toBe("1 person holds Revenue Operations' only critical asset.");
     // UX D-23: the named share bar is the one approved place names appear, by descending share.
     expect(platform.concentration.holders).toEqual([
-      { person: { id: 'person:omar@acme.com', kind: 'person', name: 'Omar Farooq' }, sharePct: 67 },
-      { person: { id: 'person:maya@acme.com', kind: 'person', name: 'Maya Lin' }, sharePct: 33 },
+      { person: { id: 'person:omar@acme.com', kind: 'person', name: 'Omar Farooq' }, count: 2, sharePct: 67 },
+      { person: { id: 'person:maya@acme.com', kind: 'person', name: 'Maya Lin' }, count: 1, sharePct: 33 },
     ]);
   });
 

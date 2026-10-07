@@ -15,11 +15,12 @@ const sampleTeams: TeamSummary[] = [
     rolledUp: false,
     coverage: { covered: 12, exposed: 2, unknown: 1, total: 15 },
     concentration: {
-      sentence: 'Sarah Connor holds 54% of critical automations in this team.',
+      sentence: "1 person holds 7 of Platform's 13 critical assets.",
+      total: 13,
       holders: [
-        { person: { id: 'p-1', name: 'Sarah Connor', kind: 'person' }, sharePct: 54 },
-        { person: { id: 'p-2', name: 'Alex Murphy', kind: 'person' }, sharePct: 26 },
-        { person: { id: 'p-3', name: 'Marcus Brody', kind: 'person' }, sharePct: 20 },
+        { person: { id: 'p-1', name: 'Sarah Connor', kind: 'person' }, count: 7, sharePct: 54 },
+        { person: { id: 'p-2', name: 'Alex Murphy', kind: 'person' }, count: 3, sharePct: 23 },
+        { person: { id: 'p-3', name: 'Marcus Brody', kind: 'person' }, count: 3, sharePct: 23 },
       ],
     },
   },
@@ -138,7 +139,10 @@ describe('People & Teams Feature (Task 24)', () => {
       expect(screen.getByText('Security Operations')).toBeDefined();
 
       // Concentration sentence & share bar
-      expect(screen.getByText(/Sarah Connor holds 54% of critical automations/i)).toBeDefined();
+      expect(screen.getByText("1 person holds 7 of Platform's 13 critical assets.")).toBeDefined();
+      // Counts, never percentages (no-scores invariant)
+      expect(screen.getByText('7 of 13')).toBeDefined();
+      expect(screen.queryByText(/\d+%/)).toBeNull();
 
       // Privacy roll-up for team with < 5 members
       expect(screen.getByText('Rolled up')).toBeDefined();

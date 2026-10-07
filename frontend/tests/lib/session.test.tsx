@@ -137,15 +137,33 @@ describe('Session & RBAC (Task 15)', () => {
         return new Response('{"error":"Not signed in."}', { status: 401 });
       });
 
+      const onSignedOut = vi.fn();
+      window.history.pushState({}, '', '/departures?tab=open');
       render(
-        <SessionProvider isDevSession={false}>
+        <SessionProvider isDevSession={false} onSignedOut={onSignedOut}>
           <ConsumerComponent />
         </SessionProvider>
       );
 
-      await waitFor(() => expect(urls.some((u) => u.endsWith('/api/auth/session'))).toBe(true));
-      expect(screen.getByTestId('user-name')).toBeEmptyDOMElement();
+      // Signed out in production: off to sign-in, coming back to the same page; no screen renders.
+      await waitFor(() => expect(onSignedOut).toHaveBeenCalledWith('/departures?tab=open'));
+      expect(screen.queryByTestId('user-name')).toBeNull();
       expect(urls.some((u) => u.includes('/dev/sign-in'))).toBe(false);
+      window.history.pushState({}, '', '/');
+    });
+
+    it('in production, shows screens once the session loads', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(
+        async () => new Response(JSON.stringify(adminSession), { status: 200 })
+      );
+      const onSignedOut = vi.fn();
+      render(
+        <SessionProvider isDevSession={false} onSignedOut={onSignedOut}>
+          <ConsumerComponent />
+        </SessionProvider>
+      );
+      expect(await screen.findByText('Admin User')).toBeInTheDocument();
+      expect(onSignedOut).not.toHaveBeenCalled();
     });
 
     it('throws error when useSession is used without provider', () => {

@@ -4,7 +4,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import type { ReviewerTasks } from '@/types/view';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { CriticalityDots } from '@/components/ui/marks';
 import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
@@ -33,45 +32,47 @@ export function ReviewerView({ initialTasks }: ReviewerViewProps) {
 
   const [decliningHandoverId, setDecliningHandoverId] = React.useState<string | null>(null);
   const [declineReason, setDeclineReason] = React.useState('');
-  const [isProcessing, setIsProcessing] = React.useState(false);
-  const [statusNotice, setStatusNotice] = React.useState<string | null>(null);
+  const [processingId, setProcessingId] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
 
-  const handleAccept = async (handoverId: string) => {
-    setIsProcessing(true);
-    setStatusNotice(null);
+  const reasonOf = (err: unknown) => (err instanceof Error ? err.message : 'Please retry.');
+
+  const handleAccept = async (handoverId: string, assetName: string) => {
+    setProcessingId(handoverId);
+    setNotice(null);
     try {
       await acceptHandover(handoverId);
-      setStatusNotice('Handover successfully accepted.');
+      setNotice({ kind: 'ok', text: `You now own ${assetName}. It's recorded as confirmed by you.` });
       tasksResource.reload();
-    } catch {
-      setStatusNotice('Failed to accept handover. Please retry.');
+    } catch (err) {
+      setNotice({ kind: 'error', text: `Could not accept ${assetName}: ${reasonOf(err)}` });
     } finally {
-      setIsProcessing(false);
+      setProcessingId(null);
     }
   };
 
-  const handleDeclineSubmit = async (e: React.FormEvent, handoverId: string) => {
+  const handleDeclineSubmit = async (e: React.FormEvent, handoverId: string, assetName: string) => {
     e.preventDefault();
     if (!declineReason.trim()) return;
 
-    setIsProcessing(true);
-    setStatusNotice(null);
+    setProcessingId(handoverId);
+    setNotice(null);
     try {
       await declineHandover(handoverId, declineReason.trim());
-      setStatusNotice('Handover declined with feedback.');
+      setNotice({ kind: 'ok', text: `Declined ${assetName}. HR will see your reason and pick someone else.` });
       setDecliningHandoverId(null);
       setDeclineReason('');
       tasksResource.reload();
-    } catch {
-      setStatusNotice('Failed to decline handover. Please retry.');
+    } catch (err) {
+      setNotice({ kind: 'error', text: `Could not decline ${assetName}: ${reasonOf(err)}` });
     } finally {
-      setIsProcessing(false);
+      setProcessingId(null);
     }
   };
 
   const confirmations = tasksData?.confirmations || [];
   const handovers = tasksData?.handovers || [];
-  const totalTasks = confirmations.length + handovers.length;
+  const totalTasks = confirmations.length + handovers.reduce((n, h) => n + h.assets.length, 0);
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-16">
@@ -84,7 +85,7 @@ export function ReviewerView({ initialTasks }: ReviewerViewProps) {
               Reviewer Portal
             </span>
           </div>
-          <h1 className="font-serif text-3xl sm:text-4xl text-ink font-normal tracking-tight">
+          <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
             My Review Tasks
           </h1>
           <p className="text-sm text-ink-3 mt-1">
@@ -99,9 +100,15 @@ export function ReviewerView({ initialTasks }: ReviewerViewProps) {
         )}
       </div>
 
-      {statusNotice && (
-        <div className="rounded-control bg-amber/10 border border-amber/30 p-3 text-xs text-amber-ink font-mono">
-          {statusNotice}
+      {notice && (
+        <div
+          role={notice.kind === 'error' ? 'alert' : 'status'}
+          className={cn(
+            'rounded-control border p-3 text-xs',
+            notice.kind === 'error' ? 'bg-st-fail/10 border-st-fail/30 text-ink' : 'bg-amber/10 border-amber/30 text-amber-ink'
+          )}
+        >
+          {notice.text}
         </div>
       )}
 
@@ -142,7 +149,7 @@ export function ReviewerView({ initialTasks }: ReviewerViewProps) {
                     className="p-5 bg-surface border border-rule shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
                     <div className="space-y-1">
-                      <h3 className="font-serif text-lg font-normal text-ink">
+                      <h3 className="text-lg font-semibold text-ink">
                         {c.campaignName}
                       </h3>
                       <p className="text-xs text-ink-3 font-mono">
@@ -167,7 +174,7 @@ export function ReviewerView({ initialTasks }: ReviewerViewProps) {
             <section aria-labelledby="handovers-heading" className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 id="handovers-heading" className="text-sm font-semibold uppercase tracking-wider text-ink font-mono">
-                  Successor Handover Requests ({handovers.length})
+                  Successor Handover Requests ({handovers.reduce((n, h) => n + h.assets.length, 0)})
                 </h2>
                 <span className="text-xs text-ink-3 font-mono">
                   Requires acceptance or feedback
@@ -175,53 +182,33 @@ export function ReviewerView({ initialTasks }: ReviewerViewProps) {
               </div>
 
               <div className="space-y-6">
-                {handovers.map((h) => {
-                  const isDeclining = decliningHandoverId === h.id;
+                {handovers.map((h) => (
+                  <Card key={h.departureId} className="p-6 bg-surface border border-rule shadow-card space-y-5">
+                    <div className="border-b border-rule/50 pb-3">
+                      <h3 className="text-xl font-semibold text-ink">
+                        {h.from.name} is handing over {h.assets.length} {h.assets.length === 1 ? 'system' : 'systems'} to you
+                      </h3>
+                      <p className="text-xs text-ink-3 mt-0.5">
+                        Leaving {formatDate(h.leaveDate)}. Accepting records you as the confirmed owner. Answer each system
+                        separately.
+                      </p>
+                    </div>
 
-                  return (
-                    <Card
-                      key={h.id}
-                      className="p-6 bg-surface border border-rule shadow-card space-y-5"
-                    >
-                      <div className="border-b border-rule/50 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <h3 className="font-serif text-xl font-normal text-ink">
-                            {h.from.name} is handing over {h.assets.length} {h.assets.length === 1 ? 'system' : 'systems'}
-                          </h3>
-                          <p className="text-xs text-ink-3 mt-0.5">
-                            You have been designated as primary successor for these operational assets.
-                          </p>
-                        </div>
-
-                        <span className="px-2 py-0.5 rounded-badge bg-surface-sunken text-xs font-mono text-ink-2 self-start sm:self-auto">
-                          Action required
-                        </span>
-                      </div>
-
-                      {/* Assets Table */}
-                      <div className="divide-y divide-rule border border-rule rounded-card overflow-hidden">
-                        {h.assets.map((item) => (
-                          <div
-                            key={item.asset.id}
-                            className="p-4 bg-surface text-xs space-y-2 hover:bg-surface-sunken/30 transition-colors"
-                          >
+                    <ul className="divide-y divide-rule border border-rule rounded-card overflow-hidden">
+                      {h.assets.map((item) => {
+                        const isDeclining = decliningHandoverId === item.handoverId;
+                        const isBusy = processingId === item.handoverId;
+                        return (
+                          <li key={item.handoverId} className="p-4 bg-surface text-xs space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-ink">{item.asset.name}</span>
-                                <span className="text-[10px] font-mono uppercase text-ink-3">
-                                  ({item.asset.kind})
-                                </span>
+                                <span className="font-semibold text-ink text-sm">{item.asset.name}</span>
+                                <span className="text-[10px] font-mono uppercase text-ink-3">({item.asset.kind})</span>
                               </div>
-
-                              <div className="flex items-center gap-2">
-                                <CriticalityDots level={item.criticality} />
-                                <span className="font-mono text-[11px] uppercase text-ink-3">
-                                  {item.criticality} criticality
-                                </span>
-                              </div>
+                              <CriticalityDots level={item.criticality} />
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-4 text-[11px] text-ink-3">
+                            <div className="flex flex-col gap-1.5 text-[11px] text-ink-3">
                               <div>
                                 <span className="font-medium text-ink-2">Runbook: </span>
                                 {item.runbookUrl ? (
@@ -229,89 +216,90 @@ export function ReviewerView({ initialTasks }: ReviewerViewProps) {
                                     href={item.runbookUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-amber-ink hover:underline font-mono"
+                                    className="text-amber-ink hover:underline font-mono break-all"
                                   >
                                     {item.runbookUrl}
                                   </a>
                                 ) : (
-                                  <span className="italic text-ink-3">Not documented</span>
+                                  <span className="italic">No runbook link on record</span>
                                 )}
                               </div>
-
                               {item.credentialNote && (
-                                <div className="text-amber-ink font-mono">
-                                  ⚠️ {item.credentialNote}
-                                </div>
+                                <p className="text-amber-ink">
+                                  <span aria-hidden="true">⚠ </span>
+                                  {item.credentialNote}
+                                </p>
                               )}
                             </div>
-                          </div>
-                        ))}
-                      </div>
 
-                      {/* Acceptance Actions */}
-                      {!isDeclining ? (
-                        <div className="flex items-center justify-end gap-3 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDecliningHandoverId(h.id);
-                              setDeclineReason('');
-                            }}
-                            className="rounded-control border border-rule bg-surface px-4 py-2 text-xs font-medium text-ink-3 hover:text-ink hover:bg-surface-sunken transition-colors cursor-pointer min-h-[44px]"
-                          >
-                            I can't take this
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isProcessing}
-                            onClick={() => handleAccept(h.id)}
-                            className="rounded-control bg-amber text-paper px-5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer min-h-[44px] shadow-xs"
-                          >
-                            Accept Handover
-                          </button>
-                        </div>
-                      ) : (
-                        <form
-                          onSubmit={(e) => handleDeclineSubmit(e, h.id)}
-                          className="rounded-card border border-rule bg-surface-sunken/40 p-4 space-y-3"
-                        >
-                          <label htmlFor={`decline-reason-${h.id}`} className="text-xs font-semibold text-ink block">
-                            Reason you cannot take over these assets (Required for team re-routing):
-                          </label>
-                          <textarea
-                            id={`decline-reason-${h.id}`}
-                            required
-                            rows={3}
-                            value={declineReason}
-                            onChange={(e) => setDeclineReason(e.target.value)}
-                            placeholder="e.g. Lacking permissions on AWS account; moving to Core Platform next week."
-                            className="w-full rounded-control border border-rule bg-surface p-2.5 text-xs text-ink placeholder:text-ink-3 focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber"
-                          />
-                          <div className="flex items-center justify-end gap-3">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDecliningHandoverId(null);
-                                setDeclineReason('');
-                              }}
-                              className="rounded-control border border-rule bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-sunken cursor-pointer min-h-[40px]"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="submit"
-                              disabled={!declineReason.trim() || isProcessing}
-                              className="rounded-control bg-st-fail text-paper px-4 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 min-h-[40px]"
-                            >
-                              Confirm Decline
-                            </button>
-                          </div>
-                        </form>
-                      )}
-                    </Card>
-                  );
-                })}
+                            {!isDeclining ? (
+                              <div className="flex items-center justify-end gap-3">
+                                <button
+                                  type="button"
+                                  disabled={processingId !== null}
+                                  onClick={() => {
+                                    setDecliningHandoverId(item.handoverId);
+                                    setDeclineReason('');
+                                  }}
+                                  aria-label={`I can't take ${item.asset.name}`}
+                                  className="rounded-control border border-rule bg-surface px-4 py-2 text-xs font-medium text-ink-3 hover:text-ink hover:bg-surface-sunken transition-colors cursor-pointer min-h-[44px] disabled:opacity-50"
+                                >
+                                  I can&apos;t take this
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={processingId !== null}
+                                  onClick={() => handleAccept(item.handoverId, item.asset.name)}
+                                  aria-label={`Accept ${item.asset.name}`}
+                                  className="rounded-control bg-amber text-paper px-5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer min-h-[44px] shadow-xs disabled:opacity-50"
+                                >
+                                  {isBusy ? 'Accepting…' : 'Accept'}
+                                </button>
+                              </div>
+                            ) : (
+                              <form
+                                onSubmit={(e) => handleDeclineSubmit(e, item.handoverId, item.asset.name)}
+                                className="rounded-card border border-rule bg-surface-sunken/40 p-4 space-y-3"
+                              >
+                                <label htmlFor={`decline-reason-${item.handoverId}`} className="text-xs font-semibold text-ink block">
+                                  Why can&apos;t you take over {item.asset.name}? HR uses this to pick someone else.
+                                </label>
+                                <textarea
+                                  id={`decline-reason-${item.handoverId}`}
+                                  required
+                                  rows={3}
+                                  value={declineReason}
+                                  onChange={(e) => setDeclineReason(e.target.value)}
+                                  placeholder="e.g. No access to the AWS account; moving teams next week."
+                                  className="w-full rounded-control border border-rule bg-surface p-2.5 text-xs text-ink placeholder:text-ink-3 focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber"
+                                />
+                                <div className="flex items-center justify-end gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDecliningHandoverId(null);
+                                      setDeclineReason('');
+                                    }}
+                                    className="rounded-control border border-rule bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-sunken cursor-pointer min-h-[40px]"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={!declineReason.trim() || isBusy}
+                                    className="rounded-control bg-st-fail text-paper px-4 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 min-h-[40px]"
+                                  >
+                                    {isBusy ? 'Declining…' : 'Confirm decline'}
+                                  </button>
+                                </div>
+                              </form>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Card>
+                ))}
               </div>
             </section>
           )}

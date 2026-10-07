@@ -86,7 +86,7 @@ export function TeamDetail({ id, initialDetail }: TeamDetailProps) {
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="font-serif text-3xl sm:text-4xl text-ink font-normal tracking-tight">
+              <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
                 {team.name}
               </h1>
               <p className="text-xs text-ink-3 mt-1 font-mono">
@@ -113,14 +113,14 @@ export function TeamDetail({ id, initialDetail }: TeamDetailProps) {
               <h2 className="text-xs font-semibold text-ink-3 uppercase font-mono">
                 Team Concentration
               </h2>
-              <p className="font-serif text-xl text-ink leading-snug">
+              <p className="font-semibold text-xl text-ink leading-snug">
                 {team.concentration.sentence}
               </p>
             </div>
 
             {team.concentration.holders.length > 0 && (
               <div className="pt-2">
-                <NamedShareBar holders={team.concentration.holders} />
+                <NamedShareBar holders={team.concentration.holders} total={team.concentration.total} />
               </div>
             )}
           </Card>
@@ -173,14 +173,14 @@ export function TeamDetail({ id, initialDetail }: TeamDetailProps) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   {/* Identity */}
                   <div className="flex items-center gap-3">
-                    <span className="h-10 w-10 rounded-full bg-surface-sunken border border-rule font-serif text-base font-normal flex items-center justify-center text-ink shrink-0">
+                    <span className="h-10 w-10 rounded-full bg-surface-sunken border border-rule text-base font-semibold flex items-center justify-center text-ink shrink-0">
                       {initials}
                     </span>
 
                     <div>
                       <Link
                         href={`/people/${member.person.id}`}
-                        className="font-serif text-lg font-normal text-ink hover:text-amber-ink transition-colors"
+                        className="text-lg font-semibold text-ink hover:text-amber-ink transition-colors"
                       >
                         {member.person.name}
                       </Link>

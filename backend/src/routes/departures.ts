@@ -172,6 +172,7 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
         successor,
         suggestion,
         acceptance: h.acceptance,
+        declineReason: h.acceptance === 'declined' ? (h.declineReason ?? null) : null,
       };
     });
 

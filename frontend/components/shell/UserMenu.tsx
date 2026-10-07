@@ -1,8 +1,10 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import { useSession } from '@/lib/session';
+import { signOut } from '@/lib/api/session';
 import { useThemePreference, ThemePreference } from '@/lib/theme';
 import type { Role } from '@/types/view';
 
@@ -35,7 +37,9 @@ export function UserMenu({ compact = false, className, ...props }: UserMenuProps
     .slice(0, 2)
     .toUpperCase();
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    // Clear the backend session cookie first, or the next page load signs straight back in.
+    await signOut().catch(() => {});
     window.location.href = '/sign-in';
   };
 
@@ -136,6 +140,17 @@ export function UserMenu({ compact = false, className, ...props }: UserMenuProps
               </div>
             </div>
           )}
+
+          {/* The successor/reviewer queue lives outside the main nav */}
+          <div className="border-t border-rule pt-2">
+            <Link
+              href="/my"
+              className="flex w-full items-center justify-between rounded-control px-2 py-1.5 text-xs text-ink hover:bg-surface-sunken transition-colors"
+            >
+              <span>My review tasks</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
 
           {/* Sign Out */}
           <div className="border-t border-rule pt-2">

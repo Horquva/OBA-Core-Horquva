@@ -270,6 +270,21 @@ function linkFor(token: string): Link {
 
 const isExpired = (c: Campaign) => Date.now() > new Date(c.dueDate).getTime() + LINK_GRACE_DAYS * 86_400_000;
 
+/** A person's own open links (reviewer queue): unexpired, with something still to answer. */
+export function openLinksFor(personId: string): Array<{ token: string; campaignName: string; assetCount: number; dueDate: string }> {
+  const open: Array<{ token: string; campaignName: string; assetCount: number; dueDate: string }> = [];
+  for (const link of links.values()) {
+    if (link.reviewerPersonId !== personId) continue;
+    const campaign = campaigns.get(link.campaignId);
+    if (!campaign || isExpired(campaign)) continue;
+    const pending = [...tasks.values()].filter(
+      (t) => t.campaignId === campaign.id && t.reviewerPersonId === personId && t.status === 'pending'
+    ).length;
+    if (pending > 0) open.push({ token: link.token, campaignName: campaign.name, assetCount: pending, dueDate: campaign.dueDate });
+  }
+  return open.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+}
+
 export function getSession(ds: DataService, token: string) {
   const link = linkFor(token);
   const graph = ds.getGraph();

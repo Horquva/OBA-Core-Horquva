@@ -3,6 +3,13 @@
 import * as React from 'react';
 import type { Role, Session } from '@/types/view';
 import { devSignIn, fetchSession } from './api/session';
+import { ApiError } from './api/client';
+import { navigate } from './navigation';
+
+/** Production, no session: full-page trip to sign-in, coming back to where the user was. */
+export function redirectToSignIn(returnTo: string): void {
+  navigate(`/sign-in?returnTo=${encodeURIComponent(returnTo)}`);
+}
 
 export interface SessionContextValue {
   session: Session | null;
@@ -42,12 +49,15 @@ export interface SessionProviderProps {
   children: React.ReactNode;
   initialSession?: Session | null;
   isDevSession?: boolean;
+  /** Called with the current path when production finds no session (default: go to /sign-in). */
+  onSignedOut?: (returnTo: string) => void;
 }
 
 export function SessionProvider({
   children,
   initialSession,
   isDevSession: isDevProp,
+  onSignedOut = redirectToSignIn,
 }: SessionProviderProps) {
   const envRole = process.env.NEXT_PUBLIC_DEV_ROLE as Role | undefined;
   const isDevSession =
@@ -61,18 +71,24 @@ export function SessionProvider({
 
   const [isLoading, setIsLoading] = React.useState(!initialSession && !isDevSession);
   const [error, setError] = React.useState<Error | null>(null);
-  // Dev: hold the screens until the first sign-in attempt settles, or their
-  // first API calls race the session cookie and come back 401.
-  const [devReady, setDevReady] = React.useState(Boolean(initialSession) || !isDevSession);
+  // Hold the screens until the session settles. Dev: their first API calls would
+  // race the sign-in cookie. Production: signed-out users never see a screen.
+  const [ready, setReady] = React.useState(Boolean(initialSession));
 
   const refetchSession = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       setSession(await fetchSession());
+      setReady(true);
     } catch (err) {
       if (!isDevSession) {
+        if (err instanceof ApiError && err.status === 401) {
+          onSignedOut(window.location.pathname + window.location.search);
+          return; // stay not-ready: the page is navigating away
+        }
         setError(err instanceof Error ? err : new Error(String(err)));
+        setReady(true);
         return;
       }
       // No session cookie yet: sign in as the dev user for the starting role.
@@ -84,11 +100,11 @@ export function SessionProvider({
           devErr
         );
       }
+      setReady(true);
     } finally {
       setIsLoading(false);
-      setDevReady(true);
     }
-  }, [isDevSession, startRole]);
+  }, [isDevSession, startRole, onSignedOut]);
 
   React.useEffect(() => {
     if (!initialSession) {
@@ -116,7 +132,7 @@ export function SessionProvider({
     [session, isLoading, error, isDevSession, setDevRole, refetchSession]
   );
 
-  return <SessionContext.Provider value={value}>{devReady ? children : null}</SessionContext.Provider>;
+  return <SessionContext.Provider value={value}>{ready ? children : null}</SessionContext.Provider>;
 }
 
 export function useSession(): SessionContextValue {
