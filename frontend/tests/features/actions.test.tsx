@@ -165,6 +165,13 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
     vi.spyOn(confirmationsApi, 'fetchCampaignDetail').mockResolvedValue(sampleCampaignDetail);
     vi.spyOn(confirmationsApi, 'previewCampaign').mockResolvedValue(samplePreview);
     vi.spyOn(confirmationsApi, 'createCampaign').mockResolvedValue({ campaignId: 'camp-new-123', reviewers: 2, emailsSent: 2, emailDelivery: 'logged' });
+    vi.spyOn(confirmationsApi, 'previewCampaignEmail').mockResolvedValue({
+      to: { person: { id: 'p-alex', name: 'Alex Murphy', kind: 'person' }, email: 'alex@horquva.internal' },
+      reviewerCount: 2,
+      subject: 'Action Required: Confirm ownership and secondary backup for 6 systems',
+      html: '<p>Hi Alex Murphy</p>',
+      text: 'Hi Alex Murphy',
+    });
   });
 
   describe('ActionsView Component', () => {
@@ -301,10 +308,25 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
 
       expect(screen.getByText('Q3 Critical Systems Certification')).toBeInTheDocument();
       expect(screen.getByText('Engineering Handover Attestation')).toBeInTheDocument();
-      expect(screen.getByText(/15 of 20 tasks/)).toBeInTheDocument();
-      expect(screen.getByText(/8 of 8 tasks/)).toBeInTheDocument();
-      expect(screen.getByText('75%')).toBeInTheDocument();
-      expect(screen.getByText('100%')).toBeInTheDocument();
+      expect(screen.getByText('15 of 20 systems')).toBeInTheDocument();
+      expect(screen.getByText('8 of 8 systems')).toBeInTheDocument();
+      // Counts, never percentages.
+      expect(screen.queryByText(/\d+%/)).toBeNull();
+    });
+
+    it('marks overdue campaigns', () => {
+      render(<ConfirmationsTab initialCampaigns={[{ ...sampleCampaigns[0], status: 'overdue' }]} />);
+      expect(screen.getByText('overdue')).toBeInTheDocument();
+    });
+
+    it('says when the reviewer breakdown fails to load, with a retry (not "no reviewers")', async () => {
+      vi.mocked(confirmationsApi.fetchCampaignDetail).mockRejectedValueOnce(new Error('Campaign not found.'));
+      render(<ConfirmationsTab initialCampaigns={sampleCampaigns} />);
+      fireEvent.click(screen.getByRole('button', { name: /View reviewer breakdown for Q3/ }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not load reviewers: Campaign not found.');
+      expect(screen.queryByText(/No reviewers assigned/)).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      expect(await screen.findByText('Sarah Connor')).toBeInTheDocument();
     });
 
     it('expands campaign to show reviewer breakdown and reminder schedule', async () => {
@@ -320,9 +342,11 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
       });
 
       expect(await screen.findByText('Sarah Connor')).toBeInTheDocument();
-      expect(screen.getByText('(10 of 10 questions answered)')).toBeInTheDocument();
+      expect(screen.getByText('(10 of 10 systems answered)')).toBeInTheDocument();
       expect(screen.getByText('Alex Murphy')).toBeInTheDocument();
-      expect(screen.getByText('(5 of 10 questions answered)')).toBeInTheDocument();
+      expect(screen.getByText('(5 of 10 systems answered)')).toBeInTheDocument();
+      expect(screen.getByText('Done')).toBeInTheDocument();
+      expect(screen.getByText('Waiting')).toBeInTheDocument();
       expect(screen.getByText(/Reminder: Oct 8, 2026/)).toBeInTheDocument();
     });
 
@@ -360,6 +384,12 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
       expect(
         screen.getByDisplayValue('Action Required: Confirm ownership and secondary backup for 6 systems')
       ).toBeInTheDocument();
+      // The real email, rendered by the server, for the first reviewer.
+      expect(await screen.findByText('What Alex Murphy receives')).toBeInTheDocument();
+      expect(screen.getByTitle('Email preview for Alex Murphy')).toHaveAttribute('sandbox', '');
+      expect(confirmationsApi.previewCampaignEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ tasks: samplePreview.tasks, email: expect.objectContaining({ subject: expect.any(String) }) })
+      );
 
       const proceedToScheduleBtn = screen.getByRole('button', { name: 'Schedule & Launch →' });
       fireEvent.click(proceedToScheduleBtn);

@@ -1,4 +1,4 @@
-import type { CampaignCreated, CampaignDetail, CampaignPreview, CampaignScope, CampaignSummary, CreateCampaignInput } from '@/types/view';
+import type { CampaignCreated, CampaignDetail, CampaignEmailPreview, CampaignPreview, CampaignScope, CampaignSummary, CreateCampaignInput } from '@/types/view';
 import { request } from './client';
 
 type CampaignRow = {
@@ -22,6 +22,14 @@ export function fetchCampaignDetail(id: string): Promise<CampaignDetail> {
 export function previewCampaign(scope: CampaignScope): Promise<CampaignPreview> {
   return request<CampaignPreview>('/api/attestation/campaigns/preview', {
     method: 'POST', body: JSON.stringify({ scope }),
+  });
+}
+
+export function previewCampaignEmail(
+  input: Pick<CreateCampaignInput, 'dueDate' | 'introLine' | 'email' | 'tasks'>,
+): Promise<CampaignEmailPreview> {
+  return request<CampaignEmailPreview>('/api/attestation/campaigns/email-preview', {
+    method: 'POST', body: JSON.stringify(input),
   });
 }
 

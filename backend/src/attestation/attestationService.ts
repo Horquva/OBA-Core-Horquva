@@ -21,7 +21,7 @@ import type { ContinuityGraph } from '../domain/graph/index.js';
 import { evaluateAllChecks } from '../domain/checks/index.js';
 import { DataService } from '../services/dataService.js';
 import { listTeams } from '../views/peopleViews.js';
-import { AttestationMailer } from './mailer.js';
+import { AttestationMailer, DEFAULT_BODY, DEFAULT_SUBJECT, renderAttestationEmail } from './mailer.js';
 
 type Ref = { id: string; kind: string; name: string };
 
@@ -142,11 +142,7 @@ export function previewCampaign(graph: ContinuityGraph, scope: CampaignScope) {
     reviewers,
     tasks: taskList,
     unassignedAssets: unassigned,
-    email: {
-      subject: 'Please confirm who owns and backs up your systems',
-      bodyText:
-        'You are listed as the owner of the systems below. Please confirm who backs each one up, whether it is documented, and whether there is a fallback. It takes about a minute per system.',
-    },
+    email: { subject: DEFAULT_SUBJECT, bodyText: DEFAULT_BODY },
   };
 }
 
@@ -202,9 +198,10 @@ export async function createCampaign(
     const result = await mailer.sendAttestationEmail({
       to: emailOf(graph, reviewerPersonId),
       reviewerName: refOf(graph, reviewerPersonId)!.name,
-      assetName: names.length === 1 ? names[0] : `${names.length} systems (${names.join(', ')})`,
+      assetNames: names,
       magicLinkUrl: `${appUrl}/attest/${token}`,
       campaignDueDate: due,
+      linkExpiresAt: new Date(due.getTime() + LINK_GRACE_DAYS * 86_400_000),
       subject: input.email?.subject,
       introLine: input.introLine,
       bodyText: input.email?.bodyText,
@@ -222,6 +219,42 @@ export async function createCampaign(
   };
 }
 
+/**
+ * What one reviewer would receive (the first, alphabetically), rendered by the
+ * same code that sends it. The link is a placeholder; real links are made at launch.
+ */
+export function previewCampaignEmail(
+  graph: ContinuityGraph,
+  input: {
+    dueDate: string;
+    introLine: string | null;
+    email?: { subject: string; bodyText: string } | null;
+    tasks: Array<{ reviewerPersonId: string; assetEntityId: string }>;
+  }
+) {
+  const due = new Date(input.dueDate);
+  if (Number.isNaN(due.getTime())) throw new AttestationError(400, 'Invalid due date.');
+  const reviewerIds = [...new Set(input.tasks.map((t) => t.reviewerPersonId))]
+    .filter((id) => graph.getNode(id)?.entity?.kind === 'person')
+    .sort((a, b) => refOf(graph, a)!.name.localeCompare(refOf(graph, b)!.name));
+  if (reviewerIds.length === 0) throw new AttestationError(400, 'Nobody to email in this campaign.');
+  const reviewer = reviewerIds[0];
+  const assetNames = [...new Set(input.tasks.filter((t) => t.reviewerPersonId === reviewer).map((t) => t.assetEntityId))]
+    .map((id) => refOf(graph, id)?.name ?? id);
+  const appUrl = (process.env.FRONTEND_URL || process.env.APP_BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
+  const rendered = renderAttestationEmail({
+    reviewerName: refOf(graph, reviewer)!.name,
+    assetNames,
+    magicLinkUrl: `${appUrl}/attest/<personal-link>`,
+    campaignDueDate: due,
+    linkExpiresAt: new Date(due.getTime() + LINK_GRACE_DAYS * 86_400_000),
+    subject: input.email?.subject,
+    introLine: input.introLine,
+    bodyText: input.email?.bodyText,
+  });
+  return { to: { person: refOf(graph, reviewer)!, email: emailOf(graph, reviewer) }, reviewerCount: reviewerIds.length, ...rendered };
+}
+
 export function listCampaigns() {
   return [...campaigns.values()]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -230,7 +263,12 @@ export function listCampaigns() {
       return {
         id: c.id,
         name: c.name,
-        status: ts.length > 0 && ts.every((t) => t.status === 'saved') ? 'completed' : 'active',
+        status:
+          ts.length > 0 && ts.every((t) => t.status === 'saved')
+            ? 'completed'
+            : Date.now() > new Date(c.dueDate).getTime()
+              ? 'overdue'
+              : 'active',
         due_date: c.dueDate,
         created_at: c.createdAt,
         total_tasks: ts.length,

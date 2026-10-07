@@ -48,6 +48,7 @@ export const POLICY: Rule[] = [
   rule(['PUT'], '/settings/organization', 'admin'),
   rule(['POST'], '/attestation/campaigns', 'admin'),
   rule(['POST'], '/attestation/campaigns/preview', 'admin'),
+  rule(['POST'], '/attestation/campaigns/email-preview', 'admin'),
   rule(['POST'], `/actions/${ID}/accept-risk`, 'admin'),
 
   // Departure workflow (HND-01, HND-03).

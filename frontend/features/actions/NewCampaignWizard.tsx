@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { CampaignScope, CampaignPreview, CreateCampaignInput, EntityRef } from '@/types/view';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { PersonPicker } from '@/components/ui/PersonPicker';
+import { CampaignEmailPreview } from './CampaignEmailPreview';
 import { previewCampaign, createCampaign } from '@/lib/api/confirmations';
 import { fetchPeople } from '@/lib/api/entities';
 import { fetchTeams } from '@/lib/api/people';
@@ -45,12 +45,22 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
   // Step 4: Schedule
   const [campaignName, setCampaignName] = React.useState('Q4 Critical Systems Certification');
   const [dueDate, setDueDate] = React.useState(
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   );
   const [introLine, setIntroLine] = React.useState('Please verify your ownership and backup assignments.');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [created, setCreated] = React.useState<import('@/types/view').CampaignCreated | null>(null);
+
+  const emailInput = React.useMemo(
+    () => ({
+      dueDate: new Date(dueDate).toISOString(),
+      introLine: introLine.trim() || null,
+      email: subject.trim() && bodyText.trim() ? { subject: subject.trim(), bodyText: bodyText.trim() } : null,
+      tasks: preview?.tasks ?? [],
+    }),
+    [dueDate, introLine, subject, bodyText, preview],
+  );
 
   const getScope = (): CampaignScope => {
     if (scopeKind === 'department') return { kind: 'department', department };
@@ -68,7 +78,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
       setSubject(p.email.subject);
       setBodyText(p.email.bodyText);
       setStep(2);
-    } catch (err: any) {
+    } catch (err) {
       setError(`Could not preview this campaign: ${toApiError(err).message}`);
     } finally {
       setIsLoadingPreview(false);
@@ -80,17 +90,10 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
     setIsSubmitting(true);
     setError(null);
     try {
-      const input: CreateCampaignInput = {
-        name: campaignName.trim(),
-        dueDate: new Date(dueDate).toISOString(),
-        sendAt: null, // immediate
-        introLine: introLine.trim() || null,
-        email: subject.trim() && bodyText.trim() ? { subject: subject.trim(), bodyText: bodyText.trim() } : null,
-        tasks: preview.tasks,
-      };
+      const input: CreateCampaignInput = { ...emailInput, name: campaignName.trim(), sendAt: null /* immediate */ };
       // Show what actually happened (emailed, or only logged) before leaving.
       setCreated(await createCampaign(input));
-    } catch (err: any) {
+    } catch (err) {
       setError(`Could not create the campaign: ${toApiError(err).message}`);
     } finally {
       setIsSubmitting(false);
@@ -117,7 +120,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
                 Attestation Campaign Creator
               </span>
             </div>
-            <h1 className="font-serif text-3xl text-ink font-normal tracking-tight">
+            <h1 className="text-3xl text-ink font-semibold tracking-tight">
               New Confirmation Campaign
             </h1>
           </div>
@@ -144,7 +147,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
       </div>
 
       {error && (
-        <div className="p-4 rounded-card border border-st-fail/30 bg-st-fail/10 text-xs text-st-fail">
+        <div role="alert" className="p-4 rounded-card border border-st-fail/30 bg-st-fail/10 text-xs text-st-fail">
           {error}
         </div>
       )}
@@ -328,7 +331,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
           <div className="space-y-1">
             <h2 className="text-base font-semibold text-ink">Step 3: Email Notification Preview</h2>
             <p className="text-xs text-ink-3">
-              Review and customize the email notification sent to reviewers with their secure single-use attestation link.
+              Edit the wording; the preview below is the actual email, rendered by the server that sends it.
             </p>
           </div>
 
@@ -360,6 +363,8 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
             </div>
           </div>
 
+          <CampaignEmailPreview input={emailInput} />
+
           <div className="flex items-center justify-between pt-4 border-t border-rule/50">
             <button
               type="button"
@@ -384,7 +389,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
           <p className="font-semibold text-ink">Campaign created for {created.reviewers} reviewer{created.reviewers === 1 ? '' : 's'}.</p>
           {created.emailDelivery === 'logged' ? (
             <p className="text-xs text-amber-ink">
-              Email isn't configured on this server, so nothing was emailed. Each reviewer's link was written to the
+              Email isn&apos;t configured on this server, so nothing was emailed. Each reviewer&apos;s link was written to the
               server log; share it with them directly.
             </p>
           ) : (
@@ -442,7 +447,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
 
             <div className="space-y-1">
               <label htmlFor="intro-input" className="font-semibold text-ink block">
-                Introductory Note (Displayed on Attestation Form)
+                Introductory note (first line of the email and the form)
               </label>
               <input
                 id="intro-input"
@@ -454,11 +459,13 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
             </div>
           </div>
 
+          <CampaignEmailPreview input={emailInput} />
+
           <div className="rounded-control bg-surface-sunken p-3 text-xs text-ink-3 border border-rule/60">
             <p className="font-semibold text-ink mb-0.5">Reminders</p>
             <p>
-              Reminder emails aren't sent automatically yet. Check progress on the Confirmations tab and follow up
-              with anyone who hasn't answered.
+              Reminder emails aren&apos;t sent automatically yet. Check progress on the Confirmations tab and follow up
+              with anyone who hasn&apos;t answered.
             </p>
           </div>
 

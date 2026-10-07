@@ -4,10 +4,10 @@ import * as React from 'react';
 import Link from 'next/link';
 import type { CampaignSummary, CampaignDetail } from '@/types/view';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchCampaigns, fetchCampaignDetail } from '@/lib/api/confirmations';
+import { toApiError } from '@/lib/api/client';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -29,25 +29,28 @@ export function ConfirmationsTab({ initialCampaigns }: ConfirmationsTabProps) {
   const [expandedCampaignId, setExpandedCampaignId] = React.useState<string | null>(null);
   const [details, setDetails] = React.useState<Record<string, CampaignDetail>>({});
   const [loadingDetails, setLoadingDetails] = React.useState<Record<string, boolean>>({});
+  const [detailErrors, setDetailErrors] = React.useState<Record<string, string>>({});
 
-  const toggleExpand = async (id: string) => {
+  const loadDetail = async (id: string) => {
+    setLoadingDetails((prev) => ({ ...prev, [id]: true }));
+    setDetailErrors((prev) => ({ ...prev, [id]: '' }));
+    try {
+      const d = await fetchCampaignDetail(id);
+      setDetails((prev) => ({ ...prev, [id]: d }));
+    } catch (err) {
+      setDetailErrors((prev) => ({ ...prev, [id]: toApiError(err).message }));
+    } finally {
+      setLoadingDetails((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const toggleExpand = (id: string) => {
     if (expandedCampaignId === id) {
       setExpandedCampaignId(null);
       return;
     }
     setExpandedCampaignId(id);
-
-    if (!details[id]) {
-      setLoadingDetails((prev) => ({ ...prev, [id]: true }));
-      try {
-        const d = await fetchCampaignDetail(id);
-        setDetails((prev) => ({ ...prev, [id]: d }));
-      } catch (err) {
-        // detail fetch fallback
-      } finally {
-        setLoadingDetails((prev) => ({ ...prev, [id]: false }));
-      }
-    }
+    if (!details[id]) loadDetail(id);
   };
 
   return (
@@ -97,7 +100,9 @@ export function ConfirmationsTab({ initialCampaigns }: ConfirmationsTabProps) {
             const isExpanded = expandedCampaignId === c.id;
             const detail = details[c.id];
             const isLoadingDetail = loadingDetails[c.id];
-            const pct = c.totalTasks > 0 ? Math.round((c.completedTasks / c.totalTasks) * 100) : 0;
+            const detailError = detailErrors[c.id];
+            // Bar width only; numbers are shown as counts, never percentages.
+            const fill = c.totalTasks > 0 ? (c.completedTasks / c.totalTasks) * 100 : 0;
 
             return (
               <Card
@@ -107,15 +112,17 @@ export function ConfirmationsTab({ initialCampaigns }: ConfirmationsTabProps) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-serif text-lg font-normal text-ink">
+                      <span className="text-lg font-semibold text-ink">
                         {c.name}
                       </span>
                       <span
                         className={cn(
                           'px-2 py-0.5 rounded-badge text-[10px] font-mono uppercase font-semibold',
-                          c.status === 'active' || c.status === 'open'
-                            ? 'bg-amber/15 text-amber-ink'
-                            : 'bg-st-pass/15 text-st-pass',
+                          c.status === 'overdue'
+                            ? 'bg-st-fail/10 text-st-fail'
+                            : c.status === 'completed'
+                              ? 'bg-st-pass/15 text-st-pass'
+                              : 'bg-amber/15 text-amber-ink',
                         )}
                       >
                         {c.status}
@@ -130,18 +137,14 @@ export function ConfirmationsTab({ initialCampaigns }: ConfirmationsTabProps) {
                     {/* Progress Bar */}
                     <div className="w-40 space-y-1">
                       <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="text-ink-3">Progress</span>
-                        <span className="font-semibold text-ink">{pct}%</span>
+                        <span className="text-ink-3">Answered</span>
+                        <span className="font-semibold text-ink">
+                          {c.completedTasks} of {c.totalTasks} {c.totalTasks === 1 ? 'system' : 'systems'}
+                        </span>
                       </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
-                        <div
-                          className="h-full bg-amber transition-all duration-300"
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-surface-sunken" aria-hidden="true">
+                        <div className="h-full bg-amber transition-all duration-300" style={{ width: `${fill}%` }} />
                       </div>
-                      <span className="text-[10px] text-ink-3 font-mono block text-right">
-                        {c.completedTasks} of {c.totalTasks} tasks
-                      </span>
                     </div>
 
                     <button
@@ -180,11 +183,16 @@ export function ConfirmationsTab({ initialCampaigns }: ConfirmationsTabProps) {
                         <Skeleton variant="text" className="w-1/2 h-4" />
                         <Skeleton variant="text" className="w-2/3 h-4" />
                       </div>
+                    ) : detailError ? (
+                      <div role="alert" className="text-xs text-ink">
+                        Could not load reviewers: {detailError}{' '}
+                        <button type="button" onClick={() => loadDetail(c.id)} className="font-semibold underline cursor-pointer">
+                          Retry
+                        </button>
+                      </div>
                     ) : detail && detail.reviewers.length > 0 ? (
                       <div className="divide-y divide-rule border border-rule rounded-card bg-surface overflow-hidden">
                         {detail.reviewers.map((r) => {
-                          const rPct =
-                            r.total > 0 ? Math.round((r.completed / r.total) * 100) : 0;
                           return (
                             <div
                               key={r.person.id}
@@ -193,7 +201,7 @@ export function ConfirmationsTab({ initialCampaigns }: ConfirmationsTabProps) {
                               <div className="flex items-center gap-2">
                                 <span className="font-medium text-ink">{r.person.name}</span>
                                 <span className="text-ink-3 font-mono text-[11px]">
-                                  ({r.completed} of {r.total} questions answered)
+                                  ({r.completed} of {r.total} {r.total === 1 ? 'system' : 'systems'} answered)
                                 </span>
                               </div>
 
@@ -206,7 +214,7 @@ export function ConfirmationsTab({ initialCampaigns }: ConfirmationsTabProps) {
                                       : 'bg-amber/15 text-amber-ink',
                                   )}
                                 >
-                                  {rPct}% Complete
+                                  {r.completed === r.total ? 'Done' : 'Waiting'}
                                 </span>
                               </div>
                             </div>

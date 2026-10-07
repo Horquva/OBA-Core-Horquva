@@ -95,6 +95,12 @@ export interface CampaignPreview {
   email: { subject: string; bodyText: string };
 }
 /** emailDelivery 'logged' = no SMTP configured: nothing was emailed; links are only in the server log. */
+/** One reviewer's email, rendered by the code that sends it (link is a placeholder). */
+export interface CampaignEmailPreview {
+  to: { person: EntityRef; email: string };
+  reviewerCount: number;
+  subject: string; html: string; text: string;
+}
 export interface CampaignCreated { campaignId: string; reviewers: number; emailsSent: number; emailDelivery: 'smtp' | 'logged' }
 export interface CreateCampaignInput {
   name: string; dueDate: string; sendAt: string | null; introLine: string | null;

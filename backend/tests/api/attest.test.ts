@@ -180,3 +180,47 @@ describe('Campaign progress', () => {
     expect(detail).toMatchObject({ reminderAt: null, escalationAt: null });
   });
 });
+
+describe('Email preview (Sprint 3 D15)', () => {
+  const tasks = [
+    { reviewerPersonId: 'person:omar@acme.com', assetEntityId: 'automation:n8n:101' },
+    { reviewerPersonId: 'person:omar@acme.com', assetEntityId: 'automation:n8n:102' },
+    { reviewerPersonId: 'person:maya@acme.com', assetEntityId: 'automation:n8n:103' },
+  ];
+  const due = '2026-12-01T00:00:00.000Z';
+
+  it('renders the exact email one reviewer gets, with the admin wording escaped', async () => {
+    const res = await admin(
+      '/api/attestation/campaigns/email-preview',
+      json('POST', { dueDate: due, introLine: 'From <b>Ops</b>', email: { subject: 'Check your systems', bodyText: 'Body & more' }, tasks })
+    );
+    expect(res.status).toBe(200);
+    // First reviewer alphabetically: Maya Lin.
+    expect(res.body).toMatchObject({ to: { person: { name: 'Maya Lin' }, email: 'maya@acme.com' }, reviewerCount: 2, subject: 'Check your systems' });
+    expect(res.body.html).toContain('Hi Maya Lin');
+    expect(res.body.html).toContain('From &lt;b&gt;Ops&lt;/b&gt;');
+    expect(res.body.html).toContain('Body &amp; more');
+    expect(res.body.html).toContain('CRM Lead Enrichment');
+    expect(res.body.html).not.toContain('Billing Sync'); // Omar's systems are not in Maya's email
+    // Honest about the link: not "single-use"; says when it stops working (due + 14 days).
+    expect(res.body.html).not.toMatch(/single-use/i);
+    expect(res.body.text).toContain('works until Dec 15, 2026');
+  });
+
+  it('is admin-only and refuses an empty campaign', async () => {
+    expect((await admin('/api/attestation/campaigns/email-preview', json('POST', { dueDate: due, tasks }), 'user:chen')).status).toBe(403);
+    expect((await admin('/api/attestation/campaigns/email-preview', json('POST', { dueDate: due, tasks: [] }))).status).toBe(400);
+  });
+
+  it('marks a campaign overdue once its due date passes with answers outstanding', async () => {
+    const { created } = await campaignFor(['automation:n8n:101']);
+    const realNow = Date.now;
+    Date.now = () => realNow() + 30 * 86_400_000;
+    try {
+      const row = (await admin('/api/attestation/campaigns')).body.campaigns.find((c: any) => c.id === created.campaignId);
+      expect(row.status).toBe('overdue');
+    } finally {
+      Date.now = realNow;
+    }
+  });
+});

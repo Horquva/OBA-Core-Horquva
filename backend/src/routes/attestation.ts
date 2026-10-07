@@ -24,6 +24,7 @@ import {
   listCampaigns,
   peopleForLink,
   previewCampaign,
+  previewCampaignEmail,
   saveAnswers,
   type AttestAnswers,
 } from '../attestation/attestationService.js';
@@ -89,6 +90,28 @@ attestationRouter.post('/campaigns', async (req: Request, res: Response) => {
       req.user!.name,
     );
     res.status(201).json({ success: true, ...result });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+const EmailPreviewSchema = CreateCampaignSchema.pick({ dueDate: true, introLine: true, email: true, tasks: true });
+
+attestationRouter.post('/campaigns/email-preview', (req: Request, res: Response) => {
+  const parsed = EmailPreviewSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid email preview request.' });
+    return;
+  }
+  try {
+    res.json(
+      previewCampaignEmail(DataService.getInstance().getGraph(), {
+        dueDate: parsed.data.dueDate,
+        introLine: parsed.data.introLine ?? null,
+        email: parsed.data.email ?? null,
+        tasks: parsed.data.tasks,
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }
