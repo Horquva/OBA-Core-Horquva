@@ -268,7 +268,7 @@ export function AskView({
                 Continuity Intelligence
               </span>
             </div>
-            <h1 className="font-serif text-2xl text-ink font-normal tracking-tight">
+            <h1 className="text-2xl text-ink font-semibold tracking-tight">
               Ask Horquva
             </h1>
           </div>
@@ -296,7 +296,7 @@ export function AskView({
                 <span className="text-3xl" aria-hidden="true">
                   ✨
                 </span>
-                <h2 className="font-serif text-2xl text-ink font-normal">
+                <h2 className="text-2xl text-ink font-semibold">
                   How can I help with continuity today?
                 </h2>
                 <p className="text-xs text-ink-3 leading-relaxed">
@@ -439,7 +439,7 @@ export function AskView({
             <button
               type="submit"
               disabled={!inputText.trim() || isSending}
-              className="rounded-control bg-amber text-paper px-4 py-2.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+              className="rounded-control bg-amber text-on-amber px-4 py-2.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 shrink-0"
             >
               {isSending ? 'Thinking...' : 'Send'}
             </button>

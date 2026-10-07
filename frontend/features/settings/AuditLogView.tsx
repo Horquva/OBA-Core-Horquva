@@ -94,7 +94,7 @@ export function AuditLogView({ initialPage }: AuditLogViewProps) {
             Showing {formatNumber(page.entries.length)} of {formatNumber(page.total)}
           </p>
           <div className="border border-rule rounded-card bg-surface overflow-hidden shadow-card">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Audit log table">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-rule bg-surface-sunken/60 font-mono text-[11px] text-ink-3">

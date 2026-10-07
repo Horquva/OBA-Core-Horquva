@@ -109,7 +109,7 @@ export function WhatIfView({
             Scenario Modeling
           </span>
         </div>
-        <h1 className="font-serif text-3xl sm:text-4xl text-ink font-normal tracking-tight">
+        <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
           What-If Continuity Simulator
         </h1>
         <p className="text-sm text-ink-3 mt-1">
@@ -161,7 +161,7 @@ export function WhatIfView({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="p-5 bg-surface shadow-xs">
               <span className="text-xs text-ink-3 font-mono block">Orphaned Critical</span>
-              <span className="font-serif text-3xl text-st-fail mt-1 block tabular-nums">
+              <span className="font-semibold text-3xl text-st-fail mt-1 block tabular-nums">
                 {result.orphanedCriticalAssets.length}
               </span>
               <span className="text-[11px] text-ink-3 mt-1 block">Critical assets left with no owner or backup</span>
@@ -169,7 +169,7 @@ export function WhatIfView({
 
             <Card className="p-5 bg-surface shadow-xs">
               <span className="text-xs text-ink-3 font-mono block">Halted Automations</span>
-              <span className="font-serif text-3xl text-amber-ink mt-1 block tabular-nums">
+              <span className="font-semibold text-3xl text-amber-ink mt-1 block tabular-nums">
                 {result.stoppedAutomations.length}
               </span>
               <span className="text-[11px] text-ink-3 mt-1 block">Automations directly stopped</span>
@@ -177,7 +177,7 @@ export function WhatIfView({
 
             <Card className="p-5 bg-surface shadow-xs">
               <span className="text-xs text-ink-3 font-mono block">Runs / Wk Affected</span>
-              <span className="font-serif text-3xl text-ink mt-1 block tabular-nums">
+              <span className="font-semibold text-3xl text-ink mt-1 block tabular-nums">
                 {result.runsUnknownCount > 0 && result.runsPerWeekAffected > 0 ? 'at least ' : ''}
                 {result.runsUnknownCount > 0 && result.runsPerWeekAffected === 0 ? 'Unknown' : formatNumber(result.runsPerWeekAffected)}
               </span>
@@ -190,7 +190,7 @@ export function WhatIfView({
 
             <Card className="p-5 bg-surface shadow-xs">
               <span className="text-xs text-ink-3 font-mono block">Downstream Dependents</span>
-              <span className="font-serif text-3xl text-ink mt-1 block tabular-nums">
+              <span className="font-semibold text-3xl text-ink mt-1 block tabular-nums">
                 {result.downstream.length}
               </span>
               <span className="text-[11px] text-ink-3 mt-1 block">Automations that depend on what stopped</span>
@@ -341,7 +341,7 @@ export function WhatIfView({
                 <span className="text-[11px] font-mono text-ink-3">Ranked by Volume Impact</span>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Scenario results table">
                 <table className="w-full text-left text-xs text-ink" aria-label="Worst vendor losses table">
                   <thead className="border-b border-rule font-mono text-[11px] uppercase text-ink-3">
                     <tr>
@@ -389,7 +389,7 @@ export function WhatIfView({
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono">
                   Human Concentration Floor
                 </h3>
-                <p className="font-serif text-2xl text-ink leading-tight">
+                <p className="font-semibold text-2xl text-ink leading-tight">
                   <strong className="text-amber-ink font-semibold">
                     {worstLosses.peopleHoldingManyUnbacked}{' '}
                     {worstLosses.peopleHoldingManyUnbacked === 1 ? 'person' : 'people'}

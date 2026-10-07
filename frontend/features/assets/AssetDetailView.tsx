@@ -80,7 +80,7 @@ export function AssetDetailView({ id, initialDetail }: AssetDetailViewProps) {
                 Asset Specification
               </span>
             </div>
-            <h1 className="font-serif text-3xl sm:text-4xl text-ink font-normal tracking-tight">
+            <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
               {detail.asset.name}
             </h1>
             <p className="text-xs text-ink-3 font-mono">
@@ -270,7 +270,7 @@ export function AssetDetailView({ id, initialDetail }: AssetDetailViewProps) {
         {detail.history.length === 0 ? (
           <p className="text-xs text-ink-3 italic">No revision history found.</p>
         ) : (
-          <div className="border border-rule rounded-card bg-surface overflow-x-auto shadow-xs">
+          <div className="border border-rule rounded-card bg-surface overflow-x-auto shadow-xs" tabIndex={0} role="region" aria-label="Fact history">
             <table className="w-full text-left text-xs text-ink">
               <thead className="border-b border-rule bg-surface-sunken/40 font-mono text-[11px] uppercase text-ink-3">
                 <tr>

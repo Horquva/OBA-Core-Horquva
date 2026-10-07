@@ -68,7 +68,7 @@ export function ConfirmationsTab({ initialCampaigns }: ConfirmationsTabProps) {
 
         <Link
           href="/actions/confirmations/new"
-          className="inline-flex items-center justify-center rounded-control bg-amber text-paper px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors shadow-xs"
+          className="inline-flex items-center justify-center rounded-control bg-amber text-on-amber px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors shadow-xs"
         >
           <span>+ New Campaign</span>
         </Link>

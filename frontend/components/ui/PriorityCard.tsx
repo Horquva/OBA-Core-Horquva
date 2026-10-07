@@ -39,7 +39,7 @@ export function PriorityCard({
       <div>
         <div className="flex items-center justify-between mb-3 text-xs">
           <span className="font-mono text-ink-3 font-semibold">{rank}</span>
-          <span className="inline-flex items-center gap-1.5 text-bronze font-medium">
+          <span className="inline-flex items-center gap-1.5 text-bronze-ink font-medium">
             {icon}
             <span>{category}</span>
           </span>

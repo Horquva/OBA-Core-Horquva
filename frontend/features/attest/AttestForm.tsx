@@ -3,9 +3,8 @@
 import * as React from 'react';
 import type { AttestAnswers, AttestSession, EntityRef } from '@/types/view';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { PersonPicker } from '@/components/ui/PersonPicker';
-import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
+import { Skeleton, ErrorState } from '@/components/ui/states';
 import { CriticalityDots } from '@/components/ui/marks';
 import { useResource } from '@/lib/useResource';
 import { fetchAttestSession, saveAttestAnswers, loadAttestPeople } from '@/lib/api/attest';
@@ -230,7 +229,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
             <span className="text-3xl" aria-hidden="true">
               ⏳
             </span>
-            <h1 className="font-serif text-2xl text-ink font-normal">
+            <h1 className="text-2xl text-ink font-semibold">
               Attestation Link Expired
             </h1>
             <p className="text-xs text-ink-3 leading-relaxed">
@@ -262,12 +261,12 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
             </div>
 
             <div className="space-y-2">
-              <h1 className="font-serif text-2xl sm:text-3xl text-ink font-normal">
+              <h1 className="text-2xl sm:text-3xl text-ink font-semibold">
                 Thanks — answers saved for {totalAssets} of {totalAssets}.
               </h1>
               <p className="text-xs text-ink-3 max-w-sm mx-auto leading-relaxed">
                 What you confirmed about systems you own is now recorded as confirmed by you. Anyone you
-                named as a backup will be asked to confirm it themselves. If you said a system isn't
+                named as a backup will be asked to confirm it themselves. If you said a system isn&apos;t
                 yours, an admin will follow up. You can close this tab.
               </p>
             </div>
@@ -304,7 +303,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
               className="h-8 max-w-[120px] object-contain"
             />
           ) : (
-            <span className="font-serif text-lg font-bold text-ink">
+            <span className="text-lg font-bold text-ink">
               {session.company?.name || 'Horquva'}
             </span>
           )}
@@ -323,11 +322,12 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
       <main className="flex-1 w-full max-w-xl mx-auto px-4 py-6 sm:py-8 space-y-6">
         {/* Progress & Stepper Carousel */}
         <div className="rounded-card border border-rule bg-surface p-4 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h1 className="font-serif text-lg text-ink font-normal">
-              Confirm {totalAssets} automations · about 1 min each
+          {/* Stacks on phones so the counter doesn't squeeze the title. */}
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-lg text-ink font-semibold">
+              Confirm {totalAssets} {totalAssets === 1 ? 'automation' : 'automations'} · about 1 min each
             </h1>
-            <span className="text-xs font-mono text-ink-3">
+            <span className="text-xs font-mono text-ink-3 whitespace-nowrap">
               Asset {activeAssetIndex + 1} of {totalAssets}
             </span>
           </div>
@@ -346,7 +346,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   className={cn(
                     'h-7 px-3 rounded-full text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 min-h-[32px]',
                     isCurrent
-                      ? 'bg-amber text-paper font-bold ring-2 ring-amber/30'
+                      ? 'bg-amber text-on-amber font-bold ring-2 ring-amber/30'
                       : isSaved
                         ? 'bg-st-pass/15 text-st-pass font-semibold'
                         : 'bg-surface-sunken text-ink-3 hover:text-ink',
@@ -369,7 +369,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
               <span className="text-[10px] font-mono uppercase tracking-wider text-ink-3 block mb-1">
                 Targeted Automation
               </span>
-              <h2 className="font-serif text-2xl text-ink font-normal leading-snug">
+              <h2 className="text-2xl text-ink font-semibold leading-snug">
                 {currentAsset.asset.name}
               </h2>
             </div>
@@ -387,6 +387,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                       setIsOwner(true);
                       setNewOwner(null);
                     }}
+                    aria-pressed={isOwner}
                     className={cn(
                       'p-3 rounded-control border text-xs font-semibold transition-colors cursor-pointer min-h-[44px]',
                       isOwner
@@ -399,6 +400,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   <button
                     type="button"
                     onClick={() => setIsOwner(false)}
+                    aria-pressed={!isOwner}
                     className={cn(
                       'p-3 rounded-control border text-xs font-semibold transition-colors cursor-pointer min-h-[44px]',
                       !isOwner
@@ -412,10 +414,8 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
 
                 {!isOwner && (
                   <div className="pt-2 space-y-1">
-                    <label className="text-[11px] font-mono text-ink-3 block">
-                      Who owns it now? (if you know)
-                    </label>
                     <PersonPicker
+                      label="Who owns it now? (if you know)"
                       placeholder={peopleResource.status === 'error' ? 'Could not load people' : 'Select new owner...'}
                       options={peopleOptions}
                       value={newOwner}
@@ -440,6 +440,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                     <button
                       type="button"
                       onClick={() => setBackupOption('person')}
+                      aria-pressed={backupOption === 'person'}
                       className={cn(
                         'p-3 rounded-control border text-xs font-semibold transition-colors cursor-pointer min-h-[44px]',
                         backupOption === 'person'
@@ -455,6 +456,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                         setBackupOption('none');
                         setBackupPerson(null);
                       }}
+                      aria-pressed={backupOption === 'none'}
                       className={cn(
                         'p-3 rounded-control border text-xs font-semibold transition-colors cursor-pointer min-h-[44px]',
                         backupOption === 'none'
@@ -469,12 +471,13 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   {backupOption === 'person' && (
                     <div className="pt-1">
                       <PersonPicker
+                        label="Backup person"
                         placeholder={peopleResource.status === 'error' ? 'Could not load people' : 'Search backup nominee...'}
                         options={backupOptions}
                         value={backupPerson}
                         onChange={(p) => setBackupPerson(p)}
                       />
-                      <p className="text-[11px] text-ink-3 pt-1">They'll be asked to confirm this themselves.</p>
+                      <p className="text-[11px] text-ink-3 pt-1">They&apos;ll be asked to confirm this themselves.</p>
                     </div>
                   )}
                 </div>
@@ -515,7 +518,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                     value={criticalityReason}
                     onChange={(e) => setCriticalityReason(e.target.value)}
                     placeholder="e.g. Failure interrupts customer billing cycles immediately"
-                    className="w-full rounded-control border border-rule bg-surface p-2 text-xs text-ink focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber min-h-[44px]"
+                    className="w-full rounded-control border border-rule bg-surface p-2 text-base sm:text-xs text-ink focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber min-h-[44px]"
                   />
                 </div>
               </fieldset>
@@ -529,6 +532,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   <button
                     type="button"
                     onClick={() => setHasRunbook(true)}
+                    aria-pressed={hasRunbook}
                     className={cn(
                       'p-3 rounded-control border text-xs font-semibold transition-colors cursor-pointer min-h-[44px]',
                       hasRunbook
@@ -544,6 +548,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                       setHasRunbook(false);
                       setRunbookUrl('');
                     }}
+                    aria-pressed={!hasRunbook}
                     className={cn(
                       'p-3 rounded-control border text-xs font-semibold transition-colors cursor-pointer min-h-[44px]',
                       !hasRunbook
@@ -559,10 +564,11 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   <div className="pt-1">
                     <input
                       type="url"
+                      aria-label="Runbook or recovery documentation link"
                       value={runbookUrl}
                       onChange={(e) => setRunbookUrl(e.target.value)}
                       placeholder="https://wiki.internal/runbooks/billing-pipeline"
-                      className="w-full rounded-control border border-rule bg-surface p-2 text-xs text-ink focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber font-mono min-h-[44px]"
+                      className="w-full rounded-control border border-rule bg-surface p-2 text-base sm:text-xs text-ink focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber font-mono min-h-[44px]"
                     />
                   </div>
                 )}
@@ -577,6 +583,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   <button
                     type="button"
                     onClick={() => setFallback('yes')}
+                    aria-pressed={fallback === 'yes'}
                     className={cn(
                       'p-2.5 rounded-control border text-xs font-semibold transition-colors cursor-pointer min-h-[44px]',
                       fallback === 'yes'
@@ -589,6 +596,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   <button
                     type="button"
                     onClick={() => setFallback('no')}
+                    aria-pressed={fallback === 'no'}
                     className={cn(
                       'p-2.5 rounded-control border text-xs font-semibold transition-colors cursor-pointer min-h-[44px]',
                       fallback === 'no'
@@ -601,6 +609,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                   <button
                     type="button"
                     onClick={() => setFallback('unknown')}
+                    aria-pressed={fallback === 'unknown'}
                     className={cn(
                       'p-2.5 rounded-control border text-xs font-semibold transition-colors cursor-pointer min-h-[44px]',
                       fallback === 'unknown'
@@ -608,18 +617,18 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                         : 'border-rule bg-surface text-ink-3 hover:text-ink',
                     )}
                   >
-                    Don't know
+                    Don&apos;t know
                   </button>
                 </div>
                 <p className="text-[11px] text-ink-3 font-mono">
-                  Honest invariant: selecting "Don't know" preserves Unknown state rather than inventing answers.
+                  Honest invariant: selecting &ldquo;Don&apos;t know&rdquo; preserves Unknown state rather than inventing answers.
                 </p>
               </fieldset>
                 </>
               )}
 
               {saveError && (
-                <div className="rounded-control bg-st-fail/10 border border-st-fail/30 p-3 text-xs text-st-fail font-mono">
+                <div role="alert" className="rounded-control bg-st-fail/10 border border-st-fail/30 p-3 text-xs text-st-fail font-mono">
                   {saveError}
                 </div>
               )}
@@ -638,7 +647,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="rounded-control bg-amber text-paper px-6 py-2.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 min-h-[44px] shadow-xs"
+                  className="rounded-control bg-amber text-on-amber px-6 py-2.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 min-h-[44px] shadow-xs"
                 >
                   {isSaving
                     ? 'Saving fact...'

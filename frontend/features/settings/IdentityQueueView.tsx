@@ -114,7 +114,7 @@ export function IdentityQueueView({ initialItems }: IdentityQueueViewProps) {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-serif text-lg font-normal text-ink">
+                      <span className="text-lg font-semibold text-ink">
                         {item.displayName || item.emailCandidate || 'Unknown Alias'}
                       </span>
                       <span className="px-2 py-0.5 rounded-badge bg-surface-sunken text-[10px] font-mono text-ink-3 uppercase">
@@ -147,7 +147,7 @@ export function IdentityQueueView({ initialItems }: IdentityQueueViewProps) {
                             personId: item.suggestion!.person.id,
                           })
                         }
-                        className="rounded-control bg-amber text-paper px-3 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
+                        className="rounded-control bg-amber text-on-amber px-3 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
                       >
                         Accept Match ({item.suggestion.person.name})
                       </button>
@@ -214,7 +214,7 @@ export function IdentityQueueView({ initialItems }: IdentityQueueViewProps) {
                             handleResolve(item.id, { action: 'link', personId: selectedPerson.id });
                           }
                         }}
-                        className="rounded-control bg-amber text-paper px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
+                        className="rounded-control bg-amber text-on-amber px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
                       >
                         Confirm Link
                       </button>

@@ -85,12 +85,12 @@ export function PersonDetail({ id, initialDetail }: PersonDetailProps) {
         <Card className="p-6 sm:p-8 bg-surface shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-rule/50">
             <div className="flex items-start gap-4">
-              <span className="h-14 w-14 rounded-full bg-surface-sunken border border-rule font-serif text-2xl font-normal flex items-center justify-center text-ink shrink-0">
+              <span className="h-14 w-14 rounded-full bg-surface-sunken border border-rule text-2xl font-semibold flex items-center justify-center text-ink shrink-0">
                 {initials}
               </span>
 
               <div className="space-y-1">
-                <h1 className="font-serif text-2xl sm:text-3xl font-normal text-ink">
+                <h1 className="text-2xl sm:text-3xl font-semibold text-ink">
                   {detail.person.name}
                 </h1>
                 <p className="text-sm text-ink-3">
@@ -174,7 +174,7 @@ export function PersonDetail({ id, initialDetail }: PersonDetailProps) {
                   className={cn(
                     'px-3 py-1 rounded-control text-xs font-medium transition-colors cursor-pointer',
                     relationFilter === tab.id
-                      ? 'bg-amber text-paper font-semibold'
+                      ? 'bg-amber text-on-amber font-semibold'
                       : 'bg-surface border border-rule text-ink-2 hover:bg-surface-sunken',
                   )}
                 >
@@ -184,7 +184,7 @@ export function PersonDetail({ id, initialDetail }: PersonDetailProps) {
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-card border border-rule bg-surface shadow-xs">
+          <div className="overflow-x-auto rounded-card border border-rule bg-surface shadow-xs" tabIndex={0} role="region" aria-label="Holdings table">
             <table className="w-full text-left text-xs text-ink">
               <thead className="border-b border-rule bg-surface-sunken/60 font-mono text-[11px] uppercase text-ink-3">
                 <tr>
@@ -217,7 +217,7 @@ export function PersonDetail({ id, initialDetail }: PersonDetailProps) {
                         <span
                           className={cn(
                             'px-2 py-0.5 rounded-badge text-[11px] font-mono',
-                            h.relation === 'owns' && 'bg-bronze/10 text-bronze',
+                            h.relation === 'owns' && 'bg-bronze/10 text-bronze-ink',
                             h.relation === 'backs_up' && 'bg-st-pass/10 text-st-pass',
                             h.relation === 'credential' && 'bg-amber/15 text-amber-ink font-semibold',
                           )}
@@ -301,7 +301,7 @@ export function PersonDetail({ id, initialDetail }: PersonDetailProps) {
                 </p>
                 <Link
                   href="/actions"
-                  className="inline-flex items-center justify-center rounded-control bg-amber text-paper px-3.5 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors"
+                  className="inline-flex items-center justify-center rounded-control bg-amber text-on-amber px-3.5 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors"
                 >
                   View Pending Actions
                 </Link>

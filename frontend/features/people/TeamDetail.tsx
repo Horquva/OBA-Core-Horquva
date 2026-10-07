@@ -223,7 +223,7 @@ export function TeamDetail({ id, initialDetail }: TeamDetailProps) {
 
                 {/* Expanded Holdings Table */}
                 {isExpanded && member.holdings.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-rule/50 overflow-x-auto">
+                  <div className="mt-4 pt-4 border-t border-rule/50 overflow-x-auto" tabIndex={0} role="region" aria-label="Member holdings table">
                     <table className="w-full text-left text-xs text-ink">
                       <thead className="border-b border-rule font-mono text-[11px] uppercase text-ink-3">
                         <tr>
@@ -249,7 +249,7 @@ export function TeamDetail({ id, initialDetail }: TeamDetailProps) {
                               <span
                                 className={cn(
                                   'px-2 py-0.5 rounded-badge text-[11px] font-mono',
-                                  h.relation === 'owns' && 'bg-bronze/10 text-bronze',
+                                  h.relation === 'owns' && 'bg-bronze/10 text-bronze-ink',
                                   h.relation === 'backs_up' && 'bg-st-pass/10 text-st-pass',
                                   h.relation === 'credential' && 'bg-amber/15 text-amber-ink font-semibold',
                                 )}

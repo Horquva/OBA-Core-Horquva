@@ -57,7 +57,7 @@ export function DeparturesList({ initialDepartures }: DeparturesListProps) {
               Continuity Offboarding
             </span>
           </div>
-          <h1 className="font-serif text-3xl sm:text-4xl text-ink font-normal tracking-tight">
+          <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
             Departures & Handover
           </h1>
           <p className="text-sm text-ink-3 mt-1">
@@ -167,7 +167,7 @@ export function DeparturesList({ initialDepartures }: DeparturesListProps) {
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 {/* Person details */}
                 <div className="flex items-start gap-4">
-                  <span className="h-12 w-12 rounded-full bg-surface-sunken border border-rule font-serif text-lg font-normal flex items-center justify-center text-ink shrink-0">
+                  <span className="h-12 w-12 rounded-full bg-surface-sunken border border-rule text-lg font-semibold flex items-center justify-center text-ink shrink-0">
                     {initials}
                   </span>
 
@@ -175,13 +175,13 @@ export function DeparturesList({ initialDepartures }: DeparturesListProps) {
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/departures/${dep.id}`}
-                        className="font-serif text-xl font-normal text-ink hover:text-amber-ink transition-colors"
+                        className="text-xl font-semibold text-ink hover:text-amber-ink transition-colors"
                       >
                         {dep.person.name}
                       </Link>
 
                       {dep.hasAlert && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge bg-amber text-paper text-[11px] font-semibold">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge bg-amber text-on-amber text-[11px] font-semibold">
                           Discontinuity Alert
                         </span>
                       )}

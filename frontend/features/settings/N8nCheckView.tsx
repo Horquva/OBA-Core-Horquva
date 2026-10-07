@@ -148,7 +148,7 @@ export function N8nCheckView({ initialReport }: N8nCheckViewProps) {
               <button
                 type="submit"
                 disabled={isScanning || !n8nUrl.trim() || !n8nApiKey.trim()}
-                className="rounded-control bg-amber text-paper px-6 py-2.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+                className="rounded-control bg-amber text-on-amber px-6 py-2.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
               >
                 {isScanning ? 'Running In-Memory Audit...' : 'Run Continuity Scan'}
               </button>

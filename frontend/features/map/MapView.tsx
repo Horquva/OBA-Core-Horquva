@@ -230,7 +230,7 @@ export function MapView({
               Topology & Blast Radius
             </span>
           </div>
-          <h1 className="font-serif text-2xl sm:text-3xl text-ink font-normal tracking-tight">
+          <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
             Dependency Map
           </h1>
           {rootNode && (
@@ -251,7 +251,7 @@ export function MapView({
               className={cn(
                 'px-2 py-1 rounded-control transition-colors cursor-pointer',
                 hops === 1
-                  ? 'bg-amber text-paper font-semibold'
+                  ? 'bg-amber text-on-amber font-semibold'
                   : 'text-ink-3 hover:text-ink',
               )}
             >
@@ -263,7 +263,7 @@ export function MapView({
               className={cn(
                 'px-2 py-1 rounded-control transition-colors cursor-pointer',
                 hops === 2
-                  ? 'bg-amber text-paper font-semibold'
+                  ? 'bg-amber text-on-amber font-semibold'
                   : 'text-ink-3 hover:text-ink',
               )}
             >
@@ -375,7 +375,7 @@ export function MapView({
                 <span className="font-mono text-xs text-ink-3">ID: {rootNode?.id}</span>
               </div>
               <div className="flex items-center gap-3">
-                <h3 className="font-serif text-2xl text-ink font-normal">
+                <h3 className="text-2xl text-ink font-semibold">
                   {rootNode?.name}
                 </h3>
                 <span className="px-2 py-0.5 rounded-badge bg-surface-sunken text-xs capitalize font-mono text-ink-3">
@@ -466,7 +466,7 @@ export function MapView({
                       <button
                         type="button"
                         onClick={() => setRootId(n.id)}
-                        className="font-serif text-sm font-medium text-ink hover:text-amber-ink transition-colors cursor-pointer text-left"
+                        className="text-sm font-medium text-ink hover:text-amber-ink transition-colors cursor-pointer text-left"
                       >
                         {n.name}
                       </button>
@@ -504,7 +504,7 @@ export function MapView({
               <h3 className="text-sm font-semibold text-ink">
                 Relationship Edges & Evidence Grades ({neighbourhoodData.edges.length})
               </h3>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Blast radius table">
                 <table className="w-full text-left text-xs text-ink">
                   <thead className="border-b border-rule font-mono text-[11px] uppercase text-ink-3">
                     <tr>

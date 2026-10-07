@@ -52,7 +52,7 @@ export function AssetDrawer({
       title={
         detail ? (
           <div className="flex items-center gap-2.5">
-            <span className="font-serif text-xl text-ink font-normal">
+            <span className="text-xl text-ink font-semibold">
               {detail.asset.name}
             </span>
           </div>
@@ -317,7 +317,7 @@ export function AssetDrawer({
                 No historical revisions recorded.
               </p>
             ) : (
-              <div className="border border-rule rounded-card bg-surface overflow-x-auto">
+              <div className="border border-rule rounded-card bg-surface overflow-x-auto" tabIndex={0} role="region" aria-label="Fact history">
                 <table className="w-full text-left text-xs text-ink">
                   <thead className="border-b border-rule bg-surface-sunken/40 font-mono text-[11px] uppercase text-ink-3">
                     <tr>

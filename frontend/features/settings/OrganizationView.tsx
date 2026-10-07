@@ -149,7 +149,7 @@ function OrganizationForm({ settings, onSaved }: { settings: OrganizationSetting
             <button
               type="submit"
               disabled={isSaving || !companyName.trim()}
-              className="rounded-control bg-amber text-paper px-5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+              className="rounded-control bg-amber text-on-amber px-5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
             >
               {isSaving ? 'Saving...' : 'Save Organization Settings'}
             </button>

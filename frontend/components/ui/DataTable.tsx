@@ -68,7 +68,7 @@ export function DataTable<T>({
   }
 
   return (
-    <div className={cn('w-full overflow-x-auto border border-rule rounded-card bg-surface', className)}>
+    <div tabIndex={0} role="region" aria-label={ariaLabel} className={cn('w-full overflow-x-auto border border-rule rounded-card bg-surface', className)}>
       <table className="w-full text-left text-sm border-collapse" aria-label={ariaLabel}>
         <thead className="sticky top-0 z-10 bg-surface-sunken/80 backdrop-blur-xs border-b border-rule">
           <tr>

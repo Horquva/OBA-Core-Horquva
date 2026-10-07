@@ -159,7 +159,7 @@ export function ReviewerView({ initialTasks }: ReviewerViewProps) {
 
                     <Link
                       href={`/attest/${c.token}`}
-                      className="rounded-control bg-amber text-paper px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors inline-flex items-center justify-center shrink-0 min-h-[44px]"
+                      className="rounded-control bg-amber text-on-amber px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors inline-flex items-center justify-center shrink-0 min-h-[44px]"
                     >
                       Start Confirmation →
                     </Link>
@@ -251,7 +251,7 @@ export function ReviewerView({ initialTasks }: ReviewerViewProps) {
                                   disabled={processingId !== null}
                                   onClick={() => handleAccept(item.handoverId, item.asset.name)}
                                   aria-label={`Accept ${item.asset.name}`}
-                                  className="rounded-control bg-amber text-paper px-5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer min-h-[44px] shadow-xs disabled:opacity-50"
+                                  className="rounded-control bg-amber text-on-amber px-5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer min-h-[44px] shadow-xs disabled:opacity-50"
                                 >
                                   {isBusy ? 'Accepting…' : 'Accept'}
                                 </button>

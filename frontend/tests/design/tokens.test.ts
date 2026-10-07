@@ -30,7 +30,9 @@ const darkMedia = block(':root:not([data-theme="light"])');
 
 const TEXT_PAIRS: Array<[string, string]> = [
   ['ink', 'canvas'], ['ink-2', 'canvas'], ['ink-3', 'canvas'], ['ink-3', 'surface'], ['ink-3', 'surface-sunken'],
-  ['ink', 'surface'], ['amber-ink', 'surface'], ['on-amber', 'amber'],
+  ['ink', 'surface'], ['amber-ink', 'surface'], ['amber-ink', 'canvas'], ['amber-ink', 'surface-sunken'], ['on-amber', 'amber'],
+  ['bronze-ink', 'surface'], ['bronze-ink', 'canvas'], ['bronze-ink', 'surface-sunken'],
+  ['paper', 'ink'], ['paper', 'st-pass'], ['paper', 'st-fail'],
   ['ev-stated', 'surface'], ['ev-inferred', 'surface'], ['ev-confirmed', 'surface'], ['ev-unknown', 'surface'],
   ['st-pass', 'surface'], ['st-fail', 'surface'], ['st-unknown', 'surface'], ['st-fail', 'canvas'],
 ];
@@ -39,7 +41,7 @@ describe('design tokens', () => {
   it('matches the spec values for brand tokens', () => {
     expect(light).toMatchObject({
       canvas: '#F3EFE7', surface: '#FFFFFF', 'surface-sunken': '#EBE5DA', ink: '#15120F', 'ink-2': '#4A433C',
-      'ink-3': '#6E655C', rule: '#DAD2C4', bronze: '#A9825A', amber: '#E8870F', 'amber-ink': '#A85A00',
+      'ink-3': '#6E655C', rule: '#DAD2C4', bronze: '#A9825A', amber: '#E8870F', 'amber-ink': '#8F4C00', 'bronze-ink': '#7F603B',
       'ev-stated': '#1D5FA8', 'ev-inferred': '#A85A00', 'ev-confirmed': '#2F6B2A', 'ev-unknown': '#6B6560',
       'st-pass': '#2F6B2A', 'st-fail': '#B3261E', 'st-unknown': '#6B6560',
     });
@@ -49,6 +51,29 @@ describe('design tokens', () => {
     for (const [fg, bg] of TEXT_PAIRS) {
       expect(contrast(t[fg], t[bg]), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  // Badges and links sit on a 15% amber tint (bg-amber/15) over canvas or surface.
+  it.each([['light', light], ['dark', dark]])('%s amber-ink stays AA on the amber tint', (_n, t) => {
+    const mix = (fg: string, bg: string, a: number) =>
+      '#' + [1, 3, 5].map((i) => Math.round(parseInt(fg.slice(i, i + 2), 16) * a + parseInt(bg.slice(i, i + 2), 16) * (1 - a))
+        .toString(16).padStart(2, '0')).join('');
+    for (const base of ['surface', 'canvas', 'surface-sunken']) {
+      expect(contrast(t['amber-ink'], mix(t.amber, t[base], 0.15)), `amber-ink on amber/15 over ${base}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  // Every color utility the app uses must map to a theme token; an unmapped one
+  // (bg-surface-sunken, bg-amber-hover, text-ink-night) compiles to nothing.
+  it('maps every color token used by components', () => {
+    for (const name of ['surface-sunken', 'amber-hover', 'ink-night', 'on-amber', 'paper', 'bronze-ink']) {
+      expect(css, `--color-${name}`).toContain(`--color-${name}:`);
+    }
+  });
+
+  it.each([['light', light], ['dark', dark]])('%s on-amber stays AA on amber and its hover', (_n, t) => {
+    expect(contrast(t['on-amber'], t.amber)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(t['on-amber'], t['amber-hover'])).toBeGreaterThanOrEqual(4.5);
   });
 
   it('bronze passes 3:1 as a UI color on surface', () => {

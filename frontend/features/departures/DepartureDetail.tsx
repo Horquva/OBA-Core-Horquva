@@ -293,7 +293,7 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
                   </h1>
 
                   {detail.hasAlert && (
-                    <span className="px-2 py-0.5 rounded-badge bg-amber text-paper text-xs font-semibold">
+                    <span className="px-2 py-0.5 rounded-badge bg-amber text-on-amber text-xs font-semibold">
                       Discontinuity Alert
                     </span>
                   )}
@@ -380,7 +380,7 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
               </span>
             </div>
 
-            <div className="overflow-x-auto rounded-card border border-rule bg-surface shadow-xs">
+            <div className="overflow-x-auto rounded-card border border-rule bg-surface shadow-xs" tabIndex={0} role="region" aria-label="Handover table">
               <table className="w-full text-left text-xs text-ink">
                 <thead className="border-b border-rule bg-surface-sunken/60 font-mono text-[11px] uppercase text-ink-3">
                   <tr>

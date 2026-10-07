@@ -118,7 +118,7 @@ export function ActionsView({
               Remediation & Certifications
             </span>
           </div>
-          <h1 className="font-serif text-3xl sm:text-4xl text-ink font-normal tracking-tight">
+          <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
             Actions & Confirmations
           </h1>
           <p className="text-sm text-ink-3 mt-1">
@@ -189,7 +189,7 @@ export function ActionsView({
                   className={cn(
                     'px-2.5 py-1 rounded-control transition-colors cursor-pointer',
                     statusFilter === tab.id
-                      ? 'bg-amber text-paper font-semibold'
+                      ? 'bg-amber text-on-amber font-semibold'
                       : 'text-ink-3 hover:text-ink',
                   )}
                 >
@@ -258,7 +258,7 @@ export function ActionsView({
                             </span>
                           </div>
 
-                          <h2 className="font-serif text-lg font-normal text-ink leading-snug">
+                          <h2 className="text-lg font-semibold text-ink leading-snug">
                             {action.problem}
                           </h2>
 
@@ -284,7 +284,7 @@ export function ActionsView({
                               <button
                                 type="button"
                                 onClick={() => setAssigningActionId(isAssigningHere ? null : action.id)}
-                                className="rounded-control bg-amber text-paper px-3 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer"
+                                className="rounded-control bg-amber text-on-amber px-3 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer"
                               >
                                 {isAssigningHere ? 'Cancel' : 'Assign Backup'}
                               </button>
@@ -292,7 +292,7 @@ export function ActionsView({
                             ) : (
                               <Link
                                 href={action.primary.href}
-                                className="rounded-control bg-amber text-paper px-3 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors inline-block"
+                                className="rounded-control bg-amber text-on-amber px-3 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors inline-block"
                               >
                                 {action.primary.label}
                               </Link>
@@ -383,7 +383,7 @@ export function ActionsView({
             className="relative z-10 w-full max-w-md rounded-card border border-rule bg-surface p-6 shadow-2xl space-y-5"
           >
             <div className="space-y-1 border-b border-rule/50 pb-3">
-              <h2 id="accept-risk-title" className="font-serif text-xl font-normal text-ink">
+              <h2 id="accept-risk-title" className="text-xl font-semibold text-ink">
                 Accept Risk for #{riskAction.rank}
               </h2>
               <p className="text-xs text-ink-3">
@@ -441,7 +441,7 @@ export function ActionsView({
                 <button
                   type="submit"
                   disabled={!riskReason.trim() || isAcceptingRisk}
-                  className="rounded-control bg-amber text-paper px-4 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
+                  className="rounded-control bg-amber text-on-amber px-4 py-1.5 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isAcceptingRisk ? 'Submitting...' : 'Confirm Risk Acceptance'}
                 </button>

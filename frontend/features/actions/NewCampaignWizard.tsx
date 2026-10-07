@@ -133,7 +133,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
                 className={cn(
                   'h-6 w-6 rounded-full flex items-center justify-center font-bold transition-colors',
                   step === s
-                    ? 'bg-amber text-paper'
+                    ? 'bg-amber text-on-amber'
                     : step > s
                     ? 'bg-st-pass text-paper'
                     : 'bg-surface-sunken text-ink-3',
@@ -244,7 +244,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
               type="button"
               onClick={handleNextFromScope}
               disabled={isLoadingPreview || (scopeKind === 'leaver' && !leaverPerson) || (scopeKind === 'department' && !department)}
-              className="rounded-control bg-amber text-paper px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
+              className="rounded-control bg-amber text-on-amber px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
             >
               {isLoadingPreview ? 'Analyzing Scope...' : 'Continue to Review →'}
             </button>
@@ -317,7 +317,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
               onClick={() => setStep(3)}
               disabled={preview.tasks.length === 0}
               title={preview.tasks.length === 0 ? 'Nobody to ask in this scope' : undefined}
-              className="rounded-control bg-amber text-paper px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-control bg-amber text-on-amber px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Configure Message →
             </button>
@@ -376,7 +376,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
             <button
               type="button"
               onClick={() => setStep(4)}
-              className="rounded-control bg-amber text-paper px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer"
+              className="rounded-control bg-amber text-on-amber px-4 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer"
             >
               Schedule & Launch →
             </button>
@@ -401,7 +401,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
           <button
             type="button"
             onClick={() => router.push('/actions')}
-            className="rounded-control bg-amber text-paper px-3 py-1.5 text-xs font-semibold"
+            className="rounded-control bg-amber text-on-amber px-3 py-1.5 text-xs font-semibold"
           >
             Back to Actions
           </button>
@@ -481,7 +481,7 @@ export function NewCampaignWizard({ initialPreview }: NewCampaignWizardProps) {
               type="button"
               onClick={handleLaunchCampaign}
               disabled={isSubmitting || !campaignName.trim()}
-              className="rounded-control bg-amber text-paper px-5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
+              className="rounded-control bg-amber text-on-amber px-5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors cursor-pointer disabled:opacity-50"
             >
               {isSubmitting ? 'Launching...' : '🚀 Launch Campaign'}
             </button>

@@ -276,7 +276,7 @@ export function AssetsView({
               className={cn(
                 'px-2 py-1 rounded-control transition-colors cursor-pointer',
                 criticalityFilter === 'all'
-                  ? 'bg-amber text-paper font-semibold'
+                  ? 'bg-amber text-on-amber font-semibold'
                   : 'text-ink-3 hover:text-ink',
               )}
             >
@@ -288,7 +288,7 @@ export function AssetsView({
               className={cn(
                 'px-2 py-1 rounded-control transition-colors cursor-pointer',
                 criticalityFilter === 'critical_only'
-                  ? 'bg-amber text-paper font-semibold'
+                  ? 'bg-amber text-on-amber font-semibold'
                   : 'text-ink-3 hover:text-ink',
               )}
             >
@@ -403,7 +403,7 @@ export function AssetsView({
           }}
         />
       ) : (
-        <div className="border border-rule rounded-card bg-surface shadow-xs overflow-x-auto">
+        <div className="border border-rule rounded-card bg-surface shadow-xs overflow-x-auto" tabIndex={0} role="region" aria-label="Assets table">
           <table className="w-full text-left text-xs text-ink" aria-label="Assets Catalog Table">
             <thead className="border-b border-rule bg-surface-sunken/40 font-mono text-[11px] uppercase text-ink-3">
               <tr>

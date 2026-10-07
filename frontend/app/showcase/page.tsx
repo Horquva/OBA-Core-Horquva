@@ -76,11 +76,11 @@ export default function DesignShowcasePage() {
       {/* Top Bar Banner */}
       <header className="sticky top-0 z-40 border-b border-rule bg-surface/90 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-control bg-amber flex items-center justify-center font-serif text-lg font-bold text-ink-night shadow-xs">
+          <div className="h-8 w-8 rounded-control bg-amber flex items-center justify-center text-lg font-bold text-ink-night shadow-xs">
             O
           </div>
           <div>
-            <h1 className="font-serif text-xl font-normal leading-tight text-ink">
+            <h1 className="text-xl font-semibold leading-tight text-ink">
               OBA Design System & Living Look-and-Feel Preview
             </h1>
             <p className="text-xs text-ink-3">Phase A & B Design Verification Showcase</p>
@@ -124,21 +124,21 @@ export default function DesignShowcasePage() {
           {/* Typography & Editorial Brand */}
           <section className="space-y-4">
             <h2 className="text-xs uppercase tracking-wider font-semibold text-ink-3">
-              Typography System (Instrument Serif + Hanken Grotesk)
+              Typography System (Inter)
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
                 <span className="text-xs text-amber-ink font-mono uppercase tracking-wider">Editorial Serif Display</span>
-                <p className="font-serif text-3xl font-normal text-ink mt-2">
+                <p className="text-3xl font-semibold text-ink mt-2">
                   Operational Continuity & Ownership Risk
                 </p>
-                <p className="font-serif text-xl italic text-ink-2 mt-1">
+                <p className="font-semibold text-xl text-ink-2 mt-1">
                   "Counted facts only. Never invented scores or percentages."
                 </p>
               </Card>
               <Card>
                 <span className="text-xs text-ink-3 font-mono uppercase tracking-wider">Grotesque Interface Sans</span>
-                <p className="text-sm font-semibold text-ink mt-2">Hanken Grotesk System Interface</p>
+                <p className="text-sm font-semibold text-ink mt-2">Inter System Interface</p>
                 <p className="text-xs text-ink-2 mt-1 leading-relaxed">
                   High-contrast tabular numerals for density and legibility: <span className="tabular-nums font-mono">1,492 / 5,000 runs</span>
                 </p>

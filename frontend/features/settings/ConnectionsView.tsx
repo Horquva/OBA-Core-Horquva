@@ -56,7 +56,7 @@ export function ConnectionsView({ initialOverview }: ConnectionsViewProps) {
 
         <Link
           href="/settings/connections/n8n-check"
-          className="rounded-control bg-amber text-paper px-3.5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors inline-flex items-center gap-1.5 self-start sm:self-auto shadow-xs"
+          className="rounded-control bg-amber text-on-amber px-3.5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors inline-flex items-center gap-1.5 self-start sm:self-auto shadow-xs"
         >
           <span>Run n8n Ownership Scan →</span>
         </Link>
@@ -69,7 +69,7 @@ export function ConnectionsView({ initialOverview }: ConnectionsViewProps) {
             <span className="text-[10px] font-mono uppercase tracking-wider text-amber-ink font-semibold">
               Stateless Security Scan
             </span>
-            <h3 className="font-serif text-lg font-normal text-ink">
+            <h3 className="text-lg font-semibold text-ink">
               Audit your n8n workflows without storing credentials
             </h3>
             <p className="text-xs text-ink-3 leading-relaxed max-w-2xl">
@@ -115,7 +115,7 @@ export function ConnectionsView({ initialOverview }: ConnectionsViewProps) {
                 {overview.connections.map((c) => (
                   <Card key={c.id} className="p-5 bg-surface border border-rule shadow-card space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="font-serif text-lg font-normal text-ink">{c.name}</h4>
+                      <h4 className="text-lg font-semibold text-ink">{c.name}</h4>
                       <span className={cn('px-2 py-0.5 rounded-badge text-[10px] font-mono uppercase font-semibold', STATUS_STYLES[c.status])}>
                         {c.status}
                       </span>
@@ -149,7 +149,7 @@ export function ConnectionsView({ initialOverview }: ConnectionsViewProps) {
             {overview.sources.length === 0 ? (
               <Card className="p-5 bg-surface border border-rule text-xs text-ink-3">No data has been loaded yet.</Card>
             ) : (
-              <div className="border border-rule rounded-card bg-surface overflow-x-auto">
+              <div className="border border-rule rounded-card bg-surface overflow-x-auto" tabIndex={0} role="region" aria-label="Data on record by source">
                 <table className="w-full text-left text-xs" aria-label="Data on record by source">
                   <thead className="border-b border-rule bg-surface-sunken/60 font-mono text-[11px] text-ink-3">
                     <tr>

@@ -51,7 +51,7 @@ export function SuccessionPanel({
             Live Succession Simulation
           </span>
         </div>
-        <h3 className="font-serif text-2xl font-normal text-ink">Coverage Delta</h3>
+        <h3 className="text-2xl font-semibold text-ink">Coverage Delta</h3>
         <p className="text-xs text-ink-3">
           Projection of continuity based on the proposed successor assignments.
         </p>
@@ -135,7 +135,7 @@ export function SuccessionPanel({
                       <span
                         className={cn(
                           'font-mono text-xs font-semibold tabular-nums px-2 py-0.5 rounded-badge',
-                          load.overloadWarning ? 'bg-amber text-paper' : 'bg-surface-sunken text-ink-2',
+                          load.overloadWarning ? 'bg-amber text-on-amber' : 'bg-surface-sunken text-ink-2',
                         )}
                       >
                         {Math.round(load.shareOfCompanyCriticalAutomationsPct)}% share

@@ -102,10 +102,26 @@ describe('Reviewer Surfaces (Task 31)', () => {
       const dontKnowBtn = screen.getByRole('button', { name: "Don't know" });
       expect(dontKnowBtn).toBeInTheDocument();
       expect(
-        screen.getByText(
-          /Honest invariant: selecting "Don't know" preserves Unknown state rather than inventing answers./
-        )
+        screen.getByText(/Honest invariant: selecting .Don't know. preserves Unknown state rather than inventing answers./)
       ).toBeInTheDocument();
+    });
+
+    it('announces which answer is selected (aria-pressed) and labels every field', () => {
+      render(<AttestForm token="tok-abc-123" initialSession={sampleSession} />);
+      const yes = screen.getByRole('button', { name: 'Yes, I own it' });
+      const no = screen.getByRole('button', { name: 'No, someone else owns it' });
+      expect(yes).toHaveAttribute('aria-pressed', 'true');
+      expect(no).toHaveAttribute('aria-pressed', 'false');
+
+      const dontKnow = screen.getByRole('button', { name: "Don't know" });
+      fireEvent.click(dontKnow);
+      expect(dontKnow).toHaveAttribute('aria-pressed', 'true');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Documented URL' }));
+      expect(screen.getByLabelText('Runbook or recovery documentation link')).toBeInTheDocument();
+
+      fireEvent.click(no);
+      expect(screen.getByLabelText('Who owns it now? (if you know)')).toBeInTheDocument();
     });
 
     it('submits answers for current asset and advances to next asset', async () => {

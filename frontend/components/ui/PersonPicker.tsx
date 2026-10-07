@@ -192,7 +192,7 @@ export function PersonPicker({
             }}
             onKeyDown={handleKeyDown}
             className={cn(
-              'h-10 w-full rounded-control border border-rule bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-3',
+              'h-11 sm:h-10 w-full rounded-control border border-rule bg-surface px-3 py-2 text-base sm:text-sm text-ink placeholder:text-ink-3',
               'focus:border-ink-2 focus:outline-none focus:ring-1 focus:ring-amber',
               disabled && 'opacity-50 cursor-not-allowed bg-surface-sunken'
             )}

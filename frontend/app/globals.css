@@ -11,9 +11,17 @@
   --rule: #DAD2C4;
   --bronze: #A9825A;
   --bronze-deep: #5E3F2C;
+  /* Bronze for text; --bronze itself is a 3:1 accent for fills and icons only. */
+  --bronze-ink: #7F603B;
   --amber: #E8870F;
-  --amber-ink: #A85A00;
+  --amber-hover: #CF770B;
+  /* Always near-black: modal backdrops and text on amber in any theme. */
+  --ink-night: #15120F;
+  /* Darkened from #A85A00 (D17): 4.4:1 on canvas/amber tint failed AA. */
+  --amber-ink: #8F4C00;
   --on-amber: #15120F;
+  /* Text on solid ink / status fills (bg-ink, bg-st-pass, bg-st-fail). On amber use on-amber. */
+  --paper: #FBF9F5;
   --ev-stated: #1D5FA8;
   --ev-inferred: #A85A00;
   --ev-confirmed: #2F6B2A;
@@ -36,9 +44,13 @@
   --rule: #3A332D;
   --bronze: #C9A27A;
   --bronze-deep: #E3C8A8;
+  --bronze-ink: #C9A27A;
   --amber: #F2A541;
+  --amber-hover: #F5B45E;
+  --ink-night: #15120F;
   --amber-ink: #F2A541;
   --on-amber: #15120F;
+  --paper: #15120F;
   --ev-stated: #7FB0E8;
   --ev-inferred: #F2A541;
   --ev-confirmed: #8CC47E;
@@ -62,9 +74,13 @@
     --rule: #3A332D;
     --bronze: #C9A27A;
     --bronze-deep: #E3C8A8;
+  --bronze-ink: #C9A27A;
     --amber: #F2A541;
+    --amber-hover: #F5B45E;
+    --ink-night: #15120F;
     --amber-ink: #F2A541;
     --on-amber: #15120F;
+    --paper: #15120F;
     --ev-stated: #7FB0E8;
     --ev-inferred: #F2A541;
     --ev-confirmed: #8CC47E;
@@ -82,15 +98,20 @@
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-sunken: var(--surface-sunken);
+  --color-surface-sunken: var(--surface-sunken);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-rule: var(--rule);
   --color-bronze: var(--bronze);
   --color-bronze-deep: var(--bronze-deep);
+  --color-bronze-ink: var(--bronze-ink);
   --color-amber: var(--amber);
   --color-amber-ink: var(--amber-ink);
+  --color-amber-hover: var(--amber-hover);
+  --color-ink-night: var(--ink-night);
   --color-on-amber: var(--on-amber);
+  --color-paper: var(--paper);
   --color-ev-stated: var(--ev-stated);
   --color-ev-inferred: var(--ev-inferred);
   --color-ev-confirmed: var(--ev-confirmed);
@@ -98,8 +119,7 @@
   --color-st-pass: var(--st-pass);
   --color-st-fail: var(--st-fail);
   --color-st-unknown: var(--st-unknown);
-  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --radius-card: 16px;
   --radius-control: 10px;
   --radius-badge: 4px;
