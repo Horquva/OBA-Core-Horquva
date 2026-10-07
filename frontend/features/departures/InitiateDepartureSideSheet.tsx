@@ -97,10 +97,11 @@ export function InitiateDepartureSideSheet({
         )}
 
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-ink uppercase tracking-wider">
+          <label htmlFor="departing-person" className="text-xs font-semibold text-ink uppercase tracking-wider">
             Departing Employee *
           </label>
           <PersonPicker
+            id="departing-person"
             value={selectedPerson}
             onChange={setSelectedPerson}
             options={people}

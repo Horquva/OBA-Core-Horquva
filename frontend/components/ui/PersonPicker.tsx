@@ -16,7 +16,10 @@ export interface PersonPickerProps {
   onSearch?: (query: string) => Promise<PersonItem[]> | PersonItem[];
   placeholder?: string;
   disabled?: boolean;
+  /** Visible label, tied to the input. Omit it when the screen labels the field itself (pass `id`). */
   label?: string;
+  /** Input id, for a label the screen renders itself (`<label htmlFor={id}>`). */
+  id?: string;
   className?: string;
 }
 
@@ -27,7 +30,8 @@ export function PersonPicker({
   onSearch,
   placeholder = 'Search people by name or email...',
   disabled = false,
-  label = 'Person',
+  label,
+  id,
   className,
 }: PersonPickerProps) {
   const [query, setQuery] = React.useState('');
@@ -37,6 +41,8 @@ export function PersonPicker({
   const [isLoading, setIsLoading] = React.useState(false);
 
   const listboxId = React.useId();
+  const generatedId = React.useId();
+  const inputId = id ?? generatedId;
   const inputRef = React.useRef<HTMLInputElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -146,7 +152,7 @@ export function PersonPicker({
 
   return (
     <div ref={containerRef} className={cn('relative w-full space-y-1.5', className)}>
-      {label && <label className="block text-xs font-medium text-ink-2">{label}</label>}
+      {label && <label htmlFor={inputId} className="block text-xs font-medium text-ink-2">{label}</label>}
 
       {value ? (
         <div className="flex h-10 items-center justify-between rounded-control border border-rule bg-surface px-3 py-1.5">
@@ -173,9 +179,11 @@ export function PersonPicker({
         <div className="relative">
           <input
             ref={inputRef}
+            id={inputId}
             type="text"
             role="combobox"
-            aria-label={label}
+            // Named by its <label> when there is one; otherwise generically.
+            aria-label={label || id ? undefined : 'Person'}
             aria-autocomplete="list"
             aria-expanded={isOpen}
             aria-controls={listboxId}
@@ -208,7 +216,7 @@ export function PersonPicker({
         <ul
           id={listboxId}
           role="listbox"
-          aria-label={label}
+          aria-label={label ?? 'People'}
           className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-control border border-rule bg-surface p-1 shadow-lg"
         >
           {results.length === 0 ? (

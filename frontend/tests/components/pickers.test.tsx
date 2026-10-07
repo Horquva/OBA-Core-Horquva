@@ -63,6 +63,26 @@ describe('Searchable Autocomplete Pickers', () => {
       expect(await axe(container)).toHaveNoViolations();
     });
 
+    it('ties a visible label to the input', () => {
+      render(<PersonPicker options={people} onChange={vi.fn()} label="Assignee" />);
+      expect(screen.getByLabelText('Assignee')).toBe(screen.getByRole('combobox'));
+    });
+
+    it('shows no stray caption without a label, and takes a label the screen renders itself', async () => {
+      const { container } = render(
+        <>
+          <label htmlFor="leaver">Departing employee</label>
+          <PersonPicker id="leaver" options={people} onChange={vi.fn()} />
+          <PersonPicker options={people} onChange={vi.fn()} />
+        </>
+      );
+      // Only the screen's own label is visible; the bare picker is still named for screen readers.
+      expect(screen.queryByText('Person')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Departing employee')).toHaveAttribute('id', 'leaver');
+      expect(screen.getByRole('combobox', { name: 'Person' })).toBeInTheDocument();
+      expect(await axe(container)).toHaveNoViolations();
+    });
+
     it('supports async onSearch function', async () => {
       const handleSearch = vi.fn().mockResolvedValue([people[1]]);
       render(<PersonPicker onSearch={handleSearch} onChange={() => {}} />);
@@ -78,6 +98,12 @@ describe('Searchable Autocomplete Pickers', () => {
   });
 
   describe('EntityPicker', () => {
+    it('shows no stray caption without a label', () => {
+      render(<EntityPicker options={entities} onChange={vi.fn()} />);
+      expect(screen.queryByText('Entity')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Entity' })).toBeInTheDocument();
+    });
+
     it('filters by allowedKinds and selects entity', async () => {
       const handleChange = vi.fn();
       const { container } = render(

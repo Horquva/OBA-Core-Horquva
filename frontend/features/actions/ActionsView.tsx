@@ -335,11 +335,12 @@ export function ActionsView({
                     {/* Inline Person Picker for Backup Assignment */}
                     {isAssigningHere && (
                       <div className="rounded-card border border-amber/30 bg-amber/5 p-4 space-y-2">
-                        <label className="text-xs font-semibold text-ink block">
+                        <label htmlFor={`backup-${action.id}`} className="text-xs font-semibold text-ink block">
                           Select Backup Nominee for {action.asset.name}:
                         </label>
                         <div className="w-full sm:w-80">
                           <PersonPicker
+                            id={`backup-${action.id}`}
                             placeholder={peopleResource.status === 'error' ? "Couldn't load people" : 'Choose person...'}
                             options={peopleOptions}
                             disabled={isAssigning}

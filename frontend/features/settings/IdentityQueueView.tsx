@@ -194,12 +194,13 @@ export function IdentityQueueView({ initialItems }: IdentityQueueViewProps) {
                 {/* Inline Person Picker Container */}
                 {isPickingPerson && (
                   <div className="rounded-control bg-surface-sunken p-4 border border-rule space-y-3">
-                    <label className="text-xs font-semibold text-ink block">
+                    <label htmlFor={`identity-${item.id}`} className="text-xs font-semibold text-ink block">
                       Choose canonical employee to associate with {item.displayName || item.emailCandidate}:
                     </label>
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                       <div className="w-full sm:w-80">
                         <PersonPicker
+                          id={`identity-${item.id}`}
                           placeholder={peopleResource.status === 'error' ? 'Could not load people' : 'Select employee...'}
                           options={peopleOptions}
                           value={selectedPerson}

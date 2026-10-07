@@ -12,7 +12,10 @@ export interface EntityPickerProps {
   allowedKinds?: EntityKind[];
   placeholder?: string;
   disabled?: boolean;
+  /** Visible label, tied to the input. Omit it when the screen labels the field itself (pass `id`). */
   label?: string;
+  /** Input id, for a label the screen renders itself (`<label htmlFor={id}>`). */
+  id?: string;
   className?: string;
 }
 
@@ -24,7 +27,8 @@ export function EntityPicker({
   allowedKinds,
   placeholder = 'Search entities...',
   disabled = false,
-  label = 'Entity',
+  label,
+  id,
   className,
 }: EntityPickerProps) {
   const [query, setQuery] = React.useState('');
@@ -34,6 +38,8 @@ export function EntityPicker({
   const [isLoading, setIsLoading] = React.useState(false);
 
   const listboxId = React.useId();
+  const generatedId = React.useId();
+  const inputId = id ?? generatedId;
   const inputRef = React.useRef<HTMLInputElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -151,7 +157,7 @@ export function EntityPicker({
 
   return (
     <div ref={containerRef} className={cn('relative w-full space-y-1.5', className)}>
-      {label && <label className="block text-xs font-medium text-ink-2">{label}</label>}
+      {label && <label htmlFor={inputId} className="block text-xs font-medium text-ink-2">{label}</label>}
 
       {value ? (
         <div className="flex h-10 items-center justify-between rounded-control border border-rule bg-surface px-3 py-1.5">
@@ -180,9 +186,11 @@ export function EntityPicker({
         <div className="relative">
           <input
             ref={inputRef}
+            id={inputId}
             type="text"
             role="combobox"
-            aria-label={label}
+            // Named by its <label> when there is one; otherwise generically.
+            aria-label={label || id ? undefined : 'Entity'}
             aria-autocomplete="list"
             aria-expanded={isOpen}
             aria-controls={listboxId}
@@ -215,7 +223,7 @@ export function EntityPicker({
         <ul
           id={listboxId}
           role="listbox"
-          aria-label={label}
+          aria-label={label ?? 'Entities'}
           className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-control border border-rule bg-surface p-1 shadow-lg"
         >
           {results.length === 0 ? (
