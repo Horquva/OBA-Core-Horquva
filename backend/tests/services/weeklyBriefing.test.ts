@@ -76,6 +76,24 @@ describe('CHG-03 / G-11: Weekly Continuity Executive Briefing Service', () => {
     const auditLogs = ds.getAuditLog({ action: 'SEND_WEEKLY_BRIEFING' });
     expect(auditLogs.length).toBe(1);
     expect(auditLogs[0].action).toBe('SEND_WEEKLY_BRIEFING');
-    expect(auditLogs[0].details).toContain('Dispatched weekly briefing');
+    // No SMTP_HOST in tests: the audit entry must not claim a delivery that didn't happen.
+    expect(auditLogs[0].details).toContain('not delivered (SMTP not configured)');
+  });
+
+  it('reports the headline with real numbers, never "undefined"', async () => {
+    const data = WeeklyBriefingService.compileBriefingData(ds);
+    const { coveredCount, exposedCount, unknownCount, totalCriticalAssets } = data.headline;
+    for (const n of [coveredCount, exposedCount, unknownCount, totalCriticalAssets]) expect(typeof n).toBe('number');
+    expect(coveredCount + exposedCount + unknownCount).toBe(totalCriticalAssets);
+    const prose = await WeeklyBriefingService.generateProse(data);
+    expect(prose).not.toContain('undefined');
+    expect(prose).toContain(`${coveredCount} of ${totalCriticalAssets}`);
+  });
+
+  it('sends nothing when there is no admin to receive it', async () => {
+    for (const u of ds.getUsers()) (u as any).role = 'viewer';
+    const result = await new WeeklyBriefingService().sendBriefing(ds);
+    expect(result).toMatchObject({ success: false, recipientCount: 0 });
+    expect(ds.getAuditLog({ action: 'SEND_WEEKLY_BRIEFING' }).length).toBe(0);
   });
 });

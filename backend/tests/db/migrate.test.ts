@@ -90,4 +90,26 @@ describe('G-18: Database Migration Runner', () => {
     expect(secondRunReport.migrationsApplied.length).toBe(0);
     expect(secondRunReport.alreadyAppliedCount).toBe(3);
   });
+
+  it('rolls a failing migration back and does not record it', async () => {
+    const executed: string[] = [];
+    const recorded: string[] = [];
+    const mockQuery = async (text: string, params?: any[]) => {
+      executed.push(text.trim().split(/\s+/).slice(0, 2).join(' '));
+      if (text.includes('CREATE TABLE IF NOT EXISTS daily_snapshot')) throw new Error('boom');
+      if (text.includes('INSERT INTO schema_migrations')) recorded.push(params?.[0]);
+      return { rows: [] } as any;
+    };
+    await expect(runMigrations({ queryFn: mockQuery as any })).rejects.toThrow('003_daily_snapshot.sql: boom');
+    expect(recorded).toEqual(['001_initial_schema.sql', '002_sprint_2_tables.sql']);
+    expect(executed.at(-1)).toBe('ROLLBACK');
+  });
+
+  it('refuses a schema_migrations table owned by another migration system', async () => {
+    const mockQuery = async (text: string) =>
+      text.includes('information_schema.columns')
+        ? ({ rows: [{ column_name: 'filename' }, { column_name: 'applied_at' }] } as any)
+        : ({ rows: [] } as any);
+    await expect(ensureMigrationTable(mockQuery as any)).rejects.toThrow(/different migration system/);
+  });
 });

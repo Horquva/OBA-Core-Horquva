@@ -247,6 +247,8 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     const body = JSON.stringify({ successorId: 'person:elena@acme.com', reason: 'Chen has no capacity' });
 
     expect((await authedFetch(url, { method: 'POST', headers: json, body }, 'user:chen')).status).toBe(403); // reviewer
+    expect((await authedFetch(url, { method: 'POST', headers: json, body: JSON.stringify({ successorId: 'person:elena@acme.com' }) })).status).toBe(400);
+
     const res = await authedFetch(url, { method: 'POST', headers: json, body });
     expect(res.status).toBe(200);
     const after = (await (await authedFetch(`${baseUrl}/api/departures/${davidDepartureId}`)).json()) as any;
@@ -265,5 +267,19 @@ describe('Departures & Handovers REST API (SRS HND-01..05)', () => {
     expect(data.success).toBe(true);
     expect(data.departureId).toBe(davidDepartureId);
     expect(Array.isArray(data.monitoredAutomations)).toBe(true);
+  });
+
+  it('POST /api/departures/:id/verify-executions ignores caller-supplied window/clock and 404s unknown ids', async () => {
+    const post = (id: string, body: object) =>
+      authedFetch(`${baseUrl}/api/departures/${id}/verify-executions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    const res = await post(davidDepartureId, { windowHours: 0, now: '2099-01-01T00:00:00.000Z' });
+    const data = (await res.json()) as any;
+    expect(data.windowCompleted).toBe(false);
+    expect(data.autoVerified).toBe(false);
+    expect((await post('dep_does_not_exist', {})).status).toBe(404);
   });
 });

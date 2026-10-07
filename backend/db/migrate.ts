@@ -53,6 +53,19 @@ export async function ensureMigrationTable(queryFn = query): Promise<void> {
     );
   `;
   await queryFn(sql);
+
+  // An older tracker (e.g. the legacy OBA `schema_migrations(filename, …)`) means this is
+  // not a database this runner owns; refuse instead of re-running 001+ on top of it.
+  const cols = await queryFn(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'schema_migrations'`
+  );
+  const names = (cols?.rows ?? []).map((r: any) => r.column_name);
+  if (names.length > 0 && !names.includes('name')) {
+    throw new Error(
+      `schema_migrations exists with columns (${names.join(', ')}) — it belongs to a different migration system. ` +
+        'Point DATABASE_URL at the Horquva database.'
+    );
+  }
 }
 
 /**
@@ -85,7 +98,7 @@ export async function getMigrationStatus(options: MigrationOptions = {}): Promis
 
   const availableFiles = discoverMigrationFiles(options.migrationsDir);
   const res = await queryFn('SELECT name, applied_at FROM schema_migrations ORDER BY name ASC');
-  const appliedMap = new Map<string, string>();
+  const appliedMap = new Map<string, string | null>();
   for (const row of res.rows) {
     appliedMap.set(row.name, row.applied_at ? new Date(row.applied_at).toISOString() : null);
   }
@@ -102,10 +115,20 @@ export async function getMigrationStatus(options: MigrationOptions = {}): Promis
  * Idempotent: safe to run multiple times without failure or duplicated state.
  */
 export async function runMigrations(options: MigrationOptions = {}): Promise<MigrationReport> {
-  const queryFn = options.queryFn || query;
+  if (options.queryFn) return applyPending(options.queryFn, options.migrationsDir);
+  // BEGIN/COMMIT must share one connection, so the real run holds a single pooled client.
+  const client = await pool.connect();
+  try {
+    return await applyPending(client.query.bind(client) as typeof query, options.migrationsDir);
+  } finally {
+    client.release();
+  }
+}
+
+async function applyPending(queryFn: typeof query, migrationsDir?: string): Promise<MigrationReport> {
   await ensureMigrationTable(queryFn);
 
-  const availableFiles = discoverMigrationFiles(options.migrationsDir);
+  const availableFiles = discoverMigrationFiles(migrationsDir);
   const res = await queryFn('SELECT name FROM schema_migrations');
   const alreadyApplied = new Set<string>(res.rows.map((r: any) => r.name));
 
@@ -117,11 +140,16 @@ export async function runMigrations(options: MigrationOptions = {}): Promise<Mig
       console.log(`[Migrate] Applying ${file.name}...`);
     }
 
-    // Execute the SQL file statements
-    await queryFn(file.content);
-
-    // Record in schema_migrations
-    await queryFn('INSERT INTO schema_migrations (name, applied_at) VALUES ($1, NOW())', [file.name]);
+    // The file and its tracking row commit together, or not at all.
+    await queryFn('BEGIN');
+    try {
+      await queryFn(file.content);
+      await queryFn('INSERT INTO schema_migrations (name, applied_at) VALUES ($1, NOW())', [file.name]);
+      await queryFn('COMMIT');
+    } catch (err: any) {
+      await queryFn('ROLLBACK');
+      throw new Error(`${file.name}: ${err.message}`);
+    }
     migrationsApplied.push(file.name);
   }
 

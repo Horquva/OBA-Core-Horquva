@@ -54,6 +54,29 @@ export class N8nConnector extends BaseConnector {
     return res.status === 200;
   }
 
+  /**
+   * Failed executions of one workflow started at or after `since` (HND-06 post-departure watch).
+   * Read-only: GET /api/v1/executions, newest first.
+   */
+  public async fetchFailedExecutions(
+    workflowId: string,
+    since: string
+  ): Promise<Array<{ id: string; workflowId: string; startedAt: string; stoppedAt?: string; errorMessage: string | null }>> {
+    const params = new URLSearchParams({ workflowId, status: 'error', includeData: 'true', limit: '100' });
+    const res = await this.guard.get(`${this.baseUrl}/api/v1/executions?${params}`, { headers: this.getHeaders() });
+    const rows: any[] = res.data?.data || [];
+    const sinceMs = new Date(since).getTime();
+    return rows
+      .filter((e) => new Date(e.startedAt).getTime() >= sinceMs)
+      .map((e) => ({
+        id: String(e.id),
+        workflowId: String(e.workflowId ?? workflowId),
+        startedAt: e.startedAt,
+        stoppedAt: e.stoppedAt ?? undefined,
+        errorMessage: e.data?.resultData?.error?.message ?? null,
+      }));
+  }
+
   public async sync(): Promise<SyncResult> {
     const entities: CanonicalEntity[] = [];
     const edges: CanonicalEdge[] = [];

@@ -48,6 +48,22 @@ export interface DailySnapshotRecord {
 // In-memory fallback map keyed by snapshotDate ('YYYY-MM-DD')
 const inMemorySnapshots = new Map<string, DailySnapshotRecord>();
 
+// snapshot_date is read as text: node-pg turns a DATE into local midnight, which
+// moves the day backwards in any timezone east of UTC.
+const COLUMNS = 'id, snapshot_date::text AS snapshot_date, headline, team_concentration, automation_failures, created_at';
+
+function rowToRecord(row: any): DailySnapshotRecord {
+  const json = (v: any) => (typeof v === 'string' ? JSON.parse(v) : v);
+  return {
+    id: row.id,
+    snapshotDate: row.snapshot_date,
+    headline: json(row.headline),
+    teamConcentration: json(row.team_concentration),
+    automationFailures: json(row.automation_failures),
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
 export class SnapshotService {
   /**
    * Resets in-memory snapshot cache (used for unit tests).
@@ -195,8 +211,8 @@ export class SnapshotService {
           JSON.stringify(record.automationFailures),
           record.createdAt,
         ]);
-      } catch {
-        // In-process fallback is active
+      } catch (err: any) {
+        console.warn('[SnapshotService] Failed to persist daily snapshot; kept in memory only:', err.message);
       }
     }
 
@@ -209,20 +225,12 @@ export class SnapshotService {
   public static async getSnapshot(snapshotDate: string): Promise<DailySnapshotRecord | null> {
     if (this.shouldUseDatabase()) {
       try {
-        const res = await query('SELECT * FROM daily_snapshot WHERE snapshot_date = $1', [snapshotDate]);
+        const res = await query(`SELECT ${COLUMNS} FROM daily_snapshot WHERE snapshot_date = $1`, [snapshotDate]);
         if (res.rows.length > 0) {
-          const row = res.rows[0];
-          return {
-            id: row.id,
-            snapshotDate: typeof row.snapshot_date === 'string' ? row.snapshot_date : row.snapshot_date.toISOString().slice(0, 10),
-            headline: typeof row.headline === 'string' ? JSON.parse(row.headline) : row.headline,
-            teamConcentration: typeof row.team_concentration === 'string' ? JSON.parse(row.team_concentration) : row.team_concentration,
-            automationFailures: typeof row.automation_failures === 'string' ? JSON.parse(row.automation_failures) : row.automation_failures,
-            createdAt: row.created_at.toISOString(),
-          };
+          return rowToRecord(res.rows[0]);
         }
-      } catch {
-        // Fallback to in-memory
+      } catch (err: any) {
+        console.warn('[SnapshotService] Snapshot read failed; using in-memory snapshots:', err.message);
       }
     }
     return inMemorySnapshots.get(snapshotDate) ?? null;
@@ -237,25 +245,17 @@ export class SnapshotService {
     if (this.shouldUseDatabase()) {
       try {
         const sql = `
-          SELECT * FROM daily_snapshot
+          SELECT ${COLUMNS} FROM daily_snapshot
            WHERE snapshot_date <= $1
            ORDER BY snapshot_date DESC
            LIMIT 1;
         `;
         const res = await query(sql, [targetDate]);
         if (res.rows.length > 0) {
-          const row = res.rows[0];
-          return {
-            id: row.id,
-            snapshotDate: typeof row.snapshot_date === 'string' ? row.snapshot_date : row.snapshot_date.toISOString().slice(0, 10),
-            headline: typeof row.headline === 'string' ? JSON.parse(row.headline) : row.headline,
-            teamConcentration: typeof row.team_concentration === 'string' ? JSON.parse(row.team_concentration) : row.team_concentration,
-            automationFailures: typeof row.automation_failures === 'string' ? JSON.parse(row.automation_failures) : row.automation_failures,
-            createdAt: row.created_at.toISOString(),
-          };
+          return rowToRecord(res.rows[0]);
         }
-      } catch {
-        // Fallback
+      } catch (err: any) {
+        console.warn('[SnapshotService] Snapshot read failed; using in-memory snapshots:', err.message);
       }
     }
 
@@ -291,20 +291,18 @@ export class SnapshotService {
    * Returns all stored snapshots ordered newest first.
    */
   public static async listSnapshots(limit = 30): Promise<DailySnapshotRecord[]> {
+    if (!this.shouldUseDatabase()) {
+      return Array.from(inMemorySnapshots.values())
+        .sort((a, b) => b.snapshotDate.localeCompare(a.snapshotDate))
+        .slice(0, limit);
+    }
     try {
-      const res = await query('SELECT * FROM daily_snapshot ORDER BY snapshot_date DESC LIMIT $1', [limit]);
+      const res = await query(`SELECT ${COLUMNS} FROM daily_snapshot ORDER BY snapshot_date DESC LIMIT $1`, [limit]);
       if (res.rows.length > 0) {
-        return res.rows.map((row) => ({
-          id: row.id,
-          snapshotDate: typeof row.snapshot_date === 'string' ? row.snapshot_date : row.snapshot_date.toISOString().slice(0, 10),
-          headline: typeof row.headline === 'string' ? JSON.parse(row.headline) : row.headline,
-          teamConcentration: typeof row.team_concentration === 'string' ? JSON.parse(row.team_concentration) : row.team_concentration,
-          automationFailures: typeof row.automation_failures === 'string' ? JSON.parse(row.automation_failures) : row.automation_failures,
-          createdAt: row.created_at.toISOString(),
-        }));
+        return res.rows.map(rowToRecord);
       }
-    } catch {
-      // Fallback
+    } catch (err: any) {
+      console.warn('[SnapshotService] Snapshot list failed; using in-memory snapshots:', err.message);
     }
 
     return Array.from(inMemorySnapshots.values())

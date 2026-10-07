@@ -413,9 +413,15 @@ departuresRouter.post('/:id/verify', (req: Request, res: Response) => {
 });
 
 // 9. POST /api/departures/:id/verify-executions (HND-06 on-demand trigger)
+// Runs the same scan as the hourly job; the window and clock are never caller-controlled.
 departuresRouter.post('/:id/verify-executions', async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  if (!DataService.getInstance().getDeparture(id)) {
+    res.status(404).json({ error: 'Departure not found.' });
+    return;
+  }
   try {
-    const result = await verifyDepartureExecutions(DataService.getInstance(), String(req.params.id), req.body);
+    const result = await verifyDepartureExecutions(DataService.getInstance(), id);
     res.json({ success: true, ...result });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to verify departure executions.' });

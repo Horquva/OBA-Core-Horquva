@@ -143,7 +143,7 @@ export async function generateHandoverPackPdf(
           const runsFact = autoNode?.facts.get('run_volume_weekly');
           const runs = typeof runsFact?.value === 'number' ? `${runsFact.value} runs/week` : 'volume unknown';
 
-          doc.fontSize(9).fillColor('#dc2626').text(`• ${autoName}`, 45, y);
+          doc.fontSize(9).fillColor('#dc2626').text(`- ${autoName}`, 45, y);
           doc.fontSize(8).fillColor(mutedColor).text(`(${runs}) — Must migrate to service account prior to account disable.`, 180, y);
           y += 16;
         }
@@ -166,14 +166,15 @@ export async function generateHandoverPackPdf(
         const docFact = node?.facts.get('documented');
         if (docFact && docFact.value) {
           docFound = true;
-          const url = (node?.entity?.externalRefs as any)?.runbookUrl ?? `https://wiki.internal/runbooks/${h.assetId}`;
-          doc.fontSize(9).fillColor(primaryColor).text(`• ${name}:`, 45, y);
-          doc.fontSize(9).fillColor(secondaryColor).text(url, 200, y);
+          const url: string | undefined = (node?.entity?.externalRefs as any)?.runbookUrl;
+          doc.fontSize(9).fillColor(primaryColor).text(`- ${name}:`, 45, y);
+          if (url) doc.fontSize(9).fillColor(secondaryColor).text(url, 200, y);
+          else doc.fontSize(9).fillColor(mutedColor).text(`Documented (${docFact.grade}); no runbook link on record.`, 200, y);
           y += 16;
         }
       }
       if (!docFound) {
-        doc.fontSize(9).fillColor(mutedColor).text('No verified runbook URLs on record for transferred assets.', 45, y);
+        doc.fontSize(9).fillColor(mutedColor).text('No transferred asset is recorded as documented.', 45, y);
         y += 20;
       }
 
@@ -245,21 +246,24 @@ export async function generateExecutiveScanPdf(
       doc.fontSize(12).fillColor(primaryColor).text('1. Headline Continuity Posture', 40, 145);
 
       // Metric Boxes
-      doc.rect(40, 168, 160, 50).fill('#f0fdf4');
-      doc.fontSize(20).fillColor('#16a34a').text(String(headline.fullyCoveredCriticalAssets), 45, 175);
-      doc.fontSize(8).fillColor(mutedColor).text('COVERED CRITICAL ASSETS', 45, 202);
-
-      doc.rect(215, 168, 160, 50).fill('#fef2f2');
-      doc.fontSize(20).fillColor('#dc2626').text(String(headline.exposedCriticalAssets), 220, 175);
-      doc.fontSize(8).fillColor(mutedColor).text('EXPOSED CRITICAL ASSETS', 220, 202);
-
-      doc.rect(390, 168, 165, 50).fill('#f8fafc');
-      doc.fontSize(20).fillColor('#0f172a').text(String(headline.totalCriticalAssets), 395, 175);
-      doc.fontSize(8).fillColor(mutedColor).text('TOTAL CRITICAL ASSETS', 395, 202);
+      const boxes: Array<[number, string, string, string]> = [
+        [headline.fullyCoveredCriticalAssets, 'COVERED CRITICAL ASSETS', '#f0fdf4', '#16a34a'],
+        [headline.exposedCriticalAssets, 'EXPOSED CRITICAL ASSETS', '#fef2f2', '#dc2626'],
+        [headline.unknownCriticalAssets, 'UNKNOWN CRITICAL ASSETS', '#f8fafc', '#64748b'],
+        [headline.totalCriticalAssets, 'TOTAL CRITICAL ASSETS', '#f8fafc', '#0f172a'],
+      ];
+      boxes.forEach(([value, label, bg, fg], i) => {
+        const x = 40 + i * 130;
+        doc.rect(x, 168, 125, 50).fill(bg);
+        // Unknown is never "No": dashed outline keeps it visually distinct (DATA-03)
+        if (label.startsWith('UNKNOWN')) doc.rect(x, 168, 125, 50).dash(3, { space: 2 }).strokeColor('#94a3b8').stroke().undash();
+        doc.fontSize(20).fillColor(fg).text(String(value), x + 5, 175);
+        doc.fontSize(8).fillColor(mutedColor).text(label, x + 5, 202);
+      });
 
       doc.fontSize(9).fillColor(mutedColor).text(
-        `Coverage ratio: ${Math.round((headline.fullyCoveredCriticalAssets / (headline.totalCriticalAssets || 1)) * 100)}% | ` +
-        `Unknown facts requiring attestation: ${headline.unknownCriticalFacts}`,
+        `${headline.fullyCoveredCriticalAssets} of ${headline.totalCriticalAssets} critical assets fully covered | ` +
+        `Unconfirmed facts on critical assets: ${headline.unknownCriticalFacts}`,
         40,
         228
       );
@@ -309,7 +313,7 @@ export async function generateExecutiveScanPdf(
         y += 18;
       } else {
         for (const [modelName, count] of modelCounts.entries()) {
-          doc.fontSize(9).fillColor(primaryColor).text(`• ${modelName}:`, 45, y);
+          doc.fontSize(9).fillColor(primaryColor).text(`- ${modelName}:`, 45, y);
           doc.fontSize(9).fillColor(secondaryColor).text(`${count} production automations depend directly on this model`, 180, y);
           y += 16;
         }
@@ -320,11 +324,24 @@ export async function generateExecutiveScanPdf(
       doc.fontSize(12).fillColor(primaryColor).text('4. Recommended Remediation Actions', 40, y);
       y += 20;
 
-      const recommendations = [
-        '1. Launch an Attestation Campaign targeting critical automations with 0 secondary backups.',
-        '2. Migrate personal OAuth/API keys to corporate service accounts for flagged automations.',
-        '3. Author standard operational runbooks for undocumented high-volume workflows.',
-      ];
+      // Each recommendation is tied to a finding in this report; none is printed without one.
+      const personalCredentialAutomations = graph
+        .getAllEdges()
+        .filter((e) => e.type === 'runs_on_credentials_of' && !e.validTo).length;
+      const recommendations: string[] = [];
+      if (topSpofs.length > 0) {
+        recommendations.push(`Name a backup for the ${topSpofs.length} single point(s) of failure listed above.`);
+      }
+      if (personalCredentialAutomations > 0) {
+        recommendations.push(`Move ${personalCredentialAutomations} automation(s) off personal credentials onto service accounts.`);
+      }
+      if (headline.unknownCriticalFacts > 0) {
+        recommendations.push(`Run a confirmation campaign for the ${headline.unknownCriticalFacts} unconfirmed fact(s) on critical assets.`);
+      }
+      if (recommendations.length === 0) {
+        recommendations.push('No open findings require action as of this report.');
+      }
+      recommendations.forEach((rec, i) => (recommendations[i] = `${i + 1}. ${rec}`));
 
       for (const rec of recommendations) {
         doc.fontSize(9).fillColor(primaryColor).text(rec, 45, y);

@@ -207,6 +207,50 @@ describe('HND-06: Post-Departure 72h Verification Daemon', () => {
     });
   });
 
+  describe('honest verification (no unchecked "0 errors" claims)', () => {
+    async function cleanWindowDeparture() {
+      const dep = ds.createDeparture({ personId: 'person:omar@acme.com', leaveDate: '2026-10-31T00:00:00.000Z', note: 'x' });
+      nameSuccessors(ds, dep.id, dep.handovers.map((h) => ({ assetId: h.assetId, successorId: 'person:chen@acme.com' })));
+      requestAcceptance(ds, dep.id);
+      const chen = ds.getUserById('user:chen')!;
+      for (const h of dep.handovers) await acceptHandover(ds, h.id, chen);
+      markAccountDisabled(ds, dep.id);
+      dep.stageTimestamps.account_disabled = '2026-11-01T00:00:00.000Z';
+      return dep;
+    }
+    const after74h = new Date('2026-11-04T02:00:00.000Z');
+
+    it('does NOT auto-verify when no execution source is configured', async () => {
+      const dep = await cleanWindowDeparture();
+      const result = await verifyDepartureExecutions(ds, dep.id, { now: after74h, executionProvider: null });
+      expect(result.monitoredAutomations.length).toBeGreaterThan(0);
+      expect(result.executionsChecked).toBe(false);
+      expect(result.autoVerified).toBe(false);
+      expect(dep.stage).toBe('account_disabled');
+    });
+
+    it("does NOT auto-verify when an automation's executions cannot be read", async () => {
+      const dep = await cleanWindowDeparture();
+      const result = await verifyDepartureExecutions(ds, dep.id, { now: after74h, executionProvider: async () => null });
+      expect(result.executionsChecked).toBe(false);
+      expect(result.autoVerified).toBe(false);
+    });
+
+    it('records each failed execution once across repeated hourly scans', async () => {
+      const dep = ds.createDeparture({ personId: 'person:omar@acme.com', leaveDate: '2026-10-31T00:00:00.000Z', note: 'x' });
+      markAccountDisabled(ds, dep.id);
+      const failed: WorkflowExecution[] = [
+        { id: 'exec_401', workflowId: 'w', status: 'error', startedAt: new Date().toISOString(), errorMessage: '401 Unauthorized' },
+      ];
+      const provider = async () => failed;
+      const first = await verifyDepartureExecutions(ds, dep.id, { executionProvider: provider });
+      const second = await verifyDepartureExecutions(ds, dep.id, { executionProvider: provider });
+      expect(first.alertsEmitted).toBeGreaterThan(0);
+      expect(second.alertsEmitted).toBe(0);
+      expect(second.watchLog.filter((w) => w.executionId === 'exec_401').length).toBe(first.alertsEmitted);
+    });
+  });
+
   describe('verifyAllActiveDepartures', () => {
     it('scans all active account_disabled departures in batch', async () => {
       const dep1 = ds.createDeparture({

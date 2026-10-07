@@ -21,6 +21,9 @@ import { calculateHeadlineMetrics } from '../../domain/checks/index.js';
 dotenv.config();
 
 const DAY_MS = 86_400_000;
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const DEPARTURE_HORIZON_DAYS = 14;
 
 export interface UpcomingDepartureBriefing {
@@ -57,6 +60,7 @@ export interface BriefingContent {
   headline: {
     coveredCount: number;
     exposedCount: number;
+    /** Critical assets with no known gap but an unconfirmed fact (covered + exposed + unknown = total). */
     unknownCount: number;
     totalCriticalAssets: number;
   };
@@ -70,11 +74,14 @@ export interface BriefingContent {
 export class WeeklyBriefingService {
   private transporter: nodemailer.Transporter;
   private fromAddress: string;
+  /** No SMTP_HOST: mail is rendered to JSON, never delivered. */
+  private isDryRun: boolean;
 
   constructor() {
     this.fromAddress = process.env.SMTP_FROM || 'Horquva Continuity <no-reply@horquva.internal>';
     const host = process.env.SMTP_HOST;
 
+    this.isDryRun = !host;
     if (host) {
       this.transporter = nodemailer.createTransport({
         host,
@@ -99,7 +106,13 @@ export class WeeklyBriefingService {
    */
   public static compileBriefingData(ds: DataService, now: Date = new Date()): Omit<BriefingContent, 'prose'> {
     const graph = ds.getGraph();
-    const headline = calculateHeadlineMetrics(graph);
+    const metrics = calculateHeadlineMetrics(graph);
+    const headline = {
+      coveredCount: metrics.fullyCoveredCriticalAssets,
+      exposedCount: metrics.exposedCriticalAssets,
+      unknownCount: metrics.unknownCriticalAssets,
+      totalCriticalAssets: metrics.totalCriticalAssets,
+    };
     const horizonMs = now.getTime() + DEPARTURE_HORIZON_DAYS * DAY_MS;
 
     // 1. Upcoming departures (next 14 days, non-verified)
@@ -195,7 +208,7 @@ Do NOT score, rank, or predict individuals (Invariant SEC-07). Focus entirely on
 Headline:
 - Covered Critical Assets: ${data.headline.coveredCount} of ${data.headline.totalCriticalAssets}
 - Exposed Critical Assets: ${data.headline.exposedCount}
-- Unknown Facts Remaining: ${data.headline.unknownCount}
+- Critical Assets With Unconfirmed Facts (unknown, not known-good): ${data.headline.unknownCount}
 
 Upcoming Departures (Next 14 Days):
 ${data.upcomingDepartures.map((d) => `- ${d.personName} leaving on ${d.leaveDate.slice(0, 10)} (Stage: ${d.stage}, ${d.unacceptedHandovers} unaccepted handovers)`).join('\n') || 'None'}
@@ -212,7 +225,7 @@ ${data.recentFailures.map((f) => `- ${f.title}: ${f.impact}`).join('\n') || 'Non
 Write professional, clear executive prose with actionable recommendations.
 `;
         const response = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
           contents: prompt,
         });
         const text = response.text?.trim();
@@ -231,15 +244,15 @@ Write professional, clear executive prose with actionable recommendations.
     const spofSummary =
       data.spofAssets.length > 0
         ? `We have identified ${data.spofAssets.length} critical single points of failure with no secondary owner on record.`
-        : 'All identified critical assets currently have primary and secondary backup coverage.';
+        : 'No critical asset is held by a single owner with no backup on record.';
 
     const credSummary =
       data.credentialExposures.length > 0
         ? `${data.credentialExposures.length} production automations remain bound to individual employee credentials, posing immediate disruption risk upon account deactivation.`
-        : 'Zero production automations are running on unmanaged personal credentials.';
+        : "No automation is recorded as running on an individual employee's credentials.";
 
     return `### Executive Continuity Summary (${data.asOfDate})\n\n` +
-      `**Current Posture:** ${data.headline.coveredCount} of ${data.headline.totalCriticalAssets} critical assets are fully covered. ${data.headline.exposedCount} assets are exposed without active backups, and ${data.headline.unknownCount} facts require verification.\n\n` +
+      `**Current Posture:** ${data.headline.coveredCount} of ${data.headline.totalCriticalAssets} critical assets are fully covered. ${data.headline.exposedCount} are exposed, and ${data.headline.unknownCount} are unknown until their facts are confirmed.\n\n` +
       `**Operational Exposure:** ${depSummary} ${spofSummary}\n\n` +
       `**Credential & Failure Health:** ${credSummary} During the preceding period, ${data.recentFailures.length} continuity change events were detected across active workflows.`;
   }
@@ -271,7 +284,7 @@ Write professional, clear executive prose with actionable recommendations.
         .map((u) => u.email);
     }
     if (recipients.length === 0) {
-      recipients = ['admin@horquva.internal'];
+      return { success: false, recipientCount: 0, briefing };
     }
 
     const html = `
@@ -308,7 +321,7 @@ Write professional, clear executive prose with actionable recommendations.
 
     <div class="section-title">Executive Summary</div>
     <div class="prose-block">
-      ${briefing.prose.replace(/\n\n/g, '<br><br>')}
+      ${escapeHtml(briefing.prose).replace(/\n\n/g, '<br><br>')}
     </div>
 
     <div class="footer">
@@ -332,7 +345,9 @@ Write professional, clear executive prose with actionable recommendations.
         'system:weekly-briefing',
         'SEND_WEEKLY_BRIEFING',
         'notifications:briefing',
-        `Dispatched weekly briefing to ${recipients.length} recipient(s).`
+        this.isDryRun
+          ? `Weekly briefing rendered for ${recipients.length} recipient(s); not delivered (SMTP not configured).`
+          : `Dispatched weekly briefing to ${recipients.length} recipient(s).`
       );
     }
 

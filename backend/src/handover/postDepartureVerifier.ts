@@ -10,13 +10,19 @@
 //   - Appends an entry to the departure's watch log
 //
 // Once 72 hours have elapsed:
-//   - If all handovers are accepted and no fatal failure occurred,
-//     automatically closes the departure into Stage 5 (verified).
+//   - If all handovers are accepted, every watched automation's executions
+//     were actually checked, and no fatal failure occurred, automatically
+//     closes the departure into Stage 5 (verified).
+//
+// Execution history comes from n8n (N8N_BASE_URL + N8N_API_KEY). Without it the
+// window still runs but nothing is auto-verified: "no failures seen" is only
+// claimed when executions were really read.
 // =============================================================================
 
 import type { ContinuityGraph } from '../domain/graph/index.js';
 import type { DataService, DepartureRecord, DepartureWatchEvent } from '../services/dataService.js';
 import { verifyDeparture } from './successionService.js';
+import { N8nConnector } from '../connectors/n8n/index.js';
 
 export interface WorkflowExecution {
   id: string;
@@ -37,13 +43,29 @@ export interface VerificationResult {
   failuresDetected: number;
   alertsEmitted: number;
   autoVerified: boolean;
+  /** True only when every monitored automation's execution history was read. */
+  executionsChecked: boolean;
   watchLog: DepartureWatchEvent[];
 }
 
+/** Returns the automation's executions since `since`, or null when its source can't be read. */
 export type ExecutionProvider = (
-  workflowId: string,
+  automationId: string,
   since: string
-) => Promise<WorkflowExecution[]> | WorkflowExecution[];
+) => Promise<WorkflowExecution[] | null> | WorkflowExecution[] | null;
+
+const N8N_AUTOMATION_PREFIX = 'automation:n8n:';
+
+/** Live n8n execution history, when the instance is configured; otherwise null. */
+export function n8nExecutionProviderFromEnv(env: NodeJS.ProcessEnv = process.env): ExecutionProvider | null {
+  if (!env.N8N_BASE_URL || !env.N8N_API_KEY) return null;
+  const n8n = new N8nConnector('n8n', 'n8n', { baseUrl: env.N8N_BASE_URL, apiKey: env.N8N_API_KEY });
+  return async (automationId, since) => {
+    if (!automationId.startsWith(N8N_AUTOMATION_PREFIX)) return null;
+    const failed = await n8n.fetchFailedExecutions(automationId.slice(N8N_AUTOMATION_PREFIX.length), since);
+    return failed.map((e) => ({ ...e, status: 'error' as const }));
+  };
+}
 
 const DEFAULT_WINDOW_HOURS = 72;
 
@@ -108,7 +130,8 @@ export function getAssociatedAutomations(
 export interface VerifyOptions {
   now?: Date;
   windowHours?: number;
-  executionProvider?: ExecutionProvider;
+  /** Omitted: n8n from env when configured. null: no execution source. */
+  executionProvider?: ExecutionProvider | null;
   autoTransition?: boolean;
 }
 
@@ -145,6 +168,7 @@ export async function verifyDepartureExecutions(
       failuresDetected: 0,
       alertsEmitted: 0,
       autoVerified: false,
+      executionsChecked: false,
       watchLog: dep.watchLog ?? [],
     };
   }
@@ -158,15 +182,24 @@ export async function verifyDepartureExecutions(
   let failuresDetected = 0;
   let alertsEmitted = 0;
   let hasActiveAuthFailure = false;
+  const provider = options.executionProvider === undefined ? n8nExecutionProviderFromEnv() : options.executionProvider;
+  // Nothing to watch counts as checked; otherwise every automation must be readable.
+  let executionsChecked = automations.length === 0 || provider !== null;
+  // The hourly scan re-reads the whole window; only new executions are recorded.
+  const seenExecutions = new Set((dep.watchLog ?? []).map((w) => w.executionId).filter(Boolean));
 
   // Check executions for each automation since disabledAt
-  if (options.executionProvider && automations.length > 0) {
+  if (provider && automations.length > 0) {
     const sinceIso = new Date(disabledAt).toISOString();
     for (const auto of automations) {
       try {
-        const executions = await options.executionProvider(auto.id, sinceIso);
+        const executions = await provider(auto.id, sinceIso);
+        if (executions === null) {
+          executionsChecked = false;
+          continue;
+        }
         for (const exec of executions) {
-          if (exec.status === 'error') {
+          if (exec.status === 'error' && !seenExecutions.has(exec.id)) {
             failuresDetected++;
             const isAuth = isCredentialOrAuthError(exec.errorMessage);
             if (isAuth) {
@@ -189,6 +222,7 @@ export async function verifyDepartureExecutions(
                 workflow: { id: auto.id, name: auto.name },
                 message: alertMessage,
                 severity: 'alert',
+                executionId: exec.id,
               });
 
               // 3. Add audit log entry
@@ -205,11 +239,13 @@ export async function verifyDepartureExecutions(
                 workflow: { id: auto.id, name: auto.name },
                 message: `Workflow error (non-auth): ${exec.errorMessage || 'Execution failed'}`,
                 severity: 'info',
+                executionId: exec.id,
               });
             }
           }
         }
       } catch (err: any) {
+        executionsChecked = false;
         console.warn(`[PostDepartureVerifier] Failed to fetch executions for ${auto.id}:`, err.message);
       }
     }
@@ -222,7 +258,7 @@ export async function verifyDepartureExecutions(
   let autoVerified = false;
 
   // Auto-transition to verified if window completed, all accepted, and zero auth failures
-  if (autoTransition && windowCompleted && allHandoversAccepted && !hasActiveAuthFailure) {
+  if (autoTransition && windowCompleted && allHandoversAccepted && executionsChecked && !hasActiveAuthFailure) {
     // Check if any watchLog alerts were recorded previously
     const priorAlerts = (dep.watchLog ?? []).filter((w) => w.severity === 'alert').length;
     if (priorAlerts === 0) {
@@ -251,6 +287,7 @@ export async function verifyDepartureExecutions(
     failuresDetected,
     alertsEmitted,
     autoVerified,
+    executionsChecked,
     watchLog: dep.watchLog ?? [],
   };
 }

@@ -23,6 +23,7 @@ describe('NFR-01 & NFR-02: 20,000-Node Synthetic Scale & Performance Benchmark',
         id,
         kind: 'person',
         name: `Employee ${i}`,
+        externalRefs: {},
         createdAt: now,
         updatedAt: now,
       });
@@ -38,6 +39,7 @@ describe('NFR-01 & NFR-02: 20,000-Node Synthetic Scale & Performance Benchmark',
           id,
           kind: 'automation',
           name: `Workflow Automation ${i}`,
+          externalRefs: {},
           createdAt: now,
           updatedAt: now,
         },
@@ -80,6 +82,7 @@ describe('NFR-01 & NFR-02: 20,000-Node Synthetic Scale & Performance Benchmark',
         id,
         kind: i % 2 === 0 ? 'credential' : 'app',
         name: `Infrastructure Asset ${i}`,
+        externalRefs: {},
         createdAt: now,
         updatedAt: now,
       });
@@ -140,11 +143,11 @@ describe('NFR-01 & NFR-02: 20,000-Node Synthetic Scale & Performance Benchmark',
     const now = new Date();
 
     for (let i = 1; i <= TOTAL_PEOPLE; i++) {
-      graph.addEntity({ id: `person:${i}`, kind: 'person', name: `Employee ${i}`, createdAt: now, updatedAt: now });
+      graph.addEntity({ id: `person:${i}`, kind: 'person', name: `Employee ${i}`, externalRefs: {}, createdAt: now, updatedAt: now });
     }
     for (let i = 1; i <= TOTAL_AUTOMATIONS; i++) {
       graph.addEntity(
-        { id: `automation:${i}`, kind: 'automation', name: `Workflow ${i}`, createdAt: now, updatedAt: now },
+        { id: `automation:${i}`, kind: 'automation', name: `Workflow ${i}`, externalRefs: {}, createdAt: now, updatedAt: now },
         [{ id: `fc_${i}`, entityId: `automation:${i}`, attribute: 'criticality', value: 'critical', grade: 'confirmed', source: 'seed', validFrom: now }]
       );
       const owner = (i % TOTAL_PEOPLE) + 1;
@@ -157,8 +160,7 @@ describe('NFR-01 & NFR-02: 20,000-Node Synthetic Scale & Performance Benchmark',
     const result = engine.simulateDeparture(['person:1']);
     const elapsed = performance.now() - start;
 
-    expect(result).toBeDefined();
-    expect(result.orphanedCriticalAssets).toBeDefined();
+    expect(result.orphanedCriticalAssets.length).toBeGreaterThan(0);
     // NFR-02: Single What-If executes in under 100ms
     expect(elapsed).toBeLessThan(100);
   });
@@ -168,11 +170,11 @@ describe('NFR-01 & NFR-02: 20,000-Node Synthetic Scale & Performance Benchmark',
     const now = new Date();
 
     for (let i = 1; i <= TOTAL_PEOPLE; i++) {
-      graph.addEntity({ id: `person:${i}`, kind: 'person', name: `Employee ${i}`, createdAt: now, updatedAt: now });
+      graph.addEntity({ id: `person:${i}`, kind: 'person', name: `Employee ${i}`, externalRefs: {}, createdAt: now, updatedAt: now });
     }
     for (let i = 1; i <= TOTAL_AUTOMATIONS; i++) {
       graph.addEntity(
-        { id: `automation:${i}`, kind: 'automation', name: `Workflow ${i}`, createdAt: now, updatedAt: now },
+        { id: `automation:${i}`, kind: 'automation', name: `Workflow ${i}`, externalRefs: {}, createdAt: now, updatedAt: now },
         [{ id: `fc_${i}`, entityId: `automation:${i}`, attribute: 'criticality', value: 'critical', grade: 'confirmed', source: 'seed', validFrom: now }]
       );
       const owner = (i % TOTAL_PEOPLE) + 1;
@@ -183,14 +185,13 @@ describe('NFR-01 & NFR-02: 20,000-Node Synthetic Scale & Performance Benchmark',
 
     const start = performance.now();
     const result = engine.simulateCombined({
-      leavingPersonIds: ['person:1', 'person:2', 'person:3', 'person:4', 'person:5'],
-      outageEntityIds: ['automation:10', 'automation:20'],
+      departingPersonIds: ['person:1', 'person:2', 'person:3', 'person:4', 'person:5'],
+      failingAssetIds: ['automation:10', 'automation:20'],
     });
     const elapsed = performance.now() - start;
 
-    expect(result).toBeDefined();
-    expect(result.orphanedCriticalAssets).toBeDefined();
-    expect(result.stoppedAutomations).toBeDefined();
+    // The five leavers own critical automations, so a real simulation must orphan some.
+    expect(result.orphanedCriticalAssets.length).toBeGreaterThan(0);
     // NFR-02: Compound What-If executes in under 500ms
     expect(elapsed).toBeLessThan(500);
   });
@@ -200,11 +201,11 @@ describe('NFR-01 & NFR-02: 20,000-Node Synthetic Scale & Performance Benchmark',
     const now = new Date();
 
     for (let i = 1; i <= TOTAL_PEOPLE; i++) {
-      graph.addEntity({ id: `person:${i}`, kind: 'person', name: `Employee ${i}`, createdAt: now, updatedAt: now });
+      graph.addEntity({ id: `person:${i}`, kind: 'person', name: `Employee ${i}`, externalRefs: {}, createdAt: now, updatedAt: now });
     }
     for (let i = 1; i <= TOTAL_AUTOMATIONS; i++) {
       graph.addEntity(
-        { id: `automation:${i}`, kind: 'automation', name: `Workflow ${i}`, createdAt: now, updatedAt: now },
+        { id: `automation:${i}`, kind: 'automation', name: `Workflow ${i}`, externalRefs: {}, createdAt: now, updatedAt: now },
         [
           { id: `fc_${i}`, entityId: `automation:${i}`, attribute: 'criticality', value: i <= 2000 ? 'critical' : 'low', grade: 'confirmed', source: 'seed', validFrom: now },
           { id: `fd_${i}`, entityId: `automation:${i}`, attribute: 'documented', value: true, grade: 'confirmed', source: 'seed', validFrom: now },

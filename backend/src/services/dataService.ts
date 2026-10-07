@@ -45,6 +45,8 @@ export interface DepartureWatchEvent {
   workflow: { id: string; name: string };
   message: string;
   severity: 'info' | 'alert';
+  /** Source execution, so re-scans of the same window don't duplicate entries. */
+  executionId?: string;
 }
 
 export interface DepartureRecord {
