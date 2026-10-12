@@ -19,8 +19,14 @@ export interface GraphEdgeAttributes {
   edge: CanonicalEdge;
 }
 
+export type GraphChange =
+  | { type: 'edge_added'; edge: CanonicalEdge }
+  | { type: 'edges_closed'; edges: CanonicalEdge[] };
+
 export class ContinuityGraph {
   private graph: MultiDirectedGraph<GraphNodeAttributes, GraphEdgeAttributes>;
+  /** Told about edge changes made after the graph was built (DataService writes them to Postgres). */
+  public onChange?: (change: GraphChange) => void;
 
   constructor() {
     this.graph = new MultiDirectedGraph<GraphNodeAttributes, GraphEdgeAttributes>();
@@ -57,6 +63,7 @@ export class ContinuityGraph {
     }
 
     this.graph.addEdge(edge.fromId, edge.toId, { edge });
+    this.onChange?.({ type: 'edge_added', edge });
   }
 
   /** Makes `fact` the current value of its attribute on that entity (no-op for unknown entities). */
@@ -78,6 +85,7 @@ export class ContinuityGraph {
         this.graph.dropEdge(key);
       }
     }
+    if (closed.length) this.onChange?.({ type: 'edges_closed', edges: closed });
     return closed;
   }
 

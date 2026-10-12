@@ -180,7 +180,7 @@ export class PostgresFactStoreAdapter implements FactStoreAdapter {
       id: row.id,
       entityId: row.entity_id,
       attribute: row.attribute as FactAttribute,
-      value: typeof row.value === 'string' ? JSON.parse(row.value) : row.value,
+      value: row.value, // pg already decodes JSONB; a string value is the value itself, not JSON text
       grade: row.grade as EvidenceGrade,
       source: row.source,
       sourceRef: row.source_ref || undefined,

@@ -29,6 +29,7 @@ import { authRouter } from './routes/auth.js';
 import { navRouter } from './routes/nav.js';
 import { reportsRouter } from './routes/reports.js';
 import { requestContext } from './middleware/requestContext.js';
+import { persistBeforeRespond } from './middleware/persistBeforeRespond.js';
 import { auditTrail } from './middleware/auditLog.js';
 import { authorize } from './middleware/rbac.js';
 
@@ -39,6 +40,7 @@ app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(requestContext);
+app.use(persistBeforeRespond);
 app.use(auditTrail);
 
 // Health check endpoint

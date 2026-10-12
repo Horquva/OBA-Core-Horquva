@@ -121,6 +121,7 @@ export function nameSuccessors(
   }
 
   refreshStage(dep, new Date().toISOString());
+  ds.persistDeparture(dep);
   ds.addAuditEntry('user:admin', 'ASSIGN_SUCCESSORS', `departure:${departureId}`, `Assigned ${assignments.length} successor(s).`);
   return dep;
 }
@@ -147,6 +148,7 @@ export function reassignSuccessor(ds: DataService, handoverId: string, successor
   hnd.acceptance = 'requested';
   hnd.declineReason = null;
   refreshStage(dep, new Date().toISOString());
+  ds.persistDeparture(dep);
   ds.addAuditEntry(
     'user:admin',
     'REASSIGN_SUCCESSOR',
@@ -166,6 +168,7 @@ export function requestAcceptance(ds: DataService, departureId: string): { reque
   }
   for (const h of pending) h.acceptance = 'requested';
   dep.updatedAt = new Date().toISOString();
+  ds.persistDeparture(dep);
   ds.addAuditEntry('user:admin', 'SEND_ACCEPTANCE_REQUESTS', `departure:${departureId}`, `Asked ${pending.length} successor(s) to accept.`);
   return { requested: pending.length };
 }
@@ -208,6 +211,7 @@ export async function acceptHandover(ds: DataService, handoverId: string, actor:
 
   hnd.acceptance = 'accepted';
   refreshStage(dep, new Date().toISOString());
+  ds.persistDeparture(dep);
   ds.addAuditEntry(successorId, 'ACCEPT_HANDOVER', `handover:${handoverId}`, `Accepted ownership of ${hnd.assetId}.`);
   return dep;
 }
@@ -217,6 +221,7 @@ export function declineHandover(ds: DataService, handoverId: string, actor: User
   hnd.acceptance = 'declined';
   hnd.declineReason = reason;
   refreshStage(dep, new Date().toISOString());
+  ds.persistDeparture(dep);
   ds.addAuditEntry(hnd.successorId!, 'DECLINE_HANDOVER', `handover:${handoverId}`, `Declined: ${reason}`);
   return dep;
 }
@@ -231,6 +236,7 @@ export function markAccountDisabled(ds: DataService, departureId: string): Depar
   }
   const unaccepted = dep.handovers.filter((h) => h.acceptance !== 'accepted').length;
   enterStage(dep, 'account_disabled', new Date().toISOString());
+  ds.persistDeparture(dep);
   ds.addAuditEntry(
     'user:admin',
     'ACCOUNT_DISABLED',
@@ -251,6 +257,7 @@ export function verifyDeparture(ds: DataService, departureId: string): Departure
     throw new SuccessionError(409, `${open.length} handover(s) still have no accepted successor.`);
   }
   enterStage(dep, 'verified', new Date().toISOString());
+  ds.persistDeparture(dep);
   ds.addAuditEntry('user:admin', 'VERIFY_DEPARTURE', `departure:${departureId}`, 'Departure verified and closed.');
   return dep;
 }

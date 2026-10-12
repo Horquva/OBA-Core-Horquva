@@ -58,7 +58,7 @@ export function assignBackup(ds: DataService, actionId: string, personId: string
     validTo: null,
   });
 
-  ds.getAllActionOverrides().set(actionId, {
+  ds.setActionOverride({
     id: actionId,
     checkId: action.checkId,
     entityId: assetId,
@@ -83,7 +83,7 @@ export function acceptRisk(
     throw new ActionError(400, `A risk can be accepted for at most ${MAX_RISK_ACCEPTANCE_DAYS} days.`);
   }
 
-  ds.getAllActionOverrides().set(actionId, {
+  ds.setActionOverride({
     id: actionId,
     checkId: action.checkId,
     entityId: action.asset.id,

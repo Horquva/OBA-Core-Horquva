@@ -1,8 +1,8 @@
 // =============================================================================
 // Horquva Continuity Platform — PostgreSQL Database Client & Crypto Store
 // =============================================================================
-// Greenfield connection pool, transaction management, and AES-256 pgcrypto
-// encryption for connector credentials at rest.
+// Connection pool and transaction management. Connector secrets are encrypted
+// in the application (security/encryption.ts), never in SQL.
 // =============================================================================
 
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
@@ -11,7 +11,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const databaseUrl = process.env.DATABASE_URL;
-const masterSecretKey = process.env.HORQUVA_SECRET_KEY || 'horquva-default-dev-secret-key-32b!';
 
 export const pool = new Pool(
   databaseUrl
@@ -68,69 +67,6 @@ export async function withTransaction<T>(
   } finally {
     client.release();
   }
-}
-
-/**
- * Stores encrypted connection configuration in the database using pgcrypto AES-256.
- */
-export async function storeEncryptedConnection(
-  id: string,
-  type: string,
-  name: string,
-  plainConfig: Record<string, any>
-): Promise<void> {
-  const configJson = JSON.stringify(plainConfig);
-  await query(
-    `
-    INSERT INTO connection (id, type, name, config_encrypted, status, updated_at)
-    VALUES ($1, $2, $3, horquva_encrypt_secret($4, $5), 'connected', NOW())
-    ON CONFLICT (id) DO UPDATE SET
-      type = EXCLUDED.type,
-      name = EXCLUDED.name,
-      config_encrypted = EXCLUDED.config_encrypted,
-      status = EXCLUDED.status,
-      updated_at = NOW();
-    `,
-    [id, type, name, configJson, masterSecretKey]
-  );
-}
-
-/**
- * Retrieves and decrypts connection configuration using pgcrypto AES-256.
- */
-export async function retrieveDecryptedConnection(
-  id: string
-): Promise<{ id: string; type: string; name: string; config: Record<string, any>; status: string } | null> {
-  const res = await query(
-    `
-    SELECT id, type, name, horquva_decrypt_secret(config_encrypted, $1) as config_plain, status
-    FROM connection
-    WHERE id = $2;
-    `,
-    [masterSecretKey, id]
-  );
-
-  if (res.rows.length === 0) {
-    return null;
-  }
-
-  const row = res.rows[0];
-  let config: Record<string, any> = {};
-  if (row.config_plain) {
-    try {
-      config = JSON.parse(row.config_plain);
-    } catch (e) {
-      console.error('Failed to parse decrypted config JSON for connection:', id, e);
-    }
-  }
-
-  return {
-    id: row.id,
-    type: row.type,
-    name: row.name,
-    config,
-    status: row.status,
-  };
 }
 
 /**

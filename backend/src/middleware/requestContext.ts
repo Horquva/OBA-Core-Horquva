@@ -13,6 +13,8 @@ export interface RequestContext {
   user?: UserAccount;
   /** Set once any audit entry is written for this request. */
   audited: boolean;
+  /** Postgres writes this request triggered; awaited before a mutating response is sent. */
+  pendingWrites?: Promise<void>[];
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();

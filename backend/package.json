@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:pg": "vitest run --config vitest.pg.config.ts",
     "build": "tsc"
   },
   "keywords": [],
