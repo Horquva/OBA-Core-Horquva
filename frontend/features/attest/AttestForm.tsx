@@ -374,7 +374,9 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
               </h2>
             </div>
 
-            <form onSubmit={handleSaveAndNext} className="space-y-6">
+            <form onSubmit={handleSaveAndNext}>
+              {/* Locked while saving: answers are captured at submit, so edits made now would be lost. */}
+              <fieldset disabled={isSaving} className="space-y-6 min-w-0">
               {/* Question 1: Ownership */}
               <fieldset className="space-y-2">
                 <legend className="text-xs font-semibold text-ink">
@@ -656,6 +658,7 @@ export function AttestForm({ token, initialSession }: AttestFormProps) {
                       : 'Save & Next Asset →'}
                 </button>
               </div>
+              </fieldset>
             </form>
           </Card>
         )}

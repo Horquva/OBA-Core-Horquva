@@ -92,6 +92,9 @@ test('reviewer confirms their assets on a phone through the magic link', async (
 
       const last = i === campaignAssets.length - 1;
       await page.getByRole('button', { name: last ? 'Save & Finish Confirmation' : /Save & Next Asset/ }).tap();
+      // Wait for the save to land (the form moves on) before answering the next one; reading the
+      // heading while the save is in flight would answer the same asset twice.
+      await expect(page.getByRole('heading', { level: 2, name: shown! })).toHaveCount(0);
       await expect(page.getByRole('alert').filter({ hasText: 'Could not save' })).toHaveCount(0);
     }
 

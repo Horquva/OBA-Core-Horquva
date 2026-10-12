@@ -196,6 +196,17 @@ describe('Reviewer Surfaces (Task 31)', () => {
       );
     });
 
+    it('locks the answers while a save is in flight (edits then would be lost)', async () => {
+      let finish!: () => void;
+      (attestApi.saveAttestAnswers as any).mockReturnValue(new Promise<void>((r) => (finish = r)));
+      render(<AttestForm token="tok-abc-123" initialSession={sampleSession} />);
+      fireEvent.click(screen.getByRole('button', { name: 'No, someone else owns it' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save & Next Asset →' }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Yes, I own it' })).toBeDisabled());
+      finish();
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Yes, I own it' })).toBeEnabled());
+    });
+
     it("shows the server's reason when saving fails", async () => {
       (attestApi.saveAttestAnswers as any).mockRejectedValue(new Error('This link has expired.'));
       render(<AttestForm token="tok-abc-123" initialSession={sampleSession} />);
