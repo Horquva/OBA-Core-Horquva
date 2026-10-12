@@ -70,7 +70,26 @@ function build(id: string, type: ConnectorType, name: string, config: any): Base
 }
 
 /** One-line, secret-free description of why a connector call failed. */
+const NETWORK_ERRORS: Record<string, string> = {
+  ECONNREFUSED: 'the server refused the connection (is the URL and port right?)',
+  ENOTFOUND: 'that host name does not exist',
+  ETIMEDOUT: 'the server did not answer in time',
+  ECONNRESET: 'the connection was dropped',
+  CERT_HAS_EXPIRED: "the server's TLS certificate has expired",
+  DEPTH_ZERO_SELF_SIGNED_CERT: 'the server uses a self-signed TLS certificate',
+};
+
 function describe(err: unknown): string {
+  // Node's fetch reports every network failure as "fetch failed"; the reason is on `cause`.
+  const cause = (err as { cause?: { code?: string; message?: string } } | null)?.cause;
+  if (err instanceof Error && err.message === 'fetch failed' && (cause?.code || cause?.message)) {
+    const reason = cause.code
+      ? NETWORK_ERRORS[cause.code] ?? cause.code
+      : cause.message === 'bad port'
+        ? 'browsers and servers refuse that port for web requests; check the port in the URL'
+        : cause.message;
+    return `Couldn't reach the service: ${reason}.`;
+  }
   const msg = err instanceof Error ? err.message : String(err);
   return msg.replace(/(api[_-]?key|secret|token|password)=[^&\s]+/gi, '$1=***').slice(0, 500);
 }

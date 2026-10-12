@@ -123,7 +123,10 @@ export class ReadOnlyHttpGuard {
 
         if (!response.ok) {
           const errorBody = await response.text().catch(() => '');
-          throw new Error(`HTTP Error ${response.status} ${response.statusText}: ${errorBody.substring(0, 500)}`);
+          const httpErr = new Error(`HTTP Error ${response.status} ${response.statusText}: ${errorBody.substring(0, 500)}`);
+          // A 4xx (bad key, missing permission, wrong path) won't fix itself on retry; 5xx might.
+          (httpErr as Error & { retryable?: boolean }).retryable = response.status >= 500;
+          throw httpErr;
         }
 
         const contentType = response.headers.get('content-type') || '';
@@ -146,7 +149,7 @@ export class ReadOnlyHttpGuard {
           durationMs,
         };
       } catch (err: any) {
-        if (attempt >= maxRetries) {
+        if (attempt >= maxRetries || err?.retryable === false || err instanceof SecurityViolationError) {
           throw err;
         }
         attempt++;
