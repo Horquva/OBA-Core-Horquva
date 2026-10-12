@@ -2,10 +2,16 @@
 // Horquva Continuity Platform — Confirmation campaigns + magic-link answers
 // (CHK-01, CHK-02, CHK-04 partial; B-08, B-15)
 // =============================================================================
-// Runs on the same in-memory store as the rest of the MVP (departures, actions,
-// identity queue). The Postgres AttestationEngine is not used by the API yet.
+// Same model as DataService: campaigns, tasks and links are read from memory
+// and written through to Postgres (campaign, attestation_task,
+// attestation_link; loaded at boot via onDatabaseReload). A campaign is saved
+// before any email goes out, and a task can be submitted only once (claimed in
+// process, then a conditional UPDATE in Postgres).
 //
 // One unguessable link per reviewer per campaign covers all their assets.
+// Reminders (CHK-04): the daily job re-sends a reviewer's link every
+// REMINDER_INTERVAL_DAYS while they have unanswered assets, at most
+// MAX_REMINDERS times, until the link expires.
 // Truth rules for an answer:
 //   - Only the owner's own answers become `confirmed` facts (criticality,
 //     documented, fallback) and confirm their own ownership.
@@ -19,7 +25,8 @@ import crypto from 'node:crypto';
 import type { CanonicalEdge, CanonicalFact, FactAttribute } from '@horquva/types';
 import type { ContinuityGraph } from '../domain/graph/index.js';
 import { evaluateAllChecks } from '../domain/checks/index.js';
-import { DataService } from '../services/dataService.js';
+import { DataService, onDatabaseReload } from '../services/dataService.js';
+import * as repo from '../repositories/attestationRepository.js';
 import { listTeams } from '../views/peopleViews.js';
 import { AttestationMailer, DEFAULT_BODY, DEFAULT_SUBJECT, renderAttestationEmail } from './mailer.js';
 
@@ -50,6 +57,7 @@ interface Campaign {
   createdAt: string;
   createdBy: string; // user name
   introLine: string | null;
+  email: { subject: string; bodyText: string } | null;
 }
 
 interface Task {
@@ -66,14 +74,35 @@ interface Link {
   token: string;
   campaignId: string;
   reviewerPersonId: string;
+  createdAt: string;
+  remindersSent: number;
+  lastRemindedAt: string | null;
 }
 
 /** Links stay usable this long after the campaign's due date. */
 export const LINK_GRACE_DAYS = 14;
 
+export const REMINDER_INTERVAL_DAYS = 3;
+export const MAX_REMINDERS = 3;
+const DAY_MS = 86_400_000;
+
 const campaigns = new Map<string, Campaign>();
 const tasks = new Map<string, Task>();
 const links = new Map<string, Link>();
+/** Tasks whose answers are being saved right now (a second submit gets 409). */
+const inFlight = new Set<string>();
+
+onDatabaseReload(async () => {
+  const state = await repo.loadAll();
+  campaigns.clear();
+  tasks.clear();
+  links.clear();
+  for (const c of state.campaigns) campaigns.set(c.id, c);
+  for (const t of state.tasks) tasks.set(t.id, t as Task);
+  for (const l of state.links) links.set(l.token, l);
+});
+
+const appUrl = () => (process.env.FRONTEND_URL || process.env.APP_BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
 export class AttestationError extends Error {
   constructor(public status: number, message: string) {
@@ -167,46 +196,46 @@ export async function createCampaign(
     if (!isAsset(graph.getNode(t.assetEntityId)?.entity?.kind)) throw new AttestationError(400, `Not an asset: ${t.assetEntityId}`);
   }
 
+  const now = new Date().toISOString();
   const campaign: Campaign = {
     id: crypto.randomUUID(),
     name: input.name,
     dueDate: due.toISOString(),
-    createdAt: new Date().toISOString(),
+    createdAt: now,
     createdBy: actorName,
     introLine: input.introLine,
+    email: input.email ?? null,
   };
-  campaigns.set(campaign.id, campaign);
 
   const seen = new Set<string>();
+  const newTasks: Task[] = [];
   for (const t of input.tasks) {
     const key = `${t.reviewerPersonId}|${t.assetEntityId}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const task: Task = { id: crypto.randomUUID(), campaignId: campaign.id, reviewerPersonId: t.reviewerPersonId, assetId: t.assetEntityId, status: 'pending', answers: null, savedAt: null };
-    tasks.set(task.id, task);
+    newTasks.push({ id: crypto.randomUUID(), campaignId: campaign.id, reviewerPersonId: t.reviewerPersonId, assetId: t.assetEntityId, status: 'pending', answers: null, savedAt: null });
   }
+  const reviewers = [...new Set(newTasks.map((t) => t.reviewerPersonId))];
+  const newLinks: Link[] = reviewers.map((reviewerPersonId) => ({
+    token: crypto.randomBytes(32).toString('hex'),
+    campaignId: campaign.id,
+    reviewerPersonId,
+    createdAt: now,
+    remindersSent: 0,
+    lastRemindedAt: null,
+  }));
+
+  // Saved before anything is emailed: a link must never point at a campaign a restart would lose.
+  await ds.queueWrite(() => repo.insertCampaign(campaign, newTasks, newLinks));
+  campaigns.set(campaign.id, campaign);
+  for (const t of newTasks) tasks.set(t.id, t);
+  for (const l of newLinks) links.set(l.token, l);
 
   // One link per reviewer; email it (or, without SMTP, the mailer logs it on the server).
-  const appUrl = (process.env.FRONTEND_URL || process.env.APP_BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
   const mailer = new AttestationMailer();
-  const reviewers = [...new Set(input.tasks.map((t) => t.reviewerPersonId))];
   let sent = 0;
-  for (const reviewerPersonId of reviewers) {
-    const token = crypto.randomBytes(32).toString('hex');
-    links.set(token, { token, campaignId: campaign.id, reviewerPersonId });
-    const names = [...tasks.values()].filter((t) => t.campaignId === campaign.id && t.reviewerPersonId === reviewerPersonId).map((t) => refOf(graph, t.assetId)!.name);
-    const result = await mailer.sendAttestationEmail({
-      to: emailOf(graph, reviewerPersonId),
-      reviewerName: refOf(graph, reviewerPersonId)!.name,
-      assetNames: names,
-      magicLinkUrl: `${appUrl}/attest/${token}`,
-      campaignDueDate: due,
-      linkExpiresAt: new Date(due.getTime() + LINK_GRACE_DAYS * 86_400_000),
-      subject: input.email?.subject,
-      introLine: input.introLine,
-      bodyText: input.email?.bodyText,
-    });
-    if (result.success) sent++;
+  for (const link of newLinks) {
+    if ((await sendLinkEmail(mailer, graph, campaign, link)).success) sent++;
   }
 
   ds.addAuditEntry(actorName, 'CREATE_CAMPAIGN', `campaign:${campaign.id}`, `"${campaign.name}": ${seen.size} asset(s), ${reviewers.length} reviewer(s).`);
@@ -217,6 +246,57 @@ export async function createCampaign(
     // 'logged' = no SMTP configured: nothing was emailed, links are only in the server log.
     emailDelivery: process.env.SMTP_HOST ? ('smtp' as const) : ('logged' as const),
   };
+}
+
+function sendLinkEmail(mailer: AttestationMailer, graph: ContinuityGraph, campaign: Campaign, link: Link, opts: { reminder?: boolean } = {}) {
+  const pending = [...tasks.values()].filter(
+    (t) => t.campaignId === campaign.id && t.reviewerPersonId === link.reviewerPersonId && (!opts.reminder || t.status === 'pending')
+  );
+  const due = new Date(campaign.dueDate);
+  const subject = campaign.email?.subject || DEFAULT_SUBJECT;
+  return mailer.sendAttestationEmail({
+    to: emailOf(graph, link.reviewerPersonId),
+    reviewerName: refOf(graph, link.reviewerPersonId)?.name ?? link.reviewerPersonId,
+    assetNames: pending.map((t) => refOf(graph, t.assetId)?.name ?? t.assetId),
+    magicLinkUrl: `${appUrl()}/attest/${link.token}`,
+    campaignDueDate: due,
+    linkExpiresAt: new Date(due.getTime() + LINK_GRACE_DAYS * DAY_MS),
+    subject: opts.reminder ? `Reminder: ${subject}` : campaign.email?.subject,
+    introLine: campaign.introLine,
+    bodyText: campaign.email?.bodyText,
+  });
+}
+
+const hasPending = (link: Link) =>
+  [...tasks.values()].some((t) => t.campaignId === link.campaignId && t.reviewerPersonId === link.reviewerPersonId && t.status === 'pending');
+
+/** When this link's next reminder is due, or null if it won't get one. */
+function nextReminderAt(link: Link): Date | null {
+  const campaign = campaigns.get(link.campaignId);
+  if (!campaign || isExpired(campaign) || link.remindersSent >= MAX_REMINDERS || !hasPending(link)) return null;
+  const at = new Date(new Date(link.lastRemindedAt ?? link.createdAt).getTime() + REMINDER_INTERVAL_DAYS * DAY_MS);
+  const expires = new Date(campaign.dueDate).getTime() + LINK_GRACE_DAYS * DAY_MS;
+  return at.getTime() > expires ? null : at;
+}
+
+/** Daily job (CHK-04): re-send links whose reminder is due. Returns how many were sent. */
+export async function sendDueReminders(ds: DataService, now: Date = new Date()): Promise<number> {
+  const graph = ds.getGraph();
+  const mailer = new AttestationMailer();
+  let sent = 0;
+  for (const link of links.values()) {
+    const due = nextReminderAt(link);
+    if (!due || due.getTime() > now.getTime()) continue;
+    const campaign = campaigns.get(link.campaignId)!;
+    const result = await sendLinkEmail(mailer, graph, campaign, link, { reminder: true });
+    if (!result.success) continue;
+    link.remindersSent++;
+    link.lastRemindedAt = now.toISOString();
+    await ds.queueWrite(() => repo.recordReminder(link.token, now.toISOString()));
+    ds.addAuditEntry('system', 'ATTESTATION_REMINDER_SENT', `campaign:${campaign.id}`, `Reminder ${link.remindersSent}/${MAX_REMINDERS} to ${refOf(graph, link.reviewerPersonId)?.name ?? link.reviewerPersonId}.`);
+    sent++;
+  }
+  return sent;
 }
 
 /**
@@ -241,11 +321,10 @@ export function previewCampaignEmail(
   const reviewer = reviewerIds[0];
   const assetNames = [...new Set(input.tasks.filter((t) => t.reviewerPersonId === reviewer).map((t) => t.assetEntityId))]
     .map((id) => refOf(graph, id)?.name ?? id);
-  const appUrl = (process.env.FRONTEND_URL || process.env.APP_BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
   const rendered = renderAttestationEmail({
     reviewerName: refOf(graph, reviewer)!.name,
     assetNames,
-    magicLinkUrl: `${appUrl}/attest/<personal-link>`,
+    magicLinkUrl: `${appUrl()}/attest/<personal-link>`,
     campaignDueDate: due,
     linkExpiresAt: new Date(due.getTime() + LINK_GRACE_DAYS * 86_400_000),
     subject: input.email?.subject,
@@ -287,13 +366,18 @@ export function campaignDetail(graph: ContinuityGraph, id: string) {
     if (t.status === 'saved') row.completed++;
     byReviewer.set(t.reviewerPersonId, row);
   }
+  const reminders = [...links.values()]
+    .filter((l) => l.campaignId === id)
+    .map(nextReminderAt)
+    .filter((d): d is Date => d !== null)
+    .sort((a, b) => a.getTime() - b.getTime());
   return {
     id,
     reviewers: [...byReviewer.entries()]
       .map(([pid, r]) => ({ person: refOf(graph, pid)!, ...r }))
       .sort((a, b) => a.person.name.localeCompare(b.person.name)),
-    // Reminders and escalation are not scheduled yet (CHK-04): say so with null.
-    reminderAt: null,
+    // Next reminder email (daily job). Escalation to managers is not built: null says so.
+    reminderAt: reminders[0]?.toISOString() ?? null,
     escalationAt: null,
   };
 }
@@ -357,8 +441,16 @@ export async function saveAnswers(ds: DataService, token: string, taskId: string
   if (!task || task.campaignId !== link.campaignId || task.reviewerPersonId !== link.reviewerPersonId) {
     throw new AttestationError(404, 'This system is not part of your review.');
   }
-  if (task.status === 'saved') throw new AttestationError(409, 'You already answered for this system.');
+  if (task.status === 'saved' || inFlight.has(task.id)) throw new AttestationError(409, 'You already answered for this system.');
+  inFlight.add(task.id);
+  try {
+    return await recordAnswers(ds, task, answers);
+  } finally {
+    inFlight.delete(task.id);
+  }
+}
 
+async function recordAnswers(ds: DataService, task: Task, answers: AttestAnswers) {
   const graph = ds.getGraph();
   const reviewer = task.reviewerPersonId;
   const assetId = task.assetId;
@@ -422,6 +514,10 @@ export async function saveAnswers(ds: DataService, token: string, taskId: string
   task.status = 'saved';
   task.answers = answers;
   task.savedAt = at.toISOString();
+  const savedAt = task.savedAt;
+  void ds.queueWrite(() => repo.markTaskSubmitted(task.id, answers, savedAt));
+  const campaignTasks = [...tasks.values()].filter((t) => t.campaignId === task.campaignId);
+  if (campaignTasks.every((t) => t.status === 'saved')) void ds.queueWrite(() => repo.markCampaignCompleted(task.campaignId));
   return { ok: true };
 }
 

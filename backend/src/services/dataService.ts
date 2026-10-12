@@ -204,6 +204,13 @@ export function demoModeEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return true;
 }
 
+/** Extra state other modules keep alongside DataService (e.g. attestation campaigns), reloaded with it. */
+type ReloadHook = () => Promise<void>;
+const reloadHooks: ReloadHook[] = [];
+export function onDatabaseReload(hook: ReloadHook): void {
+  reloadHooks.push(hook);
+}
+
 export class DataService {
   private static instance: DataService;
 
@@ -330,6 +337,7 @@ export class DataService {
       this.onboardingDismissedAt = null;
     }
     this.auditLogs = audit;
+    for (const hook of reloadHooks) await hook();
   }
 
   /**
@@ -354,12 +362,18 @@ export class DataService {
    * promise is registered on the request context so the response waits for it
    * (middleware/persistBeforeRespond.ts). Every failure is logged.
    */
-  private persist(write: () => Promise<void>): void {
-    if (!this.persistent) return;
+  /** Queues a write behind every earlier one; await the result when the caller must know it landed. */
+  public queueWrite(write: () => Promise<void>): Promise<void> {
+    return this.persist(write);
+  }
+
+  private persist(write: () => Promise<void>): Promise<void> {
+    if (!this.persistent) return Promise.resolve();
     const p = this.writeChain.then(write);
     this.writeChain = p.catch((err) => console.error('[DataService] Write to Postgres failed:', err));
     const ctx = currentContext();
     if (ctx) (ctx.pendingWrites ??= []).push(p);
+    return p;
   }
 
   /** Resolves once every write queued so far has landed. */

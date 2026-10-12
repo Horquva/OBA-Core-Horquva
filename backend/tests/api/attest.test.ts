@@ -167,7 +167,7 @@ describe('Magic-link form (public, token-gated)', () => {
 });
 
 describe('Campaign progress', () => {
-  it('lists campaigns with real counts and per-reviewer progress; no invented reminder dates', async () => {
+  it('lists campaigns with real counts and per-reviewer progress; reminder date from the schedule, no escalation', async () => {
     const { created, tokens } = await campaignFor(['automation:n8n:101', 'automation:n8n:102']);
     const omar = tokens['person:omar@acme.com'];
     const first = (await anon(`/api/attest/${omar}`)).body.assets[0].taskId;
@@ -177,7 +177,11 @@ describe('Campaign progress', () => {
     expect(row).toMatchObject({ total_tasks: 2, status: 'active' });
     const detail = (await admin(`/api/attestation/campaigns/${created.campaignId}`)).body;
     expect(detail.reviewers[0]).toMatchObject({ person: { name: 'Omar Farooq' }, total: 2 });
-    expect(detail).toMatchObject({ reminderAt: null, escalationAt: null });
+    // Omar still has one asset open, so his link is reminded REMINDER_INTERVAL_DAYS after it was sent.
+    const days = (new Date(detail.reminderAt).getTime() - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(2.9);
+    expect(days).toBeLessThanOrEqual(3);
+    expect(detail.escalationAt).toBeNull(); // escalation to managers isn't built
   });
 });
 

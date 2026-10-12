@@ -66,9 +66,10 @@ export class JobScheduler {
 
     // 2. Daily attestation reminder schedule (CHK-04)
     this.registerJob('attestation-reminders-daily', '0 9 * * *', async () => {
-      if (process.env.DEBUG_JOBS === 'true') {
-        console.log('[JobScheduler] Executing daily attestation reminder scan...');
-      }
+      const { DataService } = await import('../services/dataService.js');
+      const { sendDueReminders } = await import('../attestation/attestationService.js');
+      const sent = await sendDueReminders(DataService.getInstance());
+      if (process.env.DEBUG_JOBS === 'true') console.log(`[JobScheduler] Sent ${sent} attestation reminder(s).`);
     });
 
     // 3. Weekly briefing digest schedule (CHG-03)
