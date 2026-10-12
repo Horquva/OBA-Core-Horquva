@@ -18,6 +18,18 @@ export interface SyncStats {
   errors: number;
 }
 
+/** What persistSync() actually changed in Postgres (stored on the sync_run). */
+export interface PersistStats extends SyncStats {
+  entitiesUpserted: number;
+  edgesSuperseded: number;
+  edgesClosed: number;
+  factsVersioned: number;
+  factsClosed: number;
+  orphansSkipped: number;
+  /** True when closing vanished rows was skipped (errors or empty result). */
+  vanishedCheckSkipped: boolean;
+}
+
 export interface SyncResult {
   entities: CanonicalEntity[];
   edges: CanonicalEdge[];

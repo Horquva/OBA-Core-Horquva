@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:pg": "vitest run --config vitest.pg.config.ts",
+    "migrate": "tsx db/migrate.ts",
     "build": "tsc"
   },
   "keywords": [],

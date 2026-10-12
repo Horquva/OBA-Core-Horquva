@@ -3,13 +3,16 @@
 // =============================================================================
 // Implements background scheduling for connector syncs (CON-10, CON-11),
 // attestation reminders (CHK-04), and weekly briefing triggers (CHG-03).
-// Features dual-mode execution: uses pg-boss when PostgreSQL is active,
-// and gracefully falls back to an in-process runner for testing/offline resilience.
+// Two kinds of work:
+// - recurring jobs (cron), scheduled in pg-boss;
+// - on-demand queues (e.g. one connector sync behind a 202), sent to pg-boss.
+// Without pg-boss (tests, dev without a database) queued work runs in-process
+// on the next tick and recurring jobs do not fire; production refuses to run
+// without pg-boss (startScheduler({ requirePgBoss: true })).
 // =============================================================================
 
 import PgBoss from 'pg-boss';
 import dotenv from 'dotenv';
-import { query } from '../db/client.js';
 
 dotenv.config();
 
@@ -19,6 +22,11 @@ export interface RegisteredJob {
   name: string;
   cronExpression: string;
   handler: JobHandler;
+}
+
+export interface QueueOptions {
+  /** Drops the job if one with the same key is already queued or active. */
+  singletonKey?: string;
 }
 
 export interface SchedulerOptions {
@@ -33,6 +41,7 @@ export class JobScheduler {
   private forceInProcess: boolean;
   private connectionString?: string;
   private jobs = new Map<string, RegisteredJob>();
+  private queues = new Map<string, JobHandler>();
   private inProcessIntervals: NodeJS.Timeout[] = [];
 
   constructor(options: SchedulerOptions = {}) {
@@ -44,9 +53,15 @@ export class JobScheduler {
   private registerDefaultJobs(): void {
     // 1. Hourly connector sync schedule (CON-10, CON-11)
     this.registerJob('connector-sync-hourly', '0 * * * *', async () => {
-      if (process.env.DEBUG_JOBS === 'true') {
-        console.log('[JobScheduler] Executing scheduled hourly connector sync...');
-      }
+      const { ConnectorRunner } = await import('../connectors/sdk/runner.js');
+      const started = await ConnectorRunner.syncAll();
+      if (process.env.DEBUG_JOBS === 'true') console.log(`[JobScheduler] Hourly connector sync ran ${started} connection(s).`);
+    });
+
+    // On-demand: one claimed sync (POST /api/connections/:id/sync → 202)
+    this.registerQueue('connector-sync', async (data: { connectionId: string; syncRunId: string }) => {
+      const { ConnectorRunner } = await import('../connectors/sdk/runner.js');
+      await ConnectorRunner.executeSync(data.connectionId, data.syncRunId);
     });
 
     // 2. Daily attestation reminder schedule (CHK-04)
@@ -106,10 +121,32 @@ export class JobScheduler {
     this.jobs.set(name, { name, cronExpression, handler });
   }
 
+  /** Registers an on-demand queue worked by `handler` (see enqueue()). */
+  public registerQueue(name: string, handler: JobHandler): void {
+    this.queues.set(name, handler);
+  }
+
   /**
-   * Starts the job scheduler. Attempts pg-boss first, falling back to in-process runner.
+   * Queues one piece of work. With pg-boss it survives a restart; otherwise it
+   * runs in-process on the next tick (errors are logged, never thrown here).
    */
-  public async startScheduler(): Promise<void> {
+  public async enqueue(name: string, data: object, options: QueueOptions = {}): Promise<void> {
+    const handler = this.queues.get(name);
+    if (!handler) throw new Error(`Unknown queue: ${name}`);
+    if (this.usingPgBoss && this.boss) {
+      await this.boss.send(name, data, options.singletonKey ? { singletonKey: options.singletonKey } : {});
+      return;
+    }
+    setImmediate(() => {
+      handler(data).catch((err) => console.error(`[JobScheduler] Queued job ${name} failed:`, err));
+    });
+  }
+
+  /**
+   * Starts the job scheduler. Attempts pg-boss first, falling back to in-process runner
+   * unless `requirePgBoss` (production), in which case a pg-boss failure is fatal.
+   */
+  public async startScheduler(opts: { requirePgBoss?: boolean } = {}): Promise<void> {
     if (this.running) return;
 
     if (!this.forceInProcess && this.connectionString) {
@@ -128,6 +165,18 @@ export class JobScheduler {
         this.boss = bossInstance;
         this.usingPgBoss = true;
 
+        // pg-boss 10 needs a queue to exist before it can be scheduled, sent to or worked.
+        for (const name of [...this.jobs.keys(), ...this.queues.keys()]) {
+          await this.boss.createQueue(name);
+        }
+
+        for (const [name, handler] of this.queues.entries()) {
+          await this.boss.work(name, async (jobInstances: any) => {
+            const list = Array.isArray(jobInstances) ? jobInstances : [jobInstances];
+            for (const j of list) await handler(j?.data);
+          });
+        }
+
         // Register handlers and schedules in pg-boss
         for (const [name, job] of this.jobs.entries()) {
           await this.boss.schedule(name, job.cronExpression, {});
@@ -145,6 +194,7 @@ export class JobScheduler {
         this.running = true;
         return;
       } catch (err: any) {
+        if (opts.requirePgBoss) throw new Error(`pg-boss could not start: ${err.message}`);
         console.warn(
           `[JobScheduler] PostgreSQL connection unavailable for pg-boss (${err.message}). Activating in-process fallback runner.`
         );
@@ -153,7 +203,8 @@ export class JobScheduler {
       }
     }
 
-    // In-process fallback runner
+    if (opts.requirePgBoss) throw new Error('pg-boss is required (no DATABASE_URL, or in-process mode was forced).');
+    // In-process fallback: queued work runs immediately; recurring jobs need pg-boss.
     this.running = true;
     this.usingPgBoss = false;
   }

@@ -43,9 +43,15 @@ describe('Settings, Connections, Users & Audit Log REST API', () => {
       expect(data.sources.map((s: any) => s.source)).toEqual(expect.arrayContaining(['entra', 'n8n', 'attestation']));
     }, 10000);
 
-    it('POST /api/connections/:id/sync says sync is not available instead of faking one', async () => {
+    it('POST /api/connections/:id/sync says syncing needs the database instead of faking one (in-memory mode)', async () => {
       const res = await authedFetch(`${baseUrl}/api/connections/conn_n8n_prod/sync`, { method: 'POST' });
-      expect(res.status).toBe(501);
+      expect(res.status).toBe(503);
+      expect(((await res.json()) as any).error).toMatch(/need the database/);
+    });
+
+    it('connection routes stay admin-only', async () => {
+      const res = await authedFetch(`${baseUrl}/api/connections`, { method: 'GET' }, 'user:maya');
+      expect(res.status).toBe(403);
     });
   });
 

@@ -9,6 +9,8 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { DataService, AUDIT_LOG_CAPACITY } from '../services/dataService.js';
 import { listConnections, sourcesOnRecord } from '../views/connectionViews.js';
+import { ConnectorRunner, ConnectorError, CONNECTOR_TYPES, type SyncableType } from '../connectors/sdk/runner.js';
+import { defaultScheduler } from '../jobs/scheduler.js';
 
 // ── Connections Router ────────────────────────────────────────────────────────
 export const connectionsRouter = Router();
@@ -23,11 +25,122 @@ connectionsRouter.get('/', async (_req: Request, res: Response) => {
   }
 });
 
-// Running a connector from the app (CON-10) isn't built yet: the connectors exist,
-// but nothing schedules them or loads their results. Say so instead of
-// pretending a sync happened.
-connectionsRouter.post('/:id/sync', (_req: Request, res: Response) => {
-  res.status(501).json({ error: "Syncing from the app isn't available yet. Data is loaded by the backend." });
+// Everything below writes the `connection` table, so it needs the Postgres-backed
+// store; on the in-memory demo fixture there is nothing to sync into.
+function requireDatabase(res: Response): boolean {
+  if (DataService.getInstance().isPersistent()) return true;
+  res.status(503).json({ error: 'Connections need the database. This server is running on the in-memory demo data.' });
+  return false;
+}
+
+function sendConnectorError(res: Response, err: unknown, fallback: string): void {
+  if (err instanceof ConnectorError) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+  console.error(`[connections] ${fallback}`, err);
+  res.status(500).json({ error: fallback });
+}
+
+const CreateConnectionSchema = z.object({
+  type: z.enum(CONNECTOR_TYPES as [SyncableType, ...SyncableType[]]),
+  name: z.string().trim().min(1).max(255),
+  config: z.record(z.unknown()),
+});
+
+// POST /api/connections — save a connector; its config is encrypted before it reaches the database
+connectionsRouter.post('/', async (req: Request, res: Response) => {
+  if (!requireDatabase(res)) return;
+  const parsed = CreateConnectionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'type, name and config are required.' });
+    return;
+  }
+  try {
+    res.status(201).json(await ConnectorRunner.createConnection(parsed.data));
+  } catch (err) {
+    sendConnectorError(res, err, 'Failed to save the connection.');
+  }
+});
+
+// POST /api/connections/test — try credentials without saving them
+connectionsRouter.post('/test', async (req: Request, res: Response) => {
+  const parsed = CreateConnectionSchema.omit({ name: true }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'type and config are required.' });
+    return;
+  }
+  try {
+    res.json(await ConnectorRunner.testConfig(parsed.data.type, parsed.data.config));
+  } catch (err) {
+    sendConnectorError(res, err, 'Failed to test the connection.');
+  }
+});
+
+const CsvImportSchema = z.object({
+  peopleCsv: z.string().max(5_000_000).optional(),
+  automationsCsv: z.string().max(5_000_000).optional(),
+});
+
+// POST /api/connections/csv — one-off import; the files are not kept in the connection settings
+connectionsRouter.post('/csv', async (req: Request, res: Response) => {
+  if (!requireDatabase(res)) return;
+  const parsed = CsvImportSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'peopleCsv and/or automationsCsv must be CSV text (max 5 MB each).' });
+    return;
+  }
+  try {
+    const outcome = await ConnectorRunner.importCsv(parsed.data);
+    res.status(outcome.ok ? 200 : 422).json(outcome);
+  } catch (err) {
+    sendConnectorError(res, err, 'Failed to import the CSV.');
+  }
+});
+
+const UpdateConnectionSchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
+// PUT /api/connections/:id — rename and/or replace settings
+connectionsRouter.put('/:id', async (req: Request, res: Response) => {
+  if (!requireDatabase(res)) return;
+  const parsed = UpdateConnectionSchema.safeParse(req.body);
+  if (!parsed.success || (!parsed.data.name && !parsed.data.config)) {
+    res.status(400).json({ error: 'Send a new name, new settings, or both.' });
+    return;
+  }
+  try {
+    await ConnectorRunner.updateConnection(String(req.params.id), parsed.data);
+    res.json({ success: true });
+  } catch (err) {
+    sendConnectorError(res, err, 'Failed to update the connection.');
+  }
+});
+
+// POST /api/connections/:id/test — try the saved credentials
+connectionsRouter.post('/:id/test', async (req: Request, res: Response) => {
+  if (!requireDatabase(res)) return;
+  try {
+    res.json(await ConnectorRunner.testConnection(String(req.params.id)));
+  } catch (err) {
+    sendConnectorError(res, err, 'Failed to test the connection.');
+  }
+});
+
+// POST /api/connections/:id/sync — 202: the sync runs in the background; poll GET /api/connections
+connectionsRouter.post('/:id/sync', async (req: Request, res: Response) => {
+  if (!requireDatabase(res)) return;
+  const connectionId = String(req.params.id);
+  try {
+    const { syncRunId } = await ConnectorRunner.queueSync(connectionId);
+    await defaultScheduler.enqueue('connector-sync', { connectionId, syncRunId }, { singletonKey: connectionId });
+    DataService.getInstance().addAuditEntry('system', 'CONNECTOR_SYNC_QUEUED', `connection:${connectionId}`, `Sync ${syncRunId} queued.`);
+    res.status(202).json({ syncRunId, status: 'queued' });
+  } catch (err) {
+    sendConnectorError(res, err, 'Failed to start the sync.');
+  }
 });
 
 // ── Users Router ─────────────────────────────────────────────────────────────
