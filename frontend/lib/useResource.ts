@@ -13,7 +13,7 @@ type Settled<T> = { id: string; ok: true; data: T } | { id: string; ok: false; e
 export function useResource<T>(
   key: string | null,
   fetcher: () => Promise<T>,
-): Resource<T> & { reload: () => void; lastLoadedAt: string | null } {
+): Resource<T> & { reload: () => void; lastLoadedAt: string | null; lastData?: T } {
   const fetcherRef = useRef(fetcher);
   const [nonce, setNonce] = useState(0);
   const [settled, setSettled] = useState<Settled<T> | null>(null);
@@ -43,7 +43,9 @@ export function useResource<T>(
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
-  if (id === null || !settled || settled.id !== id) return { status: 'loading', reload, lastLoadedAt };
+  // While a reload runs, the previous successful result stays available (no skeleton flash when polling).
+  const lastData = settled?.ok ? settled.data : undefined;
+  if (id === null || !settled || settled.id !== id) return { status: 'loading', reload, lastLoadedAt, lastData };
   if (settled.ok) return { status: 'ready', data: settled.data, reload, lastLoadedAt };
   return { status: 'error', error: settled.error, reload, lastLoadedAt };
 }

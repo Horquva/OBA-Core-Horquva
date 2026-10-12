@@ -15,6 +15,7 @@ import type {
   UserView,
   OrganizationSettings,
   AuditLogPage,
+  Session,
 } from '@/types/view';
 import * as entitiesApi from '@/lib/api/entities';
 import { ApiError } from '@/lib/api/client';
@@ -22,6 +23,11 @@ import { SessionProvider } from '@/lib/session';
 import SettingsLayout from '@/app/(app)/settings/layout';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/settings/connections' }));
+
+const adminSession: Session = { userId: 'user:admin', name: 'Alex Rivera', email: 'alex@acme.com', role: 'admin', isHrManager: true, title: null };
+// ConnectionsView shows admin controls (add, sync, test), so it needs a session.
+const renderConnections = (ui: React.ReactElement, session: Session = adminSession) =>
+  render(<SessionProvider initialSession={session}>{ui}</SessionProvider>);
 import * as settingsApi from '@/lib/api/settings';
 
 const sampleOverview: ConnectionsOverview = {
@@ -157,7 +163,7 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
 
   describe('ConnectionsView Component', () => {
     it('lists configured connectors with real status and errors, and never a secret', async () => {
-      const { container } = render(<ConnectionsView initialOverview={sampleOverview} />);
+      const { container } = renderConnections(<ConnectionsView initialOverview={sampleOverview} />);
 
       expect(screen.getByRole('heading', { level: 2, name: 'Connectors & Data Sources' })).toBeInTheDocument();
       expect(screen.getByText('Production n8n Cluster')).toBeInTheDocument();
@@ -165,13 +171,59 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
       expect(screen.getByText(/Last run completed · fetched 42/)).toBeInTheDocument();
       expect(screen.getByText(/Error: Tenant certificate expired/)).toBeInTheDocument();
       expect(container.textContent).not.toMatch(/secret|credential:|key ending/i);
-      // No fake "Sync Now" / "Configure" buttons.
-      expect(screen.queryByRole('button', { name: /sync now|configure/i })).toBeNull();
-      expect(screen.getByText(/syncing from the app isn't available yet/i)).toBeInTheDocument();
+      // Real controls for admins: one Sync now per configured service.
+      expect(screen.getAllByRole('button', { name: 'Sync now' })).toHaveLength(2);
+      expect(screen.getByText(/sync automatically every hour/i)).toBeInTheDocument();
+    });
+
+    it('Sync now queues a sync, then polls until it finishes', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const sync = vi.spyOn(settingsApi, 'syncConnection').mockResolvedValue({ syncRunId: 'r1', status: 'queued' });
+        const syncing = { ...sampleOverview, connections: sampleOverview.connections.map((c) => (c.id === 'conn-n8n' ? { ...c, status: 'syncing' as const } : c)) };
+        const fetch = vi.spyOn(settingsApi, 'fetchConnections').mockResolvedValue(syncing);
+        renderConnections(<ConnectionsView initialOverview={sampleOverview} />);
+        await waitFor(() => expect(screen.getByText('syncing…')).toBeInTheDocument());
+        const calls = fetch.mock.calls.length;
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Sync now' })[0]);
+        await waitFor(() => expect(sync).toHaveBeenCalled());
+
+        fetch.mockResolvedValue(sampleOverview);
+        await vi.advanceTimersByTimeAsync(2100);
+        await waitFor(() => expect(fetch.mock.calls.length).toBeGreaterThan(calls));
+        await waitFor(() => expect(screen.queryByText('syncing…')).toBeNull());
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('viewers see no connector controls', () => {
+      renderConnections(<ConnectionsView initialOverview={sampleOverview} />, { ...adminSession, role: 'viewer' });
+      expect(screen.queryByRole('button', { name: /sync now|add connection|^test$/i })).toBeNull();
+      expect(screen.queryByText('Import from CSV')).toBeNull();
+    });
+
+    it('Test reports whether the saved credentials work', async () => {
+      vi.spyOn(settingsApi, 'testSavedConnection').mockResolvedValue({ ok: false, error: 'HTTP 401' });
+      renderConnections(<ConnectionsView initialOverview={sampleOverview} />);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Test' })[0]);
+      expect(await screen.findByText("Couldn't connect: HTTP 401")).toBeInTheDocument();
+    });
+
+    it('imports a CSV and reports what changed', async () => {
+      const NL = String.fromCharCode(10);
+      const imp = vi.spyOn(settingsApi, 'importCsv').mockResolvedValue({ syncRunId: 'r2', ok: true, stats: { entitiesUpserted: 3, edgesCreated: 2, edgesClosed: 0, factsCreated: 4, factsVersioned: 0 } });
+      renderConnections(<ConnectionsView initialOverview={sampleOverview} />);
+      const file = new File(['email,name' + NL + 'lina@uni.edu,Lina' + NL], 'people.csv', { type: 'text/csv' });
+      fireEvent.change(screen.getByLabelText('People CSV'), { target: { files: [file] } });
+      fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+      await waitFor(() => expect(imp).toHaveBeenCalledWith({ peopleCsv: 'email,name' + NL + 'lina@uni.edu,Lina' + NL, automationsCsv: undefined }));
+      expect(await screen.findByText(/Imported\. 3 people & systems · \+2 \/ −0 relationships · 4 facts updated/)).toBeInTheDocument();
     });
 
     it('shows what each source contributed', () => {
-      render(<ConnectionsView initialOverview={sampleOverview} />);
+      renderConnections(<ConnectionsView initialOverview={sampleOverview} />);
       const table = screen.getByRole('table', { name: 'Data on record by source' });
       expect(within(table).getByText('Microsoft Entra ID')).toBeInTheDocument();
       expect(within(table).getByText('Confirmed by the people themselves')).toBeInTheDocument();
@@ -179,13 +231,13 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
     });
 
     it('says the connection store is unreachable instead of inventing connectors', () => {
-      render(<ConnectionsView initialOverview={{ ...sampleOverview, store: 'unavailable', connections: [] }} />);
+      renderConnections(<ConnectionsView initialOverview={{ ...sampleOverview, store: 'unavailable', connections: [] }} />);
       expect(screen.getByText('No connectors to show.')).toBeInTheDocument();
       expect(screen.queryByText('Production n8n Cluster')).toBeNull();
     });
 
     it('satisfies axe accessibility standards in ConnectionsView', async () => {
-      const { container } = render(<ConnectionsView initialOverview={sampleOverview} />);
+      const { container } = renderConnections(<ConnectionsView initialOverview={sampleOverview} />);
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });
@@ -318,7 +370,7 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
       });
 
       // Toggle HR
-      const hrCheckboxes = screen.getAllByRole('checkbox');
+      const hrCheckboxes = screen.getAllByRole('checkbox', { name: 'HR Permissions' });
       fireEvent.click(hrCheckboxes[1]);
 
       await waitFor(() => {

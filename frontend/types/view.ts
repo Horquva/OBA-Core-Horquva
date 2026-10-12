@@ -251,7 +251,18 @@ export interface ReviewerTasks {
 }
 
 // ── Settings ───────────────────────────────────────────────
-export type ConnectionType = 'n8n' | 'entra' | 'google' | 'openai' | 'anthropic' | 'csv';
+export type ConnectionType = 'n8n' | 'entra' | 'google' | 'ai_admin' | 'openai' | 'anthropic' | 'csv';
+/** Types that can be configured and synced from the app (backend CONFIG_SCHEMAS). */
+export type SyncableConnectionType = 'n8n' | 'entra' | 'google' | 'ai_admin';
+export interface ConnectionTestResult { ok: boolean; error: string | null }
+export interface CsvImportResult { syncRunId: string; ok: boolean; error?: string; stats?: Record<string, number | boolean> }
+/** First-run setup guide; every step is derived from real state on the backend. */
+export interface OnboardingStatus {
+  store: 'database' | 'unavailable';
+  dismissedAt: string | null;
+  completed: boolean;
+  steps: { organization: boolean; directory: boolean; automations: boolean; baseline: boolean };
+}
 /** A configured connector (from the connection store). Secrets never reach the browser. */
 export interface ConnectionView {
   id: string; type: ConnectionType; name: string; status: 'connected' | 'syncing' | 'error' | 'disconnected';

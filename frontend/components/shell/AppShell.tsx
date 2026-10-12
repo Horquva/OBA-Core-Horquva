@@ -11,6 +11,7 @@ import { fetchChanges, acknowledgeChange, acknowledgeAllChanges, fetchFreshness,
 import { toApiError } from '@/lib/api/client';
 import { canEdit } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
+import { OnboardingGuideBanner } from '@/components/onboarding/OnboardingGuideBanner';
 import { fetchNavCounts } from '@/lib/api/overview';
 import type { ChangeEventView, NavCounts } from '@/types/view';
 
@@ -109,6 +110,7 @@ export function AppShell({ children, className }: AppShellProps) {
           )}
         >
           <div className={cn(isFullWidthPage ? 'w-full h-full' : 'max-w-[1280px] mx-auto w-full')}>
+            {!isFullWidthPage && <OnboardingGuideBanner />}
             {children}
           </div>
         </main>

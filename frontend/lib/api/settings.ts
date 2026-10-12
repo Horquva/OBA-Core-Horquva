@@ -1,10 +1,35 @@
 import type {
-  AuditLogPage, ConnectionsOverview, IdentityQueueItemView, IdentityResolution, N8nCheckReport, OrganizationSettings, UserView,
+  AuditLogPage, ConnectionsOverview, ConnectionTestResult, CsvImportResult, IdentityQueueItemView, IdentityResolution,
+  N8nCheckReport, OrganizationSettings, Role, SyncableConnectionType, UserView,
 } from '@/types/view';
 import { request } from './client';
 
 export function fetchConnections(): Promise<ConnectionsOverview> {
   return request<ConnectionsOverview>('/api/connections');
+}
+
+/** Saves a connector; its settings are encrypted on the server and never sent back. */
+export function createConnection(input: { type: SyncableConnectionType; name: string; config: Record<string, string> }): Promise<{ id: string }> {
+  return request<{ id: string }>('/api/connections', { method: 'POST', body: JSON.stringify(input) });
+}
+
+/** Tries credentials without saving them. */
+export function testConnectionConfig(type: SyncableConnectionType, config: Record<string, string>): Promise<ConnectionTestResult> {
+  return request<ConnectionTestResult>('/api/connections/test', { method: 'POST', body: JSON.stringify({ type, config }) });
+}
+
+export function testSavedConnection(id: string): Promise<ConnectionTestResult> {
+  return request<ConnectionTestResult>(`/api/connections/${encodeURIComponent(id)}/test`, { method: 'POST' });
+}
+
+/** 202: the sync runs in the background; poll fetchConnections until the status leaves 'syncing'. */
+export function syncConnection(id: string): Promise<{ syncRunId: string; status: 'queued' }> {
+  return request<{ syncRunId: string; status: 'queued' }>(`/api/connections/${encodeURIComponent(id)}/sync`, { method: 'POST' });
+}
+
+/** One-off CSV import (people and/or automations). The files are not kept in the connection settings. */
+export function importCsv(input: { peopleCsv?: string; automationsCsv?: string }): Promise<CsvImportResult> {
+  return request<CsvImportResult>('/api/connections/csv', { method: 'POST', body: JSON.stringify(input) });
 }
 
 type V0Response = {
@@ -44,6 +69,15 @@ export async function fetchUsers(): Promise<UserView[]> {
 
 export function updateUser(id: string, patch: Partial<Pick<UserView, 'role' | 'isHrManager'>>): Promise<void> {
   return request<void>(`/api/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) });
+}
+
+export async function inviteUser(input: { email: string; name: string; role: Role; isHrManager?: boolean }): Promise<UserView> {
+  const r = await request<{ user: UserView }>('/api/users', { method: 'POST', body: JSON.stringify(input) });
+  return r.user;
+}
+
+export function removeUser(id: string): Promise<void> {
+  return request<void>(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export function fetchOrganization(): Promise<OrganizationSettings> {
