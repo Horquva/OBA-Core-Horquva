@@ -88,7 +88,7 @@ export function SentenceBuilder({
         className
       )}
     >
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-3 font-serif text-2xl md:text-3xl text-ink leading-relaxed font-normal">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-3 text-2xl md:text-3xl text-ink leading-relaxed font-normal">
         <span className="text-ink">What if</span>
 
         {/* Selected Persons */}

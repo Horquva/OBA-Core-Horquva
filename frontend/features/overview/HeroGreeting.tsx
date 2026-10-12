@@ -65,8 +65,8 @@ export function HeroGreeting({ changeSummary, className }: HeroGreetingProps) {
 
   return (
     <div className={className}>
-      <h1 className="font-serif text-4xl sm:text-5xl lg:text-[56px] font-normal tracking-tight text-ink leading-[1.05]">
-        {greeting}, <span className="italic">{firstName}</span>.
+      <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-ink leading-tight">
+        {greeting}, {firstName}.
       </h1>
       <p className="mt-2 text-base text-ink-2 leading-relaxed font-sans">
         {getSummarySentence(changeSummary)}

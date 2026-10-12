@@ -66,7 +66,7 @@ export function PersonNode({ data }: NodeProps<CustomMapNode>) {
     >
       <Handle type="target" position={Position.Left} className="!bg-rule" />
 
-      <span className="font-serif text-sm font-semibold text-ink leading-tight">
+      <span className="text-sm font-semibold text-ink leading-tight">
         {initials}
       </span>
       <span className="mt-0.5 max-w-[70px] truncate text-[10px] text-ink-2 font-medium">
@@ -119,7 +119,7 @@ export function AutomationNode({ data }: NodeProps<CustomMapNode>) {
         )}
       </div>
 
-      <span className="font-serif text-xs font-medium text-ink truncate leading-snug">
+      <span className="text-xs font-medium text-ink truncate leading-snug">
         {name}
       </span>
 
@@ -176,7 +176,7 @@ export function VendorModelNode({ data }: NodeProps<CustomMapNode>) {
         </span>
       </div>
 
-      <span className="font-serif text-xs font-medium text-ink truncate leading-snug">
+      <span className="text-xs font-medium text-ink truncate leading-snug">
         {name}
       </span>
 
@@ -217,7 +217,7 @@ export function CredentialNode({ data }: NodeProps<CustomMapNode>) {
         </span>
       </div>
 
-      <span className="font-serif text-xs font-medium text-ink truncate leading-snug">
+      <span className="text-xs font-medium text-ink truncate leading-snug">
         {name}
       </span>
 

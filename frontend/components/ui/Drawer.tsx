@@ -78,7 +78,7 @@ export function Drawer({
         {/* Header */}
         <div className="flex items-start justify-between border-b border-rule p-6">
           <div className="space-y-1 pr-4">
-            <h2 id={titleId} className="font-serif text-xl font-normal text-ink">
+            <h2 id={titleId} className="text-xl font-semibold text-ink">
               {title}
             </h2>
             {description && (

@@ -66,7 +66,7 @@ export function FullPageWizard({
             ← Exit
           </Button>
           <div className="h-4 w-[1px] bg-rule" aria-hidden="true" />
-          <h1 className="font-serif text-lg font-medium text-ink">{title}</h1>
+          <h1 className="text-lg font-medium text-ink">{title}</h1>
         </div>
 
         {/* Step Progress Pill */}
@@ -101,7 +101,7 @@ export function FullPageWizard({
       <main className="flex-1 overflow-y-auto px-6 py-8">
         <div className="mx-auto max-w-2xl">
           <div className="mb-6 space-y-1">
-            <h2 className="font-serif text-2xl font-normal text-ink">{currentStep.title}</h2>
+            <h2 className="text-2xl font-semibold text-ink">{currentStep.title}</h2>
             {currentStep.description && (
               <p className="text-sm text-ink-2 leading-relaxed">{currentStep.description}</p>
             )}

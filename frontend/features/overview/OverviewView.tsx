@@ -49,7 +49,7 @@ export function OverviewView() {
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-ink">
               First-run Setup
             </span>
-            <h2 className="font-serif text-3xl sm:text-4xl font-normal text-ink leading-tight">
+            <h2 className="text-2xl sm:text-3xl font-semibold text-ink leading-tight">
               See your n8n exposure in a few minutes.
             </h2>
             <p className="text-sm text-ink-2 leading-relaxed font-sans">

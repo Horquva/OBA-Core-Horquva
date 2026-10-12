@@ -33,7 +33,7 @@ export default function SettingsLayout({
   return (
     <div className="space-y-6">
       <div className="pb-2 border-b border-rule/50">
-        <h1 className="font-serif text-3xl md:text-4xl text-ink font-normal">
+        <h1 className="text-2xl sm:text-3xl text-ink font-semibold">
           Settings
         </h1>
         <p className="text-sm text-ink-3 mt-1">

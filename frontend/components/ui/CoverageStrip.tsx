@@ -64,7 +64,7 @@ export function CoverageStrip({
   return (
     <Card className={cn('p-6 space-y-4', className)} {...props}>
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-        <h2 className="font-serif text-2xl sm:text-3xl font-normal text-ink leading-tight">
+        <h2 className="text-2xl sm:text-3xl font-semibold text-ink leading-tight">
           <span className="font-normal">{m.covered} of {m.total} critical assets fully covered</span>
         </h2>
 
