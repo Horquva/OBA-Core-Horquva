@@ -14,10 +14,18 @@ import type { NextFunction, Request, Response } from 'express';
 import { DataService } from '../services/dataService.js';
 import { currentContext } from './requestContext.js';
 
+/**
+ * Magic-link tokens are bearer secrets (stored only hashed); they must not land in the
+ * audit trail, which is kept in Postgres and shown to admins.
+ */
+export function redactPath(path: string): string {
+  return path.replace(/^\/api\/attest\/[^/]+/, '/api/attest/[link]');
+}
+
 export function auditTrail(req: Request, res: Response, next: NextFunction): void {
   const ctx = currentContext();
   // originalUrl is captured now; req.path is rewritten by mounted routers.
-  const path = req.originalUrl.split('?')[0];
+  const path = redactPath(req.originalUrl.split('?')[0]);
 
   res.on('finish', () => {
     if (!path.startsWith('/api/') || path.startsWith('/api/auth/')) return; // auth routes log their own events

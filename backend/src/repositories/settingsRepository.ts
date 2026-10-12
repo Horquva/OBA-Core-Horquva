@@ -103,11 +103,18 @@ export async function listRecentAudit(limit: number, q: Query = defaultQuery): P
   }));
 }
 
+/** 'departure:dep_1' → 'departure'; an API path → 'api'. Fits the 64-character column. */
+function resourceType(resource: string): string {
+  if (resource.startsWith('/')) return 'api';
+  const m = resource.match(/^([a-z_]+):/);
+  return (m ? m[1] : resource).slice(0, 64) || 'unknown';
+}
+
 export async function appendAudit(e: AuditEntry, q: Query = defaultQuery): Promise<void> {
   await q(
     `INSERT INTO audit_log (id, user_id, action, resource_type, resource_id, details, created_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (id) DO NOTHING`,
-    [e.id, e.actor, e.action, e.resource.split(':')[0] || null, e.resource, JSON.stringify({ text: e.details }), e.at]
+    [e.id, e.actor.slice(0, 128), e.action.slice(0, 64), resourceType(e.resource), e.resource, JSON.stringify({ text: e.details }), e.at]
   );
 }
