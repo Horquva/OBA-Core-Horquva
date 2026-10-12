@@ -5,6 +5,7 @@
 // and B-20 (Audit Log) REST API surfaces.
 // =============================================================================
 
+import crypto from 'node:crypto';
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { DataService, AUDIT_LOG_CAPACITY } from '../services/dataService.js';
@@ -161,6 +162,65 @@ usersRouter.get('/', (_req: Request, res: Response) => {
   }
 });
 
+/** True when `id` is the only admin left: they can't be demoted or removed (nobody could manage the org). */
+function isLastAdmin(ds: DataService, id: string): boolean {
+  const admins = ds.getUsers().filter((u) => u.role === 'admin');
+  return admins.length === 1 && admins[0].id === id;
+}
+
+const InviteUserSchema = z.object({
+  email: z.string().trim().email(),
+  name: z.string().trim().min(1).max(255),
+  role: z.enum(['admin', 'reviewer', 'viewer']),
+  isHrManager: z.boolean().optional(),
+  title: z.string().trim().max(255).nullable().optional(),
+});
+
+// POST /api/users — give someone access. Access is invite-only: SSO proves who
+// they are, this decides whether they may sign in and with which role.
+usersRouter.post('/', async (req: Request, res: Response) => {
+  const parsed = InviteUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'email, name and role are required.' });
+    return;
+  }
+  const ds = DataService.getInstance();
+  if (ds.getUserByEmail(parsed.data.email)) {
+    res.status(409).json({ error: `${parsed.data.email} already has access.` });
+    return;
+  }
+  try {
+    const user = await ds.createUser({
+      id: `user:${crypto.randomUUID()}`,
+      name: parsed.data.name,
+      email: parsed.data.email,
+      role: parsed.data.role,
+      isHrManager: parsed.data.isHrManager ?? false,
+      title: parsed.data.title ?? null,
+    });
+    ds.addAuditEntry('user:admin', 'INVITE_USER', `user:${user.id}`, `Gave ${user.email} ${user.role} access${user.isHrManager ? ' (HR manager)' : ''}.`);
+    res.status(201).json({ user });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to add the user.' });
+  }
+});
+
+// DELETE /api/users/:id — revoke access (sessions are re-checked on every request)
+usersRouter.delete('/:id', (req: Request, res: Response) => {
+  const ds = DataService.getInstance();
+  const id = String(req.params.id);
+  if (!ds.getUserById(id)) {
+    res.status(404).json({ error: `User ${id} not found.` });
+    return;
+  }
+  if (isLastAdmin(ds, id)) {
+    res.status(409).json({ error: 'This is the only admin. Make someone else an admin first.' });
+    return;
+  }
+  ds.removeUser(id);
+  res.json({ success: true });
+});
+
 usersRouter.patch('/:id', (req: Request, res: Response) => {
   const parsed = UpdateUserSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -170,6 +230,10 @@ usersRouter.patch('/:id', (req: Request, res: Response) => {
 
   try {
     const dataService = DataService.getInstance();
+    if (parsed.data.role && parsed.data.role !== 'admin' && isLastAdmin(dataService, String(req.params.id))) {
+      res.status(409).json({ error: 'This is the only admin. Make someone else an admin first.' });
+      return;
+    }
     const user = dataService.updateUser(String(req.params.id), parsed.data);
     res.json({ success: true, user });
   } catch (err: any) {

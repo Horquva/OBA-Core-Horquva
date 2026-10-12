@@ -28,6 +28,10 @@ export async function saveUser(u: UserAccount, q: Query = defaultQuery): Promise
   );
 }
 
+export async function deleteUser(id: string, q: Query = defaultQuery): Promise<void> {
+  await q(`DELETE FROM user_account WHERE id = $1`, [id]);
+}
+
 // ── Organization ─────────────────────────────────────────────────────────────
 export interface StoredOrgSettings extends OrgSettings {
   onboardingDismissedAt: string | null;

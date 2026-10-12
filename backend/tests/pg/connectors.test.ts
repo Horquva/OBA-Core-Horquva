@@ -181,6 +181,12 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
     expect(raw).toBe(3);
   });
 
+  it('the setup guide sees the synced automation source and CSV import', async () => {
+    const status = (await (await authedFetch(`${baseUrl}/api/onboarding/status`)).json()) as any;
+    expect(status.store).toBe('database');
+    expect(status.steps).toMatchObject({ automations: true, baseline: true, directory: false });
+  });
+
   it('marks syncs interrupted by a restart as failed', async () => {
     await query(`UPDATE connection SET status = 'syncing' WHERE id = $1`, [n8nId]);
     await query(`INSERT INTO sync_run (connection_id, status) VALUES ($1, 'running')`, [n8nId]);

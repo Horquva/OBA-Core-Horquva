@@ -393,11 +393,27 @@ export class DataService {
     this.persist(() => actionRepo.saveAction(snapshot));
   }
 
-  public addUser(user: UserAccount): UserAccount {
-    const u = { ...user, email: user.email.toLowerCase() };
+  /** Adds a user and waits until they are saved; nothing is kept if the save fails. */
+  public async createUser(user: UserAccount): Promise<UserAccount> {
+    const u = { ...user, email: user.email.trim().toLowerCase() };
+    if (this.getUserByEmail(u.email)) throw new Error(`A user with ${u.email} already exists.`);
     this.users.set(u.id, u);
-    this.persist(() => settingsRepo.saveUser(u));
+    try {
+      await this.persist(() => settingsRepo.saveUser(u));
+    } catch (err) {
+      this.users.delete(u.id);
+      throw err;
+    }
     return u;
+  }
+
+  public removeUser(id: string): UserAccount {
+    const user = this.users.get(id);
+    if (!user) throw new Error(`User ${id} not found.`);
+    this.users.delete(id);
+    this.persist(() => settingsRepo.deleteUser(id));
+    this.addAuditEntry('user:admin', 'REMOVE_USER', `user:${id}`, `Removed ${user.email}; their sessions stop working immediately.`);
+    return user;
   }
 
   public getOnboardingDismissedAt(): string | null {

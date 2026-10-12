@@ -99,6 +99,14 @@ describe('Postgres-backed DataService', () => {
     expect(history.filter((f) => !f.validTo)).toHaveLength(1);
   });
 
+  it('keeps invited users and a dismissed setup guide across a restart', async () => {
+    expect((await authedFetch(`${baseUrl}/api/users`, json('POST', { email: 'dana@uni.edu', name: 'Dana Okafor', role: 'reviewer', isHrManager: true }))).status).toBe(201);
+    expect((await authedFetch(`${baseUrl}/api/onboarding/dismiss`, json('POST'))).status).toBe(200);
+    const after = await restart();
+    expect(after.getUserByEmail('dana@uni.edu')).toMatchObject({ role: 'reviewer', isHrManager: true });
+    expect(after.getOnboardingDismissedAt()).not.toBeNull();
+  });
+
   it('turns a failed write into a 500 and reloads memory from Postgres', async () => {
     await query('ALTER TABLE change_event RENAME TO change_event_gone');
     try {

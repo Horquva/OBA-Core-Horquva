@@ -9,7 +9,8 @@
 // POST /api/auth/dev/sign-in          — dev only, behind AUTH_DEV_LOGIN=true
 //
 // Only users already provisioned in the user store can sign in; SSO proves
-// identity, it does not grant access on its own.
+// identity, it does not grant access on its own. The one exception is the
+// deployment's first admin, named in BOOTSTRAP_ADMIN_EMAIL (auth/bootstrap.ts).
 // =============================================================================
 
 import { Router, type Request, type Response } from 'express';
@@ -17,6 +18,7 @@ import { DataService, type UserAccount } from '../services/dataService.js';
 import { getEntraProvider } from '../auth/entra.js';
 import { getGoogleProvider } from '../auth/google.js';
 import { resolveUser } from '../auth/middleware.js';
+import { bootstrapAdminFor } from '../auth/bootstrap.js';
 import {
   AuthFlowError,
   buildAuthorizeUrl,
@@ -178,8 +180,12 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
         return failRedirect(res, 'account_rejected', provider.id);
       }
 
-      const user = DataService.getInstance().getUserByEmail(mapped.email);
-      if (!user) return failRedirect(res, 'not_provisioned', provider.id);
+      const ds = DataService.getInstance();
+      let user = ds.getUserByEmail(mapped.email);
+      if (!user) {
+        user = await bootstrapAdminFor(ds, mapped.email, claims); // saved before any session exists
+        if (!user) return failRedirect(res, 'not_provisioned', provider.id);
+      }
 
       await setSessionCookie(res, { userId: user.id, provider: provider.id });
       audit(user.id, 'SIGN_IN', provider.id);

@@ -11,6 +11,7 @@ import http from 'node:http';
 import express from 'express';
 import { SignJWT, exportJWK, generateKeyPair, createLocalJWKSet, type JWTPayload } from 'jose';
 import { createAuthRouter } from '../../src/routes/auth.js';
+import { DataService } from '../../src/services/dataService.js';
 import { entraEmailFromClaims, getEntraProvider } from '../../src/auth/entra.js';
 import type { OidcProvider } from '../../src/auth/oidc.js';
 
@@ -260,5 +261,53 @@ describe('Entra provider config', () => {
     expect(entraEmailFromClaims({ email: 'A@acme.com', preferred_username: 'b@acme.com' })).toEqual({ email: 'a@acme.com' });
     expect(entraEmailFromClaims({ preferred_username: 'B@acme.com' })).toEqual({ email: 'b@acme.com' });
     expect(entraEmailFromClaims({ preferred_username: 'not-an-email' })).toHaveProperty('error');
+  });
+});
+
+describe('first-admin bootstrap (BOOTSTRAP_ADMIN_EMAIL)', () => {
+  afterEach(() => {
+    delete process.env.BOOTSTRAP_ADMIN_EMAIL;
+    DataService.resetInstance();
+  });
+
+  const signIn = async (email: string, name = 'Dana Okafor') => {
+    const { flowCookie, state, nonce } = await startFlow();
+    nextToken = { claims: validClaims(nonce, { preferred_username: email, name }), key: 'trusted' };
+    return callback(flowCookie, { code: 'c', state });
+  };
+
+  /** A fresh deployment: nobody has access yet. */
+  const emptyDeployment = () => {
+    const ds = DataService.resetInstance();
+    for (const u of ds.getUsers()) ds.removeUser(u.id);
+    return ds;
+  };
+
+  it('makes the pinned person admin + HR manager when the deployment has no admin', async () => {
+    const ds = emptyDeployment();
+    process.env.BOOTSTRAP_ADMIN_EMAIL = 'Dana@Uni.edu';
+    const res = await signIn('dana@uni.edu');
+    expect(res.headers.get('location')).toBe('http://app.test/departures');
+    expect(cookieFrom(res, 'horquva_session')).not.toBeNull();
+    expect(ds.getUserByEmail('dana@uni.edu')).toMatchObject({ name: 'Dana Okafor', role: 'admin', isHrManager: true });
+    expect(ds.getAuditLog({ action: 'FIRST_ADMIN_BOOTSTRAP' })).toHaveLength(1);
+  });
+
+  it('nobody else gets in on a fresh deployment, even first', async () => {
+    const ds = emptyDeployment();
+    process.env.BOOTSTRAP_ADMIN_EMAIL = 'dana@uni.edu';
+    const res = await signIn('someone@uni.edu');
+    expect(res.headers.get('location')).toContain('error=not_provisioned');
+    expect(ds.getUsers()).toHaveLength(0);
+  });
+
+  it('does nothing once an admin exists, and nothing without the variable', async () => {
+    process.env.BOOTSTRAP_ADMIN_EMAIL = 'dana@uni.edu';
+    DataService.resetInstance(); // demo data: alex@acme.com is admin
+    expect((await signIn('dana@uni.edu')).headers.get('location')).toContain('error=not_provisioned');
+
+    delete process.env.BOOTSTRAP_ADMIN_EMAIL;
+    emptyDeployment();
+    expect((await signIn('dana@uni.edu')).headers.get('location')).toContain('error=not_provisioned');
   });
 });
