@@ -18,7 +18,7 @@ export const continuityRouter = Router();
 const askEngine = new AskHorquvaEngine();
 
 import { DataService } from '../services/dataService.js';
-import { spofAssets } from '../views/overviewViews.js';
+import { spofAssets, coverageTrend, coverageHistory, exposureByCause, HISTORY_MAX_DAYS } from '../views/overviewViews.js';
 import { WeeklyBriefingService } from '../services/briefing/weeklyBriefing.js';
 
 /**
@@ -80,14 +80,28 @@ continuityRouter.get('/overview', async (_req: Request, res: Response) => {
     const graph = await loadGraphFromDatabase();
     const metrics = calculateHeadlineMetrics(graph);
     const checks = evaluateAllChecks(graph);
+    const trend = await coverageTrend(metrics);
 
     res.json({
       metrics,
+      trend,
+      exposureByCause: exposureByCause(checks),
       activeAlerts: checks.filter((c) => c.status === 'FAIL'),
       unknownChecks: checks.filter((c) => c.status === 'UNKNOWN'),
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch overview metrics.' });
+  }
+});
+
+// 1a. Coverage history for the Overview chart (daily snapshots + today's live counts)
+continuityRouter.get('/history', async (req: Request, res: Response) => {
+  try {
+    const days = Math.min(Math.max(parseInt(String(req.query.days ?? '60'), 10) || 60, 7), HISTORY_MAX_DAYS);
+    const metrics = calculateHeadlineMetrics(await loadGraphFromDatabase());
+    res.json({ days, points: await coverageHistory(metrics, days) });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to load coverage history.' });
   }
 });
 

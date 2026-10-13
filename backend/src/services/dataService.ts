@@ -227,6 +227,8 @@ export class DataService {
   private users: Map<string, UserAccount> = new Map();
   private orgSettings: OrgSettings = { ...DEFAULT_ORG };
   private onboardingDismissedAt: string | null = null;
+  /** Set when demo data was just seeded: history is back-filled once the graph has loaded. */
+  private seedDemoHistoryAfterLoad = false;
 
   private readonly persistent: boolean;
   /** Serializes Postgres writes so they land in the order the app made the changes. */
@@ -308,6 +310,7 @@ export class DataService {
     await this.queueAdapter.enqueue(demo.queueItem);
     await departureRepo.saveDeparture(demo.departure);
     console.warn('[DataService] DEMO_MODE: seeded the empty database with the 10-person demo org.');
+    this.seedDemoHistoryAfterLoad = true;
   }
 
   /** Replaces all in-memory state with what Postgres holds. */
@@ -338,6 +341,11 @@ export class DataService {
     }
     this.auditLogs = audit;
     for (const hook of reloadHooks) await hook();
+    if (this.seedDemoHistoryAfterLoad) {
+      this.seedDemoHistoryAfterLoad = false;
+      const { SnapshotService } = await import('./snapshot/snapshotService.js');
+      await SnapshotService.seedDemoHistory(this);
+    }
   }
 
   /**

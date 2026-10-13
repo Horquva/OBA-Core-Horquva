@@ -14,6 +14,8 @@ import { app } from '../../src/server.js';
 import { ContinuityGraph } from '../../src/domain/graph/index.js';
 import { calculateHeadlineMetrics } from '../../src/domain/checks/index.js';
 import { authedFetch } from '../helpers/session.js';
+import { SnapshotService } from '../../src/services/snapshot/snapshotService.js';
+import { DataService } from '../../src/services/dataService.js';
 
 let server: http.Server;
 let baseUrl: string;
@@ -66,6 +68,72 @@ describe('Headline coverage partitions unknown out of exposed (DATA-03, B-01)', 
       exposedCriticalAssets: 0,
       unknownCriticalAssets: 1,
     });
+  });
+});
+
+describe('Overview trend compares against the snapshot a week ago', () => {
+  afterAll(() => SnapshotService.resetInMemoryCache());
+
+  it('is null while no snapshot is at least 7 days old', async () => {
+    SnapshotService.resetInMemoryCache();
+    await SnapshotService.captureDailySnapshot(DataService.getInstance()); // today only
+    expect((await get('/api/continuity/overview')).body.trend).toBeNull();
+  });
+
+  it('reports counted deltas against the latest snapshot on or before 7 days ago', async () => {
+    SnapshotService.resetInMemoryCache();
+    const day = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+    const old = await SnapshotService.captureDailySnapshot(DataService.getInstance(), day(9));
+    await SnapshotService.captureDailySnapshot(DataService.getInstance(), day(3)); // too recent to compare against
+    // Fixture today: 1 covered, 3 exposed, 0 unknown. Pretend a week ago was 0 / 4 / 0.
+    old.headline = { ...old.headline, coveredCount: 0, exposedCount: 4, unknownCount: 0 };
+
+    expect((await get('/api/continuity/overview')).body.trend).toEqual({
+      comparedTo: day(9),
+      covered: 1,
+      exposed: -1,
+      unknown: 0,
+    });
+  });
+});
+
+describe('Overview history and exposure causes (charts)', () => {
+  afterAll(() => SnapshotService.resetInMemoryCache());
+
+  it('history is oldest-first and always ends with the live counts for today', async () => {
+    SnapshotService.resetInMemoryCache();
+    const day = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+    await SnapshotService.captureDailySnapshot(DataService.getInstance(), day(5));
+    await SnapshotService.captureDailySnapshot(DataService.getInstance(), day(90)); // outside a 30-day window
+
+    const { body } = await get('/api/continuity/history?days=30');
+    expect(body.days).toBe(30);
+    expect(body.points.map((p: any) => p.date)).toEqual([day(5), day(0)]);
+    expect(body.points.at(-1)).toEqual({ date: day(0), covered: 1, exposed: 3, unknown: 0, total: 4 });
+  });
+
+  it('demo history back-fills the window without overwriting real snapshots', async () => {
+    SnapshotService.resetInMemoryCache();
+    const day = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+    const real = await SnapshotService.captureDailySnapshot(DataService.getInstance(), day(10));
+    real.headline = { ...real.headline, coveredCount: 4, exposedCount: 0 };
+
+    expect(await SnapshotService.seedDemoHistory(DataService.getInstance(), 60)).toBe(59);
+    const { body } = await get('/api/continuity/history?days=60');
+    expect(body.points).toHaveLength(61);
+    expect(body.points.find((p: any) => p.date === day(10))).toMatchObject({ covered: 4, exposed: 0 });
+    for (const p of body.points) expect(p.covered + p.exposed + p.unknown).toBe(p.total);
+  });
+
+  it('groups failing checks by cause, counting distinct assets', async () => {
+    const { exposureByCause } = (await get('/api/continuity/overview')).body;
+    expect(exposureByCause.map((c: any) => c.checkId).sort()).toEqual(
+      ['C1_UNBACKED_CRITICAL', 'C2_DEPARTED_OWNER', 'C3_UNDOCUMENTED_CRITICAL', 'C4_MISSING_FALLBACK'],
+    );
+    // Fixture: 101, 102 and 104 are critical with no backup.
+    expect(exposureByCause.find((c: any) => c.checkId === 'C1_UNBACKED_CRITICAL')).toMatchObject({ label: 'One owner, no backup', assets: 3 });
+    const counts = exposureByCause.map((c: any) => c.assets);
+    expect(counts).toEqual([...counts].sort((a: number, b: number) => b - a));
   });
 });
 

@@ -24,6 +24,7 @@ import {
   verifyDeparture,
 } from '../handover/successionService.js';
 import { verifyDepartureExecutions } from '../handover/postDepartureVerifier.js';
+import { departureSummary } from '../views/departureViews.js';
 
 function sendSuccessionError(res: Response, err: any, fallback: string): void {
   if (err instanceof SuccessionError) {
@@ -35,66 +36,12 @@ function sendSuccessionError(res: Response, err: any, fallback: string): void {
 
 export const departuresRouter = Router();
 
-/** The person's team from a `member_of` edge; null when the graph doesn't say (never a guess). */
-function teamOf(personId: string, dataService: DataService): string | null {
-  const graph = dataService.getGraph();
-  const edge = graph.getEdgesForEntity(personId).find((e) => e.type === 'member_of' && e.fromId === personId);
-  return edge ? graph.getNode(edge.toId)?.entity?.name ?? null : null;
-}
-
-function formatSummary(dep: DepartureRecord, dataService: DataService) {
-  const graph = dataService.getGraph();
-  const personNode = graph.getNode(dep.personId);
-  const person = personNode?.entity
-    ? { id: personNode.entity.id, kind: personNode.entity.kind, name: personNode.entity.name }
-    : { id: dep.personId, kind: 'person' as const, name: dep.personId.replace('person:', '') };
-
-  const assetsTotal = dep.handovers.length;
-  const assetsHandedOver = dep.handovers.filter((h) => h.acceptance === 'accepted').length;
-
-  // departed: the leave date passed or the account is already disabled/verified.
-  // in_handover: a successor has been named or asked. upcoming: nothing started yet.
-  const leftAlready =
-    new Date(dep.leaveDate).getTime() < Date.now() || dep.stage === 'account_disabled' || dep.stage === 'verified';
-  const handoverStarted = dep.handovers.some((h) => h.successorId !== null || h.acceptance !== 'none');
-  const group: 'upcoming' | 'in_handover' | 'departed' = leftAlready
-    ? 'departed'
-    : handoverStarted
-      ? 'in_handover'
-      : 'upcoming';
-
-  // Has alert if any handover is for a critical asset without an accepted successor
-  let hasAlert = false;
-  for (const h of dep.handovers) {
-    const node = graph.getNode(h.assetId);
-    const crit = node?.facts.get('criticality')?.value;
-    if ((crit === 'critical' || crit === 'high') && h.acceptance !== 'accepted') {
-      hasAlert = true;
-      break;
-    }
-  }
-
-  return {
-    id: dep.id,
-    person,
-    role: personNode?.entity?.description || null,
-    team: teamOf(dep.personId, dataService),
-    leaveDate: dep.leaveDate,
-    stage: dep.stage,
-    assetsTotal,
-    assetsHandedOver,
-    hasAlert,
-    detectedFrom: dep.detectedFrom,
-    group,
-  };
-}
-
 // 1. GET /api/departures
 departuresRouter.get('/', (_req: Request, res: Response) => {
   try {
     const dataService = DataService.getInstance();
     const records = dataService.getDepartures();
-    const summaries = records.map((r) => formatSummary(r, dataService));
+    const summaries = records.map((r) => departureSummary(r, dataService));
     res.json({ departures: summaries });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch departures.' });
@@ -112,7 +59,7 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
       return;
     }
 
-    const summary = formatSummary(dep, dataService);
+    const summary = departureSummary(dep, dataService);
     const graph = dataService.getGraph();
 
     // Map handovers

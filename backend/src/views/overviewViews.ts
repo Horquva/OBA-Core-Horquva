@@ -7,11 +7,13 @@
 // =============================================================================
 
 import type { DataService, UserAccount } from '../services/dataService.js';
+import type { CheckResult, HeadlineMetrics } from '@horquva/types';
 import { criticalityView } from './factViews.js';
 
 const DAY_MS = 86_400_000;
 export const FIRST_VISIT_WINDOW_DAYS = 7;
 export const DEPARTURES_SOON_DAYS = 30;
+export const TREND_WINDOW_DAYS = 7;
 
 // ── Change summary: "since your last sign-in" ─────────────────────────────
 
@@ -67,6 +69,103 @@ export async function changeSummaryFor(ds: DataService, user: UserAccount, now: 
     newlyExposed,
     resolved: [...ds.getAllActionOverrides().values()].filter((a) => a.status === 'resolved' && after(a.resolvedAt)).length,
   };
+}
+
+// ── Coverage trend: today vs. the stored snapshot a week ago ──────────────
+
+export interface CoverageTrend {
+  /** Date (YYYY-MM-DD) of the snapshot the deltas are measured against. */
+  comparedTo: string;
+  covered: number;
+  exposed: number;
+  unknown: number;
+}
+
+/**
+ * Counted deltas between the live headline and the latest daily snapshot at least
+ * TREND_WINDOW_DAYS old. Null until such a snapshot exists: no history, no trend.
+ */
+export async function coverageTrend(current: HeadlineMetrics, now: Date = new Date()): Promise<CoverageTrend | null> {
+  try {
+    const { SnapshotService } = await import('../services/snapshot/snapshotService.js');
+    const cutoff = new Date(now.getTime() - TREND_WINDOW_DAYS * DAY_MS).toISOString();
+    const past = await SnapshotService.getLatestSnapshotBefore(cutoff);
+    if (!past) return null;
+    return {
+      comparedTo: past.snapshotDate,
+      covered: current.fullyCoveredCriticalAssets - past.headline.coveredCount,
+      exposed: current.exposedCriticalAssets - past.headline.exposedCount,
+      unknown: current.unknownCriticalAssets - past.headline.unknownCount,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ── Coverage history: one point per stored daily snapshot, plus today ─────
+
+export interface HistoryPoint {
+  date: string; // YYYY-MM-DD
+  covered: number;
+  exposed: number;
+  unknown: number;
+  total: number;
+}
+
+export const HISTORY_MAX_DAYS = 180;
+
+/** Oldest first. Today's point is the live headline, so the line always ends at what the page shows. */
+export async function coverageHistory(current: HeadlineMetrics, days: number, now: Date = new Date()): Promise<HistoryPoint[]> {
+  const { SnapshotService } = await import('../services/snapshot/snapshotService.js');
+  const today = now.toISOString().slice(0, 10);
+  const from = new Date(now.getTime() - days * DAY_MS).toISOString().slice(0, 10);
+  const points: HistoryPoint[] = (await SnapshotService.listSnapshots(days + 1))
+    .filter((s) => s.snapshotDate >= from && s.snapshotDate < today)
+    .map((s) => ({
+      date: s.snapshotDate,
+      covered: s.headline.coveredCount,
+      exposed: s.headline.exposedCount,
+      unknown: s.headline.unknownCount,
+      total: s.headline.totalCriticalAssets,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  points.push({
+    date: today,
+    covered: current.fullyCoveredCriticalAssets,
+    exposed: current.exposedCriticalAssets,
+    unknown: current.unknownCriticalAssets,
+    total: current.totalCriticalAssets,
+  });
+  return points;
+}
+
+// ── Exposure by cause: failing checks grouped by what is missing ──────────
+
+export interface ExposureCause {
+  checkId: string;
+  label: string;
+  /** Distinct assets failing this check. One asset can fail several, so causes don't sum to "exposed". */
+  assets: number;
+}
+
+const CAUSE_LABEL: Record<string, string> = {
+  C1_UNBACKED_CRITICAL: 'One owner, no backup',
+  C2_DEPARTED_OWNER: 'Owner has left',
+  C3_UNDOCUMENTED_CRITICAL: 'Undocumented',
+  C4_MISSING_FALLBACK: 'No fallback',
+};
+
+/** Every known cause is listed (zero included), largest first. */
+export function exposureByCause(checks: CheckResult[]): ExposureCause[] {
+  const assetsByCheck = new Map<string, Set<string>>(Object.keys(CAUSE_LABEL).map((id) => [id, new Set<string>()]));
+  for (const c of checks) {
+    if (c.status !== 'FAIL') continue;
+    if (!assetsByCheck.has(c.checkId)) assetsByCheck.set(c.checkId, new Set());
+    assetsByCheck.get(c.checkId)!.add(c.entityId);
+  }
+  return [...assetsByCheck.entries()]
+    .map(([checkId, ids]) => ({ checkId, label: CAUSE_LABEL[checkId] ?? checkId, assets: ids.size }))
+    .sort((a, b) => b.assets - a.assets || a.label.localeCompare(b.label));
 }
 
 // ── Single points of failure ──────────────────────────────────────────────

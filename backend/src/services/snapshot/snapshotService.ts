@@ -288,6 +288,49 @@ export class SnapshotService {
   }
 
   /**
+   * DEMO ONLY: back-fills `days` of daily snapshots before today for the demo org, so
+   * the Overview history chart has a line to draw. The series is deterministic and
+   * ends at today's real counts. Existing snapshots are never overwritten. Callers
+   * must gate this on demoModeEnabled(); it must never run against customer data.
+   */
+  public static async seedDemoHistory(ds: DataService, days = 60, now: Date = new Date()): Promise<number> {
+    const { headline, teamConcentration, automationFailures } = this.computeMetrics(ds);
+    const total = headline.totalCriticalAssets;
+    const coveredStart = Math.max(0, Math.round(headline.coveredCount * 0.4) - 1);
+    const unknownStart = Math.min(total - coveredStart, headline.unknownCount + Math.ceil(total * 0.25));
+    let inserted = 0;
+
+    for (let i = days; i >= 1; i--) {
+      const snapshotDate = new Date(now.getTime() - i * 86_400_000).toISOString().slice(0, 10);
+      const f = (days - i) / days; // 0 at the start of the window, approaching 1 by yesterday
+      const covered = Math.round(coveredStart + (headline.coveredCount - coveredStart) * f * f);
+      const unknown = Math.round(unknownStart + (headline.unknownCount - unknownStart) * f);
+      const exposed = Math.max(0, total - covered - unknown);
+      const record: DailySnapshotRecord = {
+        id: crypto.randomUUID(),
+        snapshotDate,
+        headline: { ...headline, coveredCount: covered, unknownCount: unknown, exposedCount: exposed },
+        teamConcentration,
+        automationFailures,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (this.shouldUseDatabase()) {
+        const res = await query(
+          `INSERT INTO daily_snapshot (id, snapshot_date, headline, team_concentration, automation_failures, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (snapshot_date) DO NOTHING`,
+          [record.id, snapshotDate, JSON.stringify(record.headline), JSON.stringify(teamConcentration), JSON.stringify(automationFailures), record.createdAt],
+        );
+        inserted += res.rowCount ?? 0;
+      } else if (!inMemorySnapshots.has(snapshotDate)) {
+        inMemorySnapshots.set(snapshotDate, record);
+        inserted++;
+      }
+    }
+    return inserted;
+  }
+
+  /**
    * Returns all stored snapshots ordered newest first.
    */
   public static async listSnapshots(limit = 30): Promise<DailySnapshotRecord[]> {

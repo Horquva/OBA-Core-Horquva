@@ -15,7 +15,8 @@ reportsRouter.get('/executive-scan/pdf', async (_req: Request, res: Response) =>
   try {
     const pdfBuffer = await generateExecutiveScanPdf(DataService.getInstance());
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="horquva-executive-scan-report.pdf"');
+    const day = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Disposition', 'attachment; filename="continuity-report-' + day + '.pdf"');
     res.send(pdfBuffer);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to generate executive scan PDF.' });

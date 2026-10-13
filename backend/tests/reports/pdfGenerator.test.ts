@@ -85,7 +85,7 @@ describe('RPT-01, RPT-02, RPT-03: PDF Generation Service', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('application/pdf');
-    expect(res.headers.get('content-disposition')).toContain('attachment; filename="horquva-executive-scan-report.pdf"');
+    expect(res.headers.get('content-disposition')).toMatch(/attachment; filename="continuity-report-\d{4}-\d{2}-\d{2}\.pdf"/);
 
     const arrayBuffer = await res.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);

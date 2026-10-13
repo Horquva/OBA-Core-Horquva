@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:pg": "vitest run --config vitest.pg.config.ts",
     "migrate": "tsx db/migrate.ts",
+    "seed:demo-history": "tsx db/seedDemoHistory.ts",
     "build": "tsc"
   },
   "keywords": [],
