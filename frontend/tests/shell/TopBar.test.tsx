@@ -3,7 +3,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { axe } from 'vitest-axe';
 import { TopBar } from '@/components/shell/TopBar';
-import { FreshnessIndicator } from '@/components/shell/FreshnessIndicator';
 import { AskField } from '@/components/shell/AskField';
 import { BellPopover } from '@/components/shell/BellPopover';
 import { SessionProvider } from '@/lib/session';
@@ -36,36 +35,6 @@ describe('TopBar & Navigation Shell (Task 16)', () => {
     },
   ];
 
-  describe('FreshnessIndicator', () => {
-    const freshness = {
-      latestDataAt: '2025-01-01T00:00:00.000Z',
-      sources: [
-        { source: 'entra', latestAt: '2025-01-01T00:00:00.000Z' },
-        { source: 'n8n', latestAt: null },
-      ],
-      syncStatus: 'not_tracked' as const,
-    };
-
-    it('shows the newest real data date and never a made-up sync count', async () => {
-      const { container } = render(<FreshnessIndicator freshness={freshness} />);
-      expect(screen.getByText(/Newest data Jan 1, 2025/)).toBeInTheDocument();
-      expect(screen.queryByText(/synced/)).toBeNull();
-
-      fireEvent.click(screen.getByRole('button', { name: 'View data freshness details' }));
-      const dialog = screen.getByRole('dialog', { name: 'Data freshness breakdown' });
-      expect(dialog).toHaveTextContent('Microsoft Entra ID');
-      expect(dialog).toHaveTextContent('Unknown');
-      expect(dialog).toHaveTextContent("Connector sync status isn't tracked yet.");
-      expect(screen.queryByText(/operational|synchronized/i)).toBeNull();
-      expect(await axe(container)).toHaveNoViolations();
-    });
-
-    it('says when freshness could not be loaded', () => {
-      render(<FreshnessIndicator freshness={null} />);
-      expect(screen.getByText('Data age unavailable')).toBeInTheDocument();
-    });
-  });
-
   describe('AskField', () => {
     it('submits search query and navigates to /ask', () => {
       render(<AskField />);
@@ -74,7 +43,7 @@ describe('TopBar & Navigation Shell (Task 16)', () => {
       fireEvent.change(input, { target: { value: 'Who owns Billing Sync?' } });
       fireEvent.submit(input);
 
-      expect(mockPush).toHaveBeenCalledWith('/ask?q=Who%20owns%20Billing%20Sync%3F');
+      expect(mockPush).toHaveBeenCalledWith('/?q=Who%20owns%20Billing%20Sync%3F');
     });
   });
 

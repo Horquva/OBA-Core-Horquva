@@ -38,7 +38,7 @@ export function BriefingView({ initialBriefing }: BriefingViewProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <Link
-            href="/"
+            href="/overview"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-3 hover:text-ink transition-colors"
           >
             <span aria-hidden="true">←</span>
@@ -211,7 +211,7 @@ export function BriefingView({ initialBriefing }: BriefingViewProps) {
                 ))}
               </dl>
               <p className="text-[11px] text-ink-3">
-                <Link href="/" className="underline">Overview</Link> shows the same counts live.
+                <Link href="/overview" className="underline">Overview</Link> shows the same counts live.
               </p>
             </section>
           )}

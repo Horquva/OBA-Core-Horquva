@@ -7,25 +7,22 @@ import { SessionProvider } from '@/lib/session';
 import type { Session } from '@/types/view';
 
 // Mock navigation
+let currentPathname = '/overview';
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/',
+  usePathname: () => currentPathname,
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-// Mock API clients to return empty/clean responses
+// Mock API clients to return empty/clean responses. Plain functions, not vi.fn(): the
+// setup's restoreAllMocks() would clear vi.fn() implementations between tests.
 vi.mock('@/lib/api/changes', () => ({
-  fetchChanges: vi.fn().mockResolvedValue([]),
-  acknowledgeChange: vi.fn().mockResolvedValue(undefined),
-  acknowledgeAllChanges: vi.fn().mockResolvedValue(undefined),
-  fetchFreshness: vi.fn().mockResolvedValue({ latestDataAt: null, sources: [], syncStatus: 'not_tracked' }),
+  fetchChanges: () => Promise.resolve([]),
+  acknowledgeChange: () => Promise.resolve(undefined),
+  acknowledgeAllChanges: () => Promise.resolve(undefined),
 }));
 
 vi.mock('@/lib/api/overview', () => ({
-  fetchNavCounts: vi.fn().mockResolvedValue({
-    departuresSoon: 2,
-    openCriticalActions: 5,
-    identityPending: 1,
-  }),
+  fetchNavCounts: () => Promise.resolve({ departuresSoon: 2, openCriticalActions: 5, identityPending: 1 }),
 }));
 
 describe('AppShell Component (Task 18)', () => {
@@ -59,5 +56,19 @@ describe('AppShell Component (Task 18)', () => {
 
     // Verify accessibility
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it('Ask OBA (home) has no top bar; the chat fills the column', () => {
+    currentPathname = '/';
+    render(
+      <SessionProvider initialSession={adminSession}>
+        <AppShell>
+          <div data-testid="chat">chat</div>
+        </AppShell>
+      </SessionProvider>
+    );
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chat')).toBeInTheDocument();
+    currentPathname = '/overview';
   });
 });

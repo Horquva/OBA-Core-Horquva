@@ -4,9 +4,9 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  MessageSquareText,
   LayoutDashboard,
   UserMinus,
-  Layers,
   CheckSquare,
   MoreHorizontal,
 } from 'lucide-react';
@@ -33,9 +33,9 @@ export function BottomTabBar({
   const pathname = usePathname();
 
   const tabs: TabItem[] = [
-    { href: '/', label: 'Overview', icon: LayoutDashboard },
+    { href: '/', label: 'Ask', icon: MessageSquareText },
+    { href: '/overview', label: 'Overview', icon: LayoutDashboard },
     { href: '/departures', label: 'Departures', icon: UserMinus, count: departuresCount },
-    { href: '/assets', label: 'Assets', icon: Layers },
     { href: '/actions', label: 'Actions', icon: CheckSquare, count: actionsCount },
     { href: '/settings', label: 'More', icon: MoreHorizontal },
   ];

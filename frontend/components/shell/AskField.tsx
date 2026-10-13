@@ -41,7 +41,7 @@ export function AskField({
       return;
     }
     if (!query.trim()) return;
-    router.push(`/ask?q=${encodeURIComponent(query.trim())}`);
+    router.push(`/?q=${encodeURIComponent(query.trim())}`);
   };
 
   return (

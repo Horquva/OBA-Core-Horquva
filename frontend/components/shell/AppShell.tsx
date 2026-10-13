@@ -7,7 +7,7 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { BottomTabBar } from './BottomTabBar';
 import { useResource } from '@/lib/useResource';
-import { fetchChanges, acknowledgeChange, acknowledgeAllChanges, fetchFreshness, type DataFreshness } from '@/lib/api/changes';
+import { fetchChanges, acknowledgeChange, acknowledgeAllChanges } from '@/lib/api/changes';
 import { toApiError } from '@/lib/api/client';
 import { canEdit } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
@@ -26,7 +26,8 @@ export function AppShell({ children, className }: AppShellProps) {
 
   // Dynamic Page Title
   const getPageTitle = (path: string): string => {
-    if (path === '/') return 'Overview';
+    if (path === '/') return 'Ask OBA';
+    if (path.startsWith('/overview')) return 'Overview';
     if (path.startsWith('/briefing')) return 'Weekly Executive Briefing';
     if (path.startsWith('/departures')) return 'Departures & Handover';
     if (path.startsWith('/people')) return 'People & Teams';
@@ -35,7 +36,6 @@ export function AppShell({ children, className }: AppShellProps) {
     if (path.startsWith('/what-if')) return 'What-If Continuity Simulator';
     if (path.startsWith('/actions/confirmations/new')) return 'New Confirmation Campaign';
     if (path.startsWith('/actions')) return 'Actions & Confirmations';
-    if (path.startsWith('/ask')) return 'Ask OBA';
     if (path.startsWith('/settings')) return 'Settings';
     return 'Horquva OBA';
   };
@@ -43,7 +43,6 @@ export function AppShell({ children, className }: AppShellProps) {
   // Changes / Alerts resource
   // A failed load is shown as a failure in the bell, never as "All caught up".
   const changesResource = useResource<ChangeEventView[]>('shell-changes', fetchChanges);
-  const freshnessResource = useResource<DataFreshness>('shell-freshness', fetchFreshness);
   const [ackError, setAckError] = React.useState<string | null>(null);
 
   // Nav badge counts. On failure badges are hidden (undefined), not shown as 0.
@@ -52,8 +51,6 @@ export function AppShell({ children, className }: AppShellProps) {
   const events = changesResource.status === 'ready' ? changesResource.data : undefined;
   const eventsError =
     changesResource.status === 'error' ? `Could not load changes: ${changesResource.error.message}` : ackError;
-  const freshness =
-    freshnessResource.status === 'ready' ? freshnessResource.data : freshnessResource.status === 'error' ? null : undefined;
   const navCounts = navCountsResource.status === 'ready' ? navCountsResource.data : undefined;
 
   const handleAcknowledge = async (id: string) => {
@@ -77,6 +74,8 @@ export function AppShell({ children, className }: AppShellProps) {
   };
 
   const isFullWidthPage = pathname === '/map' || pathname === '/what-if';
+  // Ask OBA (home) fills the column and scrolls its own thread; the setup guide still shows above it.
+  const isChatPage = pathname === '/';
 
   return (
     <div className={cn('flex h-screen w-full bg-canvas overflow-hidden font-sans', className)}>
@@ -89,6 +88,7 @@ export function AppShell({ children, className }: AppShellProps) {
 
       {/* Main Content Column */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {!isChatPage && (
         <TopBar
           title={getPageTitle(pathname)}
           events={events}
@@ -97,23 +97,32 @@ export function AppShell({ children, className }: AppShellProps) {
             setAckError(null);
             changesResource.reload();
           }}
-          freshness={freshness}
           // Acknowledging needs edit rights (RBAC); viewers just read the feed.
           onAcknowledgeEvent={canEdit(session) ? handleAcknowledge : undefined}
           onAcknowledgeAllEvents={canEdit(session) ? handleAcknowledgeAll : undefined}
         />
+        )}
 
-        <main
-          className={cn(
-            'relative flex-1 overflow-y-auto min-w-0 pb-20 md:pb-6',
-            isFullWidthPage ? 'p-0' : 'p-4 md:p-8'
-          )}
-        >
-          <div className={cn(isFullWidthPage ? 'w-full h-full' : 'max-w-[1280px] mx-auto w-full')}>
-            {!isFullWidthPage && <OnboardingGuideBanner />}
-            {children}
-          </div>
-        </main>
+        {isChatPage ? (
+          <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-16 md:pb-0">
+            <div className="shrink-0 px-4 md:px-8 [&:has(*)]:pt-4 md:[&:has(*)]:pt-6">
+              <OnboardingGuideBanner />
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+          </main>
+        ) : (
+          <main
+            className={cn(
+              'relative flex-1 overflow-y-auto min-w-0 pb-20 md:pb-6',
+              isFullWidthPage ? 'p-0' : 'p-4 md:p-8'
+            )}
+          >
+            <div className={cn(isFullWidthPage ? 'w-full h-full' : 'max-w-[1280px] mx-auto w-full')}>
+              {!isFullWidthPage && <OnboardingGuideBanner />}
+              {children}
+            </div>
+          </main>
+        )}
       </div>
 
       {/* Mobile Bottom Navigation Bar (< 768px) */}

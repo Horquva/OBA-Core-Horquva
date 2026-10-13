@@ -3,8 +3,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/cn';
 import { useSession } from '@/lib/session';
-import { FreshnessIndicator } from './FreshnessIndicator';
-import type { DataFreshness } from '@/lib/api/changes';
 import { AskField } from './AskField';
 import { BellPopover } from './BellPopover';
 import type { ChangeEventView } from '@/types/view';
@@ -12,8 +10,6 @@ import type { ChangeEventView } from '@/types/view';
 export interface TopBarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'title'> {
   title?: React.ReactNode;
   onOpenMobileNav?: () => void;
-  /** undefined while loading, null when it failed. */
-  freshness?: DataFreshness | null;
   events?: ChangeEventView[];
   eventsError?: string | null;
   onRetryEvents?: () => void;
@@ -24,7 +20,6 @@ export interface TopBarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'ti
 export function TopBar({
   title,
   onOpenMobileNav,
-  freshness,
   events,
   eventsError,
   onRetryEvents,
@@ -39,7 +34,7 @@ export function TopBar({
     <header
       role="banner"
       className={cn(
-        'sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-rule bg-surface/90 px-4 sm:px-6 backdrop-blur-md transition-colors',
+        'sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-rule bg-transparent px-4 sm:px-6',
         className
       )}
       {...props}
@@ -71,9 +66,8 @@ export function TopBar({
         <AskField />
       </div>
 
-      {/* Right Area: Freshness, Bell & Dev Session */}
+      {/* Right Area: Bell & Dev Session */}
       <div className="flex items-center gap-2 sm:gap-3">
-        <FreshnessIndicator freshness={freshness} />
 
         <BellPopover
           events={events}

@@ -1,12 +1,12 @@
 // =============================================================================
 // Horquva Continuity Platform — Ask Horquva & Grounded Gemini Engine
 // =============================================================================
-// Powered by Google Gemini (@google/genai) using gemini-2.0-flash.
+// Powered by Google Gemini (@google/genai); model from GEMINI_MODEL, default gemini-2.5-flash.
 // Architecture Decision AD-8: Strictly grounded in deterministic graph facts.
 // Strict Guardrails:
 // - NEVER hallucinates asset names or scores individuals
 // - Every statement cites exact asset IDs, person IDs, or check IDs
-// - Answers in crisp, executive markdown tables and actionable bullets
+// - Answers in short sentences and bullets; streams token by token for Ask OBA
 // =============================================================================
 
 import { GoogleGenAI } from '@google/genai';
@@ -28,14 +28,22 @@ STRICT CONSTRAINTS:
 3. NEVER invent or hallucinate asset IDs, person names, or run volumes.
 4. Cite every asset or person as [[<entity id>]], e.g. [[automation:n8n:101]] or [[person:omar@acme.com]]. Never write a name without its [[id]].
 5. If data is unknown or missing (null in the ground truth), say it is unknown. Never treat unknown as no or 0.
-6. Answer in short plain sentences and "- " bullet lists. No tables, no headings, no bold.
+6. Answer in short plain sentences and "- " bullet lists. You may bold one key number or name. No tables, no headings.
 7. Only answer from the ground truth. If it doesn't contain the answer, say so.
 `.trim();
 
+/** A previous turn, so follow-up questions ("and who backs that up?") have context. */
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+const MAX_HISTORY_TURNS = 8;
+
 export class AskHorquvaEngine {
   private ai: GoogleGenAI | null = null;
-  // GEMINI_MODEL overrides the default; Google retires models over time (2.0-flash now returns 404).
-  private modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  // GEMINI_MODEL overrides the default; Google retires models over time (2.0-flash returns 404).
+  private modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -52,8 +60,8 @@ export class AskHorquvaEngine {
     return (await this.askDetailed(query, graph)).answer;
   }
 
-  /** `answeredBy`: 'ai' when the model answered, 'graph' when computed directly from the graph. */
-  public async askDetailed(query: string, graph: ContinuityGraph): Promise<{ answer: string; answeredBy: 'ai' | 'graph' }> {
+  /** The grounded prompt: the graph's current facts, recent turns for follow-ups, then the question. */
+  private buildPrompt(query: string, graph: ContinuityGraph, history: ChatTurn[]): string {
     const metrics = calculateHeadlineMetrics(graph);
     const checks = evaluateAllChecks(graph);
     const nodes = graph.getAllNodes();
@@ -86,22 +94,35 @@ export class AskHorquvaEngine {
         .map((n) => ({ id: n.entity.id, name: n.entity.name, status: n.facts.get('status')?.value ?? null })),
     };
 
-    // If Gemini API Key is available, use Gemini 2.0 Flash
-    if (this.ai) {
-      try {
-        const prompt = `
+    const recent = history.slice(-MAX_HISTORY_TURNS);
+    const conversation = recent.length
+      ? `\nCONVERSATION SO FAR (for follow-up questions; the ground truth above wins on any conflict):\n${recent
+          .map((t) => `${t.role === 'user' ? 'User' : 'Assistant'}: ${t.content}`)
+          .join('\n')}\n`
+      : '';
+
+    return `
 CURRENT OPERATIONAL GROUND TRUTH:
 ${JSON.stringify(groundTruthContext, null, 2)}
-
+${conversation}
 USER QUESTION:
 "${query}"
 
 Provide a direct, factual answer strictly grounded in the ground truth above.
-        `.trim();
+    `.trim();
+  }
 
+  /** `answeredBy`: 'ai' when the model answered, 'graph' when computed directly from the graph. */
+  public async askDetailed(
+    query: string,
+    graph: ContinuityGraph,
+    history: ChatTurn[] = [],
+  ): Promise<{ answer: string; answeredBy: 'ai' | 'graph' }> {
+    if (this.ai) {
+      try {
         const response = await this.ai.models.generateContent({
           model: this.modelName,
-          contents: prompt,
+          contents: this.buildPrompt(query, graph, history),
           config: {
             systemInstruction: SYSTEM_INSTRUCTION,
             temperature: 0.2, // Low temperature for high factual accuracy
@@ -118,6 +139,37 @@ Provide a direct, factual answer strictly grounded in the ground truth above.
 
     // No model configured (or it failed): answer directly from the graph.
     return { answer: answerFromGraph(query, graph), answeredBy: 'graph' };
+  }
+
+  /**
+   * Streams the answer in pieces as the model writes it. Falls back to the graph answer
+   * (one piece) when no model is configured or it fails before writing anything; a
+   * failure part-way through is thrown, since half an answer must not pass as whole.
+   */
+  public async *askStream(query: string, graph: ContinuityGraph, history: ChatTurn[] = []): AsyncGenerator<string, 'ai' | 'graph'> {
+    if (this.ai) {
+      let wrote = false;
+      try {
+        const stream = await this.ai.models.generateContentStream({
+          model: this.modelName,
+          contents: this.buildPrompt(query, graph, history),
+          config: { systemInstruction: SYSTEM_INSTRUCTION, temperature: 0.2 },
+        });
+        for await (const chunk of stream) {
+          const text = chunk.text;
+          if (text) {
+            wrote = true;
+            yield text;
+          }
+        }
+        if (wrote) return 'ai';
+      } catch (err) {
+        if (wrote) throw err;
+        console.error('[AskHorquvaEngine] Gemini stream error, falling back to deterministic response:', err);
+      }
+    }
+    yield answerFromGraph(query, graph);
+    return 'graph';
   }
 
   /**

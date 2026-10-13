@@ -1,15 +1,8 @@
-import * as React from 'react';
-import { AskView } from '@/features/ask/AskView';
+import { redirect } from 'next/navigation';
 
-export const metadata = {
-  title: 'Ask Horquva | OBA',
-  description: 'Continuity intelligence assistant grounded in verified SCD2 facts.',
-};
-
-export default function AskPage() {
-  return (
-    <React.Suspense fallback={<div className="p-8 text-center text-xs text-ink-3">Loading assistant...</div>}>
-      <AskView />
-    </React.Suspense>
-  );
+// Ask OBA moved to the home page; old /ask?q=… links and bookmarks still work.
+export default async function AskRedirect({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
+  const { q } = await searchParams;
+  const query = Array.isArray(q) ? q[0] : q;
+  redirect(query ? `/?q=${encodeURIComponent(query)}` : '/');
 }

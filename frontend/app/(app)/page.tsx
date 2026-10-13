@@ -1,6 +1,16 @@
 import * as React from 'react';
-import { OverviewView } from '@/features/overview/OverviewView';
+import { AskView } from '@/features/ask/AskView';
 
-export default function OverviewPage() {
-  return <OverviewView />;
+export const metadata = {
+  title: 'Ask OBA | Horquva',
+  description: 'Ask about owners, backups, departures and what breaks — answered from your records.',
+};
+
+// Ask OBA is the home page. useSearchParams (?q=, ?c=) needs a Suspense boundary.
+export default function HomePage() {
+  return (
+    <React.Suspense fallback={null}>
+      <AskView />
+    </React.Suspense>
+  );
 }

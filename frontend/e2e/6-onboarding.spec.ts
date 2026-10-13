@@ -30,7 +30,7 @@ test.afterAll(() => new Promise<void>((r) => n8n.close(() => r())));
 
 test('a new org sets up through the guide: name, n8n, first sync, invite', async ({ page, context }) => {
   await signIn(context, 'admin');
-  await page.goto('/');
+  await page.goto('/overview');
 
   // The guide reflects real state: the demo org name is a placeholder, nothing is connected.
   const guide = page.getByRole('region', { name: 'Setup guide' });

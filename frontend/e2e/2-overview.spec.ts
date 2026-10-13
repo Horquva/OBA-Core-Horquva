@@ -15,7 +15,7 @@ test('Overview shows the real coverage counts and top single points of failure',
   const spof = await apiGet<SpofAssets>(page.request, '/api/continuity/spof-assets?limit=5');
   expect(metrics.totalCriticalAssets, 'fixture should have critical assets').toBeGreaterThan(0);
 
-  await page.goto('/');
+  await page.goto('/overview');
 
   await expect(page.locator('main h1').first()).toBeVisible();
   await expect(

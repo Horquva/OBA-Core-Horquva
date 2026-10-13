@@ -23,8 +23,8 @@ function tintFor(name: string): string {
   return TINTS[h % TINTS.length];
 }
 
-export function Avatar({ name, size = 32, className }: { name: string; size?: 28 | 32 | 36; className?: string }) {
-  const dims = { 28: 'h-7 w-7 text-[11px]', 32: 'h-8 w-8 text-xs', 36: 'h-9 w-9 text-[13px]' }[size];
+export function Avatar({ name, size = 32, className }: { name: string; size?: 28 | 32 | 36 | 56; className?: string }) {
+  const dims = { 28: 'h-7 w-7 text-[11px]', 32: 'h-8 w-8 text-xs', 36: 'h-9 w-9 text-[13px]', 56: 'h-14 w-14 text-lg' }[size];
   return (
     <span
       aria-hidden="true"

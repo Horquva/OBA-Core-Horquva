@@ -170,7 +170,10 @@ body {
   line-height: 1.125rem;
 }
 .lucide { stroke-width: 1.5; }
-:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+/* In the base layer so a component can override it (e.g. the Ask OBA composer). */
+@layer base {
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+}
 ::selection { background: color-mix(in srgb, var(--amber) 30%, transparent); }
 
 /* ── Skeleton shimmer ───────────────────────────────────── */

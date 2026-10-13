@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import {
+  MessageSquareText,
   LayoutDashboard,
   UserMinus,
   Users,
@@ -44,6 +45,11 @@ export function Sidebar({
   const navItems = [
     {
       href: '/',
+      label: 'Ask OBA',
+      icon: <MessageSquareText className="h-4 w-4" />,
+    },
+    {
+      href: '/overview',
       label: 'Overview',
       icon: <LayoutDashboard className="h-4 w-4" />,
     },

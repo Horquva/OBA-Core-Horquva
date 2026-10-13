@@ -71,6 +71,9 @@ export const POLICY: Rule[] = [
   rule(['POST'], '/continuity/simulations/[a-z-]+', 'read'),
   rule(['POST'], '/continuity/assistant/ask', 'read'),
   rule(['POST'], '/assistant/messages', 'read'),
+  rule(['POST'], '/assistant/messages/stream', 'read'),
+  // Own conversations only; the service returns 404 for anyone else's.
+  rule(['PATCH', 'DELETE'], `/assistant/conversations/${ID}`, 'read'),
   rule(['POST'], `/departures/${ID}/succession-test`, 'read'),
 ];
 

@@ -161,7 +161,6 @@ export function OverviewHeader({ changeSummary, className }: OverviewHeaderProps
             href="/briefing"
             className="group inline-flex h-8 items-center gap-2 rounded-control border border-rule bg-surface px-3 text-[13px] font-medium text-ink shadow-panel transition-colors hover:border-ink-3"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-amber" aria-hidden="true" />
             Read this week&apos;s briefing
             <span aria-hidden="true" className="text-ink-3 transition-transform duration-150 group-hover:translate-x-0.5">→</span>
           </Link>

@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { AppWindow, Box, KeyRound, Sparkles, Unplug, Users, Workflow, type LucideIcon } from 'lucide-react';
+import { Unplug } from 'lucide-react';
+import { EntityKindIcon, kindLabel } from '@/components/ui/EntityKindIcon';
 import { Panel, PanelHeader } from '@/components/ui/Panel';
 import { ErrorState } from '@/components/ui/states';
 import { formatNumber } from '@/lib/format';
@@ -15,31 +16,10 @@ export interface SpofPanelProps {
   className?: string;
 }
 
-const KIND_LABEL: Record<string, string> = {
-  automation: 'Automation',
-  credential: 'Credential',
-  app: 'App',
-  group: 'Group',
-  ai_agent: 'AI agent',
-};
-
-const KIND_ICON: Record<string, LucideIcon> = {
-  automation: Workflow,
-  credential: KeyRound,
-  app: AppWindow,
-  group: Users,
-  ai_agent: Sparkles,
-};
-
-function kindLabel(kind: string): string {
-  return KIND_LABEL[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1).replace(/_/g, ' ');
-}
-
 function KindIcon({ kind }: { kind: string }) {
-  const Icon = KIND_ICON[kind] ?? Box;
   return (
     <span aria-hidden="true" className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-control border border-rule bg-surface-sunken text-ink-2">
-      <Icon className="h-3.5 w-3.5" />
+      <EntityKindIcon kind={kind} />
     </span>
   );
 }
