@@ -204,3 +204,46 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Dependency map (React Flow), themed from tokens so dark mode works ── */
+.react-flow.oba-map {
+  --xy-background-color: var(--canvas);
+  --xy-edge-stroke: var(--ink-3);
+  --xy-minimap-background-color: var(--surface);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--canvas) 72%, transparent);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-background-color-hover: var(--surface-sunken);
+  --xy-controls-button-color: var(--ink-2);
+  --xy-controls-button-color-hover: var(--ink);
+  --xy-controls-button-border-color: var(--rule);
+}
+.oba-map .react-flow__background pattern circle { fill: var(--rule); }
+.oba-map .react-flow__arrowhead polyline { stroke: var(--ink-3); fill: var(--ink-3); }
+.oba-map .react-flow__controls {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: none;
+}
+.oba-map .react-flow__controls-button svg { fill: currentColor; }
+.oba-map .react-flow__minimap {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.oba-map .react-flow__minimap-node.mm-node { fill: var(--ink-3); }
+.oba-map .react-flow__minimap-node.mm-root { fill: var(--amber); }
+.oba-map .react-flow__minimap-node.mm-fail { fill: var(--st-fail); }
+.oba-map .react-flow__node:focus-visible { outline: none; }
+/* Teams arrive as "group" nodes; drop React Flow's built-in group box so only our card shows. */
+.oba-map .react-flow__node-group {
+  padding: 0;
+  width: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.oba-map .react-flow__node-group.selected,
+.oba-map .react-flow__node-group:hover { box-shadow: none; }
+.oba-map .react-flow__controls-button { border-bottom-color: var(--rule); }

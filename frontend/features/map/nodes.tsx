@@ -3,6 +3,8 @@
 import * as React from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { EntityKind } from '@/types/view';
+import { Avatar } from '@/components/ui/Avatar';
+import { EntityKindIcon, kindLabel } from '@/components/ui/EntityKindIcon';
 import { cn } from '@/lib/cn';
 
 export interface MapNodeData extends Record<string, unknown> {
@@ -13,230 +15,91 @@ export interface MapNodeData extends Record<string, unknown> {
   isDimmed?: boolean;
   isBlastRadius?: boolean;
   isRoot?: boolean;
+  isSelected?: boolean;
+  /** Single click: inspect. */
   onSelect?: (id: string) => void;
+  /** Double click: centre the map here. */
+  onCentre?: (id: string) => void;
 }
 
 export type CustomMapNode = Node<MapNodeData>;
 
-function getRingClass(ring: 'fail' | 'unknown' | null, isRoot?: boolean, isBlastRadius?: boolean) {
-  if (ring === 'fail') {
-    return 'border-2 border-st-fail shadow-[0_0_12px_rgba(179,38,30,0.35)]';
-  }
-  if (ring === 'unknown') {
-    return 'border-2 border-dashed border-ev-unknown';
-  }
-  if (isBlastRadius) {
-    return 'border-2 border-amber shadow-[0_0_10px_rgba(232,135,15,0.4)]';
-  }
-  if (isRoot) {
-    return 'border-2 border-ink ring-2 ring-ink/10';
-  }
-  return 'border border-rule hover:border-ink-3';
-}
+/** Older mock data says "workflow"; the product calls these automations. */
+export const nodeKindLabel = (kind: string) => (kind === 'workflow' ? 'Automation' : kindLabel(kind));
+
+const STATUS_TEXT = { fail: ', failing a check', unknown: ', has unknown facts' } as const;
 
 /**
- * Person Node: Circular shape (rounded-full)
+ * One card for every kind: type icon (or avatar), name, type label.
+ * Status is a dot plus edge treatment, never a glow; the centred node gets an amber outline.
  */
-export function PersonNode({ data }: NodeProps<CustomMapNode>) {
-  const { name, ring, isDimmed, isBlastRadius, isRoot } = data;
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+function MapNodeCard({ data }: NodeProps<CustomMapNode>) {
+  const { id, name, kind, ring, isDimmed, isBlastRadius, isRoot, isSelected } = data;
+  const label = nodeKindLabel(kind);
+  const isPerson = kind === 'person';
 
   return (
     <div
       role="button"
       tabIndex={0}
-      aria-label={`Person: ${name}${ring === 'fail' ? ' (failing checks)' : ''}`}
-      onClick={() => data.onSelect?.(data.id)}
+      aria-label={`${label}: ${name}${ring ? STATUS_TEXT[ring] : ''}`}
+      onClick={() => data.onSelect?.(id)}
+      onDoubleClick={() => data.onCentre?.(id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          data.onSelect?.(data.id);
+          data.onSelect?.(id);
         }
       }}
       className={cn(
-        'group relative flex h-20 w-20 flex-col items-center justify-center rounded-full bg-surface p-2 text-center transition-all cursor-pointer select-none',
-        getRingClass(ring, isRoot, isBlastRadius),
-        isDimmed ? 'opacity-15 pointer-events-none' : 'opacity-100 hover:scale-105',
+        'group relative flex w-[220px] cursor-pointer select-none items-center gap-2.5 rounded-panel border bg-surface px-2.5 py-2 shadow-panel transition-[opacity,border-color,box-shadow] duration-150',
+        ring === 'fail' ? 'border-st-fail/60 shadow-[inset_3px_0_0_var(--st-fail)]' : ring === 'unknown' ? 'border-dashed border-ink-3' : 'border-rule hover:border-ink-3',
+        isBlastRadius && 'bg-[color-mix(in_srgb,var(--amber)_8%,var(--surface))]',
+        isRoot && 'outline outline-2 outline-offset-2 outline-amber',
+        isSelected && !isRoot && 'outline outline-2 outline-offset-2 outline-ink-3',
+        isDimmed ? 'pointer-events-none opacity-20' : 'opacity-100',
       )}
     >
-      <Handle type="target" position={Position.Left} className="!bg-rule" />
+      <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !border-0 !bg-rule" />
 
-      <span className="text-sm font-semibold text-ink leading-tight">
-        {initials}
-      </span>
-      <span className="mt-0.5 max-w-[70px] truncate text-[10px] text-ink-2 font-medium">
-        {name}
-      </span>
-
-      {isRoot && (
-        <span className="absolute -top-2 rounded-badge bg-ink px-1.5 py-0.2 text-[9px] font-mono text-paper">
-          Root
+      {isPerson ? (
+        <Avatar name={name} size={32} />
+      ) : (
+        <span aria-hidden="true" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-rule bg-surface-sunken text-ink-2">
+          <EntityKindIcon kind={(kind as string) === 'workflow' ? 'automation' : kind} className="h-4 w-4" />
         </span>
       )}
+      <span className="min-w-0 flex-1">
+        <span className="line-clamp-2 block break-words text-xs font-medium leading-snug text-ink" title={name}>
+          {name}
+        </span>
+        <span className="block text-[11px] leading-snug text-ink-3">{label}</span>
+      </span>
+      {ring === 'fail' && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-st-fail" />}
 
-      <Handle type="source" position={Position.Right} className="!bg-rule" />
+      <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !border-0 !bg-rule" />
     </div>
   );
 }
 
-/**
- * Automation / Workflow Node: Hexagonal chamfered shape
- */
-export function AutomationNode({ data }: NodeProps<CustomMapNode>) {
-  const { name, ring, isDimmed, isBlastRadius, isRoot } = data;
+// Named exports kept for callers and tests; they all render the same card.
+export const PersonNode = MapNodeCard;
+export const AutomationNode = MapNodeCard;
+export const VendorModelNode = MapNodeCard;
+export const CredentialNode = MapNodeCard;
 
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Automation: ${name}${ring === 'fail' ? ' (failing check)' : ''}`}
-      onClick={() => data.onSelect?.(data.id)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          data.onSelect?.(data.id);
-        }
-      }}
-      className={cn(
-        'group relative flex min-w-[150px] max-w-[190px] flex-col rounded-card bg-surface px-3 py-2 transition-all cursor-pointer select-none shadow-xs',
-        getRingClass(ring, isRoot, isBlastRadius),
-        isDimmed ? 'opacity-15 pointer-events-none' : 'opacity-100 hover:scale-105',
-      )}
-    >
-      <Handle type="target" position={Position.Left} className="!bg-rule" />
-
-      <div className="flex items-center justify-between gap-1 mb-1">
-        <span className="rounded-badge bg-bronze/15 px-1.5 py-0.2 text-[10px] font-mono font-semibold uppercase text-bronze-deep">
-          Automation
-        </span>
-        {ring === 'fail' && (
-          <span className="h-2 w-2 rounded-full bg-st-fail shrink-0" title="Check Failed" />
-        )}
-      </div>
-
-      <span className="text-xs font-medium text-ink truncate leading-snug">
-        {name}
-      </span>
-
-      {isRoot && (
-        <span className="absolute -top-2 right-2 rounded-badge bg-ink px-1.5 py-0.2 text-[9px] font-mono text-paper">
-          Focused
-        </span>
-      )}
-
-      <Handle type="source" position={Position.Right} className="!bg-rule" />
-    </div>
-  );
-}
-
-const SERVICE_LABELS: Record<string, string> = {
-  model: 'AI Model',
-  vendor: 'Vendor',
-  app: 'App',
-  process: 'Process',
-  system: 'System',
-  group: 'Team',
-};
-
-/**
- * Vendor & AI Model Node: Rectangular card (also apps, processes and directory groups)
- */
-export function VendorModelNode({ data }: NodeProps<CustomMapNode>) {
-  const { name, kind, ring, isDimmed, isBlastRadius, isRoot } = data;
-  const label = SERVICE_LABELS[kind] ?? 'Vendor';
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`${label}: ${name}`}
-      onClick={() => data.onSelect?.(data.id)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          data.onSelect?.(data.id);
-        }
-      }}
-      className={cn(
-        'group relative flex min-w-[140px] max-w-[180px] flex-col rounded-control bg-surface px-3 py-2 transition-all cursor-pointer select-none shadow-xs',
-        getRingClass(ring, isRoot, isBlastRadius),
-        isDimmed ? 'opacity-15 pointer-events-none' : 'opacity-100 hover:scale-105',
-      )}
-    >
-      <Handle type="target" position={Position.Left} className="!bg-rule" />
-
-      <div className="flex items-center justify-between gap-1 mb-1">
-        <span className="rounded-badge bg-surface-sunken px-1.5 py-0.2 text-[10px] font-mono capitalize text-ink-3">
-          {label}
-        </span>
-      </div>
-
-      <span className="text-xs font-medium text-ink truncate leading-snug">
-        {name}
-      </span>
-
-      <Handle type="source" position={Position.Right} className="!bg-rule" />
-    </div>
-  );
-}
-
-/**
- * Credential Node: Rounded square card
- */
-export function CredentialNode({ data }: NodeProps<CustomMapNode>) {
-  const { name, ring, isDimmed, isBlastRadius, isRoot } = data;
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Credential: ${name}`}
-      onClick={() => data.onSelect?.(data.id)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          data.onSelect?.(data.id);
-        }
-      }}
-      className={cn(
-        'group relative flex min-w-[130px] max-w-[170px] flex-col rounded-card bg-surface px-3 py-2 transition-all cursor-pointer select-none shadow-xs',
-        getRingClass(ring, isRoot, isBlastRadius),
-        isDimmed ? 'opacity-15 pointer-events-none' : 'opacity-100 hover:scale-105',
-      )}
-    >
-      <Handle type="target" position={Position.Left} className="!bg-rule" />
-
-      <div className="flex items-center justify-between gap-1 mb-1">
-        <span className="rounded-badge bg-amber/15 px-1.5 py-0.2 text-[10px] font-mono font-semibold uppercase text-amber-ink">
-          Credential
-        </span>
-      </div>
-
-      <span className="text-xs font-medium text-ink truncate leading-snug">
-        {name}
-      </span>
-
-      <Handle type="source" position={Position.Right} className="!bg-rule" />
-    </div>
-  );
-}
-
-// Keyed by the entity kinds the backend sends (packages/types EntityKind), plus the
-// older mock kinds. A kind missing here renders as React Flow's blank default box.
+// Keyed by the entity kinds the backend sends, plus the older mock kinds.
+// A kind missing here renders as React Flow's blank default box.
 export const nodeTypes = {
-  person: PersonNode,
-  automation: AutomationNode,
-  workflow: AutomationNode,
-  app: VendorModelNode,
-  process: VendorModelNode,
-  group: VendorModelNode,
-  model: VendorModelNode,
-  vendor: VendorModelNode,
-  system: VendorModelNode,
-  credential: CredentialNode,
+  person: MapNodeCard,
+  automation: MapNodeCard,
+  workflow: MapNodeCard,
+  app: MapNodeCard,
+  process: MapNodeCard,
+  group: MapNodeCard,
+  model: MapNodeCard,
+  vendor: MapNodeCard,
+  system: MapNodeCard,
+  credential: MapNodeCard,
+  ai_agent: MapNodeCard,
 };

@@ -2,35 +2,22 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  MarkerType,
-  type Edge,
-  type Node,
-} from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, useNodesState, useEdgesState, MarkerType, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
-import type {
-  Neighbourhood,
-  BlastRadius,
-  GraphNodeView,
-  GraphEdgeView,
-  EvidenceGrade,
-  EntityRef,
-} from '@/types/view';
-import { nodeTypes, type MapNodeData, type CustomMapNode } from './nodes';
-import { Card } from '@/components/ui/Card';
-import { EvidenceBadge, CheckStatusBadge } from '@/components/ui/marks';
-import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
+import { ArrowRight, Crosshair, X } from 'lucide-react';
+import type { AssetRow, BlastRadius, EntityRef, EvidenceGrade, GraphEdgeView, GraphNodeView, Neighbourhood } from '@/types/view';
+import { nodeKindLabel, nodeTypes, type CustomMapNode } from './nodes';
+import { Panel, PanelHeader } from '@/components/ui/Panel';
+import { Avatar } from '@/components/ui/Avatar';
+import { EntityKindIcon } from '@/components/ui/EntityKindIcon';
+import { EvidenceBadge } from '@/components/ui/marks';
+import { ErrorState } from '@/components/ui/states';
 import { EntityPicker } from '@/components/ui/EntityPicker';
 import { useResource } from '@/lib/useResource';
 import { fetchNeighbourhood, fetchBlastRadius } from '@/lib/api/graph';
 import { fetchAllEntities } from '@/lib/api/entities';
+import { fetchAssets } from '@/lib/api/assets';
 import { cn } from '@/lib/cn';
 
 export interface MapViewProps {
@@ -40,110 +27,186 @@ export interface MapViewProps {
   initialBlastRadius?: BlastRadius;
 }
 
-const GRADE_COLORS: Record<EvidenceGrade, string> = {
-  stated: '#1D5FA8',
-  inferred: '#A85A00',
-  confirmed: '#2F6B2A',
-  unknown: '#6B6560',
+const RELATION_LABEL: Record<string, string> = {
+  owns: 'owns',
+  backs_up: 'backs up',
+  depends_on: 'depends on',
+  calls_model: 'calls the model',
+  runs_on_credentials_of: 'runs on the credentials of',
+  member_of: 'is a member of',
+};
+export const relationLabel = (type: string) => RELATION_LABEL[type] ?? type.replace(/_/g, ' ');
+
+/** Evidence is shown by line style, in one neutral colour (theme tokens, so dark mode works). */
+const LINE_STYLE: Record<EvidenceGrade, React.CSSProperties> = {
+  confirmed: { strokeWidth: 1.75, opacity: 1 },
+  stated: { strokeWidth: 1.25, opacity: 0.7 },
+  inferred: { strokeWidth: 1.25, strokeDasharray: '6 4', opacity: 0.85 },
+  unknown: { strokeWidth: 1.5, strokeDasharray: '1.5 4', strokeLinecap: 'round', opacity: 0.85 },
 };
 
-// Dagre Layout: Left-to-Right
+const pageHref = (n: { id: string; kind: string }) =>
+  n.kind === 'person' ? `/people/${n.id}` : n.kind === 'group' ? `/people/teams/${n.id}` : `/assets/${n.id}`;
+
+const plural = (n: number, word: string) => `${n} ${word.toLowerCase()}${n === 1 ? '' : 's'}`;
+
 function layoutGraph(
   nodes: GraphNodeView[],
   edges: GraphEdgeView[],
   rootId: string,
-  blastRadius: BlastRadius | null,
-  showBlastRadius: boolean,
-  onSelectNode: (id: string) => void,
+  blast: BlastRadius | null,
+  showBlast: boolean,
+  selectedId: string | null,
+  hoveredEdge: string | null,
+  onSelect: (id: string) => void,
+  onCentre: (id: string) => void,
 ) {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 50, ranksep: 100 });
-
-  const downstreamSet = new Set((blastRadius?.downstream || []).map((d) => d.id));
-
-  nodes.forEach((n) => {
-    // Width and height per node kind
-    const isPerson = n.kind === 'person';
-    g.setNode(n.id, {
-      width: isPerson ? 80 : 170,
-      height: isPerson ? 80 : 64,
-    });
-  });
-
-  edges.forEach((e) => {
-    g.setEdge(e.from, e.to);
-  });
-
+  g.setGraph({ rankdir: 'LR', nodesep: 28, ranksep: 90 });
+  nodes.forEach((n) => g.setNode(n.id, { width: 220, height: 60 }));
+  edges.forEach((e) => g.setEdge(e.from, e.to));
   dagre.layout(g);
 
+  const downstream = new Set((blast?.downstream || []).map((d) => d.id));
   const flowNodes: CustomMapNode[] = nodes.map((n) => {
     const pos = g.node(n.id) || { x: 0, y: 0 };
     const isRoot = n.id === rootId;
-    const isBlast = showBlastRadius && downstreamSet.has(n.id);
-    const isDimmed = showBlastRadius && !isRoot && !downstreamSet.has(n.id);
-
     return {
       id: n.id,
       type: n.kind,
-      position: { x: pos.x - 75, y: pos.y - 32 },
+      position: { x: pos.x - 110, y: pos.y - 30 },
       data: {
         id: n.id,
         name: n.name,
         kind: n.kind,
         ring: n.ring,
         isRoot,
-        isBlastRadius: isBlast,
-        isDimmed,
-        onSelect: onSelectNode,
+        isSelected: n.id === selectedId,
+        isBlastRadius: showBlast && downstream.has(n.id),
+        isDimmed: showBlast && !isRoot && !downstream.has(n.id),
+        onSelect,
+        onCentre,
       },
     };
   });
 
   const flowEdges: Edge[] = edges.map((e) => {
-    const isConnectingBlast =
-      showBlastRadius &&
-      (e.from === rootId || downstreamSet.has(e.from)) &&
-      downstreamSet.has(e.to);
-    const isDimmed = showBlastRadius && !isConnectingBlast;
-    const color = GRADE_COLORS[e.grade] || '#6B6560';
-
+    const inBlast = (e.from === rootId || downstream.has(e.from)) && downstream.has(e.to);
+    const dimmed = showBlast && !inBlast;
+    const hovered = hoveredEdge === e.id;
     return {
       id: e.id,
       source: e.from,
       target: e.to,
-      animated: e.grade === 'inferred',
+      interactionWidth: 16,
+      label: hovered ? relationLabel(e.type) : undefined,
+      labelStyle: { fill: 'var(--ink-2)', fontSize: 11, fontWeight: 500 },
+      labelBgStyle: { fill: 'var(--surface)' },
+      labelBgPadding: [6, 3] as [number, number],
+      labelBgBorderRadius: 4,
       style: {
-        stroke: color,
-        strokeWidth: e.grade === 'confirmed' ? 2 : 1.5,
-        strokeDasharray: e.grade === 'unknown' ? '4 4' : undefined,
-        opacity: isDimmed ? 0.15 : 1,
+        stroke: showBlast && inBlast ? 'var(--amber-ink)' : hovered ? 'var(--ink)' : 'var(--ink-3)',
+        ...LINE_STYLE[e.grade],
+        ...(dimmed ? { opacity: 0.12 } : {}),
       },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color,
-        width: 14,
-        height: 14,
-      },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
     };
   });
 
   return { nodes: flowNodes, edges: flowEdges };
 }
 
-export function MapView({
-  initialRootId,
-  initialNeighbourhood,
-  initialBlastRadius,
-}: MapViewProps) {
+function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: Array<{ id: T; label: string }>; onChange: (v: T) => void; label: string }) {
+  return (
+    <div role="group" aria-label={label} className="inline-flex h-10 items-center rounded-control border border-rule bg-surface p-1">
+      {options.map((o) => (
+        <button
+          key={String(o.id)}
+          type="button"
+          aria-pressed={value === o.id}
+          onClick={() => onChange(o.id)}
+          className={cn(
+            'type-meta h-full cursor-pointer whitespace-nowrap rounded-[6px] px-3 font-medium transition-colors',
+            value === o.id ? 'bg-surface-sunken text-ink' : 'text-ink-3 hover:text-ink',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Legend() {
+  const line = (dash?: string, opacity = 1, width = 1.75) => (
+    <svg width="22" height="6" aria-hidden="true" className="shrink-0">
+      <line x1="1" y1="3" x2="21" y2="3" style={{ stroke: 'var(--ink-3)', strokeWidth: width, strokeDasharray: dash, opacity, strokeLinecap: 'round' }} />
+    </svg>
+  );
+  return (
+    <div className="pointer-events-auto absolute bottom-3 left-3 z-10 hidden rounded-panel border border-rule bg-surface/95 px-3.5 py-3 shadow-panel backdrop-blur-sm sm:block">
+      <p className="text-[11px] font-medium text-ink">Legend</p>
+      <ul className="mt-2 space-y-1.5 text-[11px] text-ink-2">
+        <li className="flex items-center gap-2">
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-st-fail" /> Failing a check
+        </li>
+        <li className="flex items-center gap-2">
+          <span aria-hidden="true" className="h-3 w-4 rounded-[3px] border border-dashed border-ink-3" /> Has unknown facts
+        </li>
+        <li className="flex items-center gap-2">
+          <span aria-hidden="true" className="h-3 w-4 rounded-[3px] outline outline-2 outline-amber" /> Centred here
+        </li>
+      </ul>
+      <ul className="mt-2.5 space-y-1.5 border-t border-rule pt-2.5 text-[11px] text-ink-2">
+        <li className="flex items-center gap-2">{line()} Confirmed</li>
+        <li className="flex items-center gap-2">{line(undefined, 0.7, 1.25)} Stated</li>
+        <li className="flex items-center gap-2">{line('6 4', 0.85, 1.25)} Inferred</li>
+        <li className="flex items-center gap-2">{line('1.5 4', 0.85, 1.5)} Unknown</li>
+      </ul>
+    </div>
+  );
+}
+
+/** A list of entities that re-centres the map when one is chosen. */
+function EntityList({ items, empty, onCentre, label }: { items: EntityRef[]; empty: string; onCentre: (id: string) => void; label: string }) {
+  if (items.length === 0) return <p className="type-meta px-5 py-5 text-ink-3">{empty}</p>;
+  return (
+    <ul className="divide-y divide-rule" aria-label={label}>
+      {items.map((r) => (
+        <li key={r.id}>
+          <button type="button" onClick={() => onCentre(r.id)} className="flex w-full cursor-pointer items-center gap-3 px-5 py-2.5 text-left transition-colors hover:bg-surface-sunken/50">
+            {r.kind === 'person' ? (
+              <Avatar name={r.name} size={28} />
+            ) : (
+              <span aria-hidden="true" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-control border border-rule bg-surface-sunken text-ink-2">
+                <EntityKindIcon kind={r.kind} />
+              </span>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-ink">{r.name}</span>
+              <span className="block text-[11px] text-ink-3">{nodeKindLabel(r.kind)}</span>
+            </span>
+            <Crosshair className="h-3.5 w-3.5 text-ink-3" aria-hidden="true" />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function MapView({ initialRootId, initialNeighbourhood, initialBlastRadius }: MapViewProps) {
   const [rootId, setRootIdState] = React.useState<string | null>(initialRootId ?? null);
   const [hops, setHops] = React.useState<1 | 2>(2);
   const [viewMode, setViewMode] = React.useState<'canvas' | 'list'>('canvas');
-  const [showBlastRadius, setShowBlastRadius] = React.useState(false);
+  const [showBlast, setShowBlast] = React.useState(false);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [hoveredEdge, setHoveredEdge] = React.useState<string | null>(null);
 
   // Keep the URL shareable (/map?root=...) without a navigation.
   const setRootId = React.useCallback((id: string) => {
     setRootIdState(id);
+    setSelectedId(null);
     try {
       const url = new URL(window.location.href);
       url.searchParams.set('root', id);
@@ -154,411 +217,345 @@ export function MapView({
   }, []);
 
   const entitiesResource = useResource<EntityRef[]>('graph-entities', fetchAllEntities);
-  const entityOptions = React.useMemo(
-    () => (entitiesResource.status === 'ready' ? entitiesResource.data : []),
-    [entitiesResource],
-  );
+  const entityOptions = React.useMemo(() => (entitiesResource.status === 'ready' ? entitiesResource.data : []), [entitiesResource]);
+  const assetsResource = useResource<AssetRow[]>(rootId ? null : 'assets-catalog-list', fetchAssets);
 
-  const neighbourhoodResource = useResource<Neighbourhood>(
-    rootId ? `graph-neighbourhood-${rootId}-${hops}` : null,
-    () => fetchNeighbourhood(rootId!, hops),
-  );
-  const blastResource = useResource<BlastRadius>(
-    rootId ? `graph-blast-radius-${rootId}` : null,
-    () => fetchBlastRadius(rootId!),
-  );
+  const neighbourhoodResource = useResource<Neighbourhood>(rootId ? `graph-neighbourhood-${rootId}-${hops}` : null, () => fetchNeighbourhood(rootId!, hops));
+  const blastResource = useResource<BlastRadius>(rootId ? `graph-blast-radius-${rootId}` : null, () => fetchBlastRadius(rootId!));
 
   // Initial data only stands in for the root it was loaded for.
-  const neighbourhoodData =
-    neighbourhoodResource.status === 'ready'
-      ? neighbourhoodResource.data
-      : initialNeighbourhood?.rootId === rootId
-        ? initialNeighbourhood
-        : undefined;
+  const hood =
+    neighbourhoodResource.status === 'ready' ? neighbourhoodResource.data : initialNeighbourhood?.rootId === rootId ? initialNeighbourhood : undefined;
+  const blast = blastResource.status === 'ready' ? blastResource.data : initialBlastRadius?.rootId === rootId ? initialBlastRadius : undefined;
 
-  const blastData =
-    blastResource.status === 'ready'
-      ? blastResource.data
-      : initialBlastRadius?.rootId === rootId
-        ? initialBlastRadius
-        : undefined;
+  React.useEffect(() => {
+    if (!showBlast) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setShowBlast(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showBlast]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomMapNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  // Update layout when data changes
   React.useEffect(() => {
-    if (!neighbourhoodData || !rootId) return;
+    if (!hood || !rootId) return;
+    const laid = layoutGraph(hood.nodes, hood.edges, rootId, blast || null, showBlast, selectedId, hoveredEdge, setSelectedId, setRootId);
+    setNodes(laid.nodes);
+    setEdges(laid.edges);
+  }, [hood, blast, rootId, showBlast, selectedId, hoveredEdge, setNodes, setEdges, setRootId]);
 
-    const { nodes: lNodes, edges: lEdges } = layoutGraph(
-      neighbourhoodData.nodes,
-      neighbourhoodData.edges,
-      rootId,
-      blastData || null,
-      showBlastRadius,
-      setRootId,
-    );
+  const byId = React.useMemo(() => new Map((hood?.nodes ?? []).map((n) => [n.id, n])), [hood]);
+  const rootNode = rootId ? byId.get(rootId) ?? null : null;
+  const selected = selectedId ? byId.get(selectedId) ?? null : null;
 
-    setNodes(lNodes);
-    setEdges(lEdges);
-  }, [neighbourhoodData, blastData, rootId, showBlastRadius, setNodes, setEdges, setRootId]);
+  // "If X fails, N things stop: 3 automations, 2 apps."
+  const blastSentence = React.useMemo(() => {
+    if (!blast || !rootNode) return null;
+    const n = blast.downstream.length;
+    if (n === 0) return `Nothing on record stops if ${rootNode.name} fails.`;
+    const byKind = new Map<string, number>();
+    blast.downstream.forEach((d) => byKind.set(nodeKindLabel(d.kind), (byKind.get(nodeKindLabel(d.kind)) ?? 0) + 1));
+    const parts = [...byKind.entries()].map(([k, c]) => plural(c, k));
+    return `If ${rootNode.name} fails, ${n} ${n === 1 ? 'thing stops' : 'things stop'}: ${parts.join(', ')}.`;
+  }, [blast, rootNode]);
 
-  const rootNode = React.useMemo(() => {
-    return neighbourhoodData?.nodes.find((n) => n.id === rootId) || null;
-  }, [neighbourhoodData, rootId]);
-
-  const rootPicker = (
-    <EntityPicker
-      label="Centre the map on"
-      placeholder={entitiesResource.status === 'error' ? 'Could not load entities' : 'Search people, automations, models…'}
-      options={entityOptions}
-      value={null}
-      onChange={(e) => e && setRootId(e.id)}
-      disabled={entitiesResource.status === 'error'}
-      className="w-72"
-    />
+  const makePicker = (id: string, className: string) => (
+    <div className={className}>
+      <label htmlFor={id} className="sr-only">
+        Centre the map on
+      </label>
+      <EntityPicker
+        id={id}
+        placeholder={entitiesResource.status === 'error' ? "Couldn't load the list" : 'Search people, automations, models…'}
+        options={entityOptions}
+        value={null}
+        onChange={(e) => e && setRootId(e.id)}
+        disabled={entitiesResource.status === 'error'}
+      />
+    </div>
   );
 
+  const startingPoints =
+    assetsResource.status === 'ready'
+      ? assetsResource.data
+          .filter((a) => a.checkStatus.toUpperCase() === 'FAIL')
+          .sort((a, b) => Number(b.isCritical) - Number(a.isCritical) || a.name.localeCompare(b.name))
+          .slice(0, 6)
+      : [];
+
+  const connections = selected && hood ? hood.edges.filter((e) => e.from === selected.id || e.to === selected.id) : [];
+
   return (
-    <div className="flex h-[calc(100vh-100px)] w-full flex-col overflow-hidden pb-4">
-      {/* Top Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-rule/50 bg-surface/60 backdrop-blur-xs p-4 shrink-0">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="h-2 w-2 rounded-full bg-amber" aria-hidden="true" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono">
-              Topology & Blast Radius
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
-            Dependency Map
-          </h1>
-          {rootNode && (
-            <p className="text-xs text-ink-3 mt-0.5">
-              Centered on <strong className="text-ink">{rootNode.name}</strong> ({rootNode.kind})
-            </p>
-          )}
+    <div className="flex h-full min-h-[520px] w-full flex-col gap-4 px-4 pb-4 pt-4 md:px-8 md:pb-6 md:pt-6">
+      {/* Header */}
+      <header className="flex min-w-0 shrink-0 flex-col gap-4">
+        <div className="min-w-0">
+          <h1 className="type-title text-ink">Dependency map</h1>
+          <p className="mt-1 truncate text-sm text-ink-2">
+            {rootNode ? (
+              <>
+                Centred on <span className="font-medium text-ink">{rootNode.name}</span> · {nodeKindLabel(rootNode.kind)}
+              </>
+            ) : (
+              'What connects to what, and what stops if something fails.'
+            )}
+          </p>
         </div>
-
-        {/* Controls */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {rootPicker}
-          {/* Hops toggle */}
-          <div className="flex items-center border border-rule rounded-control p-0.5 bg-surface">
+        {rootId && (
+          <div className="flex flex-wrap items-center gap-2">
+            {makePicker('map-root-picker', 'w-full sm:w-80')}
+            <Segmented label="How far to look" value={hops} onChange={setHops} options={[{ id: 1, label: '1 hop' }, { id: 2, label: '2 hops' }]} />
             <button
               type="button"
-              onClick={() => setHops(1)}
+              onClick={() => setShowBlast((v) => !v)}
+              aria-pressed={showBlast}
               className={cn(
-                'px-2 py-1 rounded-control transition-colors cursor-pointer',
-                hops === 1
-                  ? 'bg-amber text-on-amber font-semibold'
-                  : 'text-ink-3 hover:text-ink',
+                'type-meta inline-flex h-10 cursor-pointer items-center gap-2 whitespace-nowrap rounded-control border px-3.5 font-medium transition-colors',
+                showBlast ? 'border-amber/60 bg-[color-mix(in_srgb,var(--amber)_14%,transparent)] text-amber-ink' : 'border-rule bg-surface text-ink-2 hover:text-ink',
               )}
             >
-              1 Hop
+              What stops if it fails
+              {blast && <span className="tabular-nums opacity-80">{blast.downstream.length}</span>}
+              {showBlast && <X className="-mr-1 h-3.5 w-3.5" aria-hidden="true" />}
             </button>
-            <button
-              type="button"
-              onClick={() => setHops(2)}
-              className={cn(
-                'px-2 py-1 rounded-control transition-colors cursor-pointer',
-                hops === 2
-                  ? 'bg-amber text-on-amber font-semibold'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              2 Hops
-            </button>
+            <Segmented label="View" value={viewMode} onChange={setViewMode} options={[{ id: 'canvas', label: 'Map' }, { id: 'list', label: 'List' }]} />
           </div>
+        )}
+      </header>
 
-          {/* Blast Radius Toggle */}
+      {showBlast && blastSentence && viewMode === 'canvas' && (
+        <div className="flex shrink-0 items-center justify-between gap-3 rounded-control border border-amber/40 bg-[color-mix(in_srgb,var(--amber)_8%,transparent)] py-1.5 pl-4 pr-1.5">
+          <p className="type-meta font-medium text-ink" aria-live="polite">
+            {blastSentence}
+          </p>
           <button
             type="button"
-            onClick={() => setShowBlastRadius(!showBlastRadius)}
-            aria-pressed={showBlastRadius}
-            className={cn(
-              'px-3 py-1.5 rounded-control border font-medium transition-colors cursor-pointer flex items-center gap-1.5',
-              showBlastRadius
-                ? 'border-amber bg-amber/15 text-amber-ink font-semibold'
-                : 'border-rule bg-surface text-ink-3 hover:text-ink',
-            )}
+            onClick={() => setShowBlast(false)}
+            aria-label="End simulation"
+            className="type-meta inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-control border border-rule bg-surface px-3 font-medium text-ink transition-colors hover:bg-surface-sunken"
           >
-            <span
-              className={cn(
-                'h-2 w-2 rounded-full',
-                showBlastRadius ? 'bg-amber' : 'bg-ink-3/40',
-              )}
-              aria-hidden="true"
-            />
-            <span>Blast Radius</span>
-            {blastData && (
-              <span className="font-mono text-[11px] tabular-nums">
-                ({blastData.downstream.length})
-              </span>
-            )}
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+            End
           </button>
-
-          {/* View Mode Toggle (Canvas vs Accessible List) */}
-          <div className="flex items-center border border-rule rounded-control p-0.5 bg-surface">
-            <button
-              type="button"
-              onClick={() => setViewMode('canvas')}
-              aria-pressed={viewMode === 'canvas'}
-              className={cn(
-                'px-2.5 py-1 rounded-control transition-colors cursor-pointer',
-                viewMode === 'canvas'
-                  ? 'bg-surface-sunken font-semibold text-ink'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              Canvas View
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('list')}
-              aria-pressed={viewMode === 'list'}
-              className={cn(
-                'px-2.5 py-1 rounded-control transition-colors cursor-pointer',
-                viewMode === 'list'
-                  ? 'bg-surface-sunken font-semibold text-ink'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              Accessible List
-            </button>
-          </div>
         </div>
-      </div>
+      )}
 
-      {/* Main Content Area */}
-      <div className="flex-1 relative bg-canvas">
+      {/* Body */}
+      <div className={cn('relative min-h-0 flex-1', viewMode === 'canvas' || !rootId ? 'overflow-hidden rounded-panel border border-rule bg-canvas shadow-panel' : 'overflow-y-auto')}>
         {!rootId ? (
-          <div className="flex h-full w-full items-center justify-center p-8">
-            <EmptyState
-              title="Pick something to centre the map on"
-              description="Choose a person, automation, model or app above to see what it connects to and what would stop if it failed."
-            />
-          </div>
-        ) : neighbourhoodResource.status === 'loading' && !neighbourhoodData ? (
-          <div className="flex h-full w-full items-center justify-center p-8">
-            <div className="space-y-4 w-72 text-center">
-              <Skeleton variant="card" className="h-40" />
-              <p className="text-xs text-ink-3">Computing dependency graph...</p>
+          <div className="flex h-full w-full items-center justify-center overflow-y-auto p-6">
+            <div className="w-full max-w-md text-center">
+              <span aria-hidden="true" className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-full border border-rule bg-surface text-ink-3">
+                <Crosshair className="h-5 w-5" />
+              </span>
+              <h2 className="type-heading mt-4 text-ink">Pick something to centre the map on</h2>
+              <p className="type-meta mt-1 text-ink-3">A person, automation, model or app. You&apos;ll see what it connects to and what would stop if it failed.</p>
+              {makePicker('map-start-picker', 'mt-5 text-left')}
+              {startingPoints.length > 0 && (
+                <div className="mt-7">
+                  <p className="type-meta text-ink-3">Or start with an asset that&apos;s failing a check</p>
+                  <ul className="mt-3 space-y-2 text-left">
+                    {startingPoints.map((a) => (
+                      <li key={a.id}>
+                        <button
+                          type="button"
+                          onClick={() => setRootId(a.id)}
+                          className="group flex w-full cursor-pointer items-center gap-3 rounded-control border border-rule bg-surface px-3.5 py-2.5 text-left transition-colors hover:border-ink-3"
+                        >
+                          <EntityKindIcon kind={a.kind} className="h-4 w-4 shrink-0 text-ink-3" />
+                          <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-ink">{a.name}</span>
+                          <span className="type-meta inline-flex shrink-0 items-center gap-1.5 text-st-fail">
+                            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-st-fail" />
+                            Failing
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-ink-3 transition-colors group-hover:text-ink" aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
+          </div>
+        ) : neighbourhoodResource.status === 'loading' && !hood ? (
+          <div className="flex h-full w-full items-center justify-center" aria-label="Loading map">
+            <span className="skeleton block h-40 w-72 rounded-panel" />
           </div>
         ) : neighbourhoodResource.status === 'error' ? (
           <div className="flex h-full w-full items-center justify-center p-8">
             <ErrorState
               onRetry={neighbourhoodResource.reload}
-              message={
-                neighbourhoodResource.error.status === 404
-                  ? 'That entity is not in the graph. Pick another one above.'
-                  : 'Could not load the map for this entity.'
-              }
+              message={neighbourhoodResource.error.status === 404 ? 'That entity is not in the graph. Pick another one above.' : "We couldn't load the map for this entity."}
             />
           </div>
-        ) : !neighbourhoodData || neighbourhoodData.nodes.length <= 1 ? (
-          <div className="flex h-full w-full items-center justify-center p-8">
-            <EmptyState
-              title="No dependencies found"
-              description="Nothing on record connects this entity to people, automations or services."
-            />
+        ) : !hood || hood.nodes.length <= 1 ? (
+          <div className="flex h-full w-full items-center justify-center p-8 text-center">
+            <div>
+              <p className="type-heading text-ink">Nothing connected</p>
+              <p className="type-meta mt-1 text-ink-3">No people, automations or services on record connect to this entity.</p>
+            </div>
           </div>
         ) : viewMode === 'list' ? (
-          /* Accessible Semantic Tree & List View */
-          <div className="h-full overflow-y-auto p-6 max-w-4xl mx-auto space-y-6">
-            <Card className="p-6 bg-surface shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-rule/50 pb-3">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-ink font-mono">
-                  Focused Root Entity
-                </h2>
-                <span className="font-mono text-xs text-ink-3">ID: {rootNode?.id}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <h3 className="text-2xl text-ink font-semibold">
-                  {rootNode?.name}
-                </h3>
-                <span className="px-2 py-0.5 rounded-badge bg-surface-sunken text-xs capitalize font-mono text-ink-3">
-                  {rootNode?.kind}
+          <div className="space-y-6">
+            <Panel aria-labelledby="list-root-heading" className="px-5 py-4">
+              <h2 id="list-root-heading" className="type-meta text-ink-3">
+                Centred on
+              </h2>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <span aria-hidden="true" className="inline-flex h-9 w-9 items-center justify-center rounded-control border border-rule bg-surface-sunken text-ink-2">
+                  <EntityKindIcon kind={rootNode?.kind ?? 'app'} className="h-4 w-4" />
                 </span>
-                {rootNode?.ring === 'fail' && (
-                  <span className="px-2 py-0.5 rounded-badge bg-st-fail/15 text-st-fail text-xs font-semibold">
-                    Failing Check
-                  </span>
+                <span className="text-lg font-semibold tracking-tight text-ink">{rootNode?.name}</span>
+                <span className="type-meta text-ink-3">{rootNode && nodeKindLabel(rootNode.kind)}</span>
+                {rootNode?.ring === 'fail' && <span className="inline-flex h-6 items-center rounded-full bg-[color-mix(in_srgb,var(--st-fail)_12%,transparent)] px-2.5 text-xs font-medium text-st-fail">Failing a check</span>}
+                {rootNode && (
+                  <Link href={pageHref(rootNode)} className="type-meta ml-auto inline-flex items-center gap-1 font-medium text-ink-2 hover:text-ink">
+                    Open page <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
                 )}
               </div>
-            </Card>
+              {blastSentence && <p className="type-meta mt-3 text-ink-2">{blastSentence}</p>}
+            </Panel>
 
-            {/* Blast Radius Section */}
-            {blastData && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="p-5 bg-surface space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono flex items-center justify-between">
-                    <span>Downstream Blast Radius</span>
-                    <span className="font-mono text-ink">{blastData.downstream.length}</span>
-                  </h3>
-                  <p className="text-xs text-ink-3">
-                    Everything that relies on this entity, directly or through other automations, and would stop if it failed.
-                  </p>
-                  <ul className="divide-y divide-rule text-xs" aria-label="Downstream blast radius list">
-                    {blastData.downstream.length === 0 ? (
-                      <li className="py-2 text-ink-3 italic">Nothing on record depends on it</li>
-                    ) : (
-                      blastData.downstream.map((ref) => (
-                        <li key={ref.id} className="py-2 flex items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setRootId(ref.id)}
-                            className="font-medium text-ink hover:text-amber-ink transition-colors cursor-pointer text-left truncate"
-                          >
-                            {ref.name}
-                          </button>
-                          <span className="px-1.5 py-0.2 rounded-badge bg-surface-sunken text-[10px] font-mono capitalize text-ink-3 shrink-0">
-                            {ref.kind}
-                          </span>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                </Card>
-
-                <Card className="p-5 bg-surface space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono flex items-center justify-between">
-                    <span>Upstream Dependencies</span>
-                    <span className="font-mono text-ink">{blastData.upstream.length}</span>
-                  </h3>
-                  <p className="text-xs text-ink-3">
-                    Models, apps and personal credentials this entity relies on.
-                  </p>
-                  <ul className="divide-y divide-rule text-xs" aria-label="Upstream dependencies list">
-                    {blastData.upstream.length === 0 ? (
-                      <li className="py-2 text-ink-3 italic">No dependencies on record</li>
-                    ) : (
-                      blastData.upstream.map((ref) => (
-                        <li key={ref.id} className="py-2 flex items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setRootId(ref.id)}
-                            className="font-medium text-ink hover:text-amber-ink transition-colors cursor-pointer text-left truncate"
-                          >
-                            {ref.name}
-                          </button>
-                          <span className="px-1.5 py-0.2 rounded-badge bg-surface-sunken text-[10px] font-mono capitalize text-ink-3 shrink-0">
-                            {ref.kind}
-                          </span>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                </Card>
+            {blast && (
+              <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
+                <Panel aria-labelledby="list-down-heading">
+                  <PanelHeader titleId="list-down-heading" title="What stops if it fails" count={blast.downstream.length} description="Everything that relies on it, directly or through other automations." />
+                  <EntityList items={blast.downstream} empty="Nothing on record depends on it." onCentre={setRootId} label="Downstream" />
+                </Panel>
+                <Panel aria-labelledby="list-up-heading">
+                  <PanelHeader titleId="list-up-heading" title="What it relies on" count={blast.upstream.length} description="People, models, apps and credentials it needs." />
+                  <EntityList items={blast.upstream} empty="Relies on nothing on record." onCentre={setRootId} label="Upstream" />
+                </Panel>
               </div>
             )}
 
-            {/* Complete Graph Nodes List */}
-            <Card className="p-6 bg-surface shadow-xs space-y-4">
-              <h3 className="text-sm font-semibold text-ink">
-                All Connected Nodes in {hops}-Hop Neighbourhood ({neighbourhoodData.nodes.length})
-              </h3>
-              <div className="divide-y divide-rule text-xs">
-                {neighbourhoodData.nodes.map((n) => (
-                  <div key={n.id} className="py-3 flex items-center justify-between gap-4">
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setRootId(n.id)}
-                        className="text-sm font-medium text-ink hover:text-amber-ink transition-colors cursor-pointer text-left"
-                      >
-                        {n.name}
-                      </button>
-                      <p className="text-xs text-ink-3 font-mono mt-0.5">
-                        <span className="capitalize">{n.kind}</span> · ID: {n.id}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {n.ring === 'fail' && (
-                        <span className="px-2 py-0.5 rounded-badge bg-st-fail/15 text-st-fail font-semibold">
-                          Failing Check
-                        </span>
-                      )}
-                      {n.ring === 'unknown' && (
-                        <span className="px-2 py-0.5 rounded-badge bg-ev-unknown/15 text-ev-unknown font-semibold">
-                          Unknown facts
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setRootId(n.id)}
-                        className="px-2.5 py-1 rounded-control border border-rule hover:bg-surface-sunken text-xs font-medium text-ink transition-colors cursor-pointer"
-                      >
-                        Center Graph
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Relationships & Evidence Grades Table */}
-            <Card className="p-6 bg-surface shadow-xs space-y-4">
-              <h3 className="text-sm font-semibold text-ink">
-                Relationship Edges & Evidence Grades ({neighbourhoodData.edges.length})
-              </h3>
-              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Blast radius table">
-                <table className="w-full text-left text-xs text-ink">
-                  <thead className="border-b border-rule font-mono text-[11px] uppercase text-ink-3">
-                    <tr>
-                      <th scope="col" className="pb-2">From Entity</th>
-                      <th scope="col" className="pb-2">Relation Type</th>
-                      <th scope="col" className="pb-2">To Entity</th>
-                      <th scope="col" className="pb-2">Evidence Grade</th>
+            <Panel aria-labelledby="list-links-heading">
+              <PanelHeader titleId="list-links-heading" title={`Connections within ${hops === 1 ? '1 hop' : '2 hops'}`} count={hood.edges.length} description="Each link, with how sure we are of it." />
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Connections table">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="type-meta border-b border-rule text-ink-3">
+                      <th scope="col" className="py-2.5 pl-5 pr-3 font-medium">From</th>
+                      <th scope="col" className="px-3 py-2.5 font-medium">Relation</th>
+                      <th scope="col" className="px-3 py-2.5 font-medium">To</th>
+                      <th scope="col" className="py-2.5 pl-3 pr-5 font-medium">Evidence</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-rule font-sans">
-                    {neighbourhoodData.edges.map((e) => {
-                      const fromNode = neighbourhoodData.nodes.find((n) => n.id === e.from);
-                      const toNode = neighbourhoodData.nodes.find((n) => n.id === e.to);
-                      return (
-                        <tr key={e.id} className="hover:bg-surface-sunken/20">
-                          <td className="py-2.5 font-medium">{fromNode?.name || e.from}</td>
-                          <td className="py-2.5 font-mono text-ink-3 capitalize">{e.type}</td>
-                          <td className="py-2.5 font-medium">{toNode?.name || e.to}</td>
-                          <td className="py-2.5">
-                            <EvidenceBadge grade={e.grade} />
-                          </td>
-                        </tr>
-                      );
-                    })}
+                  <tbody className="divide-y divide-rule">
+                    {hood.edges.map((e) => (
+                      <tr key={e.id} className="transition-colors hover:bg-surface-sunken/40">
+                        <td className="type-meta py-2.5 pl-5 pr-3 font-medium text-ink">{byId.get(e.from)?.name ?? e.from}</td>
+                        <td className="type-meta px-3 py-2.5 text-ink-3">{relationLabel(e.type)}</td>
+                        <td className="type-meta px-3 py-2.5 font-medium text-ink">{byId.get(e.to)?.name ?? e.to}</td>
+                        <td className="py-2.5 pl-3 pr-5">
+                          <EvidenceBadge grade={e.grade} />
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-            </Card>
+            </Panel>
           </div>
         ) : (
-          /* Interactive ReactFlow Canvas */
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            nodeTypes={nodeTypes}
-            fitView
-            minZoom={0.2}
-            maxZoom={1.5}
-            className="h-full w-full"
-            aria-label="Interactive Graph Canvas"
-          >
-            <Background gap={16} size={1} color="#DAD2C4" />
-            <Controls showInteractive={false} className="!bg-surface !border-rule !shadow-xs" />
-            <MiniMap
-              nodeColor={(n) => {
-                if (n.data?.ring === 'fail') return '#B3261E';
-                if (n.data?.ring === 'unknown') return '#6B6560';
-                return '#A9825A';
-              }}
-              className="!bg-surface !border-rule !rounded-card"
-            />
-          </ReactFlow>
+          <>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onEdgeMouseEnter={(_, e) => setHoveredEdge(e.id)}
+              onEdgeMouseLeave={() => setHoveredEdge(null)}
+              onPaneClick={() => setSelectedId(null)}
+              nodeTypes={nodeTypes}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+              minZoom={0.2}
+              maxZoom={1.5}
+              proOptions={{ hideAttribution: true }}
+              className="oba-map h-full w-full"
+              aria-label="Dependency map canvas"
+            >
+              <Background gap={18} size={1} />
+              <Controls showInteractive={false} position="bottom-right" />
+              <MiniMap
+                position="top-right"
+                pannable
+                zoomable
+                nodeClassName={(n) => (n.data?.ring === 'fail' ? 'mm-fail' : n.id === rootId ? 'mm-root' : 'mm-node')}
+              />
+            </ReactFlow>
+            <Legend />
+
+            {/* Inspector */}
+            {selected && (
+              <aside
+                aria-label={`${selected.name} details`}
+                className="absolute bottom-3 right-3 top-3 z-20 flex w-[min(20rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-panel border border-rule bg-surface shadow-panel"
+              >
+                <div className="flex items-start gap-3 border-b border-rule px-4 py-3.5">
+                  {selected.kind === 'person' ? (
+                    <Avatar name={selected.name} size={36} />
+                  ) : (
+                    <span aria-hidden="true" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-rule bg-surface-sunken text-ink-2">
+                      <EntityKindIcon kind={selected.kind} className="h-4 w-4" />
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-ink">{selected.name}</p>
+                    <p className="type-meta text-ink-3">
+                      {nodeKindLabel(selected.kind)}
+                      {selected.ring === 'fail' && <span className="font-medium text-st-fail"> · Failing a check</span>}
+                      {selected.ring === 'unknown' && <span> · Has unknown facts</span>}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => setSelectedId(null)} aria-label="Close details" className="cursor-pointer rounded-control p-1 text-ink-3 hover:bg-surface-sunken hover:text-ink">
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <p className="type-meta border-b border-rule px-4 py-2.5 text-ink-3">
+                  <span className="font-medium tabular-nums text-ink">{connections.length}</span> {connections.length === 1 ? 'connection' : 'connections'} in view
+                </p>
+                <ul className="min-h-0 flex-1 divide-y divide-rule overflow-y-auto">
+                  {connections.map((e) => {
+                    const other = byId.get(e.from === selected.id ? e.to : e.from);
+                    return (
+                      <li key={e.id} className="type-meta px-4 py-2.5 text-ink-2">
+                        <span className="font-medium text-ink">{byId.get(e.from)?.name ?? e.from}</span> {relationLabel(e.type)}{' '}
+                        <span className="font-medium text-ink">{byId.get(e.to)?.name ?? e.to}</span>
+                        <span className="mt-1 flex items-center gap-2">
+                          <EvidenceBadge grade={e.grade} />
+                          {other && other.id !== rootId && (
+                            <button type="button" onClick={() => setSelectedId(other.id)} className="cursor-pointer text-[11px] font-medium text-ink-3 hover:text-ink">
+                              Inspect {other.name}
+                            </button>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="flex items-center justify-between gap-2 border-t border-rule bg-surface-sunken/40 px-4 py-3">
+                  {selected.id !== rootId ? (
+                    <button
+                      type="button"
+                      onClick={() => setRootId(selected.id)}
+                      className="type-meta inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-control border border-rule bg-surface px-3 font-medium text-ink hover:bg-surface-sunken"
+                    >
+                      <Crosshair className="h-3.5 w-3.5" aria-hidden="true" /> Centre map here
+                    </button>
+                  ) : (
+                    <span className="type-meta text-ink-3">Centred here</span>
+                  )}
+                  <Link href={pageHref(selected)} className="type-meta inline-flex items-center gap-1 font-medium text-ink-2 hover:text-ink">
+                    Open page <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
+                </div>
+              </aside>
+            )}
+          </>
         )}
       </div>
     </div>

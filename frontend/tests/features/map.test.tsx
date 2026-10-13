@@ -55,9 +55,11 @@ vi.mock('@/lib/api/graph', () => ({
   fetchBlastRadius: vi.fn(),
 }));
 vi.mock('@/lib/api/entities', () => ({ fetchAllEntities: vi.fn() }));
+vi.mock('@/lib/api/assets', () => ({ fetchAssets: vi.fn() }));
 
 import { fetchNeighbourhood, fetchBlastRadius } from '@/lib/api/graph';
 import { fetchAllEntities } from '@/lib/api/entities';
+import { fetchAssets } from '@/lib/api/assets';
 
 describe('Dependency Map Feature (Task 26)', () => {
   beforeEach(() => {
@@ -65,6 +67,10 @@ describe('Dependency Map Feature (Task 26)', () => {
     (fetchNeighbourhood as any).mockResolvedValue(sampleNeighbourhood);
     (fetchBlastRadius as any).mockResolvedValue(sampleBlastRadius);
     (fetchAllEntities as any).mockResolvedValue(sampleNeighbourhood.nodes.map(({ id, kind, name }) => ({ id, kind, name })));
+    (fetchAssets as any).mockResolvedValue([
+      { id: 'w-1', kind: 'automation', name: 'Stripe Billing Pipeline', isCritical: true, checkStatus: 'FAIL' },
+      { id: 'w-9', kind: 'automation', name: 'Healthy Sync', isCritical: true, checkStatus: 'PASS' },
+    ]);
   });
 
   describe('MapView without a root (D10)', () => {
@@ -72,6 +78,14 @@ describe('Dependency Map Feature (Task 26)', () => {
       render(<MapView />);
       expect(screen.getByText(/pick something to centre the map on/i)).toBeDefined();
       expect(fetchNeighbourhood).not.toHaveBeenCalled();
+    });
+
+    it('offers failing assets as starting points, never people', async () => {
+      render(<MapView />);
+      const start = await screen.findByRole('button', { name: /Stripe Billing Pipeline/ });
+      expect(screen.queryByRole('button', { name: /Healthy Sync/ })).toBeNull();
+      fireEvent.click(start);
+      await waitFor(() => expect(fetchNeighbourhood).toHaveBeenCalledWith('w-1', 2));
     });
 
     it('picking an entity loads its real neighbourhood', async () => {
@@ -106,9 +120,10 @@ describe('Dependency Map Feature (Task 26)', () => {
       expect(screen.getAllByText('Stripe Billing Pipeline').length).toBeGreaterThan(0);
 
       // Controls
-      expect(screen.getByRole('button', { name: '1 Hop' })).toBeDefined();
-      expect(screen.getByRole('button', { name: '2 Hops' })).toBeDefined();
-      expect(screen.getByRole('button', { name: /blast radius/i })).toBeDefined();
+      expect(screen.getByRole('button', { name: '1 hop' })).toBeDefined();
+      expect(screen.getByRole('button', { name: '2 hops' })).toBeDefined();
+      expect(screen.getByRole('button', { name: /what stops if it fails/i })).toBeDefined();
+      expect(screen.getByText('Legend')).toBeDefined();
     });
 
     it('toggles blast radius highlighting on and off', async () => {
@@ -120,12 +135,16 @@ describe('Dependency Map Feature (Task 26)', () => {
         />,
       );
 
-      const blastBtn = screen.getByRole('button', { name: /blast radius/i });
+      const blastBtn = screen.getByRole('button', { name: /what stops if it fails/i });
       expect(blastBtn.getAttribute('aria-pressed')).toBe('false');
-
       fireEvent.click(blastBtn);
       expect(blastBtn.getAttribute('aria-pressed')).toBe('true');
-      expect(screen.getByText('(1)')).toBeDefined(); // Downstream count
+      // Counted sentence: the one downstream workflow
+      expect(screen.getByText('If Stripe Billing Pipeline fails, 1 thing stops: 1 automation.')).toBeDefined();
+      // An explicit way out
+      fireEvent.click(screen.getByRole('button', { name: 'End simulation' }));
+      expect(blastBtn.getAttribute('aria-pressed')).toBe('false');
+      expect(screen.queryByText(/thing stops/)).toBeNull();
     });
 
     it('switches to accessible semantic list view and passes axe audit', async () => {
@@ -138,19 +157,20 @@ describe('Dependency Map Feature (Task 26)', () => {
       );
 
       // Switch to list view
-      const listBtn = screen.getByRole('button', { name: /accessible list/i });
+      const listBtn = screen.getByRole('button', { name: 'List' });
       fireEvent.click(listBtn);
 
       // Verify accessible list sections
-      expect(screen.getByRole('heading', { level: 2, name: /focused root entity/i })).toBeDefined();
-      expect(screen.getByText('Downstream Blast Radius')).toBeDefined();
-      expect(screen.getByText('Upstream Dependencies')).toBeDefined();
+      expect(screen.getByRole('heading', { level: 2, name: /centred on/i })).toBeDefined();
+      expect(screen.getByRole('heading', { name: /What stops if it fails/ })).toBeDefined();
+      expect(screen.getByRole('heading', { name: /What it relies on/ })).toBeDefined();
       expect(screen.getAllByText('Monthly Invoice Dispatcher').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Stripe Payments API').length).toBeGreaterThan(0);
 
       // Verify Relationships & Evidence Grades table
-      expect(screen.getByText(/relationship edges & evidence grades/i)).toBeDefined();
-      expect(screen.getByText('authenticated_by')).toBeDefined();
+      expect(screen.getByRole('heading', { name: /Connections within 2 hops/ })).toBeDefined();
+      expect(screen.getByText('authenticated by')).toBeDefined();
+      expect(screen.getByText('owns')).toBeDefined();
 
       // Accessibility audit
       const results = await axe(container);
@@ -159,8 +179,9 @@ describe('Dependency Map Feature (Task 26)', () => {
   });
 
   describe('Custom Node Shapes & Styles', () => {
-    it('renders PersonNode with initials and accessible role', async () => {
+    it('renders PersonNode with an avatar and accessible role; click inspects, double-click centres', async () => {
       const handleSelect = vi.fn();
+      const handleCentre = vi.fn();
       const nodeProps: any = {
         data: {
           id: 'p-1',
@@ -169,6 +190,7 @@ describe('Dependency Map Feature (Task 26)', () => {
           ring: null,
           isRoot: true,
           onSelect: handleSelect,
+          onCentre: handleCentre,
         },
       };
 
@@ -183,12 +205,14 @@ describe('Dependency Map Feature (Task 26)', () => {
 
       fireEvent.click(btn);
       expect(handleSelect).toHaveBeenCalledWith('p-1');
+      fireEvent.doubleClick(btn);
+      expect(handleCentre).toHaveBeenCalledWith('p-1');
 
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });
 
-    it('renders AutomationNode with workflow badge and failing check indicator', async () => {
+    it('renders AutomationNode with its type and a failing status in the accessible name', async () => {
       const nodeProps: any = {
         data: {
           id: 'w-1',
@@ -206,7 +230,7 @@ describe('Dependency Map Feature (Task 26)', () => {
       );
       expect(screen.getByText('Automation')).toBeDefined();
       expect(screen.getByText('Stripe Billing Pipeline')).toBeDefined();
-
+      expect(screen.getByRole('button', { name: 'Automation: Stripe Billing Pipeline, failing a check' })).toBeDefined();
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });
