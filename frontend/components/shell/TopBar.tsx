@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/cn';
-import { useSession } from '@/lib/session';
 import { AskField } from './AskField';
 import { BellPopover } from './BellPopover';
 import type { ChangeEventView } from '@/types/view';
@@ -28,7 +27,6 @@ export function TopBar({
   className,
   ...props
 }: TopBarProps) {
-  const { session, isDevSession } = useSession();
 
   return (
     <header
@@ -77,15 +75,6 @@ export function TopBar({
           onAcknowledgeAll={onAcknowledgeAllEvents}
         />
 
-        {isDevSession && session && (
-          <span
-            data-testid="dev-session-badge"
-            className="hidden sm:inline-flex items-center rounded-badge border border-amber/30 bg-amber/10 px-2 py-0.5 text-[10px] font-mono font-medium text-amber-ink"
-            title={`Development session emulation. Role: ${session.role}`}
-          >
-            Dev: {session.role}
-          </span>
-        )}
       </div>
     </header>
   );

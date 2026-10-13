@@ -95,7 +95,7 @@ describe('TopBar & Navigation Shell (Task 16)', () => {
   });
 
   describe('TopBar', () => {
-    it('renders all components and dev session badge', async () => {
+    it('renders all components, with no dev session badge', async () => {
       const { container } = render(
         <SessionProvider initialSession={adminSession}>
           <TopBar
@@ -106,7 +106,7 @@ describe('TopBar & Navigation Shell (Task 16)', () => {
       );
 
       expect(screen.getByText('Overview')).toBeInTheDocument();
-      expect(screen.getByTestId('dev-session-badge')).toHaveTextContent('Dev: admin');
+      expect(screen.queryByTestId('dev-session-badge')).toBeNull();
 
       expect(await axe(container)).toHaveNoViolations();
     });
