@@ -148,7 +148,7 @@ describe('Assets Catalog & Drawer (Task 25)', () => {
       const { container } = render(<AssetsView initialAssets={sampleAssets} />);
 
       // Title & header counters
-      expect(screen.getByRole('heading', { level: 1, name: /assets catalog/i })).toBeDefined();
+      expect(screen.getByRole('heading', { level: 1, name: 'Assets' })).toBeDefined();
       expect(screen.getAllByText('5').length).toBeGreaterThan(0); // Total count
 
       // Invariant Default Sort Order Check:
@@ -170,7 +170,7 @@ describe('Assets Catalog & Drawer (Task 25)', () => {
       render(<AssetsView initialAssets={sampleAssets} />);
 
       // Switch to Vendors tab
-      const vendorTab = screen.getByRole('button', { name: /vendors/i });
+      const vendorTab = screen.getByRole('button', { name: /^Vendors/ });
       fireEvent.click(vendorTab);
 
       expect(screen.getByText('OpenAI Enterprise API')).toBeDefined();
@@ -179,7 +179,7 @@ describe('Assets Catalog & Drawer (Task 25)', () => {
 
     it('counts and filters automations by the backend kind "automation"', async () => {
       render(<AssetsView initialAssets={sampleAssets} />);
-      const automationsTab = screen.getByRole('button', { name: /automations/i });
+      const automationsTab = screen.getByRole('button', { name: /^Automations/ });
       const expected = sampleAssets.filter((a) => a.kind === 'automation').length;
       expect(expected).toBeGreaterThan(0);
       expect(automationsTab.textContent).toContain(String(expected));
@@ -192,7 +192,7 @@ describe('Assets Catalog & Drawer (Task 25)', () => {
     it('filters assets by search query', async () => {
       render(<AssetsView initialAssets={sampleAssets} />);
 
-      const searchInput = screen.getByPlaceholderText(/search assets, owners, backups\.\.\./i);
+      const searchInput = screen.getByRole('searchbox', { name: 'Search assets' });
       fireEvent.change(searchInput, { target: { value: 'Identity' } });
 
       expect(screen.getByText('Customer Identity Sync')).toBeDefined();
@@ -210,6 +210,20 @@ describe('Assets Catalog & Drawer (Task 25)', () => {
       expect(dialog).toBeDefined();
       expect(screen.getAllByText('Stripe Billing Pipeline').length).toBeGreaterThan(0);
     });
+
+    it('status chips filter the list, and Clear filters resets it', async () => {
+      render(<AssetsView initialAssets={sampleAssets} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Failing' }));
+      expect(screen.getByRole('button', { name: 'Inspect Stripe Billing Pipeline' })).toBeDefined();
+      expect(screen.queryByRole('button', { name: 'Inspect Customer Identity Sync' })).toBeNull();
+      fireEvent.click(screen.getAllByRole('button', { name: /Clear filters/ })[0]);
+      expect(screen.getByRole('button', { name: 'Inspect Customer Identity Sync' })).toBeDefined();
+    });
+
+    it('honours ?status= from Overview links (exposed = failing critical assets)', async () => {
+      render(<AssetsView initialAssets={sampleAssets} initialStatus="exposed" />);
+      expect(screen.getAllByRole('button', { name: /^Inspect / }).map((r) => r.getAttribute('aria-label'))).toEqual(['Inspect Stripe Billing Pipeline']);
+    });
   });
 
   describe('AssetDrawer', () => {
@@ -226,10 +240,9 @@ describe('Assets Catalog & Drawer (Task 25)', () => {
 
       // Title & Overview
       expect(screen.getAllByText('Stripe Billing Pipeline').length).toBeGreaterThan(0);
-      expect(screen.getByText('Criticality & Health')).toBeDefined();
+      expect(screen.getAllByText('Failing').length).toBeGreaterThan(0);
 
-
-      // Check results
+      // Check results (unknown check ids fall back to the id)
       expect(screen.getByText('SIM-01')).toBeDefined();
       expect(screen.getByText(/no confirmed backup operator/i)).toBeDefined();
 
@@ -238,8 +251,8 @@ describe('Assets Catalog & Drawer (Task 25)', () => {
       expect(screen.getByText('Stripe Live Secret Key')).toBeDefined();
       expect(screen.getByText('Monthly Invoice Dispatcher')).toBeDefined();
 
-      // SCD2 Fact History Timeline
-      expect(screen.getByText('SCD2 Fact History Timeline')).toBeDefined();
+      // Change history timeline
+      expect(screen.getByRole('heading', { name: /Change history/ })).toBeDefined();
       expect(screen.getByText('Offboarding Audit')).toBeDefined();
 
       // Close button
@@ -261,13 +274,14 @@ describe('Assets Catalog & Drawer (Task 25)', () => {
 
       // Heading and navigation
       expect(screen.getByRole('heading', { level: 1, name: 'Stripe Billing Pipeline' })).toBeDefined();
-      expect(screen.getByText('Back to Assets Catalog')).toBeDefined();
+      expect(screen.getByRole('link', { name: 'Assets' })).toHaveAttribute('href', '/assets');
 
-      // Checks and topology
-      expect(screen.getByText(/continuity check results/i)).toBeDefined();
+      // Checks and dependencies
+      expect(screen.getByRole('heading', { name: /Checks/ })).toBeDefined();
       expect(screen.getByText('SIM-01')).toBeDefined();
-      expect(screen.getByText('Upstream Dependencies')).toBeDefined();
-      expect(screen.getByText('Stripe Payments API')).toBeDefined();
+      expect(screen.getByText('2 checks failing')).toBeDefined();
+      expect(screen.getByRole('heading', { name: /Relies on/ })).toBeDefined();
+      expect(screen.getByRole('link', { name: /Stripe Payments API/ })).toHaveAttribute('href', '/assets/v-stripe');
 
       // Accessibility
       const results = await axe(container);

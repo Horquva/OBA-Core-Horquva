@@ -2,21 +2,15 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import type { AssetDetail, CheckStatus } from '@/types/view';
-import { Card } from '@/components/ui/Card';
-import {
-  CriticalityDots,
-  EvidenceBadge,
-  EvidenceDot,
-  CheckStatusBadge,
-  NoneValue,
-  UnknownValue,
-} from '@/components/ui/marks';
-import { Skeleton, ErrorState } from '@/components/ui/states';
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, History, ListChecks, NotebookText } from 'lucide-react';
+import type { AssetDetail } from '@/types/view';
+import { Panel, PanelHeader } from '@/components/ui/Panel';
+import { EntityKindIcon, kindLabel } from '@/components/ui/EntityKindIcon';
+import { CriticalityDots } from '@/components/ui/marks';
+import { ErrorState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchAssetDetail } from '@/lib/api/assets';
-import { formatDate } from '@/lib/format';
-import { cn } from '@/lib/cn';
+import { AssetFacts, CheckList, DependencyList, HistoryTimeline, StatusPill, upper } from './assetParts';
 
 export interface AssetDetailViewProps {
   id: string;
@@ -24,293 +18,102 @@ export interface AssetDetailViewProps {
 }
 
 export function AssetDetailView({ id, initialDetail }: AssetDetailViewProps) {
-  const assetResource = useResource<AssetDetail>(
-    `asset-standalone-${id}`,
-    () => fetchAssetDetail(id),
-  );
-
-  const detail =
-    assetResource.status === 'ready'
-      ? assetResource.data
-      : initialDetail;
+  const assetResource = useResource<AssetDetail>(`asset-standalone-${id}`, () => fetchAssetDetail(id));
+  const detail = assetResource.status === 'ready' ? assetResource.data : initialDetail;
 
   if (assetResource.status === 'loading' && !detail) {
     return (
-      <div className="space-y-6 max-w-5xl mx-auto pb-16">
-        <Skeleton variant="text" className="w-1/4 h-5" />
-        <Skeleton variant="card" className="h-48" />
-        <Skeleton variant="card" className="h-96" />
+      <div className="space-y-6 pb-16" aria-label="Loading asset">
+        <span className="skeleton block h-4 w-28" />
+        <span className="skeleton block h-16 w-1/2" />
+        <span className="skeleton block h-40 rounded-panel" />
+        <span className="skeleton block h-72 rounded-panel" />
       </div>
     );
   }
 
   if (assetResource.status === 'error' && !detail) {
     return (
-      <div className="max-w-2xl mx-auto py-12">
-        <ErrorState
-          onRetry={assetResource.reload}
-          message="We couldn't load the details for this asset."
-          lastLoadedAt={assetResource.lastLoadedAt || undefined}
-        />
+      <div className="mx-auto max-w-2xl py-12">
+        <Panel className="p-5">
+          <ErrorState onRetry={assetResource.reload} message="We couldn't load this asset." lastLoadedAt={assetResource.lastLoadedAt || undefined} />
+        </Panel>
       </div>
     );
   }
 
   if (!detail) return null;
-
-  const upperStatus = detail.asset.checkStatus.toUpperCase() as CheckStatus;
+  const { asset } = detail;
+  const failing = detail.checks.filter((c) => upper(c.status) === 'FAIL').length;
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-16">
-      {/* Back Link & Header */}
-      <div className="space-y-4">
-        <Link
-          href="/assets"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-3 hover:text-ink transition-colors"
-        >
-          <span aria-hidden="true">←</span>
-          <span>Back to Assets Catalog</span>
+    <div className="space-y-6 pb-16">
+      {/* Header */}
+      <div className="space-y-4 pt-2">
+        <Link href="/assets" className="type-meta inline-flex items-center gap-1.5 font-medium text-ink-3 transition-colors hover:text-ink">
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          Assets
         </Link>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rule/50 pb-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="h-2 w-2 rounded-full bg-amber" aria-hidden="true" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono">
-                Asset Specification
+        <header className="flex items-center gap-4">
+          <span aria-hidden="true" className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-panel border border-rule bg-surface-sunken text-ink-2">
+            <EntityKindIcon kind={asset.kind} className="h-6 w-6" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="type-title text-ink">{asset.name}</h1>
+              <StatusPill status={asset.checkStatus} />
+            </div>
+            <p className="type-meta mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-3">
+              <span>{kindLabel(asset.kind)}</span>
+              <span className="inline-flex items-center gap-1.5">
+                <CriticalityDots level={asset.criticality.level} />
               </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
-              {detail.asset.name}
-            </h1>
-            <p className="text-xs text-ink-3 font-mono">
-              <span className="capitalize">{detail.asset.kind}</span> · ID: {detail.asset.id}
+              {failing > 0 && (
+                <span className="font-medium text-st-fail">
+                  {failing} {failing === 1 ? 'check' : 'checks'} failing
+                </span>
+              )}
             </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <CheckStatusBadge status={upperStatus} />
-          </div>
-        </div>
+        </header>
       </div>
 
-      {/* Facts Card */}
-      <Card className="p-6 bg-surface shadow-card space-y-6">
-        <h2 className="text-sm font-semibold text-ink">Core Facts & Continuity Attributes</h2>
+      {/* Facts */}
+      <Panel aria-labelledby="facts-heading">
+        <PanelHeader titleId="facts-heading" title="Facts" icon={<NotebookText />} description="What's on record, with where each fact came from." />
+        <AssetFacts asset={asset} columns={3} />
+      </Panel>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-xs">
-          <div>
-            <p className="text-ink-3 mb-1 font-mono">Criticality Rating</p>
-            <div className="flex items-center gap-2">
-              <CriticalityDots level={detail.asset.criticality.level} />
-              <EvidenceDot grade={detail.asset.criticality.grade} />
-            </div>
+      {/* Checks + history, equal height */}
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+        <Panel aria-labelledby="checks-heading" className="flex flex-col">
+          <PanelHeader titleId="checks-heading" title="Checks" icon={<ListChecks />} count={detail.checks.length} description="The continuity checks this asset is tested against." />
+          <div className="flex-1">
+            <CheckList checks={detail.checks} />
           </div>
-
-          <div>
-            <p className="text-ink-3 mb-1 font-mono">Weekly Execution Volume</p>
-            <p className="font-semibold text-ink text-sm">
-              {detail.asset.runsPerWeek.state === 'value'
-                ? `${detail.asset.runsPerWeek.display} runs/wk`
-                : detail.asset.runsPerWeek.state === 'unknown'
-                ? 'Unknown'
-                : 'None'}
-            </p>
+        </Panel>
+        <Panel aria-labelledby="history-heading" className="flex flex-col">
+          <PanelHeader titleId="history-heading" title="Change history" icon={<History />} count={detail.history.length} description="Every recorded change to its facts, newest first." />
+          <div className="flex-1">
+            <HistoryTimeline history={detail.history} />
           </div>
-
-          <div>
-            <p className="text-ink-3 mb-1 font-mono">Designated Owner</p>
-            <div className="flex items-center gap-1.5">
-              <EvidenceDot grade={detail.asset.owner.grade} source={detail.asset.owner.source} />
-              {detail.asset.owner.state === 'value' ? (
-                <span className="font-medium text-ink">{detail.asset.owner.display}</span>
-              ) : detail.asset.owner.state === 'unknown' ? (
-                <UnknownValue />
-              ) : (
-                <NoneValue />
-              )}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-ink-3 mb-1 font-mono">Backup Operator</p>
-            <div className="flex items-center gap-1.5">
-              <EvidenceDot grade={detail.asset.backup.grade} source={detail.asset.backup.source} />
-              {detail.asset.backup.state === 'value' ? (
-                <span className="font-medium text-ink">{detail.asset.backup.display}</span>
-              ) : detail.asset.backup.state === 'unknown' ? (
-                <UnknownValue />
-              ) : (
-                <NoneValue />
-              )}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-ink-3 mb-1 font-mono">Documentation Link</p>
-            <div className="flex items-center gap-1.5">
-              <EvidenceDot grade={detail.asset.documented.grade} />
-              {detail.asset.documented.state === 'value' ? (
-                <span className="text-ink truncate">{detail.asset.documented.display}</span>
-              ) : detail.asset.documented.state === 'unknown' ? (
-                <UnknownValue />
-              ) : (
-                <NoneValue />
-              )}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-ink-3 mb-1 font-mono">Fallback Procedure</p>
-            <div className="flex items-center gap-1.5">
-              <EvidenceDot grade={detail.asset.fallback.grade} />
-              {detail.asset.fallback.state === 'value' ? (
-                <span className="text-ink truncate">{detail.asset.fallback.display}</span>
-              ) : detail.asset.fallback.state === 'unknown' ? (
-                <UnknownValue />
-              ) : (
-                <NoneValue />
-              )}
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Continuity Checks Breakdown */}
-      <div className="space-y-4">
-        <h2 className="text-base font-semibold text-ink">
-          Continuity Check Results ({detail.checks.length})
-        </h2>
-
-        {detail.checks.length === 0 ? (
-          <p className="text-xs text-ink-3 italic">No check results recorded.</p>
-        ) : (
-          <div className="divide-y divide-rule border border-rule rounded-card bg-surface overflow-hidden shadow-xs">
-            {detail.checks.map((c) => {
-              const st = c.status.toUpperCase() as CheckStatus;
-              return (
-                <div key={c.checkId} className="p-4 text-xs space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-semibold text-ink text-sm">
-                      {c.checkId}
-                    </span>
-                    <CheckStatusBadge status={st} />
-                  </div>
-                  <p className="text-ink-2 leading-relaxed">{c.reason}</p>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        </Panel>
       </div>
 
-      {/* Dependencies Topology */}
-      <div className="space-y-4">
-        <h2 className="text-base font-semibold text-ink">Dependency Topology</h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <Card className="p-5 bg-surface space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono flex items-center justify-between">
-              <span>Upstream Dependencies</span>
-              <span>{detail.upstream.length}</span>
-            </h3>
-            {detail.upstream.length === 0 ? (
-              <p className="text-xs text-ink-3 italic">None (root asset)</p>
-            ) : (
-              <ul className="divide-y divide-rule text-xs">
-                {detail.upstream.map((u) => (
-                  <li key={u.id} className="py-2 flex items-center justify-between gap-2">
-                    <Link
-                      href={`/assets/${u.id}`}
-                      className="font-medium text-ink hover:text-amber-ink transition-colors truncate"
-                    >
-                      {u.name}
-                    </Link>
-                    <span className="px-1.5 py-0.2 rounded-badge bg-surface-sunken text-[10px] font-mono uppercase text-ink-3 shrink-0">
-                      {u.kind}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Card className="p-5 bg-surface space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono flex items-center justify-between">
-              <span>Downstream Dependents</span>
-              <span>{detail.downstream.length}</span>
-            </h3>
-            {detail.downstream.length === 0 ? (
-              <p className="text-xs text-ink-3 italic">None (leaf asset)</p>
-            ) : (
-              <ul className="divide-y divide-rule text-xs">
-                {detail.downstream.map((d) => (
-                  <li key={d.id} className="py-2 flex items-center justify-between gap-2">
-                    <Link
-                      href={`/assets/${d.id}`}
-                      className="font-medium text-ink hover:text-amber-ink transition-colors truncate"
-                    >
-                      {d.name}
-                    </Link>
-                    <span className="px-1.5 py-0.2 rounded-badge bg-surface-sunken text-[10px] font-mono uppercase text-ink-3 shrink-0">
-                      {d.kind}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </div>
-      </div>
-
-      {/* SCD2 Fact History Timeline */}
-      <div className="space-y-4">
-        <h2 className="text-base font-semibold text-ink">SCD2 Fact History Timeline</h2>
-
-        {detail.history.length === 0 ? (
-          <p className="text-xs text-ink-3 italic">No revision history found.</p>
-        ) : (
-          <div className="border border-rule rounded-card bg-surface overflow-x-auto shadow-xs" tabIndex={0} role="region" aria-label="Fact history">
-            <table className="w-full text-left text-xs text-ink">
-              <thead className="border-b border-rule bg-surface-sunken/40 font-mono text-[11px] uppercase text-ink-3">
-                <tr>
-                  <th scope="col" className="px-4 py-3">Attribute</th>
-                  <th scope="col" className="px-4 py-3">Value</th>
-                  <th scope="col" className="px-4 py-3">Grade</th>
-                  <th scope="col" className="px-4 py-3">Source / Actor</th>
-                  <th scope="col" className="px-4 py-3">Effective Period</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rule font-sans">
-                {detail.history.map((h, i) => (
-                  <tr key={`${h.attribute}-${h.validFrom}-${i}`} className="hover:bg-surface-sunken/20">
-                    <td className="px-4 py-3 font-mono text-ink-2 font-medium">
-                      {h.attribute}
-                    </td>
-                    <td className="px-4 py-3">
-                      {h.state === 'none' ? (
-                        <NoneValue />
-                      ) : h.state === 'unknown' ? (
-                        <UnknownValue />
-                      ) : (
-                        <span className="font-medium text-ink">{h.display}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <EvidenceBadge grade={h.grade} />
-                    </td>
-                    <td className="px-4 py-3 font-mono text-ink-3 text-[11px]">
-                      {h.source || h.changedBy || '—'}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-ink-3 text-[11px] whitespace-nowrap">
-                      {formatDate(h.validFrom)} → {h.validTo ? formatDate(h.validTo) : 'Current'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Dependencies, equal height */}
+      <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
+        <Panel aria-labelledby="upstream-heading" className="flex flex-col">
+          <PanelHeader titleId="upstream-heading" title="Relies on" icon={<ArrowDownToLine />} count={detail.upstream.length} description="If one of these fails, this asset is affected." />
+          <div className="flex-1">
+            <DependencyList items={detail.upstream} empty="Relies on nothing on record." />
           </div>
-        )}
+        </Panel>
+        <Panel aria-labelledby="downstream-heading" className="flex flex-col">
+          <PanelHeader titleId="downstream-heading" title="Depended on by" icon={<ArrowUpFromLine />} count={detail.downstream.length} description="These are affected if this asset fails." />
+          <div className="flex-1">
+            <DependencyList items={detail.downstream} empty="Nothing depends on it." />
+          </div>
+        </Panel>
       </div>
     </div>
   );

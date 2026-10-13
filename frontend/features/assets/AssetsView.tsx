@@ -1,29 +1,28 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
-import type { AssetRow, CheckStatus, EntityKind } from '@/types/view';
-import { Card } from '@/components/ui/Card';
-import {
-  CriticalityDots,
-  EvidenceBadge,
-  EvidenceDot,
-  CheckStatusBadge,
-  NoneValue,
-  UnknownValue,
-} from '@/components/ui/marks';
-import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
+import { ChevronRight, Search, X } from 'lucide-react';
+import type { AssetRow, FactView } from '@/types/view';
+import { Panel } from '@/components/ui/Panel';
+import { Avatar } from '@/components/ui/Avatar';
+import { EntityKindIcon, kindLabel } from '@/components/ui/EntityKindIcon';
+import { CriticalityDots, EvidenceDot } from '@/components/ui/marks';
+import { ErrorState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchAssets } from '@/lib/api/assets';
-import { AssetDrawer } from './AssetDrawer';
 import { cn } from '@/lib/cn';
+import { AssetDrawer } from './AssetDrawer';
+import { FactValue, StatusPill, upper } from './assetParts';
 
 export interface AssetsViewProps {
   initialAssets?: AssetRow[];
   defaultSelectedAssetId?: string | null;
+  /** From the address bar (?status=): covered | exposed | unknown, as the Overview links use them. */
+  initialStatus?: string | null;
 }
 
 type KindTab = 'all' | 'automation' | 'model' | 'credential' | 'vendor' | 'system';
+type StatusFilter = 'all' | 'fail' | 'unknown' | 'pass';
 
 /** Tabs map to backend EntityKind values ('system' covers apps and processes). */
 const TAB_KINDS: Record<Exclude<KindTab, 'all'>, string[]> = {
@@ -33,508 +32,294 @@ const TAB_KINDS: Record<Exclude<KindTab, 'all'>, string[]> = {
   vendor: ['vendor'],
   system: ['app', 'process'],
 };
+const inTab = (kind: string, tab: KindTab) => tab === 'all' || TAB_KINDS[tab].includes(kind);
 
-function inTab(kind: string, tab: KindTab): boolean {
-  return tab === 'all' || TAB_KINDS[tab].includes(kind);
+const TABS: Array<{ id: KindTab; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'automation', label: 'Automations' },
+  { id: 'model', label: 'AI models' },
+  { id: 'credential', label: 'Credentials' },
+  { id: 'vendor', label: 'Vendors' },
+  { id: 'system', label: 'Systems' },
+];
+
+const STATUS_FILTERS: Array<{ id: StatusFilter; label: string }> = [
+  { id: 'all', label: 'Any status' },
+  { id: 'fail', label: 'Failing' },
+  { id: 'unknown', label: 'Unknown' },
+  { id: 'pass', label: 'Passing' },
+];
+
+const hasUnknownFact = (a: AssetRow) =>
+  [a.owner, a.backup, a.documented, a.fallback, a.runsPerWeek].some((f) => f.state === 'unknown');
+
+/** Overview links: covered / exposed / unknown are about critical assets. */
+function filtersFromStatus(status: string | null | undefined): { critical: boolean; status: StatusFilter } {
+  if (status === 'covered') return { critical: true, status: 'pass' };
+  if (status === 'exposed') return { critical: true, status: 'fail' };
+  if (status === 'unknown') return { critical: true, status: 'unknown' };
+  return { critical: false, status: 'all' };
 }
-type CriticalityFilter = 'all' | 'critical_only';
-type StatusFilter = 'all' | 'fail' | 'unknown' | 'pass';
 
-export function AssetsView({
-  initialAssets,
-  defaultSelectedAssetId = null,
-}: AssetsViewProps) {
-  const assetsResource = useResource<AssetRow[]>(
-    'assets-catalog-list',
-    fetchAssets,
+function Chip({ active, onClick, children, ...rest }: { active: boolean; onClick: () => void; children: React.ReactNode } & React.AriaAttributes) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'type-meta inline-flex h-7 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 font-medium transition-colors',
+        active ? 'bg-surface-sunken text-ink' : 'text-ink-3 hover:text-ink',
+      )}
+      {...rest}
+    >
+      {children}
+    </button>
   );
+}
 
-  const assetsData =
-    assetsResource.status === 'ready'
-      ? assetsResource.data
-      : initialAssets || [];
-
-  const [activeTab, setActiveTab] = React.useState<KindTab>('all');
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [criticalityFilter, setCriticalityFilter] =
-    React.useState<CriticalityFilter>('all');
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
-  const [onlyUnknownFacts, setOnlyUnknownFacts] = React.useState(false);
-
-  const [selectedAssetId, setSelectedAssetId] = React.useState<string | null>(
-    defaultSelectedAssetId,
+function PersonFact({ fact }: { fact: FactView }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {fact.state === 'value' && fact.display ? <Avatar name={fact.display} size={28} /> : null}
+      <span className="type-meta min-w-0 truncate">
+        <FactValue fact={fact} className="font-normal text-ink" />
+      </span>
+      <EvidenceDot grade={fact.grade} source={fact.source} />
+    </span>
   );
+}
 
-  // Filter logic
-  const filteredAssets = React.useMemo(() => {
-    return assetsData.filter((asset) => {
-      // Kind Tab
-      if (!inTab(asset.kind, activeTab)) {
-        return false;
+export function AssetsView({ initialAssets, defaultSelectedAssetId = null, initialStatus = null }: AssetsViewProps) {
+  const assetsResource = useResource<AssetRow[]>('assets-catalog-list', fetchAssets);
+  const assets = assetsResource.status === 'ready' ? assetsResource.data : initialAssets || [];
+
+  const fromUrl = filtersFromStatus(initialStatus);
+  const [tab, setTab] = React.useState<KindTab>('all');
+  const [query, setQuery] = React.useState('');
+  const [criticalOnly, setCriticalOnly] = React.useState(fromUrl.critical);
+  const [status, setStatus] = React.useState<StatusFilter>(fromUrl.status);
+  const [unknownOnly, setUnknownOnly] = React.useState(false);
+  const [selectedId, setSelectedId] = React.useState<string | null>(defaultSelectedAssetId);
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return assets.filter((a) => {
+      if (!inTab(a.kind, tab)) return false;
+      if (q) {
+        const hay = [a.name, a.owner.display, a.backup.display, a.id].map((s) => (s ?? '').toLowerCase());
+        if (!hay.some((s) => s.includes(q))) return false;
       }
-
-      // Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = asset.name.toLowerCase().includes(q);
-        const matchesOwner =
-          asset.owner.display?.toLowerCase().includes(q) || false;
-        const matchesBackup =
-          asset.backup.display?.toLowerCase().includes(q) || false;
-        const matchesId = asset.id.toLowerCase().includes(q);
-        if (!matchesName && !matchesOwner && !matchesBackup && !matchesId) {
-          return false;
-        }
-      }
-
-      // Criticality
-      if (criticalityFilter === 'critical_only' && !asset.isCritical) {
-        return false;
-      }
-
-      // Status
-      if (statusFilter !== 'all') {
-        const upper = asset.checkStatus.toUpperCase();
-        if (statusFilter === 'fail' && upper !== 'FAIL') return false;
-        if (statusFilter === 'unknown' && upper !== 'UNKNOWN') return false;
-        if (statusFilter === 'pass' && upper !== 'PASS') return false;
-      }
-
-      // Has unknown facts
-      if (onlyUnknownFacts) {
-        const hasUnknown =
-          asset.owner.state === 'unknown' ||
-          asset.backup.state === 'unknown' ||
-          asset.documented.state === 'unknown' ||
-          asset.fallback.state === 'unknown' ||
-          asset.runsPerWeek.state === 'unknown';
-        if (!hasUnknown) return false;
-      }
-
+      if (criticalOnly && !a.isCritical) return false;
+      if (status !== 'all' && upper(a.checkStatus) !== ({ fail: 'FAIL', unknown: 'UNKNOWN', pass: 'PASS' } as const)[status]) return false;
+      if (unknownOnly && !hasUnknownFact(a)) return false;
       return true;
     });
-  }, [
-    assetsData,
-    activeTab,
-    searchQuery,
-    criticalityFilter,
-    statusFilter,
-    onlyUnknownFacts,
-  ]);
+  }, [assets, tab, query, criticalOnly, status, unknownOnly]);
 
-  // Strict Invariant Sort:
-  // 1. Failing critical
-  // 2. Unknown critical
-  // 3. Covered critical
-  // 4. Non-critical
-  // Secondary: Alphabetical by name
-  const sortedAssets = React.useMemo(() => {
-    return [...filteredAssets].sort((a, b) => {
-      const getPriority = (item: AssetRow) => {
-        const upper = item.checkStatus.toUpperCase();
-        if (item.isCritical) {
-          if (upper === 'FAIL') return 1;
-          if (upper === 'UNKNOWN') return 2;
-          if (upper === 'PASS') return 3;
-        }
-        return 4;
-      };
+  // Fixed order: failing critical, unknown critical, covered critical, then the rest; by name within each.
+  const sorted = React.useMemo(() => {
+    const rank = (a: AssetRow) => {
+      if (!a.isCritical) return 4;
+      const s = upper(a.checkStatus);
+      return s === 'FAIL' ? 1 : s === 'UNKNOWN' ? 2 : 3;
+    };
+    return [...filtered].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+  }, [filtered]);
 
-      const pA = getPriority(a);
-      const pB = getPriority(b);
+  const isFiltered = tab !== 'all' || query.trim() !== '' || criticalOnly || status !== 'all' || unknownOnly;
+  const clearFilters = () => {
+    setTab('all');
+    setQuery('');
+    setCriticalOnly(false);
+    setStatus('all');
+    setUnknownOnly(false);
+  };
 
-      if (pA !== pB) return pA - pB;
-      return a.name.localeCompare(b.name);
-    });
-  }, [filteredAssets]);
-
-  // Metric counts
-  const counts = React.useMemo(() => {
-    const total = assetsData.length;
-    const critical = assetsData.filter((a) => a.isCritical).length;
-    const failing = assetsData.filter((a) => a.checkStatus.toUpperCase() === 'FAIL').length;
-    // Same definition as the "Has unknown facts" filter, so the counter and the filter agree.
-    const unknown = assetsData.filter(
-      (a) =>
-        a.owner.state === 'unknown' ||
-        a.backup.state === 'unknown' ||
-        a.documented.state === 'unknown' ||
-        a.fallback.state === 'unknown' ||
-        a.runsPerWeek.state === 'unknown',
-    ).length;
-
-    return { total, critical, failing, unknown };
-  }, [assetsData]);
-
-  const tabs: Array<{ id: KindTab; label: string }> = [
-    { id: 'all', label: 'All Assets' },
-    { id: 'automation', label: 'Automations' },
-    { id: 'model', label: 'AI Models' },
-    { id: 'credential', label: 'Credentials' },
-    { id: 'vendor', label: 'Vendors' },
-    { id: 'system', label: 'Systems' },
-  ];
+  const loading = assetsResource.status === 'loading' && !initialAssets;
+  const failed = assetsResource.status === 'error' && !initialAssets;
 
   return (
-    <div className="space-y-8 pb-16">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rule/50 pb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="h-2 w-2 rounded-full bg-amber" aria-hidden="true" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono">
-              System Inventory
-            </span>
+    <div className="space-y-6 pb-16">
+      <header className="pt-2">
+        <h1 className="type-title text-ink">Assets</h1>
+        <p className="mt-1 text-sm text-ink-2">Every automation, AI model, credential, vendor and system, with who owns it and who backs it up.</p>
+      </header>
+
+      <Panel aria-labelledby="assets-table-heading">
+        <h2 id="assets-table-heading" className="sr-only">
+          Asset list
+        </h2>
+
+        {/* Kind tabs */}
+        <div className="flex gap-1 overflow-x-auto border-b border-rule px-3" role="group" aria-label="Asset type">
+          {TABS.map((t) => {
+            const count = t.id === 'all' ? assets.length : assets.filter((a) => inTab(a.kind, t.id)).length;
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  'type-meta -mb-px inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 font-medium transition-colors',
+                  active ? 'border-amber text-ink' : 'border-transparent text-ink-3 hover:text-ink',
+                )}
+              >
+                {t.label}
+                <span className="tabular-nums text-ink-3">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Toolbar */}
+        <div className="flex flex-col gap-3 border-b border-rule px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="relative block w-full sm:w-72">
+              <span className="sr-only">Search assets</span>
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by asset, owner or backup"
+                className="type-meta h-8 w-full rounded-control border border-rule bg-surface pl-8 pr-2.5 text-ink placeholder:text-ink-3 focus:border-ink-3 focus:outline-none"
+              />
+            </label>
+            <div className="flex flex-wrap items-center gap-1">
+              <Chip active={criticalOnly} onClick={() => setCriticalOnly((v) => !v)} aria-pressed={criticalOnly}>
+                Critical only
+              </Chip>
+              <span className="mx-1 h-4 w-px bg-rule" aria-hidden="true" />
+              {STATUS_FILTERS.map((f) => (
+                <Chip key={f.id} active={status === f.id} onClick={() => setStatus(f.id)} aria-pressed={status === f.id}>
+                  {f.label}
+                </Chip>
+              ))}
+              <span className="mx-1 h-4 w-px bg-rule" aria-hidden="true" />
+              <Chip active={unknownOnly} onClick={() => setUnknownOnly((v) => !v)} aria-pressed={unknownOnly}>
+                Has unknown facts
+              </Chip>
+            </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
-            Assets Catalog
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            Automations, AI models, credentials, vendors, and core systems.
+          <p className="type-meta shrink-0 text-ink-3" aria-live="polite">
+            Showing <span className="font-medium tabular-nums text-ink">{sorted.length}</span> of <span className="tabular-nums">{assets.length}</span>
+            {isFiltered && (
+              <button type="button" onClick={clearFilters} className="ml-2 inline-flex cursor-pointer items-center gap-1 font-medium text-ink-2 hover:text-ink">
+                <X className="h-3 w-3" aria-hidden="true" />
+                Clear filters
+              </button>
+            )}
           </p>
         </div>
 
-        {/* Fact Metric Counters */}
-        <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
-          <div className="rounded-control bg-surface border border-rule px-3 py-1.5 shadow-xs">
-            <span className="text-ink-3">Total: </span>
-            <strong className="text-ink tabular-nums">{counts.total}</strong>
+        {loading ? (
+          <div className="space-y-2 p-5" aria-label="Loading assets">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <span key={i} className="skeleton block h-11 w-full" />
+            ))}
           </div>
-          <div className="rounded-control bg-surface border border-rule px-3 py-1.5 shadow-xs">
-            <span className="text-ink-3">Critical: </span>
-            <strong className="text-ink tabular-nums">{counts.critical}</strong>
+        ) : failed ? (
+          <div className="p-5">
+            <ErrorState onRetry={assetsResource.reload} message="We couldn't load assets." />
           </div>
-          <div className="rounded-control bg-surface border border-rule px-3 py-1.5 shadow-xs">
-            <span className="text-ink-3">Failing Checks: </span>
-            <strong className="text-st-fail tabular-nums">{counts.failing}</strong>
-          </div>
-          <div className="rounded-control bg-surface border border-rule px-3 py-1.5 shadow-xs">
-            <span className="text-ink-3">Unknown Facts: </span>
-            <strong className="text-ev-unknown tabular-nums">{counts.unknown}</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs by Asset Kind */}
-      <div className="flex items-center gap-1 border-b border-rule overflow-x-auto pb-px">
-        {tabs.map((tab) => {
-          const count =
-            tab.id === 'all'
-              ? assetsData.length
-              : assetsData.filter((a) => inTab(a.kind, tab.id)).length;
-          const isActive = activeTab === tab.id;
-
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'px-4 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2',
-                isActive
-                  ? 'border-amber text-amber-ink font-semibold'
-                  : 'border-transparent text-ink-3 hover:text-ink hover:border-rule',
-              )}
-            >
-              <span>{tab.label}</span>
-              <span
-                className={cn(
-                  'px-1.5 py-0.2 rounded-badge text-[11px] font-mono',
-                  isActive
-                    ? 'bg-amber/15 text-amber-ink'
-                    : 'bg-surface-sunken text-ink-3',
-                )}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Search & Filter Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Search */}
-        <div className="w-full md:w-80">
-          <input
-            type="search"
-            aria-label="Search assets catalog"
-            placeholder="Search assets, owners, backups..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-control border border-rule bg-surface px-3 py-1.5 text-xs text-ink placeholder:text-ink-3 focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber"
-          />
-        </div>
-
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {/* Criticality */}
-          <div className="flex items-center gap-1 border border-rule rounded-control p-0.5 bg-surface">
-            <button
-              type="button"
-              onClick={() => setCriticalityFilter('all')}
-              className={cn(
-                'px-2 py-1 rounded-control transition-colors cursor-pointer',
-                criticalityFilter === 'all'
-                  ? 'bg-amber text-on-amber font-semibold'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              All Criticalities
-            </button>
-            <button
-              type="button"
-              onClick={() => setCriticalityFilter('critical_only')}
-              className={cn(
-                'px-2 py-1 rounded-control transition-colors cursor-pointer',
-                criticalityFilter === 'critical_only'
-                  ? 'bg-amber text-on-amber font-semibold'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              Critical Only
-            </button>
-          </div>
-
-          {/* Status */}
-          <div className="flex items-center gap-1 border border-rule rounded-control p-0.5 bg-surface">
-            <button
-              type="button"
-              onClick={() => setStatusFilter('all')}
-              className={cn(
-                'px-2 py-1 rounded-control transition-colors cursor-pointer',
-                statusFilter === 'all'
-                  ? 'bg-surface-sunken font-semibold text-ink'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              All Status
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('fail')}
-              className={cn(
-                'px-2 py-1 rounded-control transition-colors cursor-pointer',
-                statusFilter === 'fail'
-                  ? 'bg-st-fail/15 text-st-fail font-semibold'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              Failing
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('unknown')}
-              className={cn(
-                'px-2 py-1 rounded-control transition-colors cursor-pointer',
-                statusFilter === 'unknown'
-                  ? 'bg-st-unknown/15 text-st-unknown font-semibold'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              Unknown
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('pass')}
-              className={cn(
-                'px-2 py-1 rounded-control transition-colors cursor-pointer',
-                statusFilter === 'pass'
-                  ? 'bg-st-pass/15 text-st-pass font-semibold'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              Passing
-            </button>
-          </div>
-
-          {/* Has Unknown Facts Toggle */}
-          <button
-            type="button"
-            onClick={() => setOnlyUnknownFacts(!onlyUnknownFacts)}
-            aria-pressed={onlyUnknownFacts}
-            className={cn(
-              'px-2.5 py-1 rounded-control border transition-colors cursor-pointer flex items-center gap-1.5',
-              onlyUnknownFacts
-                ? 'border-ev-unknown bg-ev-unknown/10 text-ev-unknown font-semibold'
-                : 'border-rule bg-surface text-ink-3 hover:text-ink',
+        ) : sorted.length === 0 ? (
+          <div className="px-5 py-14 text-center">
+            <p className="type-heading text-ink">{assets.length === 0 ? 'No assets yet' : 'No assets match these filters'}</p>
+            <p className="type-meta mt-1 text-ink-3">
+              {assets.length === 0 ? 'Connect a source in Settings and its assets appear here.' : 'Try a different search or clear the filters.'}
+            </p>
+            {isFiltered && (
+              <button type="button" onClick={clearFilters} className="type-meta mt-4 cursor-pointer font-medium text-ink-2 hover:text-ink">
+                Clear filters
+              </button>
             )}
-          >
-            <span
-              className={cn(
-                'h-1.5 w-1.5 rounded-full',
-                onlyUnknownFacts ? 'bg-ev-unknown' : 'bg-ink-3/40',
-              )}
-              aria-hidden="true"
-            />
-            <span>Has Unknown Facts</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Table Content */}
-      {assetsResource.status === 'loading' && !initialAssets ? (
-        <div className="space-y-4">
-          <Skeleton variant="card" className="h-12" />
-          <Skeleton variant="card" className="h-12" />
-          <Skeleton variant="card" className="h-12" />
-          <Skeleton variant="card" className="h-12" />
-          <Skeleton variant="card" className="h-12" />
-        </div>
-      ) : assetsResource.status === 'error' && !initialAssets ? (
-        <div className="max-w-xl mx-auto py-12">
-          <ErrorState
-            onRetry={assetsResource.reload}
-            message="We couldn't load the system assets inventory."
-          />
-        </div>
-      ) : sortedAssets.length === 0 ? (
-        <EmptyState
-          title="No assets match your filters"
-          description="Try adjusting your search criteria, criticality filter, or type category tab."
-          actionLabel="Reset all filters"
-          onAction={() => {
-
-            setActiveTab('all');
-            setSearchQuery('');
-            setCriticalityFilter('all');
-            setStatusFilter('all');
-            setOnlyUnknownFacts(false);
-          }}
-        />
-      ) : (
-        <div className="border border-rule rounded-card bg-surface shadow-xs overflow-x-auto" tabIndex={0} role="region" aria-label="Assets table">
-          <table className="w-full text-left text-xs text-ink" aria-label="Assets Catalog Table">
-            <thead className="border-b border-rule bg-surface-sunken/40 font-mono text-[11px] uppercase text-ink-3">
-              <tr>
-                <th scope="col" className="px-4 py-3">Asset</th>
-                <th scope="col" className="px-3 py-3">Type</th>
-                <th scope="col" className="px-3 py-3">Criticality</th>
-                <th scope="col" className="px-3 py-3">Check Status</th>
-                <th scope="col" className="px-3 py-3">Owner</th>
-                <th scope="col" className="px-3 py-3">Backup</th>
-                <th scope="col" className="px-3 py-3">Runs / Wk</th>
-                <th scope="col" className="px-4 py-3 text-right">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-rule font-sans">
-              {sortedAssets.map((asset) => {
-                const upperStatus = asset.checkStatus.toUpperCase() as CheckStatus;
-
-                return (
-                  <tr
-                    key={asset.id}
-                    onClick={() => setSelectedAssetId(asset.id)}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Inspect ${asset.name}`}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setSelectedAssetId(asset.id);
-                      }
-                    }}
-                    className={cn(
-                      'h-12 transition-colors hover:bg-surface-sunken/40 cursor-pointer focus:outline-none focus:bg-surface-sunken/60',
-                      selectedAssetId === asset.id && 'bg-surface-sunken/70',
-                    )}
-                  >
-                    {/* Asset Name */}
-                    <td className="px-4 py-2.5 font-medium text-ink">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate max-w-[220px] sm:max-w-[280px]">
-                          {asset.name}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Type / Kind */}
-                    <td className="px-3 py-2.5">
-                      <span className="px-1.5 py-0.5 rounded-badge bg-surface-sunken text-[10px] font-mono capitalize text-ink-3">
-                        {asset.kind}
-                      </span>
-                    </td>
-
-                    {/* Criticality */}
-                    <td className="px-3 py-2.5">
-                      <CriticalityDots level={asset.criticality.level} />
-                    </td>
-
-                    {/* Check Status */}
-                    <td className="px-3 py-2.5">
-                      <CheckStatusBadge status={upperStatus} />
-                    </td>
-
-                    {/* Owner */}
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1.5">
-                        <EvidenceDot
-                          grade={asset.owner.grade}
-                          source={asset.owner.source}
-                        />
-                        {asset.owner.state === 'value' ? (
-                          <span className="truncate max-w-[120px]">
-                            {asset.owner.display}
-                          </span>
-                        ) : asset.owner.state === 'unknown' ? (
-                          <UnknownValue />
-                        ) : (
-                          <NoneValue />
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Backup */}
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1.5">
-                        <EvidenceDot
-                          grade={asset.backup.grade}
-                          source={asset.backup.source}
-                        />
-                        {asset.backup.state === 'value' ? (
-                          <span className="truncate max-w-[120px]">
-                            {asset.backup.display}
-                          </span>
-                        ) : asset.backup.state === 'unknown' ? (
-                          <UnknownValue />
-                        ) : (
-                          <NoneValue />
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Runs / Wk */}
-                    <td className="px-3 py-2.5 font-mono text-ink-3 tabular-nums">
-                      {asset.runsPerWeek.state === 'value' ? (
-                        asset.runsPerWeek.display
-                      ) : asset.runsPerWeek.state === 'unknown' ? (
-                        <UnknownValue />
-                      ) : (
-                        '0'
+          </div>
+        ) : (
+          <div className="overflow-x-auto lg:overflow-x-visible" tabIndex={0} role="region" aria-label="Assets table">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="type-meta text-ink-3">
+                  {[
+                    ['Asset', 'pl-5 pr-3'],
+                    ['Criticality', 'px-3'],
+                    ['Status', 'px-3'],
+                    ['Owner', 'px-3'],
+                    ['Backup', 'px-3'],
+                    ['Runs / week', 'px-3 text-right'],
+                  ].map(([label, cls]) => (
+                    <th key={label} scope="col" className={cn('sticky top-0 z-[1] border-b border-rule bg-surface py-2.5 font-medium', cls)}>
+                      {label}
+                    </th>
+                  ))}
+                  <th scope="col" className="sticky top-0 z-[1] w-10 border-b border-rule bg-surface py-2.5 pr-4">
+                    <span className="sr-only">Open</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rule">
+                {sorted.map((a) => {
+                  const s = upper(a.checkStatus);
+                  const alert = a.isCritical && s === 'FAIL';
+                  const open = () => setSelectedId(a.id);
+                  return (
+                    <tr
+                      key={a.id}
+                      onClick={open}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Inspect ${a.name}`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          open();
+                        }
+                      }}
+                      className={cn(
+                        'group cursor-pointer transition-colors hover:bg-surface-sunken/50 focus-visible:bg-surface-sunken/60 focus-visible:outline-none',
+                        selectedId === a.id && 'bg-surface-sunken/60',
                       )}
-                    </td>
+                    >
+                      <td className={cn('py-3 pl-5 pr-3', alert && 'shadow-[inset_3px_0_0_var(--st-fail)]')}>
+                        <div className="flex items-center gap-3">
+                          <span aria-hidden="true" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-rule bg-surface-sunken text-ink-2">
+                            <EntityKindIcon kind={a.kind} />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="max-w-[260px] truncate text-sm font-medium text-ink">{a.name}</p>
+                            <p className="text-[11px] text-ink-3">{kindLabel(a.kind)}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <CriticalityDots level={a.criticality.level} />
+                      </td>
+                      <td className="px-3 py-3">
+                        <StatusPill status={s} />
+                      </td>
+                      <td className="max-w-[180px] px-3 py-3">
+                        <PersonFact fact={a.owner} />
+                      </td>
+                      <td className="max-w-[180px] px-3 py-3">
+                        <PersonFact fact={a.backup} />
+                      </td>
+                      <td className="type-meta px-3 py-3 text-right tabular-nums text-ink-2">
+                        <FactValue fact={a.runsPerWeek} className="font-normal text-ink-2" />
+                      </td>
+                      <td className="py-3 pr-4 text-right">
+                        <ChevronRight className="ml-auto h-4 w-4 text-ink-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
 
-                    {/* Action */}
-                    <td className="px-4 py-2.5 text-right">
-                      <span className="text-amber-ink hover:underline font-semibold text-xs inline-flex items-center gap-1">
-                        <span>Inspect</span>
-                        <span aria-hidden="true">→</span>
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Detail Drawer (560px) */}
-      <AssetDrawer
-        assetId={selectedAssetId}
-        isOpen={!!selectedAssetId}
-        onClose={() => setSelectedAssetId(null)}
-      />
+      <AssetDrawer assetId={selectedId} isOpen={!!selectedId} onClose={() => setSelectedId(null)} onSelectDependency={setSelectedId} />
     </div>
   );
 }
