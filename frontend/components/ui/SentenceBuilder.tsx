@@ -1,11 +1,14 @@
 'use client';
 
 import * as React from 'react';
+import { Play, Plus, X } from 'lucide-react';
 import type { EntityKind, EntityRef } from '@/types/view';
 import { cn } from '@/lib/cn';
 import { PersonPicker, PersonItem } from './PersonPicker';
 import { EntityPicker } from './EntityPicker';
 import { Button } from './Button';
+import { Avatar } from './Avatar';
+import { EntityKindIcon } from './EntityKindIcon';
 
 export interface SentenceBuilderState {
   persons: EntityRef[];
@@ -16,23 +19,61 @@ export interface SentenceBuilderProps {
   value: SentenceBuilderState;
   onChange: (nextState: SentenceBuilderState) => void;
   onSimulate?: (state: SentenceBuilderState) => void;
+  /** Clears the whole scenario; shown when something is picked. */
+  onClear?: () => void;
   peopleOptions?: PersonItem[];
   entityOptions?: EntityRef[];
   onSearchPeople?: (q: string) => Promise<PersonItem[]> | PersonItem[];
   onSearchEntities?: (q: string) => Promise<EntityRef[]> | EntityRef[];
   isLoading?: boolean;
+  /** Extra content under the sentence, e.g. quick starts. */
+  footerNote?: React.ReactNode;
   className?: string;
 }
 
+function Chip({ entity, onRemove }: { entity: EntityRef; onRemove: () => void }) {
+  return (
+    <span className="inline-flex h-8 items-center gap-2 rounded-full border border-rule bg-surface-sunken pl-0.5 pr-2 align-middle text-sm font-medium text-ink">
+      {entity.kind === 'person' ? (
+        <Avatar name={entity.name} size={28} />
+      ) : (
+        <span aria-hidden="true" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-surface text-ink-2">
+          <EntityKindIcon kind={entity.kind} />
+        </span>
+      )}
+      {entity.name}
+      <button type="button" onClick={onRemove} aria-label={`Remove ${entity.name}`} className="cursor-pointer rounded-full p-0.5 text-ink-3 transition-colors hover:bg-surface hover:text-ink">
+        <X className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+    </span>
+  );
+}
+
+function AddButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-full border border-dashed border-ink-3/50 px-3 align-middle text-sm font-medium text-ink-2 transition-colors hover:border-ink-2 hover:text-ink"
+    >
+      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+      {children}
+    </button>
+  );
+}
+
+/** "What if [people] leave and [services or automations] go down?" */
 export function SentenceBuilder({
   value,
   onChange,
   onSimulate,
+  onClear,
   peopleOptions = [],
   entityOptions = [],
   onSearchPeople,
   onSearchEntities,
   isLoading = false,
+  footerNote,
   className,
 }: SentenceBuilderProps) {
   const [addingType, setAddingType] = React.useState<'person' | 'entity' | null>(null);
@@ -43,157 +84,77 @@ export function SentenceBuilder({
     if (addingType) pickerRef.current?.querySelector('input')?.focus();
   }, [addingType]);
 
-  const handleRemovePerson = (id: string) => {
-    onChange({
-      ...value,
-      persons: value.persons.filter((p) => p.id !== id),
-    });
-  };
-
-  const handleAddPerson = (person: EntityRef | null) => {
-    if (person && !value.persons.some((p) => p.id === person.id)) {
-      onChange({
-        ...value,
-        persons: [...value.persons, person],
-      });
-    }
+  const addPerson = (person: EntityRef | null) => {
+    if (person && !value.persons.some((p) => p.id === person.id)) onChange({ ...value, persons: [...value.persons, person] });
     setAddingType(null);
   };
-
-  const handleRemoveEntity = (id: string) => {
-    onChange({
-      ...value,
-      entities: value.entities.filter((e) => e.id !== id),
-    });
-  };
-
-  const handleAddEntity = (entity: EntityRef | null) => {
-    if (entity && !value.entities.some((e) => e.id === entity.id)) {
-      onChange({
-        ...value,
-        entities: [...value.entities, entity],
-      });
-    }
+  const addEntity = (entity: EntityRef | null) => {
+    if (entity && !value.entities.some((e) => e.id === entity.id)) onChange({ ...value, entities: [...value.entities, entity] });
     setAddingType(null);
   };
 
   const hasSelections = value.persons.length > 0 || value.entities.length > 0;
 
   return (
-    <div
-      role="region"
-      aria-label="What-If simulation sentence builder"
-      className={cn(
-        'rounded-card border border-rule bg-surface p-6 sm:p-8 shadow-xs space-y-6',
-        className
-      )}
-    >
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-3 text-2xl md:text-3xl text-ink leading-relaxed font-normal">
-        <span className="text-ink">What if</span>
+    <div role="region" aria-label="What-If simulation sentence builder" className={cn('rounded-panel border border-rule bg-surface shadow-panel', className)}>
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-3 px-6 py-6 text-xl font-medium leading-relaxed tracking-tight text-ink sm:px-8 sm:py-7 sm:text-2xl">
+        <span>What if</span>
 
-        {/* Selected Persons */}
         {value.persons.map((person) => (
-          <span
-            key={person.id}
-            className="inline-flex items-center gap-1.5 rounded-full border border-amber/40 bg-amber/10 px-3.5 py-0.5 font-sans text-sm font-medium text-ink transition-colors"
-          >
-            <span>{person.name}</span>
-            <button
-              type="button"
-              onClick={() => handleRemovePerson(person.id)}
-              aria-label={`Remove ${person.name}`}
-              className="text-amber-ink hover:text-ink cursor-pointer focus:outline-none"
-            >
-              ✕
-            </button>
-          </span>
+          <Chip key={person.id} entity={person} onRemove={() => onChange({ ...value, persons: value.persons.filter((p) => p.id !== person.id) })} />
         ))}
 
-        {/* Add Person Trigger */}
         {addingType === 'person' ? (
-          <div ref={pickerRef} className="inline-block w-64 font-sans text-sm">
-            <PersonPicker
-              options={peopleOptions}
-              onSearch={onSearchPeople}
-              onChange={handleAddPerson}
-              placeholder="Pick person..."
-            />
+          <div ref={pickerRef} className="inline-block w-64 align-middle text-sm font-normal tracking-normal">
+            <PersonPicker options={peopleOptions} onSearch={onSearchPeople} onChange={addPerson} placeholder="Pick a person…" />
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setAddingType('person')}
-            className="inline-flex items-center rounded-control border border-dashed border-ink-3/40 px-2.5 py-0.5 font-sans text-xs font-medium text-ink-2 hover:border-amber hover:text-amber-ink transition-colors cursor-pointer"
-          >
-            + person
-          </button>
+          <AddButton onClick={() => setAddingType('person')}>{value.persons.length > 0 ? 'Another person' : 'Person'}</AddButton>
         )}
 
-        <span className="text-ink">
-          {value.persons.length > 1 ? 'leave' : 'leaves'}
-        </span>
+        <span>{value.persons.length > 1 ? 'leave' : 'leaves'}</span>
+        <span className="text-ink-3">and</span>
 
-        {/* And Connector */}
-        <span className="text-ink">and</span>
-
-        {/* Selected Entities / Vendors */}
         {value.entities.map((entity) => (
-          <span
-            key={entity.id}
-            className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface-sunken px-3.5 py-0.5 font-sans text-sm font-medium text-ink transition-colors"
-          >
-            <span>{entity.name}</span>
-            <button
-              type="button"
-              onClick={() => handleRemoveEntity(entity.id)}
-              aria-label={`Remove ${entity.name}`}
-              className="text-ink-3 hover:text-ink cursor-pointer focus:outline-none"
-            >
-              ✕
-            </button>
-          </span>
+          <Chip key={entity.id} entity={entity} onRemove={() => onChange({ ...value, entities: value.entities.filter((e) => e.id !== entity.id) })} />
         ))}
 
-        {/* Add Entity Trigger */}
         {addingType === 'entity' ? (
-          <div ref={pickerRef} className="inline-block w-64 font-sans text-sm">
+          <div ref={pickerRef} className="inline-block w-64 align-middle text-sm font-normal tracking-normal">
             <EntityPicker
               options={entityOptions}
               onSearch={onSearchEntities}
-              onChange={handleAddEntity}
-              placeholder="Pick a service or automation..."
+              onChange={addEntity}
+              placeholder="Pick a service or automation…"
               allowedKinds={['vendor', 'model', 'automation', 'credential', 'app'] as EntityKind[]}
             />
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setAddingType('entity')}
-            className="inline-flex items-center rounded-control border border-dashed border-ink-3/40 px-2.5 py-0.5 font-sans text-xs font-medium text-ink-2 hover:border-amber hover:text-amber-ink transition-colors cursor-pointer"
-          >
-            + service or automation
-          </button>
+          <AddButton onClick={() => setAddingType('entity')}>{value.entities.length > 0 ? 'Another service' : 'Service or automation'}</AddButton>
         )}
 
-        <span className="text-ink">
-          {value.entities.length > 1 ? 'go down' : 'goes down'}?
-        </span>
+        <span>{value.entities.length > 1 ? 'go down?' : 'goes down?'}</span>
       </div>
 
-      {/* Action Footer */}
-      <div className="flex items-center justify-between pt-4 border-t border-rule">
-        <p className="text-xs text-ink-3">
-          Simulates immediate single point of failure (SPOF) exposure and orphan workflows across the graph.
-        </p>
-        <Button
-          variant="primary"
-          size="md"
-          disabled={!hasSelections || isLoading}
-          isLoading={isLoading}
-          onClick={() => onSimulate?.(value)}
-        >
-          Simulate Impact →
-        </Button>
+      <div className="flex flex-col gap-3 border-t border-rule bg-surface-sunken/40 px-6 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="type-meta min-w-0 text-ink-3">{footerNote ?? 'Counts what loses its owner and what stops, from the facts on record.'}</div>
+        <div className="flex shrink-0 items-center gap-2">
+          {hasSelections && onClear && (
+            <Button variant="secondary" size="sm" onClick={onClear} disabled={isLoading}>
+              Clear
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!hasSelections || isLoading}
+            isLoading={isLoading}
+            onClick={() => onSimulate?.(value)}
+            leftIcon={!isLoading ? <Play className="h-3.5 w-3.5" aria-hidden="true" /> : undefined}
+          >
+            Run simulation
+          </Button>
+        </div>
       </div>
     </div>
   );

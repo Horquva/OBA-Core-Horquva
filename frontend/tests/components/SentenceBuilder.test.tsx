@@ -40,7 +40,7 @@ describe('What-If SentenceBuilder', () => {
     expect(screen.getByText('leaves')).toBeInTheDocument();
     expect(screen.getByText('goes down?')).toBeInTheDocument();
 
-    const simBtn = screen.getByRole('button', { name: 'Simulate Impact →' });
+    const simBtn = screen.getByRole('button', { name: 'Run simulation' });
     expect(simBtn).toBeEnabled();
     fireEvent.click(simBtn);
     expect(handleSimulate).toHaveBeenCalledWith(initialState);
@@ -95,7 +95,7 @@ describe('What-If SentenceBuilder', () => {
       />
     );
 
-    const simBtn = screen.getByRole('button', { name: 'Simulate Impact →' });
+    const simBtn = screen.getByRole('button', { name: 'Run simulation' });
     expect(simBtn).toBeDisabled();
   });
 });

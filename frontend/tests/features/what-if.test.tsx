@@ -70,9 +70,11 @@ vi.mock('@/lib/api/simulations', () => ({
   fetchWorstLosses: vi.fn(),
 }));
 vi.mock('@/lib/api/entities', () => ({ fetchAllEntities: vi.fn() }));
+vi.mock('@/lib/api/departures', () => ({ fetchDepartures: vi.fn() }));
 
 import { runScenario, fetchWorstLosses } from '@/lib/api/simulations';
 import { fetchAllEntities } from '@/lib/api/entities';
+import { fetchDepartures } from '@/lib/api/departures';
 
 const inventory = [
   { id: 'person:omar@acme.com', kind: 'person', name: 'Omar Farooq' },
@@ -88,6 +90,7 @@ describe('What-If Simulator Feature (Task 27)', () => {
     (runScenario as any).mockResolvedValue(sampleResult);
     (fetchWorstLosses as any).mockResolvedValue(sampleWorstLosses);
     (fetchAllEntities as any).mockResolvedValue(inventory);
+    (fetchDepartures as any).mockResolvedValue([]);
   });
 
   it('starts empty: no invented people or vendors, and nothing simulated', async () => {
@@ -95,32 +98,33 @@ describe('What-If Simulator Feature (Task 27)', () => {
     expect(screen.queryByText('Sarah Connor')).toBeNull();
     expect(screen.getByText(/pick one or more people/i)).toBeDefined();
     expect(runScenario).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: /simulate impact/i }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: /run simulation/i }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText('No simulation running')).toBeDefined();
   });
 
   it('pickers offer real people and services; services go down, automations fail', async () => {
     render(<WhatIfView />);
     await waitFor(() => expect(fetchAllEntities).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole('button', { name: '+ person' }));
-    fireEvent.change(screen.getByPlaceholderText('Pick person...'), { target: { value: 'Omar' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Person' }));
+    fireEvent.change(screen.getByPlaceholderText('Pick a person…'), { target: { value: 'Omar' } });
     fireEvent.click(await screen.findByText('Omar Farooq'));
 
     for (const name of ['OpenAI GPT-4o', 'Stripe', 'Billing Sync to Stripe']) {
-      fireEvent.click(screen.getByRole('button', { name: '+ service or automation' }));
-      const input = screen.getByPlaceholderText('Pick a service or automation...');
+      fireEvent.click(screen.getByRole('button', { name: /^(Service or automation|Another service)$/ }));
+      const input = screen.getByPlaceholderText('Pick a service or automation…');
       fireEvent.focus(input);
       fireEvent.change(input, { target: { value: name } });
       fireEvent.click(await screen.findByRole('option', { name: new RegExp(`^${name}`) }));
     }
     // Groups are not something that "goes down".
-    fireEvent.click(screen.getByRole('button', { name: '+ service or automation' }));
-    const input = screen.getByPlaceholderText('Pick a service or automation...');
+    fireEvent.click(screen.getByRole('button', { name: 'Another service' }));
+    const input = screen.getByPlaceholderText('Pick a service or automation…');
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: 'Platform' } });
     expect(screen.queryByRole('option', { name: /platform engineering/i })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /simulate impact/i }));
+    fireEvent.click(screen.getByRole('button', { name: /run simulation/i }));
     await waitFor(() => expect(runScenario).toHaveBeenCalledTimes(1));
     const sel = (runScenario as any).mock.calls[0][0];
     expect(sel.people.map((p: any) => p.id)).toEqual(['person:omar@acme.com']);
@@ -144,6 +148,7 @@ describe('What-If Simulator Feature (Task 27)', () => {
     expect(screen.getByLabelText('Run volume unknown')).toBeDefined();
     expect(screen.getByText(/1 affected automation has no run volume on record/i)).toBeDefined();
     expect(screen.queryByText('0 runs/wk')).toBeNull();
+    expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
   });
 
   it('renders WhatIfView with SentenceBuilder, results strip, and passes axe', async () => {
@@ -156,17 +161,19 @@ describe('What-If Simulator Feature (Task 27)', () => {
     );
 
     // Title & header
-    expect(screen.getByRole('heading', { level: 1, name: /what-if continuity simulator/i })).toBeDefined();
+    expect(screen.getByRole('heading', { level: 1, name: 'What-if' })).toBeDefined();
 
     // Sentence builder selections
-    expect(screen.getByText('Sarah Connor')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Remove Sarah Connor' })).toBeDefined();
     expect(screen.getAllByText('OpenAI Enterprise API').length).toBeGreaterThan(0);
 
     // Results metric strip
-    expect(screen.getByText('Orphaned Critical')).toBeDefined();
-    expect(screen.getByText('Halted Automations')).toBeDefined();
-    expect(screen.getAllByText('Runs / Wk Affected').length).toBeGreaterThan(0);
-    expect(screen.getByText('Downstream Dependents')).toBeDefined();
+    expect(screen.getByRole('heading', {
+      name: 'If Sarah Connor leaves and OpenAI Enterprise API goes down, 2 critical assets lose their owner and 2 automations stop: 4,600 runs a week.',
+    })).toBeDefined();
+    expect(screen.getByText('Critical assets without an owner')).toBeDefined();
+    expect(screen.getAllByText('Automations that stop').length).toBeGreaterThan(0);
+    expect(screen.getByText('Runs a week affected')).toBeDefined();
 
 
     // Counts
@@ -194,17 +201,34 @@ describe('What-If Simulator Feature (Task 27)', () => {
     );
 
     // Top external vendors/models are ranked
-    expect(screen.getByText('Top External Vendor & Model Exposures')).toBeDefined();
+    expect(screen.getByRole('heading', { name: /Services that would hurt most/ })).toBeDefined();
     expect(screen.getByText('Anthropic Claude 3.5 Sonnet')).toBeDefined();
 
     // People are strictly represented as an aggregate count floor
     expect(screen.getByText(/7\s+people/i)).toBeDefined();
-    expect(screen.getByText(/each hold 3\+ unbacked critical assets/i)).toBeDefined();
-    expect(screen.getByText(/zero employee scoring guarantee/i)).toBeDefined();
+    expect(screen.getByText(/each hold 3\+ critical assets with no backup/i)).toBeDefined();
+    expect(screen.getByText(/never ranked/i)).toBeDefined();
 
     // Verify no individual person risk rankings exist anywhere in the tables
     expect(screen.queryByText(/most dangerous employees/i)).toBeNull();
     expect(screen.queryByText(/highest risk leavers/i)).toBeNull();
+  });
+
+  it('ends the simulation, and marks results stale when the picks change', async () => {
+    render(<WhatIfView initialSentence={sampleSentence} initialResult={sampleResult} initialWorstLosses={sampleWorstLosses} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove OpenAI Enterprise API' }));
+    expect(screen.getByText(/These results are for the previous picks/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: /End simulation/ }));
+    expect(screen.queryByText(/Simulation result/)).toBeNull();
+    expect(screen.queryByText('Sarah Connor')).toBeNull();
+    expect(screen.getByText('No simulation running')).toBeDefined();
+  });
+
+  it('simulates a service straight from the worst-losses table', async () => {
+    render(<WhatIfView initialWorstLosses={sampleWorstLosses} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate Anthropic Claude 3.5 Sonnet going down' }));
+    await waitFor(() => expect(runScenario).toHaveBeenCalledTimes(1));
+    expect((runScenario as any).mock.calls[0][0].unavailable.map((u: any) => u.id)).toEqual(['m-1']);
   });
 
   it('triggers simulation on clicking Simulate button', async () => {
@@ -216,7 +240,7 @@ describe('What-If Simulator Feature (Task 27)', () => {
       />,
     );
 
-    const simulateBtn = screen.getByRole('button', { name: /simulate impact/i });
+    const simulateBtn = screen.getByRole('button', { name: /run simulation/i });
     fireEvent.click(simulateBtn);
 
     await waitFor(() => {

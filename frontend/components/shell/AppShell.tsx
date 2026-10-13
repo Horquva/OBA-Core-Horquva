@@ -73,7 +73,8 @@ export function AppShell({ children, className }: AppShellProps) {
     }
   };
 
-  const isFullWidthPage = pathname === '/map' || pathname === '/what-if';
+  // The map pads itself and fills the height; every other page gets the standard padding.
+  const isFullWidthPage = pathname === '/map';
   // Ask OBA (home) fills the column and scrolls its own thread; the setup guide still shows above it.
   const isChatPage = pathname === '/';
 
