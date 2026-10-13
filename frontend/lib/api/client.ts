@@ -16,6 +16,34 @@ export function toApiError(e: unknown): ApiError {
   return new ApiError(0, e instanceof Error ? e.message : 'Something went wrong.');
 }
 
+/**
+ * Downloads a file the API streams (e.g. a PDF) with the session cookie, then saves it
+ * under the server's filename, falling back to `fallbackName`.
+ */
+export async function downloadFile(path: string, fallbackName: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(apiUrl(path), { credentials: 'include' });
+  } catch {
+    throw new ApiError(0, "We couldn't reach OBA.");
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const message = body && typeof body.error === 'string' ? body.error : `Download failed (${res.status}).`;
+    throw new ApiError(res.status, message);
+  }
+  const disposition = res.headers.get('content-disposition') ?? '';
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {

@@ -5,9 +5,10 @@ import { themeInitScript } from '@/lib/theme';
 import { ToastProvider } from '@/components/ui/Toast';
 
 // One sans family for the whole product: dashboards read better without a display serif.
+// Variable weight plus the optical-size axis: large numbers and headings get Inter's display cut.
 const inter = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  axes: ['opsz'],
   variable: '--font-inter',
 });
 

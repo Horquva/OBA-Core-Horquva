@@ -1,19 +1,26 @@
 import type { HeadlineMetrics } from '@horquva/types';
-import type { BriefingDetail, ChangeSummary, CoverageMetrics, NavCounts, SpofAsset } from '@/types/view';
+import type { BriefingDetail, ChangeSummary, CoverageTrend, ExposureCause, HistoryPoint, NavCounts, OverviewCoverage, SpofAsset } from '@/types/view';
 import { request } from './client';
 
-type OverviewResponse = { metrics: HeadlineMetrics & { unknownCriticalAssets?: number } };
+type OverviewResponse = { metrics: HeadlineMetrics & { unknownCriticalAssets?: number }; trend?: CoverageTrend | null; exposureByCause?: ExposureCause[] };
 
-/** Existing: GET /api/continuity/overview. `unknown` stays null until B-01. */
-export async function fetchCoverage(): Promise<CoverageMetrics> {
-  const { metrics: m } = await request<OverviewResponse>('/api/continuity/overview');
+/** GET /api/continuity/overview: headline counts plus the week-on-week trend. */
+export async function fetchCoverage(): Promise<OverviewCoverage> {
+  const { metrics: m, trend, exposureByCause } = await request<OverviewResponse>('/api/continuity/overview');
   return {
     total: m.totalCriticalAssets,
     covered: m.fullyCoveredCriticalAssets,
     exposed: m.exposedCriticalAssets,
     unknown: typeof m.unknownCriticalAssets === 'number' ? m.unknownCriticalAssets : null,
     definition: m.definition,
+    trend: trend ?? null,
+    exposureByCause: exposureByCause ?? [],
   };
+}
+
+/** GET /api/continuity/history: one point per daily snapshot, oldest first, ending today. */
+export async function fetchCoverageHistory(days: number): Promise<HistoryPoint[]> {
+  return (await request<{ points: HistoryPoint[] }>(`/api/continuity/history?days=${days}`)).points;
 }
 
 export function fetchChangeSummary(): Promise<ChangeSummary> {

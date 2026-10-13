@@ -32,6 +32,12 @@ export interface CoverageMetrics {
   unknown: number | null;
   definition: string;
 }
+/** Counted deltas vs. the daily snapshot at least 7 days old; null until one exists. */
+export interface CoverageTrend { comparedTo: string; covered: number; exposed: number; unknown: number }
+/** Distinct assets failing one check; an asset can fail several, so causes don't sum to "exposed". */
+export interface ExposureCause { checkId: string; label: string; assets: number }
+export interface OverviewCoverage extends CoverageMetrics { trend: CoverageTrend | null; exposureByCause: ExposureCause[] }
+export interface HistoryPoint { date: string; covered: number; exposed: number; unknown: number; total: number }
 /** null counts = not tracked yet by the backend (never shown as 0). */
 export interface ChangeSummary {
   since: string | null; sinceKind?: 'last_sign_in' | 'first_visit_window';

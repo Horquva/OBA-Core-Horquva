@@ -27,7 +27,13 @@ describe('API contracts', () => {
 
   it('adapts existing overview metrics; unknown stays null until B-01', async () => {
     respond({ metrics: { totalCriticalAssets: 52, fullyCoveredCriticalAssets: 38, exposedCriticalAssets: 14, unknownCriticalFacts: 5, definition: 'd' } });
-    await expect(overview.fetchCoverage()).resolves.toEqual({ total: 52, covered: 38, exposed: 14, unknown: null, definition: 'd' });
+    await expect(overview.fetchCoverage()).resolves.toEqual({ total: 52, covered: 38, exposed: 14, unknown: null, definition: 'd', trend: null, exposureByCause: [] });
+  });
+
+  it('passes the week-on-week trend through', async () => {
+    const trend = { comparedTo: '2026-10-06', covered: 1, exposed: -1, unknown: 0 };
+    respond({ metrics: { totalCriticalAssets: 4, fullyCoveredCriticalAssets: 1, exposedCriticalAssets: 3, unknownCriticalFacts: 0, definition: 'd' }, trend });
+    await expect(overview.fetchCoverage()).resolves.toMatchObject({ trend });
   });
 
   it('uses unknownCriticalAssets once the backend sends it', async () => {

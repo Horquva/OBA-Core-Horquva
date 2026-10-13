@@ -105,7 +105,7 @@ export function AppShell({ children, className }: AppShellProps) {
 
         <main
           className={cn(
-            'flex-1 overflow-y-auto min-w-0 pb-20 md:pb-6',
+            'relative flex-1 overflow-y-auto min-w-0 pb-20 md:pb-6',
             isFullWidthPage ? 'p-0' : 'p-4 md:p-8'
           )}
         >
