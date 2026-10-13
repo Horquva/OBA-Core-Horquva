@@ -24,7 +24,7 @@ import {
   verifyDeparture,
 } from '../handover/successionService.js';
 import { verifyDepartureExecutions } from '../handover/postDepartureVerifier.js';
-import { departureSummary } from '../views/departureViews.js';
+import { departureSummary, workAtRisk } from '../views/departureViews.js';
 
 function sendSuccessionError(res: Response, err: any, fallback: string): void {
   if (err instanceof SuccessionError) {
@@ -49,6 +49,16 @@ departuresRouter.get('/', (_req: Request, res: Response) => {
 });
 
 // 2. GET /api/departures/:id
+// 1b. GET /api/departures/at-risk — critical work departing people leave without cover.
+// Registered before /:id so "at-risk" is not read as a departure id.
+departuresRouter.get('/at-risk', (_req: Request, res: Response) => {
+  try {
+    res.json(workAtRisk(DataService.getInstance()));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to compute work at risk.' });
+  }
+});
+
 departuresRouter.get('/:id', (req: Request, res: Response) => {
   try {
     const dataService = DataService.getInstance();

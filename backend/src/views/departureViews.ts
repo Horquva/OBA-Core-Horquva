@@ -60,3 +60,106 @@ export function departureSummary(dep: DepartureRecord, dataService: DataService)
     group,
   };
 }
+
+// ── Work at risk: what departing people leave behind without cover ───────────
+
+export interface AtRiskAsset {
+  asset: { id: string; kind: string; name: string };
+  criticality: string | null;
+  owner: { id: string; kind: string; name: string };
+  departureId: string;
+  leaveDate: string;
+  /** null = not recorded (never shown as 0). */
+  runsPerWeek: number | null;
+  /** No accepted successor yet (critical/high assets only). */
+  noSuccessor: boolean;
+  /** Runs on the leaver's own credentials: it stops when their account is disabled. */
+  personalCredential: boolean;
+  successor: { id: string; kind: string; name: string } | null;
+  acceptance: 'none' | 'requested' | 'accepted' | 'declined' | null;
+}
+
+export interface WorkAtRisk {
+  assets: AtRiskAsset[];
+  totals: {
+    assets: number;
+    /** Sum of the recorded weekly runs; assets without a count are in `unknownRuns`. */
+    runsPerWeek: number;
+    unknownRuns: number;
+    personalCredential: number;
+    people: number;
+  };
+}
+
+const CRIT_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+/**
+ * Across every departure still open: critical/high assets without an accepted successor,
+ * plus anything running on the leaver's credentials. Soonest leaver first.
+ */
+export function workAtRisk(ds: DataService): WorkAtRisk {
+  const graph = ds.getGraph();
+  const ref = (id: string) => {
+    const e = graph.getNode(id)?.entity;
+    return e ? { id: e.id, kind: e.kind, name: e.name } : { id, kind: 'automation', name: id };
+  };
+  const factOf = (id: string, attr: string) => graph.getNode(id)?.facts.get(attr as any)?.value;
+
+  const rows = new Map<string, AtRiskAsset>();
+  for (const dep of ds.getDepartures()) {
+    if (departureSummary(dep, ds).group === 'departed') continue;
+    const owner = ref(dep.personId);
+    const row = (assetId: string): AtRiskAsset => {
+      const key = `${dep.id}|${assetId}`;
+      let r = rows.get(key);
+      if (!r) {
+        const crit = factOf(assetId, 'criticality');
+        const runs = factOf(assetId, 'run_volume_weekly');
+        r = {
+          asset: ref(assetId),
+          criticality: typeof crit === 'string' ? crit : null,
+          owner,
+          departureId: dep.id,
+          leaveDate: dep.leaveDate,
+          runsPerWeek: typeof runs === 'number' ? runs : null,
+          noSuccessor: false,
+          personalCredential: false,
+          successor: null,
+          acceptance: null,
+        };
+        rows.set(key, r);
+      }
+      return r;
+    };
+
+    for (const h of dep.handovers) {
+      const crit = factOf(h.assetId, 'criticality');
+      if ((crit === 'critical' || crit === 'high') && h.acceptance !== 'accepted') {
+        const r = row(h.assetId);
+        r.noSuccessor = true;
+        r.successor = h.successorId ? ref(h.successorId) : null;
+        r.acceptance = h.acceptance;
+      }
+    }
+    for (const e of graph.getAllEdges()) {
+      if (e.type === 'runs_on_credentials_of' && e.toId === dep.personId && !e.validTo) row(e.fromId).personalCredential = true;
+    }
+  }
+
+  const assets = [...rows.values()].sort(
+    (a, b) =>
+      a.leaveDate.localeCompare(b.leaveDate) ||
+      (CRIT_RANK[a.criticality ?? ''] ?? 9) - (CRIT_RANK[b.criticality ?? ''] ?? 9) ||
+      (b.runsPerWeek ?? -1) - (a.runsPerWeek ?? -1),
+  );
+  return {
+    assets,
+    totals: {
+      assets: assets.length,
+      runsPerWeek: assets.reduce((n, a) => n + (a.runsPerWeek ?? 0), 0),
+      unknownRuns: assets.filter((a) => a.runsPerWeek === null).length,
+      personalCredential: assets.filter((a) => a.personalCredential).length,
+      people: new Set(assets.map((a) => a.owner.id)).size,
+    },
+  };
+}

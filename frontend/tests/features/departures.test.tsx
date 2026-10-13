@@ -1,13 +1,31 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { axe } from 'vitest-axe';
 import { ToastProvider } from '@/components/ui/Toast';
 import { DeparturesList } from '@/features/departures/DeparturesList';
 import { DepartureDetail } from '@/features/departures/DepartureDetail';
 import { SessionProvider } from '@/lib/session';
 import type { Session } from '@/types/view';
-import type { DepartureSummary, DepartureDetail as DepartureDetailType } from '@/types/view';
+import type { DepartureSummary, DepartureDetail as DepartureDetailType, WorkAtRisk } from '@/types/view';
+
+const sampleAtRisk: WorkAtRisk = {
+  assets: [
+    {
+      asset: { id: 'w-1', kind: 'automation', name: 'Stripe Billing Pipeline' },
+      criticality: 'critical',
+      owner: { id: 'p-1', kind: 'person', name: 'Sarah Connor' },
+      departureId: 'dep-1',
+      leaveDate: '2026-11-15T00:00:00Z',
+      runsPerWeek: 1200,
+      noSuccessor: true,
+      personalCredential: true,
+      successor: null,
+      acceptance: 'none',
+    },
+  ],
+  totals: { assets: 1, runsPerWeek: 1200, unknownRuns: 0, personalCredential: 1, people: 1 },
+};
 
 const sampleDepartures: DepartureSummary[] = [
   {
@@ -108,6 +126,7 @@ const sampleSimResult = {
 
 vi.mock('@/lib/api/departures', () => ({
   fetchDepartures: vi.fn(),
+  fetchWorkAtRisk: vi.fn(),
   fetchDeparture: vi.fn(),
   initiateDeparture: vi.fn(),
   simulateSuccessionPlan: vi.fn(),
@@ -126,6 +145,7 @@ import { fetchPeople } from '@/lib/api/entities';
 
 import {
   fetchDepartures,
+  fetchWorkAtRisk,
   fetchDeparture,
   initiateDeparture,
   simulateSuccessionPlan,
@@ -150,6 +170,7 @@ describe('Departures & Handover Workbench (Tasks 21–23)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (fetchDepartures as any).mockResolvedValue(sampleDepartures);
+    (fetchWorkAtRisk as any).mockResolvedValue(sampleAtRisk);
     (fetchDeparture as any).mockResolvedValue(sampleDetail);
     (simulateSuccessionPlan as any).mockResolvedValue(sampleSimResult);
     (saveSuccessors as any).mockResolvedValue(undefined);
@@ -162,19 +183,23 @@ describe('Departures & Handover Workbench (Tasks 21–23)', () => {
     ]);
   });
 
-  it('renders DeparturesList with grouped tabs, stage stepper, and passes axe', async () => {
+  it('renders DeparturesList: summary, one table with filters, status pills, and passes axe', async () => {
     const { container } = renderAs(admin, <DeparturesList initialDepartures={sampleDepartures} />);
 
-    // Verify header and tabs
-    expect(screen.getByText('Departures & Handover')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Upcoming/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /In Handover/ })).toBeInTheDocument();
+    // Header, summary and the record button
+    expect(screen.getByRole('heading', { level: 1, name: 'Departures' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Record a departure' })).toBeInTheDocument();
+    expect(screen.getByText('Without an accepted successor')).toBeInTheDocument();
 
-    // Verify Upcoming list item
-    expect(screen.getByText('Sarah Connor')).toBeInTheDocument();
+    // Everyone in one table; Sarah needs a successor
+    expect(screen.getByRole('link', { name: 'Sarah Connor' })).toHaveAttribute('href', '/departures/dep-1');
     expect(screen.getByText('Lead Cloud Architect · Infrastructure')).toBeInTheDocument();
-    expect(screen.getByText('Discontinuity Alert')).toBeInTheDocument();
-    expect(screen.getByText('Open Workbench')).toBeInTheDocument();
+    expect(screen.getAllByText('Needs successor').length).toBeGreaterThanOrEqual(1);
+
+    // Filters narrow the table
+    fireEvent.click(screen.getByRole('button', { name: /^Departed/ }));
+    expect(screen.queryByRole('link', { name: 'Sarah Connor' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^All/ }));
 
     // Verify accessibility
     expect(await axe(container)).toHaveNoViolations();
@@ -191,23 +216,24 @@ describe('Departures & Handover Workbench (Tasks 21–23)', () => {
     expect(screen.getAllByText('Stripe Billing Pipeline').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Maintains Stripe webhooks/)).toBeInTheDocument();
 
-    // Verify Personal Credential warning
-    expect(screen.getByText(/Personal Credential Risk/)).toBeInTheDocument();
+    // Automations on the leaver's own credentials
+    expect(screen.getByRole('heading', { name: /Runs on their credentials/ })).toBeInTheDocument();
     expect(screen.getByText(/1,200\/wk/)).toBeInTheDocument();
 
-    // Verify Sticky Succession Panel (async simulation)
+    // Stage tracker says what's next; the handover pack can be downloaded
+    expect(screen.getByRole('heading', { name: /Step 2 of 5: Successor named/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download handover pack' })).toBeInTheDocument();
+
+    // Succession check (async simulation)
     await waitFor(() => {
-      expect(screen.getByText('Coverage Delta')).toBeInTheDocument();
-      expect(screen.getByText('Succession Overload Warning')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Succession check' })).toBeInTheDocument();
+      expect(screen.getByText('Succession overload')).toBeInTheDocument();
       expect(screen.getByText('35% share')).toBeInTheDocument();
     });
 
-    // Accept suggestion shortcut
-    const acceptSuggestionBtn = screen.getByRole('button', { name: 'Accept' });
-    fireEvent.click(acceptSuggestionBtn);
-
-    // Click Save Successor Assignments once re-simulation settles
-    const saveBtn = await screen.findByRole('button', { name: 'Save Successor Assignments' });
+    // Use the suggested successor; the action bar offers Save
+    fireEvent.click(screen.getByRole('button', { name: 'Use' }));
+    const saveBtn = await screen.findByRole('button', { name: 'Save successors' });
     fireEvent.click(saveBtn);
 
     // Only the changed row is sent: w-2 is already accepted and locked server-side.
@@ -219,17 +245,45 @@ describe('Departures & Handover Workbench (Tasks 21–23)', () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 
+  it('shows the work at risk across departures, with a counted headline', async () => {
+    renderAs(admin, <DeparturesList initialDepartures={sampleDepartures} />);
+    expect(await screen.findByText('1 critical asset and 1,200 automation runs a week depend on 1 person leaving.')).toBeInTheDocument();
+    const panel = screen.getByRole('region', { name: /Work at risk/ });
+    expect(within(panel).getByText('No successor')).toBeInTheDocument();
+    expect(within(panel).getByText('Their credentials')).toBeInTheDocument();
+    expect(within(panel).getByRole('link', { name: 'Stripe Billing Pipeline' })).toHaveAttribute('href', '/departures/dep-1');
+  });
+
+  it('the pipeline counts departures per step, and selecting a step filters the table', async () => {
+    renderAs(admin, <DeparturesList initialDepartures={sampleDepartures} />);
+    const step = screen.getByRole('button', { name: /2\. Successor named/ });
+    fireEvent.click(step);
+    expect(step).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('link', { name: 'Sarah Connor' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'John Doe' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Clear step filter/ }));
+    expect(screen.getByRole('link', { name: 'John Doe' })).toBeInTheDocument();
+  });
+
+  it('expanding a row shows that person\'s handover inline', async () => {
+    renderAs(admin, <DeparturesList initialDepartures={sampleDepartures} />);
+    fireEvent.click(screen.getByRole('button', { name: "Show Sarah Connor's handover" }));
+    expect(await screen.findByText('Customer Identity Sync')).toBeInTheDocument();
+    expect(fetchDeparture).toHaveBeenCalledWith('dep-1');
+    expect(screen.getByRole('link', { name: /Open departure/ })).toHaveAttribute('href', '/departures/dep-1');
+  });
+
   it('viewers see the departure read-only: no initiate button, no successor pickers, no save', async () => {
     renderAs(viewer, <DeparturesList initialDepartures={sampleDepartures} />);
-    expect(screen.queryByRole('button', { name: /Initiate Departure/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Record a departure/ })).not.toBeInTheDocument();
   });
 
   it('viewer detail: successor names shown as text, no actions', async () => {
     renderAs(viewer, <DepartureDetail id="dep-1" initialDetail={sampleDetail} />);
-    expect(await screen.findByText('Coverage Delta')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Save Successor Assignments' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Succession check' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save successors' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Record account disabled' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use' })).not.toBeInTheDocument();
     expect(fetchPeople).not.toHaveBeenCalled();
   });
 
@@ -237,15 +291,38 @@ describe('Departures & Handover Workbench (Tasks 21–23)', () => {
     (simulateSuccessionPlan as any).mockRejectedValue(new Error('backend down'));
     renderAs(admin, <DepartureDetail id="dep-1" initialDetail={sampleDetail} />);
     expect(await screen.findByText(/succession test couldn't run/)).toBeInTheDocument();
-    expect(screen.queryByText('Protected Assets')).not.toBeInTheDocument();
-    // Saving is still possible.
-    expect(screen.getByRole('button', { name: 'Save Successor Assignments' })).toBeInTheDocument();
+    expect(screen.queryByText('Would be covered')).not.toBeInTheDocument();
+    // Saving is still possible once something changes.
+    fireEvent.click(screen.getByRole('button', { name: 'Use' }));
+    expect(await screen.findByRole('button', { name: 'Save successors' })).toBeEnabled();
   });
 
   it('records the account as disabled from the workbench (stage 4)', async () => {
     renderAs(admin, <DepartureDetail id="dep-1" initialDetail={sampleDetail} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Record account disabled' }));
     await waitFor(() => expect(markAccountDisabled).toHaveBeenCalledWith('dep-1'));
+  });
+
+  it('a departure with nothing to hand over says so instead of showing empty tables and zeros', async () => {
+    const empty = { ...sampleDetail, stage: 'initiated' as const, stageTimestamps: { initiated: '2026-10-13T00:00:00Z' }, handover: [], assetsTotal: 0, assetsHandedOver: 0, personalCredentialAutomations: [], undocumented: [] };
+    (fetchDeparture as any).mockResolvedValue(empty);
+    renderAs(admin, <DepartureDetail id="dep-1" initialDetail={empty} />);
+    expect(await screen.findByText('Sarah owns no tracked assets')).toBeInTheDocument();
+    expect(screen.getByText('Nothing to check')).toBeInTheDocument();
+    expect(screen.getAllByText('Not needed: nothing to hand over')).toHaveLength(2);
+    expect(screen.queryByRole('region', { name: 'Handover table' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Record account disabled' })).toBeInTheDocument();
+  });
+
+  it('the succession check compares exposure now with exposure after the picked successors', async () => {
+    renderAs(admin, <DepartureDetail id="dep-1" initialDetail={sampleDetail} />);
+    expect(await screen.findByText('Exposed now')).toBeInTheDocument();
+    expect(screen.getByText(/1 of 2 assets have nobody named yet/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Use' }));
+    expect(await screen.findByText(/Everyone is named/)).toBeInTheDocument();
+    // Unsaved changes can be discarded.
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(screen.queryByRole('button', { name: 'Save successors' })).not.toBeInTheDocument();
   });
 
   it('verify is blocked until every asset has an accepted successor (stage 5)', async () => {
@@ -264,7 +341,7 @@ describe('Departures & Handover Workbench (Tasks 21–23)', () => {
     };
     (fetchDeparture as any).mockResolvedValue(named);
     renderAs(admin, <DepartureDetail id="dep-1" initialDetail={named} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Request Successor Acceptance' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask to accept' }));
     expect(await screen.findByText(/1 successor was asked to accept/)).toBeInTheDocument();
     expect(screen.queryByText(/email/i)).not.toBeInTheDocument();
   });
@@ -302,7 +379,7 @@ describe('Departures & Handover Workbench (Tasks 21–23)', () => {
     const stuck = { ...sampleDetail, stage: 'account_disabled' as const };
     (fetchDeparture as any).mockResolvedValue(stuck);
     renderAs(viewer, <DepartureDetail id="dep-1" initialDetail={stuck} />);
-    await screen.findByRole('link', { name: 'Stripe Billing Pipeline' });
+    await screen.findAllByRole('link', { name: 'Stripe Billing Pipeline' });
     expect(screen.queryByRole('button', { name: /^Reassign/ })).not.toBeInTheDocument();
   });
 });

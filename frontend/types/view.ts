@@ -140,6 +140,18 @@ export interface DepartureSummary {
   stage: DepartureStage; assetsTotal: number; assetsHandedOver: number; hasAlert: boolean;
   detectedFrom: 'manual' | 'entra' | 'google'; group: 'upcoming' | 'in_handover' | 'departed';
 }
+/** A critical asset a departing person leaves without cover (GET /api/departures/at-risk). */
+export interface AtRiskAsset {
+  asset: EntityRef; criticality: CriticalityLevel | null; owner: EntityRef; departureId: string; leaveDate: string;
+  /** null = not recorded. */
+  runsPerWeek: number | null;
+  noSuccessor: boolean; personalCredential: boolean;
+  successor: EntityRef | null; acceptance: 'none' | 'requested' | 'accepted' | 'declined' | null;
+}
+export interface WorkAtRisk {
+  assets: AtRiskAsset[];
+  totals: { assets: number; runsPerWeek: number; unknownRuns: number; personalCredential: number; people: number };
+}
 export interface SuccessorSuggestion { person: EntityRef; reason: string }
 export interface HandoverAsset {
   /** Handover row id: the target of accept / decline / reassign. */

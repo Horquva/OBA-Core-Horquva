@@ -1,10 +1,15 @@
-import type { DepartureDetail, DepartureSummary, SuccessionPlanResult, SuccessorAssignment } from '@/types/view';
+import type { DepartureDetail, DepartureSummary, SuccessionPlanResult, SuccessorAssignment, WorkAtRisk } from '@/types/view';
 import { request } from './client';
 
 export async function fetchDepartures(): Promise<DepartureSummary[]> {
   const r = await request<any>('/api/departures'); // (planned) B-09
   if (Array.isArray(r)) return r;
   return r?.departures ?? [];
+}
+
+/** Critical work that departing people leave without an accepted successor. */
+export function fetchWorkAtRisk(): Promise<WorkAtRisk> {
+  return request<WorkAtRisk>('/api/departures/at-risk');
 }
 
 export function fetchDeparture(id: string): Promise<DepartureDetail> {

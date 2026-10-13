@@ -1,179 +1,155 @@
 'use client';
 
 import * as React from 'react';
-import type { SuccessionPlanResult } from '@/types/view';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Skeleton } from '@/components/ui/states';
+import { ArrowRight, GitBranch, TriangleAlert } from 'lucide-react';
+import type { EntityRef, HandoverAsset, SuccessionPlanResult } from '@/types/view';
+import { Panel, PanelHeader } from '@/components/ui/Panel';
+import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/cn';
 
 /** Must match the backend's succession-test rule (routes/departures.ts): ≥40% share and ≥3 critical assets. */
 const OVERLOAD_SHARE_PCT = 40;
 
-export interface SuccessionPanelProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface SuccessionPanelProps {
   result?: SuccessionPlanResult | null;
   isLoading?: boolean;
   /** The succession test request failed. */
   error?: boolean;
-  /** HR/admin and the departure still open: show save / request actions. */
-  canEdit?: boolean;
-  /** Saved successors are waiting to be asked. */
-  canRequestAcceptance?: boolean;
-  onSave?: () => void;
-  onSendAcceptance?: () => void;
-  isSaving?: boolean;
-  isSending?: boolean;
-  hasUnsavedChanges?: boolean;
+  /** The handover rows and the successors currently picked (saved or not). */
+  handover: HandoverAsset[];
+  assignments: Record<string, EntityRef | null>;
+  className?: string;
 }
 
-export function SuccessionPanel({
-  result,
-  isLoading = false,
-  error = false,
-  canEdit = true,
-  canRequestAcceptance = false,
-  onSave,
-  onSendAcceptance,
-  isSaving = false,
-  isSending = false,
-  hasUnsavedChanges = false,
-  className,
-  ...props
-}: SuccessionPanelProps) {
+const MAX_LISTED = 5;
+
+/**
+ * Live projection of the proposed successors: what would be covered, what stays exposed,
+ * and whether one person would end up holding too much. Saving lives in the action bar.
+ */
+export function SuccessionPanel({ result, isLoading = false, error = false, handover, assignments, className }: SuccessionPanelProps) {
   const hasOverload = result?.loads.some((load) => load.overloadWarning) ?? false;
+  // Counted from the handover itself: exposed = no accepted successor; after the plan,
+  // only rows with nobody picked stay exposed.
+  const total = handover.length;
+  const exposedNow = handover.filter((h) => h.acceptance !== 'accepted');
+  const exposedAfter = exposedNow.filter((h) => !(assignments[h.asset.id] ?? h.successor));
 
   return (
-    <Card className={cn('p-6 space-y-6 shadow-card bg-surface', className)} {...props}>
-      <div className="space-y-1 border-b border-rule/50 pb-4">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-amber" aria-hidden="true" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono">
-            Live Succession Simulation
-          </span>
-        </div>
-        <h3 className="text-2xl font-semibold text-ink">Coverage Delta</h3>
-        <p className="text-xs text-ink-3">
-          Projection of continuity based on the proposed successor assignments.
-        </p>
-      </div>
+    <Panel className={className} aria-labelledby="succession-heading">
+      <PanelHeader
+        titleId="succession-heading"
+        title="Succession check"
+        icon={<GitBranch />}
+        description="Updates as you assign successors."
+      />
 
-      {isLoading && (
-        <div className="space-y-4">
-          <Skeleton variant="card" className="h-24" />
-          <Skeleton variant="card" className="h-28" />
-        </div>
-      )}
-
-      {!isLoading && error && (
-        <p className="rounded-control border border-st-fail/30 bg-st-fail/10 p-3 text-xs text-st-fail">
-          The succession test couldn't run. The projection below is not shown until it does.
-        </p>
-      )}
-
-      {!isLoading && !error && !result && (
-        <p className="text-xs text-ink-3 leading-relaxed">
-          Assign successors in the handover table to project coverage and catch single-person overload.
-        </p>
-      )}
-
-      {!isLoading && result && (
-        <>
-          {/* Coverage Delta Stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-control bg-st-pass/10 border border-st-pass/30 p-3 text-center">
-              <span className="font-sans text-2xl font-bold text-st-pass tabular-nums">{result.coveredCount}</span>
-              <p className="text-xs font-medium text-ink-2 mt-0.5">Protected Assets</p>
-            </div>
-
-            <div className="rounded-control bg-st-fail/10 border border-st-fail/30 p-3 text-center">
-              <span className="font-sans text-2xl font-bold text-st-fail tabular-nums">{result.stillExposedCount}</span>
-              <p className="text-xs font-medium text-ink-2 mt-0.5">Still Exposed</p>
-            </div>
+      <div className="space-y-4 px-5 py-4">
+        {total === 0 ? (
+          <div className="py-4 text-center">
+            <p className="type-heading text-ink">Nothing to check</p>
+            <p className="type-meta mt-1 text-ink-3">There are no assets to hand over, so no successor plan is needed.</p>
           </div>
-
-          {hasOverload && (
-            <div className="rounded-control border border-amber/50 bg-amber/15 p-3.5 space-y-1.5 text-xs text-amber-ink">
-              <div className="flex items-center gap-1.5 font-semibold">
-                <span aria-hidden="true">⚠️</span>
-                <span>Succession Overload Warning</span>
+        ) : (
+          <>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+              <div>
+                <p className="type-meta text-ink-3">Exposed now</p>
+                <p className={cn('mt-0.5 text-2xl font-semibold tracking-tight tabular-nums', exposedNow.length > 0 ? 'text-st-fail' : 'text-ink')}>
+                  {exposedNow.length}
+                </p>
               </div>
-              <p className="leading-relaxed text-ink-2">
-                A proposed successor would hold {OVERLOAD_SHARE_PCT}% or more of the company&apos;s critical
-                automations. Spread these assets across more people to avoid creating a new single point of failure.
-              </p>
+              <ArrowRight className="h-4 w-4 text-ink-3" aria-hidden="true" />
+              <div>
+                <p className="type-meta text-ink-3">After this plan</p>
+                <p className={cn('mt-0.5 text-2xl font-semibold tracking-tight tabular-nums', exposedAfter.length > 0 ? 'text-st-fail' : 'text-st-pass')}>
+                  {exposedAfter.length}
+                </p>
+              </div>
             </div>
-          )}
 
-          {result.loads.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono">
-                Proposed Operator Loads
-              </h4>
+            <div className="space-y-1.5" aria-hidden="true">
+              {[exposedNow.length, exposedAfter.length].map((n, i) => (
+                <span key={i} className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+                  <span className={cn('block h-full rounded-full', i === 0 ? 'bg-ink-3' : 'bg-st-fail')} style={{ width: `${(n / total) * 100}%` }} />
+                </span>
+              ))}
+            </div>
 
-              <div className="space-y-2">
-                {result.loads.map((load) => (
-                  <div
-                    key={load.successor.id}
-                    className={cn(
-                      'rounded-control border p-3 text-xs transition-colors space-y-2',
-                      load.overloadWarning ? 'border-amber/50 bg-amber/10' : 'border-rule bg-surface-sunken/40',
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="h-6 w-6 rounded-full bg-surface-sunken border border-rule text-[11px] font-semibold flex items-center justify-center text-ink shrink-0">
-                          {load.successor.name
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')
-                            .slice(0, 2)
-                            .toUpperCase()}
-                        </span>
-                        <span className="font-medium text-ink">{load.successor.name}</span>
+            <p className="type-meta text-ink-2">
+              {exposedNow.length === 0
+                ? 'Every asset already has an accepted successor.'
+                : exposedAfter.length === 0
+                  ? `Everyone is named. ${exposedNow.length} still ${exposedNow.length === 1 ? 'needs' : 'need'} to accept.`
+                  : `${exposedAfter.length} of ${total} ${total === 1 ? 'asset has' : 'assets have'} nobody named yet.`}
+            </p>
+
+            {exposedAfter.length > 0 && (
+              <ul className="space-y-1">
+                {exposedAfter.slice(0, MAX_LISTED).map((h) => (
+                  <li key={h.asset.id} className="type-meta flex items-center gap-2 text-ink-2">
+                    <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-st-fail" />
+                    <span className="truncate">{h.asset.name}</span>
+                  </li>
+                ))}
+                {exposedAfter.length > MAX_LISTED && <li className="text-[11px] text-ink-3">and {exposedAfter.length - MAX_LISTED} more</li>}
+              </ul>
+            )}
+          </>
+        )}
+
+        {total > 0 && isLoading && <span className="skeleton block h-10 rounded-control" />}
+
+        {total > 0 && !isLoading && error && (
+          <p className="type-meta rounded-control border border-rule bg-surface-sunken px-3 py-2.5 text-st-fail">
+            The succession test couldn&apos;t run. Successor load isn&apos;t shown until it does.
+          </p>
+        )}
+
+        {total > 0 && !isLoading && result && (
+          <>
+            {hasOverload && (
+              <div className="flex gap-2.5 rounded-control border border-rule bg-surface-sunken px-3 py-2.5">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-ink" aria-hidden="true" />
+                <div>
+                  <p className="type-meta font-medium text-ink">Succession overload</p>
+                  <p className="type-meta mt-0.5 text-ink-2">
+                    A proposed successor would hold {OVERLOAD_SHARE_PCT}% or more of the company&apos;s critical automations. Spread these
+                    assets across more people so you don&apos;t create a new single point of failure.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {result.loads.length > 0 && (
+              <div>
+                <p className="type-meta mb-1.5 text-ink-3">Proposed successors</p>
+                <ul className="divide-y divide-rule">
+                  {result.loads.map((load) => (
+                    <li key={load.successor.id} className="flex items-center gap-3 py-2.5">
+                      <Avatar name={load.successor.name} size={28} />
+                      <div className="min-w-0 flex-1">
+                        <p className="type-meta truncate font-medium text-ink">{load.successor.name}</p>
+                        <p className="text-[11px] text-ink-3">
+                          {load.totalCriticalAssetsOwned} critical {load.totalCriticalAssetsOwned === 1 ? 'asset' : 'assets'} after handover
+                        </p>
                       </div>
-
                       <span
                         className={cn(
-                          'font-mono text-xs font-semibold tabular-nums px-2 py-0.5 rounded-badge',
-                          load.overloadWarning ? 'bg-amber text-on-amber' : 'bg-surface-sunken text-ink-2',
+                          'inline-flex h-6 items-center rounded-full px-2 text-xs font-medium tabular-nums',
+                          load.overloadWarning ? 'bg-[color-mix(in_srgb,var(--amber)_18%,transparent)] text-amber-ink' : 'bg-surface-sunken text-ink-2',
                         )}
                       >
                         {Math.round(load.shareOfCompanyCriticalAutomationsPct)}% share
                       </span>
-                    </div>
-
-                    <div className="text-[11px] text-ink-3 flex items-center justify-between">
-                      <span>Critical automations owned:</span>
-                      <span className="font-semibold text-ink font-mono">{load.totalCriticalAssetsOwned}</span>
-                    </div>
-                  </div>
-                ))}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Actions stay available even when the projection is loading or failed. */}
-      {canEdit && (
-        <div className="pt-2 border-t border-rule/50 space-y-2">
-          <Button variant="primary" className="w-full" onClick={onSave} disabled={!hasUnsavedChanges || isSaving}>
-            {isSaving ? 'Saving...' : 'Save Successor Assignments'}
-          </Button>
-
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={onSendAcceptance}
-            disabled={isSending || !canRequestAcceptance}
-          >
-            {isSending ? 'Sending...' : 'Request Successor Acceptance'}
-          </Button>
-          {hasUnsavedChanges && (
-            <p className="text-[11px] text-ink-3">Save the assignments before asking successors to accept.</p>
-          )}
-        </div>
-      )}
-    </Card>
+            )}
+          </>
+        )}
+      </div>
+    </Panel>
   );
 }

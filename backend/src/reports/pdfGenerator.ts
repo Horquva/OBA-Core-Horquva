@@ -2,8 +2,8 @@
 // Horquva Continuity Platform — PDF Generation Service (RPT-01, RPT-02, RPT-03)
 // =============================================================================
 // Generates board-ready, high-resolution vector PDFs using PDFKit:
-// 1. Handover Pack PDF (RPT-01): Leaver metadata, transferred assets, personal
-//    credential automations at risk, runbooks, and HR/Manager sign-off blocks.
+// 1. Handover pack (RPT-01): who is leaving, each asset's successor and
+//    acceptance, automations on their credentials, runbooks, and sign-off.
 // 2. Executive continuity report (RPT-02): the Overview's figures (headline,
 //    trend, causes, departures, single points of failure) plus next steps.
 //
@@ -13,7 +13,7 @@
 // =============================================================================
 
 import PDFDocument from 'pdfkit';
-import type { DataService, DepartureRecord } from '../services/dataService.js';
+import type { DataService } from '../services/dataService.js';
 import { calculateHeadlineMetrics, evaluateAllChecks } from '../domain/checks/index.js';
 import { coverageTrend, exposureByCause, spofAssets } from '../views/overviewViews.js';
 import { departureSummary } from '../views/departureViews.js';
@@ -23,7 +23,9 @@ export interface PdfGenerationOptions {
 }
 
 /**
- * RPT-01 & RPT-03: Generates a complete Departure Handover Pack PDF buffer.
+ * RPT-01 & RPT-03: the departure handover pack, in the same brand style as the
+ * continuity report. Lists every asset with its successor and acceptance, what runs on
+ * the leaver's own credentials, runbook status, and a sign-off block.
  */
 export async function generateHandoverPackPdf(
   ds: DataService,
@@ -37,167 +39,201 @@ export async function generateHandoverPackPdf(
 
   const now = options.now ?? new Date();
   const graph = ds.getGraph();
-  const personNode = graph.getNode(dep.personId);
-  const personName = personNode?.entity?.name ?? dep.personId;
-  const asOf = now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  const summary = departureSummary(dep, ds);
+  const org = ds.getOrganization();
+  const asOf = `${longDate(now)}, ${now.toISOString().slice(11, 16)} UTC`;
+  const stageIndex = STAGE_ORDER.indexOf(dep.stage) + 1;
 
   return new Promise<Buffer>((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 40, size: 'A4', bufferPages: true });
+      const doc = new PDFDocument({
+        margin: PAGE.margin,
+        size: 'A4',
+        bufferPages: true,
+        info: { Title: `${summary.person.name} — Handover pack`, Author: 'Horquva OBA' },
+      });
       const chunks: Buffer[] = [];
-
       doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      // Colors
-      const primaryColor = '#0f172a';
-      const secondaryColor = '#3b82f6';
-      const mutedColor = '#64748b';
-      const borderColor = '#e2e8f0';
+      const L = PAGE.margin;
+      let y = PAGE.margin;
+      const ensure = (h: number) => {
+        if (y + h > BOTTOM) {
+          doc.addPage();
+          y = PAGE.margin;
+        }
+      };
+      const section = (title: string, subtitle?: string) => {
+        ensure(64);
+        y += 8;
+        doc.font('Helvetica-Bold').fontSize(11).fillColor(BRAND.ink).text(title, L, y);
+        y += 16;
+        if (subtitle) {
+          doc.font('Helvetica').fontSize(8.5).fillColor(BRAND.ink3).text(subtitle, L, y, { width: CONTENT_W });
+          y += doc.heightOfString(subtitle, { width: CONTENT_W }) + 2;
+        }
+        doc.moveTo(L, y + 4).lineTo(L + CONTENT_W, y + 4).lineWidth(0.5).strokeColor(BRAND.rule).stroke();
+        y += 14;
+      };
 
       // ── Header ─────────────────────────────────────────────────────────────
-      doc.fontSize(22).fillColor(primaryColor).text('HORQUVA', 40, 40);
-      doc.fontSize(10).fillColor(mutedColor).text('OPERATIONAL CONTINUITY PLATFORM', 40, 68);
-
-      doc.fontSize(16).fillColor(primaryColor).text('Departure Handover Pack', 40, 95);
-      doc.fontSize(9).fillColor(mutedColor).text(`As-of timestamp: ${asOf} | Evidence standard: SCD Type 2`, 40, 115);
-
-      doc.moveTo(40, 130).lineTo(555, 130).strokeColor(borderColor).stroke();
-
-      // ── Leaver Metadata ─────────────────────────────────────────────────────
-      doc.fontSize(12).fillColor(primaryColor).text('1. Departing Personnel Metadata', 40, 145);
-
-      doc.fontSize(9).fillColor(mutedColor).text('NAME:', 40, 168);
-      doc.fontSize(10).fillColor(primaryColor).text(personName, 120, 168);
-
-      doc.fontSize(9).fillColor(mutedColor).text('ENTITY ID:', 40, 186);
-      doc.fontSize(9).fillColor(primaryColor).text(dep.personId, 120, 186);
-
-      doc.fontSize(9).fillColor(mutedColor).text('LEAVE DATE:', 40, 204);
-      doc.fontSize(10).fillColor(primaryColor).text(dep.leaveDate.slice(0, 10), 120, 204);
-
-      doc.fontSize(9).fillColor(mutedColor).text('STAGE:', 40, 222);
-      doc.fontSize(10).fillColor(secondaryColor).text(dep.stage.toUpperCase(), 120, 222);
-
-      doc.moveTo(40, 242).lineTo(555, 242).strokeColor(borderColor).stroke();
-
-      // ── Transferred Assets Table ────────────────────────────────────────────
-      let y = 255;
-      doc.fontSize(12).fillColor(primaryColor).text('2. Transferred Assets & Successor Coverage', 40, y);
-      y += 20;
-
-      // Table Header
-      doc.rect(40, y, 515, 20).fill('#f8fafc');
-      doc.fontSize(8).fillColor(mutedColor);
-      doc.text('ASSET NAME', 45, y + 6);
-      doc.text('CRITICALITY', 200, y + 6);
-      doc.text('EVIDENCE GRADE', 290, y + 6);
-      doc.text('SUCCESSOR', 390, y + 6);
-      doc.text('STATUS', 475, y + 6);
+      doc.font('Helvetica-Bold').fontSize(18).fillColor(BRAND.ink).text(org.companyName, L, y);
+      doc.font('Helvetica').fontSize(9).fillColor(BRAND.ink3).text(`As of ${asOf}`, L, y + 5, { width: CONTENT_W, align: 'right' });
+      y += 24;
+      doc.font('Helvetica').fontSize(10).fillColor(BRAND.bronzeInk).text('Handover pack', L, y);
+      y += 22;
+      doc.moveTo(L, y).lineTo(L + CONTENT_W, y).lineWidth(0.75).strokeColor(BRAND.rule).stroke();
       y += 22;
 
-      for (const h of dep.handovers) {
-        const node = graph.getNode(h.assetId);
-        const name = node?.entity?.name ?? h.assetId;
-        const critFact = node?.facts.get('criticality');
-        const crit = critFact ? String(critFact.value) : 'unknown';
-        const grade = critFact?.grade ?? 'unknown';
+      // ── Who is leaving ─────────────────────────────────────────────────────
+      doc.font('Helvetica-Bold').fontSize(22).fillColor(BRAND.ink).text(summary.person.name, L, y);
+      y += 28;
+      const roleLine = [summary.role, summary.team].filter(Boolean).join(' · ') || 'Team member';
+      doc.font('Helvetica').fontSize(10).fillColor(BRAND.ink2).text(roleLine, L, y);
+      y += 22;
 
-        const succNode = h.successorId ? graph.getNode(h.successorId) : null;
-        const succName = succNode?.entity?.name ?? (h.successorId ? h.successorId : 'None');
+      const facts: Array<[string, string]> = [
+        ['Leave date', ymdDate(dep.leaveDate)],
+        ['Stage', `Step ${stageIndex} of ${STAGE_ORDER.length}: ${STAGE_TEXT[dep.stage]}`],
+        ['Handed over', `${summary.assetsHandedOver} of ${summary.assetsTotal} assets`],
+      ];
+      const gap = 10;
+      const bw = (CONTENT_W - gap * 2) / 3;
+      facts.forEach(([label, value], i) => {
+        const bx = L + i * (bw + gap);
+        doc.roundedRect(bx, y, bw, 46, 6).fill(BRAND.canvas);
+        doc.font('Helvetica').fontSize(8).fillColor(BRAND.ink3).text(label, bx + 10, y + 9);
+        doc.font('Helvetica-Bold').fontSize(10.5).fillColor(BRAND.ink).text(value, bx + 10, y + 23, { width: bw - 20, lineBreak: false, ellipsis: true });
+      });
+      y += 60;
+      if (summary.hasAlert) {
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(BRAND.fail).text('Critical assets still lack an accepted successor.', L, y);
+        y += 16;
+      }
 
-        doc.fontSize(8).fillColor(primaryColor).text(name.slice(0, 30), 45, y);
-        doc.fillColor(crit === 'critical' ? '#dc2626' : '#2563eb').text(crit.toUpperCase(), 200, y);
-        doc.fillColor(grade === 'confirmed' ? '#059669' : '#d97706').text(grade.toUpperCase(), 290, y);
-        doc.fillColor(primaryColor).text(succName.slice(0, 16), 390, y);
-        doc.fillColor(h.acceptance === 'accepted' ? '#059669' : '#b45309').text(h.acceptance.toUpperCase(), 475, y);
-
-        y += 18;
-        if (y > 720) {
-          doc.addPage();
-          y = 40;
+      // ── Assets and successors ─────────────────────────────────────────────
+      section('Assets and successors', 'Every asset this person owns, who takes it over, and whether they have accepted.');
+      const colAsset = 175;
+      const colCrit = 70;
+      const colStatus = 80;
+      const colSucc = CONTENT_W - colAsset - colCrit - colStatus - 30;
+      const xCrit = L + colAsset + 10;
+      const xSucc = xCrit + colCrit + 10;
+      const xStatus = L + CONTENT_W - colStatus;
+      if (dep.handovers.length === 0) {
+        doc.font('Helvetica').fontSize(9).fillColor(BRAND.ink3).text('This person owns no tracked assets.', L, y);
+        y += 20;
+      } else {
+        ensure(24);
+        doc.font('Helvetica').fontSize(8).fillColor(BRAND.ink3);
+        doc.text('Asset', L, y);
+        doc.text('Criticality', xCrit, y);
+        doc.text('Successor', xSucc, y);
+        doc.text('Status', xStatus, y, { width: colStatus, align: 'right' });
+        y += 14;
+        const ACCEPT: Record<string, [string, string]> = {
+          accepted: ['Accepted', BRAND.pass],
+          requested: ['Awaiting', BRAND.bronzeInk],
+          declined: ['Declined', BRAND.fail],
+          none: ['Not asked', BRAND.ink3],
+        };
+        for (const h of dep.handovers) {
+          const node = graph.getNode(h.assetId);
+          const name = node?.entity?.name ?? h.assetId;
+          const crit = node?.facts.get('criticality')?.value;
+          const critText = typeof crit === 'string' ? crit.charAt(0).toUpperCase() + crit.slice(1) : 'Unknown';
+          const succ = h.successorId ? graph.getNode(h.successorId)?.entity?.name ?? h.successorId : 'Not named';
+          const reason = h.acceptance === 'declined' && h.declineReason ? `"${h.declineReason}"` : null;
+          doc.font('Helvetica').fontSize(9);
+          const rowH =
+            Math.max(doc.heightOfString(name, { width: colAsset }), doc.heightOfString(succ, { width: colSucc })) +
+            (reason ? doc.heightOfString(reason, { width: CONTENT_W - colAsset - 10 }) + 4 : 0) +
+            12;
+          ensure(rowH);
+          doc.moveTo(L, y).lineTo(L + CONTENT_W, y).lineWidth(0.5).strokeColor(BRAND.rule).stroke();
+          y += 6;
+          doc.font('Helvetica-Bold').fontSize(9).fillColor(BRAND.ink).text(name, L, y, { width: colAsset });
+          doc.font('Helvetica').fontSize(9).fillColor(crit === 'critical' ? BRAND.fail : BRAND.ink2).text(critText, xCrit, y, { width: colCrit });
+          doc.fillColor(h.successorId ? BRAND.ink : BRAND.ink3).text(succ, xSucc, y, { width: colSucc });
+          const [label, color] = ACCEPT[h.acceptance] ?? ACCEPT.none;
+          doc.font('Helvetica-Bold').fillColor(color).text(label, xStatus, y, { width: colStatus, align: 'right' });
+          if (reason) {
+            const ry = y + Math.max(doc.heightOfString(name, { width: colAsset }), doc.heightOfString(succ, { width: colSucc })) + 2;
+            doc.font('Helvetica').fontSize(8.5).fillColor(BRAND.ink2).text(reason, xCrit, ry, { width: CONTENT_W - colAsset - 10 });
+          }
+          y += rowH - 6;
         }
+        y += 10;
       }
 
-      // ── Personal Credential Automations ────────────────────────────────────
-      y += 15;
-      if (y > 680) {
-        doc.addPage();
-        y = 40;
-      }
-
-      doc.fontSize(12).fillColor(primaryColor).text('3. Personal Credential Automations at Risk (HND-07)', 40, y);
-      y += 18;
-
-      const personalEdges = graph
-        .getAllEdges()
-        .filter((e) => e.type === 'runs_on_credentials_of' && e.toId === dep.personId);
-
+      // ── Automations on their personal credentials ─────────────────────────
+      const personalEdges = graph.getAllEdges().filter((e) => e.type === 'runs_on_credentials_of' && e.toId === dep.personId && !e.validTo);
+      section('Runs on their own credentials', 'These stop when the account is disabled unless they are moved to a service account first.');
       if (personalEdges.length === 0) {
-        doc.fontSize(9).fillColor(mutedColor).text('No automations are bound to personal credentials of this employee.', 45, y);
+        doc.font('Helvetica').fontSize(9).fillColor(BRAND.ink3).text('No automation runs on this person’s credentials.', L, y);
         y += 20;
       } else {
         for (const pe of personalEdges) {
+          ensure(18);
           const autoNode = graph.getNode(pe.fromId);
-          const autoName = autoNode?.entity?.name ?? pe.fromId;
           const runsFact = autoNode?.facts.get('run_volume_weekly');
-          const runs = typeof runsFact?.value === 'number' ? `${runsFact.value} runs/week` : 'volume unknown';
-
-          doc.fontSize(9).fillColor('#dc2626').text(`- ${autoName}`, 45, y);
-          doc.fontSize(8).fillColor(mutedColor).text(`(${runs}) — Must migrate to service account prior to account disable.`, 180, y);
-          y += 16;
+          // 0 runs is a real count; only a missing value is unknown.
+          const runs = typeof runsFact?.value === 'number' ? `${runsFact.value.toLocaleString('en-US')} runs/week` : 'Volume unknown';
+          doc.font('Helvetica-Bold').fontSize(9).fillColor(BRAND.ink).text(autoNode?.entity?.name ?? pe.fromId, L, y);
+          doc.font('Helvetica').fontSize(9).fillColor(BRAND.ink2).text(runs, L, y, { width: CONTENT_W, align: 'right' });
+          y += 17;
         }
+        y += 6;
       }
 
-      // ── Runbooks & Documentation ───────────────────────────────────────────
-      y += 15;
-      if (y > 680) {
-        doc.addPage();
-        y = 40;
-      }
-
-      doc.fontSize(12).fillColor(primaryColor).text('4. Runbooks & Operational Documentation', 40, y);
-      y += 18;
-
-      let docFound = false;
+      // ── Runbooks ──────────────────────────────────────────────────────────
+      section('Runbooks', 'Documentation on record for each asset being handed over.');
       for (const h of dep.handovers) {
+        ensure(18);
         const node = graph.getNode(h.assetId);
         const name = node?.entity?.name ?? h.assetId;
         const docFact = node?.facts.get('documented');
-        if (docFact && docFact.value) {
-          docFound = true;
-          const url: string | undefined = (node?.entity?.externalRefs as any)?.runbookUrl;
-          doc.fontSize(9).fillColor(primaryColor).text(`- ${name}:`, 45, y);
-          if (url) doc.fontSize(9).fillColor(secondaryColor).text(url, 200, y);
-          else doc.fontSize(9).fillColor(mutedColor).text(`Documented (${docFact.grade}); no runbook link on record.`, 200, y);
-          y += 16;
-        }
+        const url: string | undefined = (node?.entity?.externalRefs as any)?.runbookUrl;
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(BRAND.ink).text(name, L, y, { width: 200 });
+        const x2 = L + 210;
+        if (docFact?.value === true && url) doc.font('Helvetica').fillColor(BRAND.bronzeInk).text(url, x2, y, { width: CONTENT_W - 210, link: url, underline: true });
+        else if (docFact?.value === true) doc.font('Helvetica').fillColor(BRAND.ink2).text(`Documented (${docFact.grade}); no runbook link on record.`, x2, y, { width: CONTENT_W - 210 });
+        else if (docFact?.value === false) doc.font('Helvetica').fillColor(BRAND.fail).text('No runbook.', x2, y, { width: CONTENT_W - 210 });
+        else doc.font('Helvetica').fillColor(BRAND.ink3).text('Unknown: not recorded.', x2, y, { width: CONTENT_W - 210 });
+        y += 17;
       }
-      if (!docFound) {
-        doc.fontSize(9).fillColor(mutedColor).text('No transferred asset is recorded as documented.', 45, y);
-        y += 20;
-      }
-
-      // ── Sign-off Block ─────────────────────────────────────────────────────
-      y += 25;
-      if (y > 650) {
-        doc.addPage();
-        y = 50;
+      if (dep.handovers.length === 0) {
+        doc.font('Helvetica').fontSize(9).fillColor(BRAND.ink3).text('Nothing to document.', L, y);
+        y += 17;
       }
 
-      doc.rect(40, y, 515, 95).strokeColor(borderColor).stroke();
-      doc.fontSize(10).fillColor(primaryColor).text('5. Operational Continuity Verification & Sign-off', 50, y + 10);
+      // ── Sign-off ──────────────────────────────────────────────────────────
+      y += 18;
+      ensure(110);
+      doc.roundedRect(L, y, CONTENT_W, 96, 6).lineWidth(0.75).strokeColor(BRAND.rule).stroke();
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(BRAND.ink).text('Sign-off', L + 14, y + 12);
+      const line = (label: string, ly: number) => {
+        doc.font('Helvetica').fontSize(8.5).fillColor(BRAND.ink3).text(label, L + 14, ly);
+        doc.moveTo(L + 150, ly + 10).lineTo(L + 330, ly + 10).lineWidth(0.5).strokeColor(BRAND.ink3).stroke();
+        doc.text('Date', L + 345, ly);
+        doc.moveTo(L + 372, ly + 10).lineTo(L + CONTENT_W - 14, ly + 10).stroke();
+      };
+      line('Manager', y + 40);
+      line('People operations (HR)', y + 66);
 
-      doc.fontSize(8).fillColor(mutedColor).text('DEPARTMENT MANAGER SIGN-OFF:', 50, y + 35);
-      doc.moveTo(190, y + 45).lineTo(340, y + 45).strokeColor(mutedColor).stroke();
-      doc.text('DATE:', 355, y + 35);
-      doc.moveTo(385, y + 45).lineTo(530, y + 45).strokeColor(mutedColor).stroke();
-
-      doc.fontSize(8).fillColor(mutedColor).text('PEOPLE OPERATIONS (HR) SIGN-OFF:', 50, y + 65);
-      doc.moveTo(190, y + 75).lineTo(340, y + 75).strokeColor(mutedColor).stroke();
-      doc.text('DATE:', 355, y + 65);
-      doc.moveTo(385, y + 75).lineTo(530, y + 75).strokeColor(mutedColor).stroke();
+      // ── Footer on every page ──────────────────────────────────────────────
+      const range = doc.bufferedPageRange();
+      for (let i = range.start; i < range.start + range.count; i++) {
+        doc.switchToPage(i);
+        doc.page.margins.bottom = 0; // the footer sits below the margin; don't let it open a page
+        const fy = PAGE.height - PAGE.margin + 6;
+        doc.moveTo(L, fy - 8).lineTo(L + CONTENT_W, fy - 8).lineWidth(0.5).strokeColor(BRAND.rule).stroke();
+        doc.font('Helvetica').fontSize(7.5).fillColor(BRAND.ink3);
+        doc.text(`Horquva OBA · Handover pack for ${summary.person.name}`, L, fy, { width: CONTENT_W, lineBreak: false });
+        doc.text(`Page ${i - range.start + 1} of ${range.count}`, L, fy, { width: CONTENT_W, align: 'right', lineBreak: false });
+      }
 
       doc.end();
     } catch (err) {
@@ -205,6 +241,15 @@ export async function generateHandoverPackPdf(
     }
   });
 }
+
+const STAGE_ORDER = ['initiated', 'successor_named', 'accepted', 'account_disabled', 'verified'] as const;
+const STAGE_TEXT: Record<string, string> = {
+  initiated: 'Initiated',
+  successor_named: 'Successor named',
+  accepted: 'Accepted',
+  account_disabled: 'Account disabled',
+  verified: 'Post-departure verified',
+};
 
 // ── Executive continuity report (RPT-02) ───────────────────────────────────────
 
