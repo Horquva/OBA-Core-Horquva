@@ -66,7 +66,7 @@ export function CampaignEmailPreview({ input }: CampaignEmailPreviewProps) {
   return (
     <section aria-labelledby="email-preview-heading" className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 id="email-preview-heading" className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono">
+        <h3 id="email-preview-heading" className="type-meta font-medium text-ink">
           What {data.to.person.name} receives
         </h3>
         <span className="text-[11px] text-ink-3">
@@ -75,10 +75,10 @@ export function CampaignEmailPreview({ input }: CampaignEmailPreviewProps) {
             : `Each of the ${data.reviewerCount} reviewers gets their own systems and link.`}
         </span>
       </div>
-      <div className="rounded-card border border-rule overflow-hidden">
+      <div className="rounded-control border border-rule overflow-hidden">
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-rule bg-surface-sunken/50 px-3 py-2 text-[11px]">
           <dt className="text-ink-3">To</dt>
-          <dd className="text-ink font-mono">{data.to.email}</dd>
+          <dd className="text-ink">{data.to.email}</dd>
           <dt className="text-ink-3">Subject</dt>
           <dd className="text-ink">{data.subject}</dd>
         </dl>

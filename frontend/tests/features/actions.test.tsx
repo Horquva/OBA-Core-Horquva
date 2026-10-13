@@ -178,57 +178,59 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
     it('renders ranked remediation actions list ordered by rank', async () => {
       renderActions();
 
-      expect(screen.getByText('Actions & Confirmations')).toBeInTheDocument();
-      expect(screen.getByText('#1')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'Actions' })).toBeInTheDocument();
+      expect(screen.getByText('Rank 1')).toBeInTheDocument();
       expect(screen.getByText('Critical Billing Pipeline lacks a qualified secondary backup')).toBeInTheDocument();
-      expect(screen.getByText('#2')).toBeInTheDocument();
+      expect(screen.getByText('Rank 2')).toBeInTheDocument();
       expect(screen.getByText('Production Database Sync runs under individual personal OAuth token')).toBeInTheDocument();
-      expect(screen.getByText('4 critical assets affected')).toBeInTheDocument();
+      expect(screen.getByText('affects 4 critical assets')).toBeInTheDocument();
+      // Plain names, no check codes
+      expect(screen.queryByText(/CHK-01/)).not.toBeInTheDocument();
     });
 
     it('filters actions by status pills correctly', async () => {
       renderActions();
 
       // Filter to Accepted Risk only
-      const acceptedRiskPill = screen.getByRole('button', { name: 'Accepted Risk' });
+      const acceptedRiskPill = screen.getByRole('button', { name: /^Risk accepted/ });
       fireEvent.click(acceptedRiskPill);
 
       expect(screen.getByText('Legacy SFDC Export lacks documented runbook')).toBeInTheDocument();
       expect(screen.queryByText('Critical Billing Pipeline lacks a qualified secondary backup')).not.toBeInTheDocument();
 
       // Renders rationale callout
-      expect(screen.getByText(/"Scheduled for complete decommissioning at end of quarter."/)).toBeInTheDocument();
-      expect(screen.getByText(/Under SIM-08, accepted risks remain fully counted in executive headline metrics/)).toBeInTheDocument();
+      expect(screen.getByText(/Scheduled for complete decommissioning at end of quarter./)).toBeInTheDocument();
+      expect(screen.getByText(/accepted by Sarah Connor/)).toBeInTheDocument();
     });
 
     it('displays empty state when filter yields zero actions', async () => {
       renderActions();
 
       // Filter to Resolved
-      const resolvedPill = screen.getByRole('button', { name: 'Resolved' });
+      const resolvedPill = screen.getByRole('button', { name: /^Resolved/ });
       fireEvent.click(resolvedPill);
 
       expect(screen.getByText('No actions in this view')).toBeInTheDocument();
-      expect(screen.getByText('All identified continuity actions matching this status filter have been addressed.')).toBeInTheDocument();
+      expect(screen.getByText('Nothing matches these filters.')).toBeInTheDocument();
     });
 
     it('shows only the actions each role may take (matches backend RBAC)', async () => {
       const { unmount } = renderActions('viewer');
-      expect(screen.queryByRole('button', { name: 'Assign Backup' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Accept Risk' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Assign a backup' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /More actions for/ })).not.toBeInTheDocument();
       unmount();
 
       renderActions('reviewer');
-      expect(screen.getAllByRole('button', { name: 'Assign Backup' }).length).toBeGreaterThan(0);
-      expect(screen.queryByRole('button', { name: 'Accept Risk' })).not.toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Assign a backup' }).length).toBeGreaterThan(0);
+      expect(screen.queryByRole('button', { name: /More actions for/ })).not.toBeInTheDocument();
     });
 
     it('lists real people in the backup picker and reports a refused assignment', async () => {
       vi.spyOn(actionsApi, 'assignBackup').mockRejectedValue(new Error('Omar Farooq already owns it; a backup must be someone else.'));
       renderActions();
-      fireEvent.click(screen.getAllByRole('button', { name: 'Assign Backup' })[0]);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Assign a backup' })[0]);
 
-      const input = screen.getByPlaceholderText('Choose person...');
+      const input = screen.getByPlaceholderText('Choose a person…');
       fireEvent.focus(input);
       fireEvent.change(input, { target: { value: 'Priya' } });
       fireEvent.click(await screen.findByText('Priya Sharma'));
@@ -240,38 +242,37 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
     it('allows toggling inline backup assignment picker', async () => {
       renderActions();
 
-      const assignButtons = screen.getAllByRole('button', { name: 'Assign Backup' });
+      const assignButtons = screen.getAllByRole('button', { name: 'Assign a backup' });
       fireEvent.click(assignButtons[0]);
 
-      expect(screen.getByText(/Select Backup Nominee for Stripe Billing Pipeline:/)).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('Choose person...')).toBeInTheDocument();
+      expect(screen.getByText('Who backs up Stripe Billing Pipeline?')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Choose a person…')).toBeInTheDocument();
 
       // Click Cancel to dismiss
       const cancelBtn = screen.getByRole('button', { name: 'Cancel' });
       fireEvent.click(cancelBtn);
 
-      expect(screen.queryByText(/Select Backup Nominee for Stripe Billing Pipeline:/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Who backs up Stripe Billing Pipeline?')).not.toBeInTheDocument();
     });
 
-    it('opens accept risk modal with invariant notice and submits justification', async () => {
+    it('accepts risk from the row menu, in plain language, and still counts it as exposed', async () => {
       renderActions();
 
-      const acceptRiskButtons = screen.getAllByRole('button', { name: 'Accept Risk' });
-      fireEvent.click(acceptRiskButtons[0]);
+      fireEvent.click(screen.getAllByRole('button', { name: /More actions for/ })[0]);
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Accept risk' }));
 
       // Verify modal content
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByText('Accept Risk for #1')).toBeInTheDocument();
-      expect(screen.getByText(/Integrity Invariant:/)).toBeInTheDocument();
-      expect(
-        screen.getByText(/Accepting risk documents organizational consent/i)
-      ).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Accept the risk' })).toBeInTheDocument();
+      expect(screen.getByText(/still counts as exposed on Overview, and reopens on/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '180 days' }));
+      expect(screen.getByRole('button', { name: '180 days' })).toHaveAttribute('aria-pressed', 'true');
 
       // Fill form
-      const textarea = screen.getByLabelText(/Business Justification/);
+      const textarea = screen.getByLabelText(/Why is this acceptable/);
       fireEvent.change(textarea, { target: { value: 'Planned migration to SAP next month.' } });
 
-      const submitBtn = screen.getByRole('button', { name: 'Confirm Risk Acceptance' });
+      const submitBtn = screen.getByRole('button', { name: 'Accept risk' });
       expect(submitBtn).toBeEnabled();
       fireEvent.click(submitBtn);
 
@@ -285,14 +286,39 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
       });
     });
 
-    it('switches to Confirmation Campaigns tab', async () => {
+    it('switches to the Confirmations tab', async () => {
       renderActions();
 
-      const campaignsTabBtn = screen.getByRole('button', { name: /Confirmation Campaigns/ });
-      fireEvent.click(campaignsTabBtn);
+      fireEvent.click(screen.getByRole('tab', { name: /Confirmations/ }));
 
-      expect(screen.getByText('Attestation & Confirmation Campaigns')).toBeInTheDocument();
-      expect(screen.getByText('+ New Campaign')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Confirmation campaigns' })).toBeInTheDocument();
+      expect(screen.getAllByRole('link', { name: /New campaign/ })[0]).toHaveAttribute('href', '/actions/confirmations/new');
+    });
+
+    it('?id= from Overview highlights that action, even when a filter would hide it', async () => {
+      vi.spyOn(entitiesApi, 'fetchPeople').mockResolvedValue([]);
+      render(
+        <SessionProvider initialSession={sessions.admin}>
+          <ToastProvider>
+            <ActionsView initialActions={sampleActions} highlightId="act-3" initialStatus="open" />
+          </ToastProvider>
+        </SessionProvider>,
+      );
+      expect(await screen.findByText('Legacy SFDC Export lacks documented runbook')).toBeInTheDocument();
+      expect(document.getElementById('action-act-3')?.className).toMatch(/amber/);
+    });
+
+    it('?status= sets the filter', async () => {
+      vi.spyOn(entitiesApi, 'fetchPeople').mockResolvedValue([]);
+      render(
+        <SessionProvider initialSession={sessions.admin}>
+          <ToastProvider>
+            <ActionsView initialActions={sampleActions} initialStatus="accepted_risk" />
+          </ToastProvider>
+        </SessionProvider>,
+      );
+      expect(screen.getByText('Legacy SFDC Export lacks documented runbook')).toBeInTheDocument();
+      expect(screen.queryByText('Critical Billing Pipeline lacks a qualified secondary backup')).not.toBeInTheDocument();
     });
 
     it('satisfies axe accessibility standards in ActionsView', async () => {
@@ -362,13 +388,13 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
       render(<NewCampaignWizard initialPreview={samplePreview} />);
 
       // Step 1: Scope
-      expect(screen.getByText('Step 1: Choose Campaign Scope')).toBeInTheDocument();
-      const nextBtn = screen.getByRole('button', { name: 'Continue to Review →' });
+      expect(screen.getByRole('heading', { name: 'Who should we ask?' })).toBeInTheDocument();
+      const nextBtn = screen.getByRole('button', { name: 'Continue' });
       fireEvent.click(nextBtn);
 
       // Step 2: Review Target Audience
       await waitFor(() => {
-        expect(screen.getByText('Step 2: Review Attestation Scope')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Review who gets asked' })).toBeInTheDocument();
       });
       expect(screen.getByText('Targeted Reviewers (2)')).toBeInTheDocument();
       // Systems with no current owner are named, not silently dropped.
@@ -376,11 +402,11 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
       expect(screen.getByText('Reviewers')).toBeInTheDocument();
       expect(screen.getByText('Questions')).toBeInTheDocument();
 
-      const proceedToMsgBtn = screen.getByRole('button', { name: 'Configure Message →' });
+      const proceedToMsgBtn = screen.getByRole('button', { name: 'Continue' });
       fireEvent.click(proceedToMsgBtn);
 
       // Step 3: Notification Message Preview
-      expect(screen.getByText('Step 3: Email Notification Preview')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: "The email they'll get" })).toBeInTheDocument();
       expect(
         screen.getByDisplayValue('Action Required: Confirm ownership and secondary backup for 6 systems')
       ).toBeInTheDocument();
@@ -391,12 +417,12 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
         expect.objectContaining({ tasks: samplePreview.tasks, email: expect.objectContaining({ subject: expect.any(String) }) })
       );
 
-      const proceedToScheduleBtn = screen.getByRole('button', { name: 'Schedule & Launch →' });
+      const proceedToScheduleBtn = screen.getByRole('button', { name: 'Continue' });
       fireEvent.click(proceedToScheduleBtn);
 
       // Step 4: Schedule & Launch
-      expect(screen.getByText('Step 4: Campaign Schedule & Name')).toBeInTheDocument();
-      const launchBtn = screen.getByRole('button', { name: '🚀 Launch Campaign' });
+      expect(screen.getByRole('heading', { name: 'Name it and set a deadline' })).toBeInTheDocument();
+      const launchBtn = screen.getByRole('button', { name: 'Launch campaign' });
       expect(launchBtn).toBeInTheDocument();
       expect(screen.getByText(/Reminder emails aren't sent automatically yet/)).toBeInTheDocument();
 
@@ -414,7 +440,7 @@ describe('Remediation & Certifications (Tasks 28-29)', () => {
       // Honest result before leaving: no SMTP means nothing was emailed.
       expect(await screen.findByText(/nothing was emailed/)).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Back to Actions' }));
-      expect(mockPush).toHaveBeenCalledWith('/actions');
+      expect(mockPush).toHaveBeenCalledWith('/actions?tab=confirmations');
     });
 
     it('satisfies axe accessibility standards in NewCampaignWizard', async () => {
