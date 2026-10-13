@@ -3,18 +3,20 @@
 import * as React from 'react';
 import Link from 'next/link';
 import type { ConnectionsOverview, ConnectionTestResult, ConnectionView, CsvImportResult } from '@/types/view';
-import { Card } from '@/components/ui/Card';
+import { ChevronDown, Plug, ScanSearch, Upload } from 'lucide-react';
+import { Panel, PanelHeader } from '@/components/ui/Panel';
 import { Button } from '@/components/ui/Button';
-import { Skeleton, ErrorState } from '@/components/ui/states';
+import { ErrorState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchConnections, importCsv, syncConnection, testSavedConnection } from '@/lib/api/settings';
 import { toApiError } from '@/lib/api/client';
 import { useSession } from '@/lib/session';
 import { canManageSettings } from '@/lib/permissions';
-import { formatDate, formatNumber } from '@/lib/format';
+import { formatDate, formatNumber, formatRelative } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { TYPE_LABELS } from './ConnectionForm';
 import { AddConnectionModal } from './AddConnectionModal';
+import { SectionHeader } from './SectionHeader';
 
 export interface ConnectionsViewProps {
   initialOverview?: ConnectionsOverview;
@@ -30,9 +32,9 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<ConnectionView['status'], string> = {
-  connected: 'bg-st-pass/15 text-st-pass',
-  syncing: 'bg-amber/15 text-amber-ink',
-  error: 'bg-st-fail/15 text-st-fail',
+  connected: 'bg-[color-mix(in_srgb,var(--st-pass)_13%,transparent)] text-st-pass',
+  syncing: 'bg-[color-mix(in_srgb,var(--amber)_16%,transparent)] text-amber-ink',
+  error: 'bg-[color-mix(in_srgb,var(--st-fail)_12%,transparent)] text-st-fail',
   disconnected: 'bg-surface-sunken text-ink-3',
 };
 
@@ -115,158 +117,143 @@ export function ConnectionsView({ initialOverview }: ConnectionsViewProps) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header with n8n Scan CTA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rule/50 pb-4">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Connectors & Data Sources</h2>
-          <p className="text-xs text-ink-3 mt-0.5">
-            Where OBA&apos;s data comes from: configured connectors and what each source has contributed.
-          </p>
-        </div>
+    <div className="space-y-5">
+      <SectionHeader
+        title="Connectors & Data Sources"
+        description="Where OBA's data comes from: the services it syncs with, and what each source has contributed."
+        action={
+          isAdmin && overview?.store === 'database' ? (
+            <Button size="sm" variant="primary" onClick={() => setAddOpen(true)} leftIcon={<Plug className="h-3.5 w-3.5" aria-hidden="true" />}>
+              Add connection
+            </Button>
+          ) : undefined
+        }
+      />
 
-        <Link
-          href="/settings/connections/n8n-check"
-          className="rounded-control bg-amber text-on-amber px-3.5 py-2 text-xs font-semibold hover:bg-amber-hover transition-colors inline-flex items-center gap-1.5 self-start sm:self-auto shadow-xs"
-        >
-          <span>Run n8n Ownership Scan →</span>
+      {/* The one-off n8n scan, mentioned once. */}
+      <div className="type-meta flex flex-col gap-2 rounded-control border border-rule bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="flex items-center gap-2.5 text-ink-2">
+          <ScanSearch className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+          Check an n8n instance for single owners and personal credentials, without saving the key.
+        </span>
+        <Link href="/settings/connections/n8n-check" className="shrink-0 font-medium text-ink hover:text-amber-ink">
+          Run n8n scan →
         </Link>
       </div>
 
-      {/* Prominent Stateless n8n Callout */}
-      <Card className="p-5 bg-surface-sunken/40 border border-rule space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-ink font-semibold">
-              Stateless Security Scan
-            </span>
-            <h3 className="text-lg font-semibold text-ink">
-              Audit your n8n workflows without storing credentials
-            </h3>
-            <p className="text-xs text-ink-3 leading-relaxed max-w-2xl">
-              Perform an in-memory scan of your self-hosted or cloud n8n workflows to immediately detect
-              single-owner risks, personal API credentials, and failing automated pipelines.
-            </p>
-          </div>
-          <Link
-            href="/settings/connections/n8n-check"
-            className="rounded-control border border-rule bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-sunken transition-colors shrink-0"
-          >
-            Launch Scan
-          </Link>
-        </div>
-      </Card>
-
-
       {!overview && resource.status === 'loading' ? (
-        <div className="space-y-4">
-          <Skeleton variant="card" className="h-28" />
-          <Skeleton variant="card" className="h-28" />
-        </div>
+        <span className="skeleton block h-40 rounded-panel" />
       ) : !overview ? (
-        <ErrorState onRetry={resource.reload} message="Could not load connections." />
+        <Panel className="p-5">
+          <ErrorState onRetry={resource.reload} message="We couldn't load connections." />
+        </Panel>
       ) : (
         <>
-          <section className="space-y-3" aria-labelledby="configured-connectors">
-            <div className="flex items-center justify-between gap-3">
-              <h3 id="configured-connectors" className="text-sm font-semibold text-ink">Configured connectors</h3>
-              {isAdmin && overview.store === 'database' && (
-                <Button size="sm" variant="primary" onClick={() => setAddOpen(true)}>
-                  Add connection
-                </Button>
-              )}
-            </div>
+          <Panel aria-labelledby="configured-connectors">
+            <PanelHeader
+              titleId="configured-connectors"
+              title="Configured connectors"
+              icon={<Plug />}
+              count={overview.store === 'database' ? overview.connections.length : undefined}
+              description={overview.store === 'database' ? 'Connected services sync automatically every hour.' : undefined}
+            />
             {overview.store === 'unavailable' ? (
-              <Card className="p-5 bg-surface border border-rule text-xs text-ink-3 space-y-1">
-                <p className="text-ink font-medium">No connectors to show.</p>
-                <p>
-                  Connector settings live in the database, and this backend can&apos;t reach it, so OBA is running on the
-                  data it was loaded with (below).
+              <div className="px-5 py-6">
+                <p className="type-heading text-ink">No connectors to show.</p>
+                <p className="type-meta mt-1 text-ink-3">
+                  Connector settings live in the database, and this backend can&apos;t reach it, so OBA is running on the data it was loaded with (below).
                 </p>
-              </Card>
+              </div>
             ) : overview.connections.length === 0 ? (
-              <Card className="p-5 bg-surface border border-rule text-xs text-ink-3">
-                No connectors have been set up yet.
-              </Card>
+              <p className="type-meta px-5 py-6 text-ink-3">No connectors have been set up yet.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {overview.connections.map((c) => (
-                  <Card key={c.id} className="p-5 bg-surface border border-rule shadow-card space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-lg font-semibold text-ink">{c.name}</h4>
-                      <span className={cn('px-2 py-0.5 rounded-badge text-[10px] font-mono uppercase font-semibold', STATUS_STYLES[c.status])}>
-                        {c.status === 'syncing' ? 'syncing…' : c.status}
-                      </span>
-                      {isAdmin && c.type !== 'csv' && (
-                        <div className="ml-auto flex items-center gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => runTest(c)} disabled={!!busy[c.id] || c.status === 'syncing'} isLoading={busy[c.id] === 'test'}>
-                            Test
-                          </Button>
-                          <Button size="sm" variant="secondary" onClick={() => runSync(c)} disabled={!!busy[c.id] || c.status === 'syncing'} isLoading={busy[c.id] === 'sync' || c.status === 'syncing'}>
-                            {c.status === 'syncing' ? 'Syncing…' : 'Sync now'}
-                          </Button>
+              <ul className="divide-y divide-rule">
+                {overview.connections.map((c) => {
+                  const err = c.lastError || c.lastRun?.error;
+                  const stats = c.lastRun?.status === 'completed' ? summarizeRunStats(c.lastRun.stats) : null;
+                  return (
+                    <li key={c.id} className="px-5 py-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <span aria-hidden="true" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-rule bg-surface-sunken text-ink-2">
+                          <Plug className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-medium text-ink">{c.name}</h3>
+                            <span className={cn('inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium', STATUS_STYLES[c.status])}>
+                              {c.status === 'syncing' ? 'syncing…' : c.status}
+                            </span>
+                          </div>
+                          <p className="type-meta mt-0.5 text-ink-3">
+                            {TYPE_LABELS[c.type] ?? c.type} ·{' '}
+                            {c.lastSyncAt ? <span title={formatDate(c.lastSyncAt)}>Synced {formatRelative(c.lastSyncAt)}</span> : 'Never synced'}
+                          </p>
+                          {c.lastRun && (
+                            <p className="type-meta mt-0.5 text-ink-3">
+                              Last run {c.lastRun.status}
+                              {stats && ` · ${stats}`}
+                            </p>
+                          )}
+                        </div>
+                        {isAdmin && c.type !== 'csv' && (
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => runTest(c)} disabled={!!busy[c.id] || c.status === 'syncing'} isLoading={busy[c.id] === 'test'}>
+                              Test
+                            </Button>
+                            <Button size="sm" variant="secondary" onClick={() => runSync(c)} disabled={!!busy[c.id] || c.status === 'syncing'} isLoading={busy[c.id] === 'sync' || c.status === 'syncing'}>
+                              {c.status === 'syncing' ? 'Syncing…' : 'Sync now'}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      {(notes[c.id] || err) && (
+                        <div className="mt-2 space-y-1 sm:pl-12">
+                          {notes[c.id] && (
+                            <p role="status" className={cn('type-meta', notes[c.id].tone === 'ok' ? 'text-st-pass' : 'text-st-fail')}>
+                              {notes[c.id].text}
+                            </p>
+                          )}
+                          {err && <p className="type-meta text-st-fail">Error: {err}</p>}
                         </div>
                       )}
-                    </div>
-                    <p className="text-xs text-ink-3 font-mono">
-                      {TYPE_LABELS[c.type] ?? c.type} · Last sync: {c.lastSyncAt ? formatDate(c.lastSyncAt) : 'never'}
-                    </p>
-                    {c.lastRun && (
-                      <p className="text-xs text-ink-3 font-mono">
-                        Last run {c.lastRun.status}
-                        {c.lastRun.status === 'completed' && summarizeRunStats(c.lastRun.stats) && ` · ${summarizeRunStats(c.lastRun.stats)}`}
-                      </p>
-                    )}
-                    {notes[c.id] && (
-                      <p role="status" className={cn('text-xs', notes[c.id].tone === 'ok' ? 'text-st-pass' : 'text-st-fail')}>
-                        {notes[c.id].text}
-                      </p>
-                    )}
-                    {(c.lastError || c.lastRun?.error) && (
-                      <div className="rounded-control bg-st-fail/10 border border-st-fail/20 p-3 text-xs font-mono text-st-fail">
-                        Error: {c.lastError || c.lastRun?.error}
-                      </div>
-                    )}
-                  </Card>
-                ))}
-              </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
-            {overview.store === 'database' && (
-              <p className="text-[11px] text-ink-3">Connected services sync automatically every hour.</p>
-            )}
-          </section>
+          </Panel>
 
           {isAdmin && overview.store === 'database' && <CsvImportCard onImported={reload} />}
 
-          <section className="space-y-3" aria-labelledby="data-on-record">
-            <h3 id="data-on-record" className="text-sm font-semibold text-ink">Data on record, by source</h3>
+          <Panel aria-labelledby="data-on-record">
+            <PanelHeader titleId="data-on-record" title="Data on record, by source" description="What each source has contributed to the graph." />
             {overview.sources.length === 0 ? (
-              <Card className="p-5 bg-surface border border-rule text-xs text-ink-3">No data has been loaded yet.</Card>
+              <p className="type-meta px-5 py-6 text-ink-3">No data has been loaded yet.</p>
             ) : (
-              <div className="border border-rule rounded-card bg-surface overflow-x-auto" tabIndex={0} role="region" aria-label="Data on record by source">
-                <table className="w-full text-left text-xs" aria-label="Data on record by source">
-                  <thead className="border-b border-rule bg-surface-sunken/60 font-mono text-[11px] text-ink-3">
-                    <tr>
-                      <th scope="col" className="p-3 font-semibold">Source</th>
-                      <th scope="col" className="p-3 font-semibold text-right">Relationships</th>
-                      <th scope="col" className="p-3 font-semibold text-right">Facts</th>
-                      <th scope="col" className="p-3 font-semibold">Most recent</th>
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Data on record by source">
+                <table className="w-full text-left" aria-label="Data on record by source">
+                  <thead>
+                    <tr className="type-meta border-b border-rule text-ink-3">
+                      <th scope="col" className="py-2.5 pl-5 pr-3 font-medium">Source</th>
+                      <th scope="col" className="px-3 py-2.5 text-right font-medium">Relationships</th>
+                      <th scope="col" className="px-3 py-2.5 text-right font-medium">Facts</th>
+                      <th scope="col" className="py-2.5 pl-3 pr-5 font-medium">Most recent</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-rule">
                     {overview.sources.map((src) => (
-                      <tr key={src.source}>
-                        <td className="p-3 text-ink font-medium">{SOURCE_LABELS[src.source] ?? src.source}</td>
-                        <td className="p-3 text-right font-mono tabular-nums">{formatNumber(src.relationships)}</td>
-                        <td className="p-3 text-right font-mono tabular-nums">{formatNumber(src.facts)}</td>
-                        <td className="p-3 font-mono text-ink-3">{src.latestAt ? formatDate(src.latestAt) : 'Unknown'}</td>
+                      <tr key={src.source} className="transition-colors hover:bg-surface-sunken/40">
+                        <td className="py-2.5 pl-5 pr-3 text-sm font-medium text-ink">{SOURCE_LABELS[src.source] ?? src.source}</td>
+                        <td className="type-meta px-3 py-2.5 text-right tabular-nums text-ink-2">{formatNumber(src.relationships)}</td>
+                        <td className="type-meta px-3 py-2.5 text-right tabular-nums text-ink-2">{formatNumber(src.facts)}</td>
+                        <td className="type-meta py-2.5 pl-3 pr-5 text-ink-3">{src.latestAt ? <span title={formatDate(src.latestAt)}>{formatRelative(src.latestAt)}</span> : 'Unknown'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
-          </section>
+          </Panel>
         </>
       )}
 
@@ -316,32 +303,50 @@ export function CsvImportCard({ onImported }: { onImported: () => void }) {
     }
   };
 
+  const [showColumns, setShowColumns] = React.useState(false);
+  const fileCls =
+    'type-meta block w-full cursor-pointer rounded-control border border-dashed border-rule bg-surface-sunken/40 px-3 py-2.5 text-ink-2 file:mr-3 file:cursor-pointer file:rounded-control file:border-0 file:bg-surface file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-ink hover:border-ink-3';
+
   return (
-    <section className="space-y-3" aria-labelledby="csv-import">
-      <h3 id="csv-import" className="text-sm font-semibold text-ink">Import from CSV</h3>
-      <Card className="p-5 bg-surface border border-rule space-y-4 text-xs">
-        <p className="text-ink-3 leading-relaxed">
-          People: <span className="font-mono">email, name, department, job_title, manager_email, status</span>.
-          Automations: <span className="font-mono">id, name, owner_email, backup_owner_email, criticality, is_documented, doc_url, fallback_exists, weekly_runs</span>.
-          A backup named in a spreadsheet counts as <em>stated</em> until that person confirms it.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <Panel aria-labelledby="csv-import">
+      <PanelHeader titleId="csv-import" title="Import from CSV" icon={<Upload />} description="For orgs without a directory or n8n API: upload people and/or automations." />
+      <div className="space-y-4 px-5 py-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <label htmlFor="csv-people" className="font-semibold text-ink block">People CSV</label>
-            <input id="csv-people" ref={peopleRef} type="file" accept=".csv,text/csv" onChange={refresh} className="text-xs text-ink-2" />
+            <label htmlFor="csv-people" className="type-meta block font-medium text-ink">People CSV</label>
+            <input id="csv-people" ref={peopleRef} type="file" accept=".csv,text/csv" onChange={refresh} className={fileCls} />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="csv-automations" className="font-semibold text-ink block">Automations CSV</label>
-            <input id="csv-automations" ref={autoRef} type="file" accept=".csv,text/csv" onChange={refresh} className="text-xs text-ink-2" />
+            <label htmlFor="csv-automations" className="type-meta block font-medium text-ink">Automations CSV</label>
+            <input id="csv-automations" ref={autoRef} type="file" accept=".csv,text/csv" onChange={refresh} className={fileCls} />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={run} disabled={!hasFile || busy} isLoading={busy}>Import</Button>
-          {result && (
-            <span role="status" className={result.tone === 'ok' ? 'text-st-pass' : 'text-st-fail'}>{result.text}</span>
+        <div>
+          <button type="button" onClick={() => setShowColumns((v) => !v)} aria-expanded={showColumns} className="type-meta inline-flex cursor-pointer items-center gap-1 font-medium text-ink-2 hover:text-ink">
+            What columns?
+            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', showColumns && 'rotate-180')} aria-hidden="true" />
+          </button>
+          {showColumns && (
+            <dl className="type-meta mt-2 space-y-1.5 rounded-control bg-surface-sunken/50 px-3.5 py-3 text-ink-2">
+              <div>
+                <dt className="inline font-medium text-ink">People: </dt>
+                <dd className="inline">email, name, department, job_title, manager_email, status</dd>
+              </div>
+              <div>
+                <dt className="inline font-medium text-ink">Automations: </dt>
+                <dd className="inline">id, name, owner_email, backup_owner_email, criticality, is_documented, doc_url, fallback_exists, weekly_runs</dd>
+              </div>
+              <p className="text-ink-3">A backup named in a spreadsheet counts as stated until that person confirms it.</p>
+            </dl>
           )}
         </div>
-      </Card>
-    </section>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 border-t border-rule bg-surface-sunken/40 px-5 py-3">
+        <Button variant="secondary" size="sm" onClick={run} disabled={!hasFile || busy} isLoading={busy}>Import</Button>
+        {result && (
+          <span role="status" className={cn('type-meta', result.tone === 'ok' ? 'text-st-pass' : 'text-st-fail')}>{result.text}</span>
+        )}
+      </div>
+    </Panel>
   );
 }

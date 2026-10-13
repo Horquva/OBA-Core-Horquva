@@ -2,11 +2,14 @@
 
 import * as React from 'react';
 import type { UserView, Role } from '@/types/view';
-import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
+import { ErrorState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchUsers, updateUser, inviteUser, removeUser } from '@/lib/api/settings';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { Panel } from '@/components/ui/Panel';
+import { Avatar } from '@/components/ui/Avatar';
+import { useOptionalSession } from '@/lib/session';
+import { SectionHeader, Notice } from './SectionHeader';
 import { toApiError } from '@/lib/api/client';
 import { cn } from '@/lib/cn';
 
@@ -26,7 +29,10 @@ export function UsersView({ initialUsers }: UsersViewProps) {
       : initialUsers || [];
 
   const [savingId, setSavingId] = React.useState<string | null>(null);
-  const [notice, setNotice] = React.useState<string | null>(null);
+  const [notice, setNoticeState] = React.useState<{ ok: boolean; text: string } | null>(null);
+  // Failures start with "Could not"; everything else is a success line.
+  const setNotice = (text: string | null) => setNoticeState(text ? { ok: !text.startsWith('Could not'), text } : null);
+  const session = useOptionalSession()?.session ?? null;
 
   const handleUpdateRole = async (user: UserView, newRole: Role) => {
     setSavingId(user.id);
@@ -71,14 +77,14 @@ export function UsersView({ initialUsers }: UsersViewProps) {
     }
   };
 
+  const ROLE_HELP: Record<Role, string> = { admin: 'Everything, including settings', reviewer: 'Can fix and assign', viewer: 'Read only' };
+
   return (
-    <div className="space-y-6">
-      <div className="border-b border-rule/50 pb-4">
-        <h2 className="text-base font-semibold text-ink">Users & Permissions</h2>
-        <p className="text-xs text-ink-3 mt-0.5">
-          Access is invite-only: people sign in with your company SSO, but only those listed here get in.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <SectionHeader
+        title="Users & Permissions"
+        description="Access is invite-only: people sign in with your company SSO, but only those listed here get in."
+      />
 
       <InviteUserForm
         onInvited={(u) => {
@@ -87,106 +93,102 @@ export function UsersView({ initialUsers }: UsersViewProps) {
         }}
       />
 
-      {notice && (
-        <div className="rounded-control bg-amber/10 border border-amber/30 p-3 text-xs text-amber-ink font-mono">
-          {notice}
-        </div>
-      )}
+      {notice && <Notice ok={notice.ok}>{notice.text}</Notice>}
 
-      {usersResource.status === 'loading' && !initialUsers ? (
-        <div className="space-y-3">
-          <Skeleton variant="card" className="h-16" />
-          <Skeleton variant="card" className="h-16" />
-          <Skeleton variant="card" className="h-16" />
-        </div>
-      ) : usersResource.status === 'error' && !initialUsers ? (
-        <ErrorState
-          onRetry={usersResource.reload}
-          message="Could not load users list."
-        />
-      ) : users.length === 0 ? (
-        <EmptyState
-          title="No users found"
-          description="Invite people above; they can then sign in with your company SSO."
-        />
-      ) : (
-        <div className="divide-y divide-rule border border-rule rounded-card bg-surface overflow-hidden shadow-card">
-          {users.map((u) => {
-            const isSaving = savingId === u.id;
-
-            return (
-              <div
-                key={u.id}
-                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-surface-sunken/20 transition-colors"
-              >
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-ink text-sm">{u.name}</span>
-                    <span
-                      className={cn(
-                        'px-2 py-0.5 rounded-badge text-[10px] font-mono uppercase font-semibold',
-                        u.role === 'admin' && 'bg-amber/15 text-amber-ink',
-                        u.role === 'viewer' && 'bg-surface-sunken text-ink-2',
-                        u.role === 'reviewer' && 'bg-st-pass/15 text-st-pass',
-                      )}
-                    >
-                      {u.role}
-                    </span>
-                    {u.isHrManager && (
-                      <span className="px-2 py-0.5 rounded-badge bg-ev-stated/15 text-ev-stated text-[10px] font-mono uppercase font-semibold">
-                        HR Manager
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-ink-3 font-mono">{u.email}</p>
-                </div>
-
-                <div className="flex items-center gap-4 text-xs">
-                  {/* Role Selector */}
-                  <div className="flex items-center gap-1.5">
-                    <label htmlFor={`role-select-${u.id}`} className="text-ink-3 font-mono text-[11px]">
-                      Role:
-                    </label>
-                    <select
-                      id={`role-select-${u.id}`}
-                      value={u.role}
-                      disabled={isSaving}
-                      onChange={(e) => handleUpdateRole(u, e.target.value as Role)}
-                      className="rounded-control border border-rule bg-surface p-1.5 text-xs text-ink focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber"
-                    >
-                      <option value="admin">Admin</option>
-                      <option value="viewer">Viewer</option>
-                      <option value="reviewer">Reviewer</option>
-                    </select>
-                  </div>
-
-                  {/* HR Toggle */}
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={u.isHrManager}
-                      disabled={isSaving}
-                      onChange={() => handleToggleHr(u)}
-                      className="rounded text-amber focus:ring-amber"
-                    />
-                    <span className="text-ink text-xs">HR Permissions</span>
-                  </label>
-
-                  <Button size="sm" variant="ghost" onClick={() => handleRemove(u)} disabled={isSaving} aria-label={`Remove access for ${u.name}`}>
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <Panel>
+        {usersResource.status === 'loading' && !initialUsers ? (
+          <div className="space-y-2 p-5" aria-label="Loading users">
+            <span className="skeleton block h-12 w-full" />
+            <span className="skeleton block h-12 w-full" />
+          </div>
+        ) : usersResource.status === 'error' && !initialUsers ? (
+          <div className="p-5">
+            <ErrorState onRetry={usersResource.reload} message="We couldn't load users." />
+          </div>
+        ) : users.length === 0 ? (
+          <div className="px-5 py-14 text-center">
+            <p className="type-heading text-ink">No users yet</p>
+            <p className="type-meta mt-1 text-ink-3">Invite people above; they can then sign in with your company SSO.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="type-meta border-b border-rule text-ink-3">
+                  <th scope="col" className="py-2.5 pl-5 pr-3 font-medium">Person</th>
+                  <th scope="col" className="px-3 py-2.5 font-medium">Role</th>
+                  <th scope="col" className="px-3 py-2.5 font-medium">HR manager</th>
+                  <th scope="col" className="w-24 py-2.5 pl-3 pr-5">
+                    <span className="sr-only">Remove</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rule">
+                {users.map((u) => {
+                  const isSaving = savingId === u.id;
+                  const isYou = !!session?.email && session.email.toLowerCase() === u.email.toLowerCase();
+                  return (
+                    <tr key={u.id} className={cn('transition-colors hover:bg-surface-sunken/40', isSaving && 'opacity-60')}>
+                      <td className="py-3 pl-5 pr-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={u.name} size={32} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-ink">
+                              {u.name}
+                              {isYou && <span className="ml-2 rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-ink-3">You</span>}
+                            </p>
+                            <p className="type-meta truncate text-ink-3">{u.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <label htmlFor={`role-select-${u.id}`} className="sr-only">
+                          Role:
+                        </label>
+                        <select
+                          id={`role-select-${u.id}`}
+                          value={u.role}
+                          disabled={isSaving}
+                          onChange={(e) => handleUpdateRole(u, e.target.value as Role)}
+                          className="type-meta h-8 cursor-pointer rounded-control border border-rule bg-surface px-2 text-ink focus:border-ink-3 focus:outline-none"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="reviewer">Reviewer</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                        <p className="mt-1 text-[11px] text-ink-3">{ROLE_HELP[u.role]}</p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <label className="inline-flex cursor-pointer select-none items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={u.isHrManager}
+                            disabled={isSaving}
+                            onChange={() => handleToggleHr(u)}
+                            className="h-4 w-4 cursor-pointer accent-[var(--amber)]"
+                            aria-label="HR Permissions"
+                          />
+                          <span className="type-meta text-ink-2" aria-hidden="true">{u.isHrManager ? 'Can record departures' : 'No'}</span>
+                        </label>
+                      </td>
+                      <td className="py-3 pl-3 pr-5 text-right">
+                        <Button size="sm" variant="ghost" onClick={() => handleRemove(u)} disabled={isSaving} aria-label={`Remove access for ${u.name}`}>
+                          Remove
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }
 
-const fieldClass =
-  'w-full rounded-control border border-rule bg-surface p-2 text-xs text-ink focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber';
+const fieldClass = 'type-meta h-9 w-full rounded-control border border-rule bg-surface px-3 text-ink placeholder:text-ink-3 focus:border-ink-3 focus:outline-none';
 
 function InviteUserForm({ onInvited }: { onInvited: (u: UserView) => void }) {
   const [email, setEmail] = React.useState('');
@@ -215,33 +217,34 @@ function InviteUserForm({ onInvited }: { onInvited: (u: UserView) => void }) {
   };
 
   return (
-    <Card className="p-4 bg-surface border border-rule text-xs">
-      <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_auto_auto_auto] gap-3 items-end" aria-label="Invite a user">
+    <Panel className="px-5 py-4">
+      <p className="type-meta mb-3 font-medium text-ink">Invite someone</p>
+      <form onSubmit={submit} className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1.4fr_1fr_auto_auto_auto]" aria-label="Invite a user">
         <div className="space-y-1">
-          <label htmlFor="invite-email" className="font-semibold text-ink block">Work email</label>
+          <label htmlFor="invite-email" className="type-meta block text-ink-3">Work email</label>
           <input id="invite-email" type="email" required className={fieldClass} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@your-org.edu" />
         </div>
         <div className="space-y-1">
-          <label htmlFor="invite-name" className="font-semibold text-ink block">Name</label>
+          <label htmlFor="invite-name" className="type-meta block text-ink-3">Name</label>
           <input id="invite-name" required className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="space-y-1">
-          <label htmlFor="invite-role" className="font-semibold text-ink block">Role</label>
+          <label htmlFor="invite-role" className="type-meta block text-ink-3">Role</label>
           <select id="invite-role" className={fieldClass} value={role} onChange={(e) => setRole(e.target.value as Role)}>
             <option value="viewer">Viewer</option>
             <option value="reviewer">Reviewer</option>
             <option value="admin">Admin</option>
           </select>
         </div>
-        <label className="flex items-center gap-2 pb-2 text-ink">
-          <input type="checkbox" checked={isHrManager} onChange={(e) => setIsHrManager(e.target.checked)} />
+        <label className="type-meta flex h-9 items-center gap-2 text-ink-2">
+          <input type="checkbox" checked={isHrManager} onChange={(e) => setIsHrManager(e.target.checked)} className="h-4 w-4 accent-[var(--amber)]" />
           HR permissions
         </label>
         <Button type="submit" variant="primary" size="sm" disabled={busy || !email.trim() || !name.trim()} isLoading={busy}>
           Invite
         </Button>
       </form>
-      {error && <p role="alert" className="mt-2 text-st-fail">{error}</p>}
-    </Card>
+      {error && <p role="alert" className="type-meta mt-2 text-st-fail">{error}</p>}
+    </Panel>
   );
 }

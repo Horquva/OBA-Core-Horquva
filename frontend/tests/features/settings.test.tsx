@@ -266,9 +266,8 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
         );
       });
 
-      // Metric summary strip
-      expect(await screen.findByText('35')).toBeInTheDocument();
-      expect(screen.getByText('Total Workflows')).toBeInTheDocument();
+      // Counted summary sentence (no tile strip)
+      expect(await screen.findByText(/^35 workflows, .* scanned/)).toBeInTheDocument();
 
       // 4 Categorized exposure panels
       expect(screen.getByText('Single Owner Workflows')).toBeInTheDocument();
@@ -392,6 +391,9 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
       expect(screen.getByRole('heading', { level: 2, name: 'Organization & Aggregation Rules' })).toBeInTheDocument();
       expect(screen.getByLabelText('Company Name')).toHaveValue('Horquva Technologies Inc.');
 
+      // The save bar only appears once something changes.
+      expect(screen.queryByRole('button', { name: 'Save Organization Settings' })).toBeNull();
+      fireEvent.change(screen.getByLabelText('Smallest team reported on its own'), { target: { value: '6' } });
       const saveBtn = screen.getByRole('button', { name: 'Save Organization Settings' });
       fireEvent.click(saveBtn);
 
@@ -399,7 +401,7 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
         expect(settingsApi.saveOrganization).toHaveBeenCalledWith(
           expect.objectContaining({
             companyName: 'Horquva Technologies Inc.',
-            minGroupSize: 5,
+            minGroupSize: 6,
           })
         );
       });
@@ -419,7 +421,7 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
       expect(screen.getByRole('heading', { level: 2, name: 'Audit Trail' })).toBeInTheDocument();
       expect(screen.getByText('Alex Rivera')).toBeInTheDocument();
       expect(screen.getByText('user:ghost')).toBeInTheDocument(); // unknown actor: raw id, not a made-up name
-      expect(screen.getAllByText('ASSIGN_BACKUP').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Assign backup').length).toBeGreaterThan(0);
       expect(screen.getByText(/most recent 20,000 entries/i)).toBeInTheDocument();
       expect(screen.queryByText(/cryptographic|tamper|immutable/i)).toBeNull();
       expect(screen.getByText('Showing 2 of 5')).toBeInTheDocument();
@@ -453,6 +455,7 @@ describe('Settings & Stateless n8n Check (Tasks 32-33)', () => {
         </SessionProvider>,
       );
       expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /^Connections/ })).toHaveAttribute('aria-current', 'page');
       expect(screen.getByText('page body')).toBeInTheDocument();
     });
 

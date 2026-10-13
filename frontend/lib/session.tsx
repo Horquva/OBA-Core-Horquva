@@ -142,3 +142,8 @@ export function useSession(): SessionContextValue {
   }
   return ctx;
 }
+
+/** For purely cosmetic uses (e.g. marking "You" in a list) where rendering without a provider is fine. */
+export function useOptionalSession(): SessionContextValue | null {
+  return React.useContext(SessionContext) ?? null;
+}
