@@ -106,7 +106,7 @@ export function NamedShareBar({ holders, total, className, ...props }: NamedShar
           <span key={holder.person.id} className="inline-flex items-center gap-1.5 text-ink-2">
             <span className={cn('h-2 w-2 rounded-full shrink-0', colors[idx % colors.length])} aria-hidden="true" />
             <span className="font-medium text-ink">{holder.person.name}</span>
-            <span className="text-ink-3 tabular-nums font-mono">{label(holder)}</span>
+            <span className="text-ink-3 tabular-nums">{label(holder)}</span>
           </span>
         ))}
       </div>

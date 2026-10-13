@@ -2,15 +2,20 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import type { TeamDetail as TeamDetailType, TeamMember } from '@/types/view';
-import { Card } from '@/components/ui/Card';
+import { ArrowLeft, ChevronDown, ShieldCheck, UsersRound, Waypoints } from 'lucide-react';
+import type { TeamDetail as TeamDetailType } from '@/types/view';
+import { Panel, PanelHeader } from '@/components/ui/Panel';
+import { Avatar } from '@/components/ui/Avatar';
 import { NamedShareBar } from '@/components/ui/bars';
-import { CoverageStrip } from '@/components/ui/CoverageStrip';
-import { CriticalityDots, EvidenceBadge, NoneValue, UnknownValue } from '@/components/ui/marks';
-import { Skeleton, ErrorState } from '@/components/ui/states';
+import { ErrorState } from '@/components/ui/states';
 import { useResource } from '@/lib/useResource';
 import { fetchTeam } from '@/lib/api/people';
 import { cn } from '@/lib/cn';
+import { CoverageBar, TeamStatusPill, holdingCounts } from './peopleFacts';
+import { HoldingsTable } from './HoldingsTable';
+
+/** Must match the backend's privacy floor default (organization.minGroupSize). */
+const DEFAULT_MIN_GROUP = 5;
 
 export interface TeamDetailProps {
   id: string;
@@ -18,277 +23,215 @@ export interface TeamDetailProps {
 }
 
 export function TeamDetail({ id, initialDetail }: TeamDetailProps) {
-  const teamResource = useResource<TeamDetailType>(
-    `team-detail-${id}`,
-    () => fetchTeam(id),
+  const teamResource = useResource<TeamDetailType>(`team-detail-${id}`, () => fetchTeam(id));
+  const detail = teamResource.status === 'ready' ? teamResource.data : initialDetail;
+
+  // Alphabetical only: members are never ordered by what they hold.
+  const members = React.useMemo(
+    () => (detail?.members ? [...detail.members].sort((a, b) => a.person.name.localeCompare(b.person.name)) : []),
+    [detail?.members],
   );
-
-  const detail =
-    teamResource.status === 'ready'
-      ? teamResource.data
-      : initialDetail;
-
-  // Strict Invariant: Alphabetical sort ONLY by member name
-  const sortedMembers = React.useMemo(() => {
-    if (!detail?.members) return [];
-    return [...detail.members].sort((a, b) =>
-      a.person.name.localeCompare(b.person.name),
-    );
-  }, [detail?.members]);
-
-  const [expandedMemberId, setExpandedMemberId] = React.useState<string | null>(null);
+  const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
+  const toggle = (pid: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(pid)) next.delete(pid);
+      else next.add(pid);
+      return next;
+    });
 
   if (teamResource.status === 'loading' && !detail) {
     return (
-      <div className="space-y-6 max-w-5xl mx-auto pb-16">
-        <Skeleton variant="text" className="w-1/4 h-5" />
-        <Skeleton variant="card" className="h-48" />
-        <Skeleton variant="card" className="h-96" />
+      <div className="space-y-6 pb-16" aria-label="Loading team">
+        <span className="skeleton block h-4 w-28" />
+        <span className="skeleton block h-16 w-1/2" />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <span className="skeleton block h-44 rounded-panel" />
+          <span className="skeleton block h-44 rounded-panel" />
+        </div>
+        <span className="skeleton block h-96 rounded-panel" />
       </div>
     );
   }
 
   if (teamResource.status === 'error' && !detail) {
     return (
-      <div className="max-w-2xl mx-auto py-12">
-        <ErrorState
-          onRetry={teamResource.reload}
-          message="We couldn't load this team's details."
-          lastLoadedAt={teamResource.lastLoadedAt || undefined}
-        />
+      <div className="mx-auto max-w-2xl py-12">
+        <Panel className="p-5">
+          <ErrorState onRetry={teamResource.reload} message="We couldn't load this team." lastLoadedAt={teamResource.lastLoadedAt || undefined} />
+        </Panel>
       </div>
     );
   }
 
   if (!detail) return null;
-
   const { team } = detail;
+  const { coverage } = team;
+  const unknown = coverage.unknown ?? 0;
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-16">
-      {/* Header & Back Link */}
-      <div className="space-y-4">
-        <Link
-          href="/people"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-3 hover:text-ink transition-colors"
-        >
-          <span aria-hidden="true">←</span>
-          <span>Back to Teams</span>
+    <div className="space-y-6 pb-16">
+      {/* Header */}
+      <div className="space-y-4 pt-2">
+        <Link href="/people" className="type-meta inline-flex items-center gap-1.5 font-medium text-ink-3 transition-colors hover:text-ink">
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          People &amp; Teams
         </Link>
-
-        <div className="space-y-2 border-b border-rule/50 pb-6">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-amber" aria-hidden="true" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono">
-              Team Holdings
-            </span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
-                {team.name}
-              </h1>
-              <p className="text-xs text-ink-3 mt-1 font-mono">
-                {team.memberCount} {team.memberCount === 1 ? 'member' : 'members'} · Listed alphabetically
-              </p>
-            </div>
-
-            {team.rolledUp && (
-              <span className="px-2.5 py-1 rounded-badge bg-amber/15 text-amber-ink text-xs font-semibold self-start sm:self-auto">
-                Rolled Up Team (&lt;5 members)
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Coverage & Concentration Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        <CoverageStrip metrics={team.coverage} />
-
-        {team.concentration ? (
-          <Card className="p-6 space-y-4 shadow-card bg-surface">
-            <div className="space-y-1">
-              <h2 className="text-xs font-semibold text-ink-3 uppercase font-mono">
-                Team Concentration
-              </h2>
-              <p className="font-semibold text-xl text-ink leading-snug">
-                {team.concentration.sentence}
-              </p>
-            </div>
-
-            {team.concentration.holders.length > 0 && (
-              <div className="pt-2">
-                <NamedShareBar holders={team.concentration.holders} total={team.concentration.total} />
-              </div>
-            )}
-          </Card>
-        ) : (
-          <Card className="p-6 space-y-2 bg-surface">
-            <h2 className="text-xs font-semibold text-ink-3 uppercase font-mono">
-              Team Concentration
-            </h2>
-            <p className="text-xs text-ink-3">
-              No single operator holds a disproportionate share of critical assets on this team.
-            </p>
-          </Card>
-        )}
-      </div>
-
-      {/* Team Roster (ALPHABETICAL ONLY) */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-ink">Team Members</h2>
-            <p className="text-xs text-ink-3">
-              Members are displayed in alphabetical order to eliminate subjective employee scoring.
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="type-title text-ink">{team.name}</h1>
+              <TeamStatusPill team={team} minGroupSize={DEFAULT_MIN_GROUP} />
+            </div>
+            <p className="mt-1 text-sm text-ink-2">
+              {team.memberCount} {team.memberCount === 1 ? 'member' : 'members'}
+              {!team.rolledUp && coverage.total > 0 && ` · ${coverage.covered} of ${coverage.total} critical assets have a backup`}
             </p>
           </div>
-          <span className="text-xs text-ink-3 font-mono">
-            {sortedMembers.length} members
-          </span>
-        </div>
-
-        <div className="space-y-3">
-          {sortedMembers.map((member) => {
-            const initials = member.person.name
-              .split(' ')
-              .map((n) => n[0])
-              .join('')
-              .slice(0, 2)
-              .toUpperCase();
-
-            const owned = member.holdings.filter((h) => h.relation === 'owns');
-            const backups = member.holdings.filter((h) => h.relation === 'backs_up');
-            const credentials = member.holdings.filter((h) => h.relation === 'credential');
-
-            const isExpanded = expandedMemberId === member.person.id;
-
-            return (
-              <Card
-                key={member.person.id}
-                className="p-5 bg-surface transition-colors hover:border-ink-3/40"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  {/* Identity */}
-                  <div className="flex items-center gap-3">
-                    <span className="h-10 w-10 rounded-full bg-surface-sunken border border-rule text-base font-semibold flex items-center justify-center text-ink shrink-0">
-                      {initials}
-                    </span>
-
-                    <div>
-                      <Link
-                        href={`/people/${member.person.id}`}
-                        className="text-lg font-semibold text-ink hover:text-amber-ink transition-colors"
-                      >
-                        {member.person.name}
-                      </Link>
-                      <p className="text-xs text-ink-3">
-                        {member.title ?? 'Title not on record'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Holdings Summary & Toggle */}
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                    <div className="flex items-center gap-1.5 text-xs font-mono">
-                      <span className="px-2 py-0.5 rounded-badge bg-surface-sunken text-ink">
-                        <strong>{owned.length}</strong> owned
-                      </span>
-                      <span className="px-2 py-0.5 rounded-badge bg-surface-sunken text-ink-2">
-                        <strong>{backups.length}</strong> backups
-                      </span>
-                      {credentials.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-badge bg-amber/15 text-amber-ink font-semibold">
-                          <strong>{credentials.length}</strong> credentials
-                        </span>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExpandedMemberId(isExpanded ? null : member.person.id)
-                      }
-                      aria-expanded={isExpanded}
-                      aria-label={`${isExpanded ? 'Hide' : 'View'} holdings for ${member.person.name}`}
-                      className="text-xs font-semibold text-ink-3 hover:text-ink cursor-pointer underline decoration-rule hover:decoration-ink"
-                    >
-                      {isExpanded ? 'Hide holdings' : 'View holdings'}
-                    </button>
-
-                  </div>
-                </div>
-
-                {/* Expanded Holdings Table */}
-                {isExpanded && member.holdings.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-rule/50 overflow-x-auto" tabIndex={0} role="region" aria-label="Member holdings table">
-                    <table className="w-full text-left text-xs text-ink">
-                      <thead className="border-b border-rule font-mono text-[11px] uppercase text-ink-3">
-                        <tr>
-                          <th scope="col" className="pb-2">Asset</th>
-                          <th scope="col" className="pb-2">Relation</th>
-                          <th scope="col" className="pb-2">Criticality</th>
-                          <th scope="col" className="pb-2">Backup Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-rule font-sans">
-                        {member.holdings.map((h) => (
-                          <tr key={h.asset.id} className="hover:bg-surface-sunken/40">
-                            <td className="py-2.5 font-medium">
-                              <Link
-                                href={`/assets/${h.asset.id}`}
-                                className="text-ink hover:text-amber-ink transition-colors font-semibold"
-                              >
-                                {h.asset.name}
-                              </Link>
-                            </td>
-
-                            <td className="py-2.5 whitespace-nowrap">
-                              <span
-                                className={cn(
-                                  'px-2 py-0.5 rounded-badge text-[11px] font-mono',
-                                  h.relation === 'owns' && 'bg-bronze/10 text-bronze-ink',
-                                  h.relation === 'backs_up' && 'bg-st-pass/10 text-st-pass',
-                                  h.relation === 'credential' && 'bg-amber/15 text-amber-ink font-semibold',
-                                )}
-                              >
-                                {h.relation === 'owns'
-                                  ? 'Owner'
-                                  : h.relation === 'backs_up'
-                                  ? 'Backup'
-                                  : 'Credential'}
-                              </span>
-                            </td>
-
-                            <td className="py-2.5 whitespace-nowrap">
-                              <CriticalityDots level={h.criticality} />
-                            </td>
-
-                            <td className="py-2.5 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
-                                <EvidenceBadge grade={h.backup.grade} />
-                                {h.backup.state === 'none' ? (
-                                  <NoneValue />
-                                ) : h.backup.state === 'unknown' ? (
-                                  <UnknownValue />
-                                ) : (
-                                  <span className="text-ink-2">{h.backup.display || 'None'}</span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+        </header>
       </div>
+
+      {/* Coverage + concentration, equal height */}
+      <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
+        <Panel aria-labelledby="team-coverage-heading" className="flex flex-col">
+          <PanelHeader titleId="team-coverage-heading" title="Coverage" icon={<ShieldCheck />} description="Critical and high assets this team's members own." />
+          <div className="flex flex-1 flex-col justify-center px-5 py-5">
+            {coverage.total === 0 ? (
+              <p className="type-meta text-ink-3">This team owns no critical assets.</p>
+            ) : (
+              <>
+                <p className="text-[15px] font-medium text-ink">
+                  <span className="text-2xl font-semibold tracking-tight tabular-nums">{coverage.covered}</span>
+                  <span className="text-ink-3"> of {coverage.total} have a backup on record</span>
+                </p>
+                <CoverageBar coverage={coverage} className="mt-3 h-2" />
+                <ul className="type-meta mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-ink-2">
+                  <li className="inline-flex items-center gap-1.5">
+                    <span aria-hidden="true" className="h-2 w-2 rounded-full bg-st-pass" /> Covered
+                    <span className="font-medium tabular-nums text-ink">{coverage.covered}</span>
+                  </li>
+                  {unknown > 0 && (
+                    <li className="inline-flex items-center gap-1.5">
+                      <span aria-hidden="true" className="h-2 w-2 rounded-full bg-st-unknown" /> Unknown
+                      <span className="font-medium tabular-nums text-ink">{unknown}</span>
+                    </li>
+                  )}
+                  <li className="inline-flex items-center gap-1.5">
+                    <span aria-hidden="true" className="h-2 w-2 rounded-full bg-st-fail" /> No backup
+                    <span className="font-medium tabular-nums text-ink">{Math.max(0, coverage.exposed - unknown)}</span>
+                  </li>
+                </ul>
+              </>
+            )}
+          </div>
+        </Panel>
+
+        <Panel aria-labelledby="team-concentration-heading" className="flex flex-col">
+          <PanelHeader titleId="team-concentration-heading" title="Who holds the critical work" icon={<Waypoints />} description="Counts of critical assets owned, not a ranking." />
+          <div className="flex flex-1 flex-col justify-center px-5 py-5">
+            {team.rolledUp ? (
+              <p className="type-meta text-ink-3">Not shown: this team is under {DEFAULT_MIN_GROUP} members, so no per-person breakdown is reported.</p>
+            ) : team.concentration ? (
+              <>
+                <p className="text-[15px] font-medium leading-snug text-ink">{team.concentration.sentence}</p>
+                <NamedShareBar className="mt-4" holders={team.concentration.holders} total={team.concentration.total} />
+              </>
+            ) : (
+              <p className="type-meta text-ink-3">Nobody on this team owns a critical asset.</p>
+            )}
+          </div>
+        </Panel>
+      </div>
+
+      {/* Roster */}
+      <Panel aria-labelledby="roster-heading">
+        <PanelHeader
+          titleId="roster-heading"
+          title="Members"
+          icon={<UsersRound />}
+          count={team.rolledUp ? undefined : members.length}
+          description="Listed alphabetically. Open a row to see what they hold."
+        />
+        {team.rolledUp ? (
+          <div className="px-5 py-12 text-center">
+            <p className="type-heading text-ink">Rolled up for privacy</p>
+            <p className="type-meta mx-auto mt-1 max-w-sm text-ink-3">
+              Teams under {DEFAULT_MIN_GROUP} members show no per-person view. Their assets count toward the organisation totals.
+            </p>
+          </div>
+        ) : members.length === 0 ? (
+          <p className="type-meta px-5 py-10 text-center text-ink-3">No members on record.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="type-meta border-b border-rule text-ink-3">
+                  <th scope="col" className="py-2.5 pl-5 pr-3 font-medium">Person</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Owns</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Backs up</th>
+                  <th scope="col" className="hidden px-3 py-2.5 text-right font-medium sm:table-cell">On their credentials</th>
+                  <th scope="col" className="hidden px-3 py-2.5 text-right font-medium sm:table-cell">No backup</th>
+                  <th scope="col" className="w-12 py-2.5 pr-4">
+                    <span className="sr-only">Show holdings</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rule">
+                {members.map((member) => {
+                  const c = holdingCounts(member.holdings);
+                  const open = expanded.has(member.person.id);
+                  return (
+                    <React.Fragment key={member.person.id}>
+                      <tr className={cn('transition-colors hover:bg-surface-sunken/50', open && 'bg-surface-sunken/40')}>
+                        <td className="py-3 pl-5 pr-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={member.person.name} size={32} />
+                            <div className="min-w-0">
+                              <Link href={`/people/${member.person.id}`} className="text-sm font-medium text-ink transition-colors hover:text-amber-ink">
+                                {member.person.name}
+                              </Link>
+                              <p className="truncate text-[11px] text-ink-3">{member.title ?? 'Title not on record'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right text-sm tabular-nums text-ink">{c.owns}</td>
+                        <td className="px-3 py-3 text-right text-sm tabular-nums text-ink">{c.backsUp}</td>
+                        <td className={cn('hidden px-3 py-3 text-right text-sm tabular-nums sm:table-cell', c.credential > 0 ? 'font-medium text-amber-ink' : 'text-ink-3')}>
+                          {c.credential}
+                        </td>
+                        <td className={cn('hidden px-3 py-3 text-right text-sm tabular-nums sm:table-cell', c.noBackup > 0 ? 'font-medium text-st-fail' : 'text-ink-3')}>
+                          {c.noBackup}
+                        </td>
+                        <td className="py-3 pr-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => toggle(member.person.id)}
+                            aria-expanded={open}
+                            aria-label={`${open ? 'Hide' : 'Show'} ${member.person.name}'s holdings`}
+                            disabled={member.holdings.length === 0}
+                            className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-control text-ink-3 transition-colors hover:bg-surface hover:text-ink disabled:cursor-default disabled:opacity-30"
+                          >
+                            <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr>
+                          <td colSpan={6} className="bg-surface-sunken/40 px-5 pb-4 pt-1">
+                            <div className="overflow-hidden rounded-control border border-rule bg-surface">
+                              <HoldingsTable holdings={member.holdings} label={`${member.person.name}'s holdings`} compact />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

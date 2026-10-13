@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { axe } from 'vitest-axe';
 import { PeopleView } from '@/features/people/PeopleView';
 import { TeamDetail } from '@/features/people/TeamDetail';
@@ -116,8 +116,12 @@ vi.mock('@/lib/api/people', () => ({
   fetchTeam: vi.fn(),
   fetchPerson: vi.fn(),
 }));
+vi.mock('@/lib/api/departures', () => ({
+  fetchDepartures: vi.fn(),
+}));
 
 import { fetchTeams, fetchTeam, fetchPerson } from '@/lib/api/people';
+import { fetchDepartures } from '@/lib/api/departures';
 
 describe('People & Teams Feature (Task 24)', () => {
   beforeEach(() => {
@@ -125,18 +129,21 @@ describe('People & Teams Feature (Task 24)', () => {
     (fetchTeams as any).mockResolvedValue({ teams: sampleTeams, minGroupSize: 5 });
     (fetchTeam as any).mockResolvedValue(sampleTeamDetail);
     (fetchPerson as any).mockResolvedValue(samplePersonDetail);
+    (fetchDepartures as any).mockResolvedValue([]);
   });
 
   describe('PeopleView', () => {
-    it('renders team cards, concentration sentence, and privacy roll-up indicator', async () => {
+    it('renders the summary, concentration panel, alphabetical teams table and privacy roll-up', async () => {
       const { container } = render(<PeopleView initialTeams={sampleTeams} minGroupSize={5} />);
 
       // Title & header
       expect(screen.getByRole('heading', { level: 1, name: /people & teams/i })).toBeDefined();
 
-      // Team cards
-      expect(screen.getByText('Infrastructure & Platform')).toBeDefined();
-      expect(screen.getByText('Security Operations')).toBeDefined();
+      // Teams table, alphabetical
+      const teamLinks = screen.getAllByRole('link', { name: /Infrastructure & Platform|Security Operations/ });
+      expect(teamLinks.map((l) => l.textContent)).toContain('Security Operations');
+      expect(screen.getByText('12')).toBeDefined();
+      expect(screen.getByText('Mostly one person')).toBeDefined();
 
       // Concentration sentence & share bar
       expect(screen.getByText("1 person holds 7 of Platform's 13 critical assets.")).toBeDefined();
@@ -144,9 +151,9 @@ describe('People & Teams Feature (Task 24)', () => {
       expect(screen.getByText('7 of 13')).toBeDefined();
       expect(screen.queryByText(/\d+%/)).toBeNull();
 
-      // Privacy roll-up for team with < 5 members
+      // Privacy roll-up for team with < 5 members: no coverage or holders shown
       expect(screen.getByText('Rolled up')).toBeDefined();
-      expect(screen.getByText(/Privacy Notice/i)).toBeDefined();
+      expect(screen.getByText(/Not shown separately \(under 5 members\)/)).toBeDefined();
 
       // Accessibility
       const results = await axe(container);
@@ -156,11 +163,12 @@ describe('People & Teams Feature (Task 24)', () => {
     it('filters teams correctly when searching in quick filter input', async () => {
       render(<PeopleView initialTeams={sampleTeams} minGroupSize={5} />);
 
-      const searchInput = screen.getByPlaceholderText(/filter teams by name\.\.\./i);
+      const searchInput = screen.getByRole('searchbox', { name: 'Filter teams' });
       fireEvent.change(searchInput, { target: { value: 'Security' } });
 
-      expect(screen.queryByText('Infrastructure & Platform')).toBeNull();
-      expect(screen.getByText('Security Operations')).toBeDefined();
+      const table = screen.getByRole('table');
+      expect(within(table).queryByText('Infrastructure & Platform')).toBeNull();
+      expect(within(table).getByText('Security Operations')).toBeDefined();
     });
   });
 
@@ -184,7 +192,7 @@ describe('People & Teams Feature (Task 24)', () => {
       expect(screen.queryByText(/performance score/i)).toBeNull();
 
       // Expand a member row to view holdings
-      const sarahToggle = screen.getByLabelText(/view holdings for sarah connor/i);
+      const sarahToggle = screen.getByRole('button', { name: "Show Sarah Connor's holdings" });
       fireEvent.click(sarahToggle);
 
 
@@ -205,14 +213,15 @@ describe('People & Teams Feature (Task 24)', () => {
       expect(screen.getByText(/principal cloud architect/i)).toBeDefined();
 
       // Handover & confirmation indicators
-      expect(screen.getByText(/Active Handover Workbenches/i)).toBeDefined();
-      expect(screen.getByText(/Pending Ownership Confirmations/i)).toBeDefined();
+      expect(screen.getByRole('heading', { name: /Asked to take over/ })).toBeDefined();
+      expect(screen.getByText('From Kyle Reese')).toBeDefined();
+      expect(screen.getByRole('heading', { name: /Confirmations/ })).toBeDefined();
 
-      // Strict fairness guarantee notice
-      expect(screen.getByText(/Fair Assessment Guarantee:/i)).toBeDefined();
+      // The fairness principle, stated once
+      expect(screen.getByText(/never scored or ranked/i)).toBeDefined();
 
-      // Relation tab filter
-      const ownsButton = screen.getByRole('button', { name: /owned/i });
+      // Relation filter
+      const ownsButton = screen.getByRole('button', { name: /^Owner/ });
       fireEvent.click(ownsButton);
 
       expect(screen.getByText('Stripe Billing Pipeline')).toBeDefined();
@@ -221,6 +230,15 @@ describe('People & Teams Feature (Task 24)', () => {
       // Accessibility
       const results = await axe(container);
       expect(results).toHaveNoViolations();
+    });
+
+    it('shows a leaving chip linking to their open departure', async () => {
+      (fetchDepartures as any).mockResolvedValue([
+        { id: 'dep-7', person: { id: 'p-1', name: 'Sarah Connor', kind: 'person' }, role: null, team: null, leaveDate: '2099-11-15T00:00:00Z', stage: 'initiated', assetsTotal: 1, assetsHandedOver: 0, hasAlert: true, detectedFrom: 'manual', group: 'upcoming' },
+      ]);
+      render(<PersonDetail id="p-1" initialDetail={samplePersonDetail} />);
+      const chip = await screen.findByRole('link', { name: /Leaving/ });
+      expect(chip).toHaveAttribute('href', '/departures/dep-7');
     });
   });
 });

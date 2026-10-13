@@ -3,16 +3,16 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { TeamSummary, EntityRef } from '@/types/view';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { Search, UsersRound, Waypoints } from 'lucide-react';
+import type { TeamSummary } from '@/types/view';
+import { Panel, PanelHeader } from '@/components/ui/Panel';
 import { NamedShareBar } from '@/components/ui/bars';
-import { SegmentedBar } from '@/components/ui/bars';
-import { Skeleton, ErrorState, EmptyState } from '@/components/ui/states';
-import { PersonPicker, PersonItem } from '@/components/ui/PersonPicker';
+import { ErrorState } from '@/components/ui/states';
+import { PersonPicker } from '@/components/ui/PersonPicker';
 import { useResource } from '@/lib/useResource';
 import { fetchTeams } from '@/lib/api/people';
 import { cn } from '@/lib/cn';
+import { CoverageBar, StatTile, TeamStatusPill, isConcentrated, majority } from './peopleFacts';
 
 export interface PeopleViewProps {
   initialTeams?: TeamSummary[];
@@ -21,215 +21,212 @@ export interface PeopleViewProps {
 
 export function PeopleView({ initialTeams, minGroupSize: initialMinSize = 5 }: PeopleViewProps) {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [query, setQuery] = React.useState('');
 
-  const teamsResource = useResource<{ teams: TeamSummary[]; minGroupSize: number }>(
-    'people-teams-list',
-    fetchTeams,
-  );
-
-  const teamsData = teamsResource.status === 'ready' ? teamsResource.data.teams : initialTeams || [];
+  const teamsResource = useResource<{ teams: TeamSummary[]; minGroupSize: number }>('people-teams-list', fetchTeams);
+  const teams = teamsResource.status === 'ready' ? teamsResource.data.teams : initialTeams || [];
   const minGroupSize = teamsResource.status === 'ready' ? teamsResource.data.minGroupSize : initialMinSize;
+  const loading = teamsResource.status === 'loading' && teams.length === 0;
 
-  const filteredTeams = React.useMemo(() => {
-    if (!searchQuery.trim()) return teamsData;
-    const q = searchQuery.toLowerCase();
-    return teamsData.filter((t) => t.name.toLowerCase().includes(q));
-  }, [teamsData, searchQuery]);
+  // Alphabetical only: teams are never ordered by how exposed they are.
+  const sorted = React.useMemo(() => [...teams].sort((a, b) => a.name.localeCompare(b.name)), [teams]);
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? sorted.filter((t) => t.name.toLowerCase().includes(q)) : sorted;
+  }, [sorted, query]);
+
+  const totals = teams.reduce(
+    (acc, t) => ({
+      members: acc.members + t.memberCount,
+      covered: acc.covered + t.coverage.covered,
+      critical: acc.critical + t.coverage.total,
+      exposed: acc.exposed + t.coverage.exposed,
+    }),
+    { members: 0, covered: 0, critical: 0, exposed: 0 },
+  );
+  const concentrated = sorted.filter(isConcentrated);
 
   return (
-    <div className="space-y-8 pb-16">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rule/50 pb-6">
+    <div className="space-y-6 pb-16">
+      <header className="flex flex-col gap-4 pt-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="h-2 w-2 rounded-full bg-amber" aria-hidden="true" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3 font-mono">
-              Organizational Concentration
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl text-ink font-semibold tracking-tight">
-            People & Teams
-          </h1>
-          <p className="text-sm text-ink-3 mt-1">
-            Track asset ownership concentration, team coverage, and single-person bottlenecks.
-          </p>
+          <h1 className="type-title text-ink">People &amp; Teams</h1>
+          <p className="mt-1 text-sm text-ink-2">Who holds each team&apos;s critical work, and whether it has a backup.</p>
         </div>
-
-        {/* Quick Person Search */}
         <div className="w-full sm:w-72">
-          <PersonPicker
-            onChange={(person) => {
-              if (person) {
-                router.push(`/people/${person.id}`);
+          <PersonPicker onChange={(person) => person && router.push(`/people/${person.id}`)} placeholder="Find a person…" />
+        </div>
+      </header>
+
+      {teamsResource.status === 'error' && teams.length === 0 && (
+        <Panel className="p-5">
+          <ErrorState onRetry={teamsResource.reload} message="We couldn't load teams." lastLoadedAt={teamsResource.lastLoadedAt || undefined} />
+        </Panel>
+      )}
+
+      {loading && (
+        <div className="space-y-6" aria-label="Loading teams">
+          <span className="skeleton block h-24 rounded-panel" />
+          <span className="skeleton block h-80 rounded-panel" />
+        </div>
+      )}
+
+      {!loading && !(teamsResource.status === 'error' && teams.length === 0) && (
+        <>
+          {/* Summary */}
+          <Panel className="grid grid-cols-2 gap-px overflow-hidden bg-rule lg:grid-cols-5">
+            <StatTile label="Teams" value={teams.length} />
+            <StatTile label="Team members" value={totals.members} />
+            <StatTile
+              label="Critical assets covered"
+              value={
+                <span>
+                  {totals.covered}
+                  <span className="text-base font-medium text-ink-3"> of {totals.critical}</span>
+                </span>
               }
-            }}
-            placeholder="Search person directly..."
-          />
-        </div>
-      </div>
+            />
+            <StatTile label="Without a backup" value={totals.exposed} tone={totals.exposed > 0 ? 'fail' : undefined} />
+            <StatTile
+              label="Mostly held by one person"
+              value={concentrated.length}
+              tone={concentrated.length > 0 ? 'warn' : undefined}
+            />
+          </Panel>
 
-      {/* Filter / Search Bar */}
-      <div className="flex items-center justify-between gap-4">
-        <input
-          type="search"
-          placeholder="Filter teams by name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          aria-label="Filter teams"
-          className="w-full max-w-sm rounded-control border border-rule bg-surface px-3 py-1.5 text-xs text-ink placeholder:text-ink-3 focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber"
-        />
-
-        <span className="text-xs text-ink-3 font-mono">
-          Privacy floor: minimum {minGroupSize} members
-        </span>
-      </div>
-
-      {/* Loading Skeleton */}
-      {teamsResource.status === 'loading' && teamsData.length === 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Skeleton variant="card" className="h-64" />
-          <Skeleton variant="card" className="h-64" />
-          <Skeleton variant="card" className="h-64" />
-        </div>
-      )}
-
-      {/* Error State */}
-      {teamsResource.status === 'error' && teamsData.length === 0 && (
-        <ErrorState
-          onRetry={teamsResource.reload}
-          message="We couldn't load team concentration data."
-          lastLoadedAt={teamsResource.lastLoadedAt || undefined}
-        />
-      )}
-
-      {/* Empty State */}
-      {teamsResource.status === 'ready' && filteredTeams.length === 0 && (
-        <EmptyState
-          title="No teams found"
-          description={
-            searchQuery
-              ? `No teams match "${searchQuery}".`
-              : 'Connect your directory provider (Microsoft Entra ID or Google Workspace) to view team concentration.'
-          }
-        />
-      )}
-
-      {/* Teams Grid */}
-      {filteredTeams.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTeams.map((team) => {
-            const isTooSmall = team.rolledUp || team.memberCount < minGroupSize;
-
-            const segments = [
-              {
-                count: team.coverage.covered,
-                label: 'covered',
-                colorClass: 'bg-st-pass',
-              },
-              {
-                count: team.coverage.exposed,
-                label: 'exposed',
-                colorClass: 'bg-st-fail',
-              },
-              ...(team.coverage.unknown && team.coverage.unknown > 0
-                ? [
-                    {
-                      count: team.coverage.unknown,
-                      label: 'unknown',
-                      colorClass: 'bg-st-unknown',
-                    },
-                  ]
-                : []),
-            ];
-
-            return (
-              <Card
-                key={team.id}
-                className={cn(
-                  'flex flex-col justify-between p-6 shadow-xs transition-all hover:border-ink-3/40 bg-surface',
-                  isTooSmall && 'opacity-90 bg-surface-sunken/30',
-                )}
-              >
-                <div className="space-y-4">
-                  {/* Team Title & Member Count */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <Link
-                        href={`/people/teams/${team.id}`}
-                        className="text-xl sm:text-2xl text-ink font-semibold hover:text-amber-ink transition-colors"
-                      >
-                        {team.name}
+          {/* Concentration */}
+          <Panel aria-labelledby="concentration-heading">
+            <PanelHeader
+              titleId="concentration-heading"
+              title="Where one person holds most of a team's critical work"
+              icon={<Waypoints />}
+              count={concentrated.length}
+              description="If that person is away or leaves, most of the team's critical assets go with them."
+            />
+            {concentrated.length === 0 ? (
+              <p className="type-meta px-5 py-6 text-ink-3">No team relies on one person for most of its critical assets.</p>
+            ) : (
+              <ul className="grid grid-cols-1 gap-px bg-rule md:grid-cols-2">
+                {concentrated.map((t) => (
+                  <li key={t.id} className="bg-surface px-5 py-4">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <Link href={`/people/teams/${t.id}`} className="text-sm font-medium text-ink transition-colors hover:text-amber-ink">
+                        {t.name}
                       </Link>
-                      <p className="text-xs text-ink-3 mt-0.5 font-mono">
-                        {team.memberCount} {team.memberCount === 1 ? 'member' : 'members'}
-                      </p>
+                      <span className="type-meta text-ink-3">{t.memberCount} members</span>
                     </div>
+                    <p className="type-meta mt-1 text-ink-2">{t.concentration!.sentence}</p>
+                    <NamedShareBar className="mt-3" holders={t.concentration!.holders} total={t.concentration!.total} />
+                  </li>
+                ))}
+                {concentrated.length % 2 === 1 && <li aria-hidden="true" className="hidden bg-surface md:block" />}
+              </ul>
+            )}
+          </Panel>
 
-                    {isTooSmall && (
-                      <span className="text-[11px] px-2 py-0.5 rounded-badge bg-amber/15 text-amber-ink font-semibold whitespace-nowrap">
-                        Rolled up
-                      </span>
-                    )}
-                  </div>
+          {/* Teams */}
+          <Panel aria-labelledby="teams-heading">
+            <PanelHeader
+              titleId="teams-heading"
+              title="Teams"
+              icon={<UsersRound />}
+              count={teams.length}
+              description={`Listed alphabetically. Teams under ${minGroupSize} members roll up to protect privacy.`}
+            />
+            <div className="border-b border-rule px-5 py-3">
+                <label className="relative block w-full sm:w-64">
+                  <span className="sr-only">Filter teams</span>
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Filter teams"
+                    className="type-meta h-8 w-full rounded-control border border-rule bg-surface pl-8 pr-2.5 text-ink placeholder:text-ink-3 focus:border-ink-3 focus:outline-none"
+                  />
+                </label>
+            </div>
 
-                  {/* Too small privacy notice */}
-                  {isTooSmall ? (
-                    <div className="rounded-control bg-surface-sunken p-3 text-xs text-ink-3 border border-rule/60">
-                      <p className="font-medium text-ink mb-0.5">Privacy Notice</p>
-                      <p>
-                        Too small to report separately (&lt;{minGroupSize} members) to preserve individual privacy. Assets roll up to parent department.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Concentration Sentence */}
-                      {team.concentration && (
-                        <div className="space-y-1">
-                          <p className="text-xs font-semibold text-ink-3 uppercase font-mono">
-                            Ownership Concentration
-                          </p>
-                          <p className="font-semibold text-base text-ink leading-snug">
-                            {team.concentration.sentence}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Named Share Bar */}
-                      {team.concentration && team.concentration.holders.length > 0 && (
-                        <div className="space-y-1.5 pt-1">
-                          <NamedShareBar holders={team.concentration.holders} total={team.concentration.total} />
-                        </div>
-                      )}
-
-                      {/* Coverage Bar */}
-                      <div className="space-y-1.5 pt-2 border-t border-rule/40">
-                        <div className="flex items-center justify-between text-xs text-ink-3 font-mono">
-                          <span>Asset Coverage</span>
-                          <span>
-                            {team.coverage.covered} of {team.coverage.total} covered
-                          </span>
-                        </div>
-                        <SegmentedBar total={team.coverage.total} segments={segments} />
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Footer link */}
-                <div className="pt-6 border-t border-rule/40 mt-4 flex items-center justify-end">
-                  <Link
-                    href={`/people/teams/${team.id}`}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-amber-ink hover:underline"
-                  >
-                    <span>View team roster</span>
-                    <span aria-hidden="true">→</span>
-                  </Link>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+            {filtered.length === 0 ? (
+              <div className="px-5 py-12 text-center">
+                <p className="type-heading text-ink">{query ? 'No teams match' : 'No teams yet'}</p>
+                <p className="type-meta mt-1 text-ink-3">
+                  {query
+                    ? `Nothing matches "${query}".`
+                    : 'Connect your directory (Microsoft Entra ID or Google Workspace) and its groups appear here.'}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="type-meta border-b border-rule text-ink-3">
+                      <th scope="col" className="py-2.5 pl-5 pr-3 font-medium">Team</th>
+                      <th scope="col" className="w-[30%] px-3 py-2.5 font-medium">Critical assets with a backup</th>
+                      <th scope="col" className="hidden px-3 py-2.5 font-medium md:table-cell">Who holds them</th>
+                      <th scope="col" className="py-2.5 pl-3 pr-5 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-rule">
+                    {filtered.map((t) => {
+                      const rolled = t.rolledUp || t.memberCount < minGroupSize;
+                      const m = majority(t.concentration);
+                      return (
+                        <tr key={t.id} className={cn('group relative transition-colors hover:bg-surface-sunken/50', rolled && 'text-ink-3')}>
+                          <td className="py-3.5 pl-5 pr-3">
+                            <Link
+                              href={`/people/teams/${t.id}`}
+                              className={cn("text-sm font-medium after:absolute after:inset-0 after:content-['']", rolled ? 'text-ink-2' : 'text-ink')}
+                            >
+                              {t.name}
+                            </Link>
+                            <p className="text-[11px] text-ink-3">
+                              {t.memberCount} {t.memberCount === 1 ? 'member' : 'members'}
+                            </p>
+                          </td>
+                          <td className="px-3 py-3.5">
+                            {rolled ? (
+                              <span className="type-meta text-ink-3">Not shown separately (under {minGroupSize} members)</span>
+                            ) : t.coverage.total === 0 ? (
+                              <span className="type-meta text-ink-3">No critical assets</span>
+                            ) : (
+                              <div className="max-w-xs">
+                                <p className="type-meta text-ink">
+                                  <span className="font-medium tabular-nums">{t.coverage.covered}</span>
+                                  <span className="text-ink-3"> of {t.coverage.total} covered</span>
+                                </p>
+                                <CoverageBar coverage={t.coverage} className="mt-1.5" />
+                              </div>
+                            )}
+                          </td>
+                          <td className="hidden px-3 py-3.5 md:table-cell">
+                            {rolled || !m ? (
+                              <span className="type-meta text-ink-3">—</span>
+                            ) : (
+                              <p className="type-meta text-ink-2">
+                                {m.people === 1 ? (
+                                  <span className="font-medium text-amber-ink">Mostly one person</span>
+                                ) : (
+                                  <span>Spread across {m.people} people</span>
+                                )}
+                                <span className="block text-[11px] text-ink-3">
+                                  {m.people === 1 ? 'holds' : 'hold'} {m.held} of {m.total} critical
+                                </span>
+                              </p>
+                            )}
+                          </td>
+                          <td className="py-3.5 pl-3 pr-5">
+                            <TeamStatusPill team={t} minGroupSize={minGroupSize} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+        </>
       )}
     </div>
   );
