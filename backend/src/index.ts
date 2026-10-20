@@ -7,6 +7,7 @@ import { app } from './server.js';
 import { defaultProviders } from './routes/auth.js';
 import { DataService } from './services/dataService.js';
 import { secretKeyFromEnv } from './security/encryption.js';
+import { demoLoginConfig } from './auth/demoLogin.js';
 import { ConnectorRunner } from './connectors/sdk/runner.js';
 import { defaultScheduler } from './jobs/scheduler.js';
 import { getMigrationStatus } from '../db/migrate.js';
@@ -22,6 +23,9 @@ secretKeyFromEnv();
 // Fail fast on half-configured SSO providers instead of on the first sign-in.
 const ssoProviders = defaultProviders().map((p) => p.id);
 console.log(`[Horquva Core] SSO providers: ${ssoProviders.length ? ssoProviders.join(', ') : 'none configured'}`);
+// Throws on a too-short DEMO_LOGIN_PASSWORD before the server is reachable.
+const demoLogin = demoLoginConfig();
+if (demoLogin) console.log(`[Horquva Core] Demo login: on, as ${demoLogin.email}`);
 
 const PORT = parseInt(process.env.PORT || '4000', 10);
 

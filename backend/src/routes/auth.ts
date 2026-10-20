@@ -7,6 +7,7 @@
 // GET  /api/auth/session              — current user (401 when signed out)
 // POST /api/auth/sign-out             — clear the session cookie
 // POST /api/auth/dev/sign-in          — dev only, behind AUTH_DEV_LOGIN=true
+// POST /api/auth/demo/sign-in         — demo deployments, behind DEMO_LOGIN_EMAIL/PASSWORD
 //
 // Only users already provisioned in the user store can sign in; SSO proves
 // identity, it does not grant access on its own. The one exception is the
@@ -19,6 +20,13 @@ import { getEntraProvider } from '../auth/entra.js';
 import { getGoogleProvider } from '../auth/google.js';
 import { resolveUser } from '../auth/middleware.js';
 import { bootstrapAdminFor } from '../auth/bootstrap.js';
+import {
+  demoClientKey,
+  demoCredentialsMatch,
+  demoLoginConfig,
+  demoLoginThrottled,
+  recordDemoLoginFailure,
+} from '../auth/demoLogin.js';
 import {
   AuthFlowError,
   buildAuthorizeUrl,
@@ -88,7 +96,11 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
   };
 
   router.get('/providers', (_req, res) => {
-    res.json({ providers: providers().map((p) => p.id), devLogin: devLoginEnabled() });
+    res.json({
+      providers: providers().map((p) => p.id),
+      devLogin: devLoginEnabled(),
+      demoLogin: demoLoginConfig() !== null,
+    });
   });
 
   router.get('/session', async (req, res) => {
@@ -119,6 +131,34 @@ export function createAuthRouter(opts: AuthRouterOptions = {}): Router {
     }
     await setSessionCookie(res, { userId: user.id, provider: 'dev' });
     audit(user.id, 'SIGN_IN', 'dev');
+    res.json(toSessionView(user));
+  });
+
+  router.post('/demo/sign-in', async (req, res) => {
+    const config = demoLoginConfig();
+    if (!config) {
+      res.status(404).json({ error: 'Not found.' });
+      return;
+    }
+    const client = demoClientKey(req);
+    if (demoLoginThrottled(client)) {
+      res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
+      return;
+    }
+    const { email, password } = req.body ?? {};
+    if (typeof email !== 'string' || typeof password !== 'string' || !demoCredentialsMatch(email, password, config)) {
+      recordDemoLoginFailure(client);
+      audit('anonymous', 'SIGN_IN_FAILED', 'demo: wrong email or password');
+      res.status(401).json({ error: 'Wrong email or password.' });
+      return;
+    }
+    const user = DataService.getInstance().getUserByEmail(config.email);
+    if (!user) {
+      res.status(403).json({ error: 'The demo account does not exist in this deployment.' });
+      return;
+    }
+    await setSessionCookie(res, { userId: user.id, provider: 'demo' });
+    audit(user.id, 'SIGN_IN', 'demo');
     res.json(toSessionView(user));
   });
 

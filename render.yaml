@@ -2,7 +2,7 @@ services:
   - type: web
     name: horquva-continuity-backend
     runtime: node
-    plan: free
+    plan: starter
     branch: mvp/v1-continuity
     rootDir: backend
     buildCommand: npm install && npm run build
@@ -11,6 +11,22 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: SESSION_SECRET
+        sync: false
+      # The Vercel frontend's origin, for both: the API is reached through its /api proxy.
+      - key: FRONTEND_URL
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      # Demo deployment: shared sign-in instead of SSO (backend/src/auth/demoLogin.ts).
+      - key: DEMO_LOGIN_EMAIL
+        sync: false
+      - key: DEMO_LOGIN_PASSWORD
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: HORQUVA_SECRET_KEY

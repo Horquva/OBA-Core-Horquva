@@ -10,6 +10,8 @@ export interface AuthOptions {
   providers: AuthProvider[];
   /** Local dev sign-in is enabled (AUTH_DEV_LOGIN=true, never in production). */
   devLogin: boolean;
+  /** Shared demo-deployment login (DEMO_LOGIN_EMAIL/PASSWORD on the backend); works in production. */
+  demoLogin?: boolean;
 }
 
 export function fetchAuthOptions(): Promise<AuthOptions> {
@@ -30,6 +32,11 @@ export function safeReturnTo(raw: string | null | undefined): string {
 /** Local dev only: backend answers this only when AUTH_DEV_LOGIN=true and not in production. */
 export function devSignIn(email: string): Promise<Session> {
   return request<Session>('/api/auth/dev/sign-in', { method: 'POST', body: JSON.stringify({ email }) });
+}
+
+/** Demo deployments only: the backend answers this only when its demo login is configured. */
+export function demoSignIn(email: string, password: string): Promise<Session> {
+  return request<Session>('/api/auth/demo/sign-in', { method: 'POST', body: JSON.stringify({ email, password }) });
 }
 
 export function signOut(): Promise<void> {

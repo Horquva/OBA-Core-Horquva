@@ -7,7 +7,7 @@ vi.mock('@/lib/navigation', () => ({ navigate: vi.fn(), replace: vi.fn() }));
 import { navigate, replace } from '@/lib/navigation';
 import SignInPage from '@/app/(bare)/sign-in/page';
 
-type Options = { providers: string[]; devLogin: boolean };
+type Options = { providers: string[]; devLogin: boolean; demoLogin?: boolean };
 
 const ALEX = { userId: 'user:admin', name: 'Alex', email: 'alex@acme.com', role: 'admin' };
 
@@ -26,6 +26,12 @@ function mockBackend(options: Options | 'down', { signedIn = false } = {}) {
       return new Response(JSON.stringify(options));
     }
     if (url.endsWith('/api/auth/dev/sign-in')) return new Response(JSON.stringify(ALEX));
+    if (url.endsWith('/api/auth/demo/sign-in')) {
+      const body = JSON.parse(String(init?.body));
+      return body.password === 'right-password'
+        ? new Response(JSON.stringify(ALEX))
+        : new Response('{"error":"Wrong email or password."}', { status: 401 });
+    }
     return new Response('{}', { status: 404 });
   });
   return calls;
@@ -108,6 +114,40 @@ describe('Sign-in page (Sprint 3 D13, SEC-01)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'reviewer' }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/people'));
     expect(calls.find((c) => c.url.endsWith('/dev/sign-in'))?.body).toEqual({ email: 'chen@acme.com' });
+  });
+
+  it('on a demo deployment, signs in with the demo email and password', async () => {
+    const calls = mockBackend({ providers: [], devLogin: false, demoLogin: true });
+    visit('?returnTo=%2Fpeople');
+    render(<SignInPage />);
+    fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'alex@acme.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'right-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/people'));
+    expect(calls.find((c) => c.url.endsWith('/demo/sign-in'))?.body).toEqual({
+      email: 'alex@acme.com',
+      password: 'right-password',
+    });
+    expect(screen.queryByText(/No sign-in method is set up/)).toBeNull();
+  });
+
+  it('shows the backend message for a wrong demo password', async () => {
+    mockBackend({ providers: [], devLogin: false, demoLogin: true });
+    visit('');
+    render(<SignInPage />);
+    fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'alex@acme.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'nope' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByText('Wrong email or password.')).toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('demo sign-in form has no accessibility violations', async () => {
+    mockBackend({ providers: [], devLogin: false, demoLogin: true });
+    visit('');
+    const { container } = render(<SignInPage />);
+    await screen.findByLabelText('Email');
+    expect(await axe(container)).toHaveNoViolations();
   });
 
   it('sends an already signed-in user straight on', async () => {

@@ -9,6 +9,7 @@ import { DEV_USERS } from '@/lib/session';
 import { navigate, replace } from '@/lib/navigation';
 import {
   authStartUrl,
+  demoSignIn,
   devSignIn,
   fetchAuthOptions,
   fetchSession,
@@ -32,6 +33,9 @@ const FALLBACK_ERROR = 'Sign-in did not complete. Please try again.';
 
 const PROVIDER_ORDER: AuthProvider[] = ['microsoft', 'google'];
 
+const fieldClass =
+  'type-meta h-9 w-full rounded-control border border-rule bg-surface px-3 text-ink placeholder:text-ink-3 focus:border-ink-3 focus:outline-none';
+
 type OptionsState = { status: 'loading' } | { status: 'ready'; data: AuthOptions } | { status: 'error' };
 
 const noSubscribe = () => () => {};
@@ -47,6 +51,10 @@ export default function SignInPage() {
 
   const [options, setOptions] = React.useState<OptionsState>({ status: 'loading' });
   const [devError, setDevError] = React.useState<string | null>(null);
+  const [demoEmail, setDemoEmail] = React.useState('');
+  const [demoPassword, setDemoPassword] = React.useState('');
+  const [demoError, setDemoError] = React.useState<string | null>(null);
+  const [demoBusy, setDemoBusy] = React.useState(false);
 
   const fetchOptions = React.useCallback(() => {
     fetchAuthOptions().then(
@@ -81,7 +89,21 @@ export default function SignInPage() {
     }
   };
 
+  const handleDemoSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDemoError(null);
+    setDemoBusy(true);
+    try {
+      await demoSignIn(demoEmail, demoPassword);
+      navigate(returnTo);
+    } catch (err) {
+      setDemoError(err instanceof Error ? err.message : 'Sign-in failed.');
+      setDemoBusy(false);
+    }
+  };
+
   const configured = options.status === 'ready' ? options.data.providers : [];
+  const demoLogin = options.status === 'ready' && options.data.demoLogin === true;
 
   return (
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-canvas">
@@ -116,7 +138,9 @@ export default function SignInPage() {
               Sign in to OBA
             </h2>
             <p className="text-xs text-ink-3">
-              Single sign-on via your corporate identity provider.
+              {demoLogin && configured.length === 0
+                ? 'Sign in with the demo account.'
+                : 'Single sign-on via your corporate identity provider.'}
             </p>
           </div>
 
@@ -138,11 +162,44 @@ export default function SignInPage() {
               <ErrorState message="We couldn't reach OBA to load sign-in options." onRetry={retryOptions} />
             )}
 
-            {options.status === 'ready' && configured.length === 0 && !options.data.devLogin && (
+            {options.status === 'ready' && configured.length === 0 && !options.data.devLogin && !demoLogin && (
               <p role="status" className="rounded-control border border-dashed border-rule px-3 py-3 text-xs text-ink-2">
                 No sign-in method is set up for this workspace yet. Ask your OBA admin to connect Microsoft Entra or
                 Google Workspace.
               </p>
+            )}
+
+            {demoLogin && (
+              <form onSubmit={handleDemoSignIn} className="space-y-3">
+                <div className="space-y-1">
+                  <label htmlFor="demo-email" className="type-meta block text-ink-3">Email</label>
+                  <input
+                    id="demo-email"
+                    type="email"
+                    required
+                    autoComplete="username"
+                    className={fieldClass}
+                    value={demoEmail}
+                    onChange={(e) => setDemoEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="demo-password" className="type-meta block text-ink-3">Password</label>
+                  <input
+                    id="demo-password"
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    className={fieldClass}
+                    value={demoPassword}
+                    onChange={(e) => setDemoPassword(e.target.value)}
+                  />
+                </div>
+                {demoError && <p role="alert" className="text-[11px] text-st-fail">{demoError}</p>}
+                <Button type="submit" variant="primary" className="w-full justify-center py-2.5" disabled={demoBusy}>
+                  Sign in
+                </Button>
+              </form>
             )}
 
             {PROVIDER_ORDER.filter((p) => configured.includes(p)).map((provider) => (
