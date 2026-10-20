@@ -50,3 +50,6 @@ implementation_plan_*
 *.docx
 docs/horquva_oba_core_development_session_transcript.md
 HOMEPAGE_COPY_REWRITE_SPEC.md
+
+# Vercel CLI link (repo-root deploys)
+.vercel
