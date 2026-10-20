@@ -5,7 +5,8 @@ services:
     plan: starter
     branch: mvp/v1-continuity
     rootDir: backend
-    buildCommand: npm install && npm run build
+    # NODE_ENV=production makes npm skip devDependencies; the build (tsc, vitest types) and start (tsx) need them.
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:
