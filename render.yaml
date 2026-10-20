@@ -30,6 +30,12 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+      # Supabase session pooler allows 15 clients; old + new instance overlap
+      # during a deploy, so each instance stays at 5 + 2 = 7.
+      - key: PG_POOL_MAX
+        value: "5"
+      - key: PGBOSS_POOL_MAX
+        value: "2"
       - key: HORQUVA_SECRET_KEY
         sync: false
       - key: GEMINI_API_KEY

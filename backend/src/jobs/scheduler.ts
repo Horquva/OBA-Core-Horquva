@@ -13,6 +13,7 @@
 
 import PgBoss from 'pg-boss';
 import dotenv from 'dotenv';
+import { envPoolMax } from '../db/poolSize.js';
 
 dotenv.config();
 
@@ -156,6 +157,7 @@ export class JobScheduler {
           connectionString: this.connectionString,
           application_name: 'horquva-scheduler',
           schema: 'pgboss',
+          max: envPoolMax('PGBOSS_POOL_MAX', 10),
         });
 
         bossInstance.on('error', (err) => {

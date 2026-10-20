@@ -7,6 +7,7 @@
 
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import dotenv from 'dotenv';
+import { envPoolMax } from './poolSize.js';
 
 dotenv.config();
 
@@ -14,7 +15,7 @@ const databaseUrl = process.env.DATABASE_URL;
 
 export const pool = new Pool(
   databaseUrl
-    ? { connectionString: databaseUrl }
+    ? { connectionString: databaseUrl, max: envPoolMax('PG_POOL_MAX', 10) }
     : {
         host: process.env.PGHOST || 'localhost',
         port: parseInt(process.env.PGPORT || '5432', 10),
