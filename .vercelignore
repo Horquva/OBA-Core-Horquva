@@ -1,0 +1,17 @@
+# Repo-root CLI deploys (frontend project, Root Directory = frontend).
+# Never upload secrets.
+.env
+**/.env
+**/.env.*
+!**/.env.example
+# Local-only and build output.
+.worktrees
+.superpowers
+.claude
+graphify-out
+docs
+**/.next
+**/dist
+**/test-results
+**/playwright-report
+**/coverage
