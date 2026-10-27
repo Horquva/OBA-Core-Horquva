@@ -1,6 +1,26 @@
 # OBA accountability layer: implementation plan (30 engineer-days · 2 engineers · 3 sprints)
 
-**Revision 16.** This consolidates sixteen audit passes (60 corrections, log in Appendix E). The remaining **[LIVE-VERIFY]** items (R1 manager app-only, advanced-query need for R7, R8 `last_used_at` lag, T3 key `inactive` semantics, `$expand` page size) can only be settled on a real tenant; the code paths for both outcomes are built and tested. Approved by Affan on 2026-10-27.
+**Revision 17 (2026-10-28).** Revision 16 consolidated sixteen audit passes (60 corrections, log in Appendix E) and was approved by Affan on 2026-10-27. Revision 17 is a **go-to-market re-sequencing** after an executive review (§0): the product now earns attention on the *first connection* with an orphan scan, the scan ships as a customer-run CLI in Sprint 2, and a **real-tenant checkpoint on 10 Nov** proves it on the Part 2 test tenants before Sprint 3's UI is built. **No task depends on a design partner** (there is none yet); the CLI is simply ready for the first prospect. The remaining **[LIVE-VERIFY]** items (R1 manager app-only, advanced-query need for R7, R8 `last_used_at` lag, T3 key `inactive` semantics, `$expand` page size) can only be settled on a real tenant; the code paths for both outcomes are built and tested.
+
+## 0. Revision 17: why the plan changed
+
+**The problem with revision 16.** Every feature fired on a *leaver event*. A 200-person company has a few leavers a month and most break nothing, so a buyer would see a quiet dashboard. The baseline rule (correctly) suppresses alerts on first sync, which meant the first 30 minutes — when a buyer decides — showed nothing. Nothing would have run against a real vendor tenant until Sprint 3.
+
+**What changed:**
+
+| Change | Effect | Days |
+|---|---|---|
+| **Orphan scan** (new, O1): on any sync, list what is *already* orphaned — keys and automations owned by disabled/departed/inactive owners, app secrets expiring with no active owner, owners missing from the directory — ranked, with cost | Value on first connection; replaces the Overview "accountability panel" | +1 (Affan, S2) |
+| **Directory account state moves to S1** (in B3): Entra `accountEnabled` / `employeeLeaveDateTime`, Google `suspended` stored as `externalRefs` strings (was A4, S2) | The scan can say *why* an owner counts as gone ("account disabled" vs "leave date passed"), and B5 has the flag from day one | +0.5 (Affan, S1) |
+| **C5 needs no recorded departure** (in B6) | Already true [C]: both directory connectors write status `departed` for a disabled/suspended account (`entra/index.ts:122`, `google/index.ts:143`), so C5's "owner departed" fires on first sync. Revision 17 adds a test that pins this | within B6 |
+| **Customer-run scan CLI** (new, O2): the live-verify harness becomes `scripts/orphanScan.ts` — read-only, in-memory, no database, **no data leaves the customer's machine** | A prospect's first meeting can skip the security review; real-tenant scans run in S2, not S3 | +0.5 (Ibrahim, S2; harness moves from S3) |
+| **Real-tenant checkpoint, 10 Nov** (§3, end of S2) | The CLI scan on the Part 2 tenants finds every seeded orphan; S3 mockups use real scan output, not invented data | — |
+| **Deferred / folded:** A5 grants module (−1.5), accuracy endpoint (−0.5), Assets credential tab and the `/api/continuity/accountability` endpoint (folded into the scan, −1), B4 trimmed to the hook (−0.5) | Removes the scariest permission (Directory.Read.All) and screens a buyer doesn't pay for | −3.5 |
+| **B7 ledger moves to S3** | Not needed before the checkpoint; still records every departure from S3 on | 0 |
+
+Net effect: the same 30 engineer-days, with **2 days of slack** in Ibrahim's S3 for checkpoint fallout.
+
+**Positioning the build serves:** buyer = head of IT / platform at a 100–1,000-person company with heavy n8n/Make and AI-API use. Pitch: *"AI and automation offboarding — see what's already orphaned today, and catch what breaks when the next person leaves."* Price to test: $6–15k/year, with the free scan as the entry point.
 
 ## Context
 
@@ -16,6 +36,7 @@ Today:
 - nothing detects leavers.
 
 This plan builds the first slice:
+- **an orphan scan that shows value on the first connection (API + customer-run CLI)**;
 - OpenAI/Anthropic key connectors;
 - Entra extensions;
 - identity hygiene;
@@ -31,7 +52,8 @@ This plan builds the first slice:
 - Engineer A = Ibrahim, Engineer B = Affan. Start 2026-10-28.
 - **Leavers are suggested, never auto-created.**
 - **A leaver's key still in use → an alert that blocks verification.**
-- **The grants module is an opt-in toggle.**
+- ~~The grants module is an opt-in toggle.~~ **Revision 17: the grants module (A5) is deferred to the next plan.** It needs Directory.Read.All and overlaps Nudge Security; it returns when a prospect asks for it.
+- **Revision 17:** orphan scan first; customer-run scan CLI in S2; real-tenant checkpoint on 10 Nov (§0, §3). No dependency on a design partner.
 
 **How each part of your brief was met:**
 
@@ -78,7 +100,7 @@ This plan builds the first slice:
 - **Central key rule:**
   - `isVendorKey(id)`.
   - `ContinuityGraph.getOwnedAssets(personId, {includeVendorKeys?: boolean})` (`domain/graph/index.ts:187-201`) **excludes keys by default**. All 14 existing callers keep today's behaviour.
-  - Opt in only at: person holdings `peopleViews.ts:140`, work at risk, S1 `keysAtRisk`, verifier `getAssociatedAssets`, the accountability endpoint.
+  - Opt in only at: person holdings `peopleViews.ts:140`, work at risk, S1 `keysAtRisk`, verifier `getAssociatedAssets`, the orphan scan (O1).
   - Two node iterations need explicit exclusion: attestation `all_unknown_critical` (`attestationService.ts:137-145`) and `graphAnswers.ts:90`.
 
 ## 2. Repo facts the plan relies on [C]
@@ -140,13 +162,14 @@ This plan builds the first slice:
 - In the snapshot ownerless count, `owner_type=service_account` counts as owned and `thirdParty` apps are skipped.
 - **Tests:** migrate applies 008 (`tests/db/migrate.test.ts`); pg round-trip of `owner_kind`, including a kind change; the Entra name survives an OpenAI sync; the catalogue cleanup deletes only edge-less, fact-less ai_admin models; snapshot unit tests.
 
-**B3 Manager edges + map (Affan, 1d)**
+**B3 Manager edges + map + directory account state (Affan, 1.5d)**
 - Google and CSV emit `reports_to`; add `ContinuityGraph.getManager()`.
+- **Revision 17 (moved from A4):** Entra stores `externalRefs.accountEnabled` and `employeeLeaveDateTime` as strings (both are already `$select`ed, `entra/index.ts:111`); Google stores `externalRefs.suspended`. The existing `status` fact (`departed` when disabled/suspended, `:122`, `google:143`) is unchanged.
 - The neighbourhood BFS skips `reports_to` and `grants_access_to`; add map labels.
 - People & Teams empty state: "Teams come from directory groups — not connected yet". A groups connector is out of scope.
-- **Tests:** Google fake server (`apiBaseUrl`, `localhost`); departure `team` ≠ manager; an automation's neighbourhood excludes its owner's manager.
+- **Tests:** Google fake server (`apiBaseUrl`, `localhost`); departure `team` ≠ manager; an automation's neighbourhood excludes its owner's manager; a disabled Entra user and a suspended Google user carry the flag in `externalRefs` and status `departed`.
 
-**B4 Identity hygiene (Affan, 1.5d)**
+**B4 Identity hygiene (Affan, 1d; matcher and queue already exist, the work is the hook and consistent refs)**
 - After `persistSync`, build the directory from persons with `entraId`/`googleId`, using the email from the id minus `person:` (Google uses `primaryEmail`).
 - Run the matcher on persons from n8n, openai and anthropic → `enqueueUnmatched`.
 - Consistent `externalRefs`: `entraId`, `googleId`, `openaiUserId`, `anthropicUserId`, `n8nUserId`.
@@ -179,15 +202,18 @@ This plan builds the first slice:
 - keys with owners, last use and cost/tokens;
 - partial failures close nothing;
 - managers are `reports_to`;
+- directory account state is stored on every person;
 - unmatched accounts are queued.
 
-### Sprint 2: Entra, leaver/mover suggestions, C5, verification, ledger
+**Owner task during S1 (not engineering):** create the Part 2 tenants T1, T3, T4 and T5 and **seed known orphans**: a key owned by a user who is then disabled, an n8n workflow on a disabled member's personal credential, an Entra app secret expiring within 30 days whose only owner is disabled, and a key whose owner is not in the directory. These are the checkpoint's answer key.
+
+### Sprint 2: Entra, orphan scan + CLI, leaver/mover suggestions, C5, verification
 
 **A4 Entra extensions (Ibrahim, 2d)**
 - Users `$top=999` with **`$expand=manager`** (no nested `$select`; audit #57) → `reports_to`. An absent manager = unknown.
   - R1 fallback: on 400/403, drop the expand → manager unknown.
   - R6 fallback: on 403, drop `employeeLeaveDateTime`.
-- Store `externalRefs.accountEnabled` and `employeeLeaveDateTime` as strings; Google stores `suspended`.
+- (Account-state refs moved to B3 in revision 17.)
 - Restart on `Directory_ExpiredPageToken` [OSS], at most 5 times.
 - SPs:
   - **Tenant GUID (audit #56):** the config `tenantId` can be a domain (it's only interpolated into the token URL, `entra/index.ts:62`), but `appOwnerOrganizationId` is a GUID [P]. Take the GUID from the access token's `tid` claim.
@@ -201,7 +227,16 @@ This plan builds the first slice:
 - Help text adds User-LifeCycleInfo.Read.All (optional).
 - **Tests:** fake Graph covering manager present/absent, expand 403, leave-date 403, expired token, owner failure, certificate de-duplication.
 
-**A5 Grants module, opt-in (Ibrahim, 1.5d)**
+**A5 Grants module, opt-in: DEFERRED in revision 17 (0d).** Kept below as the spec for the next plan; `grants_access_to` stays in the types so nothing has to be re-migrated.
+
+**O2 Customer-run orphan scan CLI (Ibrahim, 1.5d; replaces the S3 live-verify harness)**
+- `backend/scripts/orphanScan.ts`: reads connection configs from a local JSON file or env, constructs the connectors directly (constructors take only `id, name, config` [C], e.g. `n8n/index.ts:27`, `entra/index.ts:33`), calls `sync()` only, **never `persistSync`**, merges the `SyncResult`s, builds `ContinuityGraph.fromSnapshot(entities, edges, facts)` [C] in memory and runs O1's `runOrphanScan(graph)`.
+- No database, no network calls other than the vendor APIs the customer configured, nothing written except the report. Read-only keys only; the README lists the exact scopes per vendor (T3 records OpenAI's).
+- Output: a terminal table plus `orphan-scan-<date>.csv` and `.json`. The JSON is the same `OrphanScanResult` the API returns, so a scan can later be imported.
+- `--verify-shapes` keeps the original harness job: diff response keys against the fixtures and print R1/R3/R6/R7/R8 findings.
+- **Tests:** a unit test running the CLI's main function against the fake vendor servers from A2/A3/A4 and the n8n fixture; asserts it never imports the db module.
+
+**A5 spec (deferred)**
 - Config `readGrants:'true'|'false'` (form `select`).
 - `/oauth2PermissionGrants`, Principal rows only.
 - Unknown clients resolved by `GET /servicePrincipals/{id}`, cached per sync, with `thirdParty` when `appOwnerOrganizationId≠tenant`.
@@ -255,11 +290,23 @@ This plan builds the first slice:
 - `workAtRisk` and the handover pack list keys; `WhatIfScenarioResult.keysAtRisk?`.
 - **Tests:**
   - graph unit test: 2 automations + 3 keys → 2 by default, 5 with opt-in;
-  - C5 cases in `tests/domain/engine.test.ts`;
+  - C5 cases in `tests/domain/engine.test.ts`, including **a key whose owner was synced from Entra with `accountEnabled:false` and no departure record → FAIL** (revision 17 pin);
   - `tests/api/workAtRisk.test.ts`;
   - **regression**: the simulation, attestation and succession suites pass unchanged.
 
-**B7 Prediction ledger: write + evaluate (Affan, 1d)**
+**O1 Orphan scan service + API (Affan, 1d; first 2 days of S2 alongside B6, because O2 builds on it)**
+- `backend/src/services/orphanScan/orphanScanService.ts`: a pure `runOrphanScan(graph: ContinuityGraph, now: Date): OrphanScanResult`, with no database access, so the API and the CLI share it.
+- Findings, each `{kind, severity, asset:{id,kind,name,vendor}, owner:{id,name,reason}|null, cost30dUsd|null, lastUsedAt|null, evidence[]}`:
+  1. `key_owner_gone` (high): vendor key whose owner has status `departed` (reason `account_disabled` / `leave_date_passed` / `departure_recorded`, from B3's refs and the departure table) or `owner_access==='inactive'` (reason `lost_project_access`). Same rule as C5; the scan calls the check, not a copy of it.
+  2. `automation_on_gone_identity` (high): an automation with `runs_on_credentials_of` or `owns` pointing at a `departed` person.
+  3. `app_secret_expiring_unowned` (medium): an Entra app with `credential_expires_at` within 30 days and no active owner. Needs A4; until A4 lands the kind simply yields no findings.
+  4. `owner_not_in_directory` (low, reported as **"unverified owner"**, never "left"): the owner person has no `entraId`/`googleId` **and** the scan saw at least one directory connection. With no directory connected, this kind is skipped and the result says `directoryConnected:false`.
+- Ranking: severity, then `cost30dUsd` desc (nulls last), then most recent `lastUsedAt` (an orphan still in use is the bigger risk).
+- Result also carries `{scannedAt, totals:{byKind, monthlyCostUsd}, directoryConnected, connectionsScanned[]}`. **No score or index** (MVP rule: no on-screen indexes).
+- `GET /api/continuity/orphan-scan` runs it on the hydrated graph; `?format=csv` returns the export. Types added to `frontend/types/view.ts` and `api-contracts.test.ts`. This **replaces** revision 16's `/api/continuity/accountability` endpoint.
+- **Tests:** unit per kind with fixture graphs, including "no directory connected → no `owner_not_in_directory`" and the ranking order; API contract test; CSV header test.
+
+**B7 Prediction ledger: write + evaluate (Affan, 1d) — moved to S3 in revision 17**
 - A `predictionRepository` (the DataService state + persist pattern, as departures use).
 - `initiateDeparture` writes one row per predicted break:
   - `automation_stops` from S1 `stoppedPersonalCredentialAutomations`;
@@ -269,35 +316,39 @@ This plan builds the first slice:
 - At window end: `actual_outcome` = an alert was recorded for that target; unreadable stays null.
 - **Tests:** unit + pg.
 
-**S2 exit (fakes):** a disable produces a "Possible leaver" suggestion. Opening it creates a departure at `account_disabled` with keys at risk. A key used after the disable raises a blocking alert, and the ledger records predictions and outcomes.
+**S2 exit (fakes):** the first sync of a fake org with a disabled key owner produces an orphan-scan finding and a C5 FAIL with **no departure recorded**. A later disable produces a "Possible leaver" suggestion. Opening it creates a departure at `account_disabled` with keys at risk, and a key used after the disable raises a blocking alert.
+
+**Real-tenant checkpoint (Tue 10 Nov, both engineers, 0.5h).** Run `orphanScan.ts` against the Part 2 tenants (T1, T3, T4, T5).
+- **Pass:** every orphan seeded during S1 appears with the right kind and owner reason, and nothing else is reported as `high` that isn't real. Each [LIVE-VERIFY] item gets its answer recorded in `docs/test-tenants/`.
+- **On a miss:** fix it in Ibrahim's S3 slack before UI work starts. The B8 mockups are drawn from this real scan output, not invented numbers.
+- **If the tenants aren't ready by 10 Nov:** run on the fakes, start S3 anyway, and repeat the checkpoint as soon as they are. **Nothing waits on a design partner.**
 
 ### Sprint 3: UI (mockups first), integration, e2e, live-verify tooling
 
 **B8 Mockups → your approval (Affan, 0.5d)**
-- Mockups:
-  - Overview accountability panel: a ranked list, **not a stat-tile strip**;
+- Mockups, **filled with the checkpoint's real scan output**:
+  - **Overview orphan scan** (replaces revision 16's accountability panel): one ranked list of findings with owner, reason, last use and monthly cost, plus "Export CSV". A ranked list, **not a stat-tile strip**, no score;
   - Departure "Keys & credentials" section + ✓/✗ + prediction line;
   - "Possible leaver" event with an Open-departure button;
-  - Assets Credentials columns;
   - AI admin and Entra forms.
+  - (Revision 16's Assets Credentials tab is folded into the scan list.)
 - **No UI code before approval.**
 
-**UI build (Affan 2.5d · Ibrahim 1.5d)**
+**UI build (Affan 2d · Ibrahim 1d)**
 - **Affan:**
-  - `GET /api/continuity/accountability` → `{people:[{person, status, departureId, automations, keys, apps, keysOwnerInactive, cost30dUsd|null}], generatedAt}`, counted from the graph and added to `frontend/types/view.ts` + `api-contracts.test.ts`. Overview panel.
+  - Overview orphan-scan panel on O1's endpoint, with CSV export.
   - `DepartureDetail.tsx` / `WorkAtRiskPanel.tsx` sections.
   - `DeparturesList` reads `?record=&source=&detectedAt=` to prefill and open the "Record a departure" sheet.
 - **Ibrahim:**
-  - `ConnectionForm` ai_admin + Entra `readGrants`; the "partial sync" badge in `ConnectionsView` (from B1's `errorReasons`);
-  - `GET /api/assets` adds `credential` + the new fact columns (`routes/assets.ts:55-57`, `formatAssetRow`);
-  - Assets credential tab (`AssetsView.tsx:24-41`);
+  - `ConnectionForm` ai_admin + Entra (no `readGrants` field: A5 deferred); the "partial sync" badge in `ConnectionsView` (from B1's `errorReasons`);
   - C5 label in `assetParts.tsx`.
+  - Not built (revision 17): the `credential` kind in `GET /api/assets` and the Assets credential tab. Keys are reachable from the scan list and from person holdings.
 - **Tests:** vitest per screen (mocked API modules, as `frontend/tests/features/*` does); contract tests.
 
 **Integration suite (Ibrahim, 1d)**
 - `backend/tests/pg/accountability.test.ts`, fake OpenAI + Anthropic + Graph:
-  1. connect;
-  2. baseline sync;
+  1. connect (the fake directory already has one disabled key owner);
+  2. baseline sync → **0 change events, but `/api/continuity/orphan-scan` lists that owner's key as `key_owner_gone`**;
   3. keys with owners;
   4. fake disables Omar;
   5. sync → a `person_left` suggestion;
@@ -307,14 +358,16 @@ This plan builds the first slice:
   9. `verifyDepartureExecutions(…, {now: +73h})` → ledger `confirmed`;
   10. C5 FAIL in `/api/continuity/overview` causes.
 
-**T6 seed scripts (Ibrahim, 1d) and live-verify harness (Ibrahim, 1d)**
-- **Seed scripts:** `docs/test-tenants/` per vendor.
-- **Live-verify harness:** `backend/scripts/verifyLive.ts` runs connectors read-only against real credentials, diffs response keys against the fixtures, and prints R1/R3/R6.
+**T6 seed scripts (Ibrahim, 1d)**
+- **Seed scripts:** `docs/test-tenants/` per vendor, reproducing the S1 seeded orphans so a tenant can be rebuilt.
+- (The live-verify harness moved to S2 as O2's `--verify-shapes` mode.)
+
+**Checkpoint fallout + buffer (Ibrahim, 2d):** fixes from the 10 Nov real-tenant run first; whatever is left is buffer.
 
 **E2E (Affan, 1d)**
 - Playwright `globalSetup` runs the fake vendor servers on port 3200, with a test-only control endpoint. Fake users use the fixture `@acme.com` emails.
 - `7-ai-keys.spec.ts`:
-  - create the connection **via `POST /api/connections`** with `baseUrl` (the form has no `baseUrl`, by design) → sync → the Credentials tab shows key and owner;
+  - create the connection **via `POST /api/connections`** with `baseUrl` (the form has no `baseUrl`, by design) → sync → the Overview orphan scan lists the fixture key whose owner is departed, with owner and reason;
   - also check the form saves an ai_admin connection, and a rejected key shows a readable error.
 - `8-leaver-suggestion.spec.ts`:
   - Entra connection via API → baseline sync → fake disables **Omar** (Sarah already has an open demo departure) → sync;
@@ -323,22 +376,22 @@ This plan builds the first slice:
   - `POST /api/departures/:id/verify-executions` → the blocking alert appears.
 - Then the full suite: `cd frontend && npx playwright test`.
 
-**Accuracy endpoint (Affan, 0.5d):** `GET /api/continuity/prediction-accuracy` → `{evaluated, confirmed, notObserved, unreadable}`, with no ratio until `evaluated ≥ 5`.
+**Accuracy endpoint: DEFERRED in revision 17.** B7 still writes and evaluates the ledger, so the data accumulates; `GET /api/continuity/prediction-accuracy` (`{evaluated, confirmed, notObserved, unreadable}`, no ratio until `evaluated ≥ 5`) is built when there are enough evaluated predictions to show.
 
-**Hardening (Affan, 0.5d):** fallout fixes; data-processing note (key metadata only, never values).
+**Hardening (Affan, 0.5d):** fallout fixes; data-processing note (key metadata only, never values), which doubles as the scan CLI's README trust section.
 
-**Day totals:**
+**Day totals (revision 17):**
 
 | Engineer | S1 | S2 | S3 |
 |---|---|---|---|
-| Affan | 1 + 1.5 + 1 + 1.5 = 5 | 2 + 2 + 1 = 5 | 0.5 + 2.5 + 1 + 0.5 + 0.5 = 5 |
-| Ibrahim | 0.5 + 2.5 + 2 = 5 | 2 + 1.5 + 1.5 = 5 | 1.5 + 1 + 1 + 1 = 4.5, + 0.5 buffer |
+| Affan | B1 1 + B2 1.5 + B3 1.5 + B4 1 = 5 | B5 2 + B6 2 + O1 1 = 5 | B8 0.5 + B7 1 + UI 2 + E2E 1 + hardening 0.5 = 5 |
+| Ibrahim | A1 0.5 + A2 2.5 + A3 2 = 5 | A4 2 + A6 1.5 + O2 1.5 = 5 | UI 1 + integration 1 + T6 1 + checkpoint fallout/buffer 2 = 5 |
 
 ## 4. Verification
 1. Backend: `npm test`, then `npm run test:pg`.
 2. Frontend: `npm test`, then `npx playwright test`.
 3. Manual: `preview_start backend` / `frontend` with the fake connections. You verify the visuals.
-4. On the Part 2 tenants: `npx tsx backend/scripts/verifyLive.ts` (R1, R3, R6, real SP owners, credential expiry, a real disable → suggestion).
+4. On the Part 2 tenants: `npx tsx backend/scripts/orphanScan.ts --verify-shapes` (every seeded orphan found; R1, R3, R6, R7, R8; real SP owners, credential expiry). Then, in the app, a real disable → suggestion.
 
 ## 5. Risks
 - **R1:** Graph manager with an app-only token. The docs list it as not supported; Cartography does it. There's a fallback.
@@ -348,6 +401,8 @@ This plan builds the first slice:
 - **R6:** the `employeeLeaveDateTime` permission. There's a fallback.
 - **R8:** OpenAI `last_used_at` update lag is undocumented. The UI wording ("no use seen yet") stays honest, and T3 measures the lag.
 - **R7:** syntax resolved [P]; whether advanced-query mode is needed is not documented. Two fallbacks; the A4 tests cover all three paths.
+- **R9 (market, revision 17):** no customer has seen a scan yet, and there is no design partner. Mitigation without depending on one: the scan works on first connection, the CLI lets a prospect run it without granting us access, and the 10 Nov checkpoint proves it on real vendor tenants. The first prospect meeting uses the CLI whenever it happens; no task waits for it.
+- **R10 (orphan scan noise):** a real org may have many owners missing from the directory (contractors, personal emails). Those are reported as low-severity "unverified owner", never "left", and only when a directory is connected.
 
 ---
 
@@ -519,14 +574,15 @@ Every fake server serves payloads copied **verbatim from the vendor's own exampl
 | `backend/src/views/overviewViews.ts` | C5 `CAUSE_LABEL` | B6 |
 | `backend/src/views/departureViews.ts` / `peopleViews.ts` | keys in work at risk / holdings (opt-in) | B6 |
 | `backend/src/routes/departures.ts` | POST accepts `detectedFrom`, `disabledAt` | B5 |
-| `backend/src/routes/continuity.ts` | `/accountability`, `/prediction-accuracy` | S3 |
+| `backend/src/services/orphanScan/orphanScanService.ts` | new: pure `runOrphanScan(graph, now)` | O1 |
+| `backend/src/routes/continuity.ts` | `/orphan-scan` (JSON + `?format=csv`); `/prediction-accuracy` deferred | O1 |
 | `backend/src/routes/assets.ts` | list includes `credential`; detail excludes grants, adds `grantCount` | S3, A5 |
 | `backend/src/routes/graph.ts` | BFS skips `reports_to` / `grants_access_to` | B3 |
-| `backend/scripts/verifyLive.ts` | new | S3 |
-| `frontend/types/view.ts` | accountability types; new fact fields | S3 |
+| `backend/scripts/orphanScan.ts` (+ README with per-vendor read-only scopes) | new: customer-run, in-memory scan; `--verify-shapes` | O2 |
+| `frontend/types/view.ts` | `OrphanScanResult` types; new fact fields | O1, S3 |
 | `frontend/features/settings/ConnectionForm.tsx` / `ConnectionsView.tsx` | ai_admin and entra fields; partial badge | S3 |
 | `frontend/features/assets/AssetsView.tsx` / `assetParts.tsx` | credential columns; C5 label | S3 |
-| `frontend/features/overview/*` | accountability panel | S3 |
+| `frontend/features/overview/*` | orphan-scan panel + CSV export | S3 |
 | `frontend/features/departures/DeparturesList.tsx` / `DepartureDetail.tsx` / `WorkAtRiskPanel.tsx` | query-param prefill; keys section | S3 |
 | `frontend/features/map/MapView.tsx` | relation labels | B3 |
 | `frontend/features/people/*` | teams empty-state copy | B3 |
@@ -550,6 +606,7 @@ Every fake server serves payloads copied **verbatim from the vendor's own exampl
 | Verifier | #11 vendor resolution; #12 wrapper kept; #44 typed results |
 | UI/E2E | #14 no boolean form field; #15/#31 API-created connections; #36 assets list; #43 teams empty state; #45 endpoint contract; #46 Omar, not Sarah |
 | Planning | #16/#42 day maths |
+| Rev 17: go-to-market re-sequencing (2026-10-28) | Orphan scan O1 + customer-run CLI O2 added; directory account state moved A4 → B3; found [C] that directory connectors already mark disabled/suspended users `departed`, so C5 fires on first sync without a departure (pinned by a test); A5 grants and the accuracy endpoint deferred; accountability endpoint and Assets credential tab folded into the scan; B7 moved to S3; 10 Nov real-tenant checkpoint with seeded orphans; no dependency on a design partner |
 | Pass 16 (rev 16): runtime-behaviour sweep | #59 OpenAI `last_used_at` lag undocumented → R8 plus honest wording. #60 core vs optional failure classes (otherwise a missing optional permission blocks all closing forever). Anthropic usage freshness ~5 min [P]. n8n retention 336 h default [P]. OpenAI Costs needs `api.usage.read`. No documented admin-API rate limits for either vendor; guard 429 backoff covers it |
 | Pass 15 (rev 15): "nothing untouched" sweep | #57 Graph known issue: no nested `$select` in `$expand` on directory objects, so use plain `$expand=manager` and treat missing as unknown. #58 `useSearchParams` needs Suspense on the departures page (repo precedent `app/(app)/page.tsx`); exact side-sheet and API-client signature changes. R7 syntax resolved (MS `$filter` guide). R6 confirmed [P]. Google `maxResults` 1–500. OpenAI admin keys owner-only and permission-scoped. Azure free tenant → Global Admin. M365 trial secondary only. |
 | Pass 11–12 (rev 11–12) | Consolidated rewrite; added n8n and Google API sections, the feasibility matrix and the OSS table (brief items 1–3); your 3 decisions applied; #56 tenant GUID from the token `tid`; R7 filter-syntax fallbacks; UI badge moved behind the mockup gate; n8n `startedAfter`; verified `markAccountDisabled`/`enterStage`, `DeparturesList` client component, bell `href` |
@@ -560,14 +617,16 @@ Every fake server serves payloads copied **verbatim from the vendor's own exampl
 
 | # | Environment | Steps | Cost / owner | Verified? |
 |---|---|---|---|---|
-| T1 | Entra tenant | Azure free account → "your new Azure account automatically includes a default Entra ID tenant", and the account holder becomes Global Administrator (Microsoft Learn training module), so admin consent is possible. App with User.Read.All, Application.Read.All, optional User-LifeCycleInfo.Read.All and Directory.Read.All → admin consent. 8 users with managers; 2 app registrations with owners and a secret expiring in 10 days; 1 SP owned by a user who'll be disabled; 1 user consents to a third-party app. | Affan; free tier **[verify at signup]** | Permissions [P]; signup not verified |
+| T1 | Entra tenant | Azure free account → "your new Azure account automatically includes a default Entra ID tenant", and the account holder becomes Global Administrator (Microsoft Learn training module), so admin consent is possible. App with User.Read.All, Application.Read.All, optional User-LifeCycleInfo.Read.All → admin consent (Directory.Read.All only when the deferred A5 grants module returns). 8 users with managers; 2 app registrations with owners and a secret expiring in 10 days; 1 SP owned by a user who'll be disabled; 1 user consents to a third-party app (kept for the deferred A5). | Affan; free tier **[verify at signup]** | Permissions [P]; signup not verified |
 | T2 | M365 trial (Part 3 only) | Business Premium "Try for free" one-month trial (reported by a pricing tracker, Aug 2026; not confirmed on a Microsoft page). The developer E5 sandbox is restricted (community reports). | Owner; confirm on Microsoft's trial page before relying on it | Secondary only |
 | T3 | OpenAI org | **Only organisation owners can create Admin API keys**; when creating one "you choose the permissions the integration needs" (OpenAI help: "Admin and Audit Logs API for the API Platform"). So create a **read-only** key with read access to users, projects, API keys and **Usage** (the Costs API reports a missing `api.usage.read` scope without it, per an OpenAI community thread) and record its exact permissions in `docs/test-tenants/`. The same list goes into the Settings help text. Owner → Settings → Organization → Admin keys. 2 projects, 3 keys; remove one key owner from its project (expected `owner_project_access=inactive`, from the field definition [P], **[LIVE-VERIFY]**); a few calls. | Small prepaid credit | Key creation per vendor guides |
 | T4 | Anthropic org | Create an Organization [P] → admin key → 2 workspaces, 3 keys from 2 members, a few calls. | Small credit | [P] |
 | T5 | n8n | `docker run n8nio/n8n`; owner + 2 members; workflows using personal credentials. | Free | [P] |
 | T6 | Seed scripts | `docs/test-tenants/`, built in S3. | Ibrahim | — |
 
-**Exit:** `verifyLive.ts` passes on T1, T3, T4 and T5.
+**Seeded orphans (revision 17, during S1):** a key owned by a user who is then disabled; an n8n workflow on a disabled member's personal credential; an Entra app secret expiring within 30 days whose only owner is disabled; a key whose owner is not in the directory.
+
+**Exit (10 Nov checkpoint):** `orphanScan.ts --verify-shapes` finds every seeded orphan on T1, T3, T4 and T5.
 
 # Part 3: Power Platform connector, separate plan (deferred, ~6–8 engineer-days, after T2)
 
