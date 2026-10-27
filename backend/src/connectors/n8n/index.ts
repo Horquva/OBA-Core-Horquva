@@ -9,6 +9,9 @@ import { CanonicalEntity, CanonicalEdge, CanonicalFact } from '@horquva/types';
 import { BaseConnector } from '../sdk/base.js';
 import { ConnectorCapabilities, SyncResult, RawPayloadRecord } from '../sdk/types.js';
 
+/** n8n's documented maximum page size for list endpoints. */
+const PAGE_LIMIT = 250;
+
 export interface N8nConnectorConfig {
   baseUrl: string;
   apiKey: string;
@@ -77,23 +80,52 @@ export class N8nConnector extends BaseConnector {
       }));
   }
 
+  /** Every item of a list endpoint, following nextCursor (n8n pages at 100 by default, 250 max). */
+  private async listAll(pathname: string, params: Record<string, string> = {}): Promise<any[]> {
+    const items: any[] = [];
+    let cursor: string | null = null;
+    do {
+      const qs = new URLSearchParams({ ...params, limit: String(PAGE_LIMIT) });
+      if (cursor) qs.set('cursor', cursor);
+      const res = await this.guard.get(`${this.baseUrl}${pathname}?${qs}`, { headers: this.getHeaders() });
+      const body = res.data;
+      items.push(...(Array.isArray(body) ? body : body?.data ?? []));
+      cursor = Array.isArray(body) ? null : body?.nextCursor ?? null;
+    } while (cursor);
+    return items;
+  }
+
+  /**
+   * The one person behind a project, or null when it has several members (a
+   * team project) or none we know. n8n's public API owns workflows and
+   * credentials by project, not by user; GET /users?projectId= is not
+   * licence-gated, unlike the /projects endpoints.
+   */
+  private async projectPerson(projectId: string, cache: Map<string, Promise<string | null>>): Promise<string | null> {
+    if (!cache.has(projectId)) {
+      cache.set(
+        projectId,
+        this.listAll('/api/v1/users', { projectId }).then((members) =>
+          members.length === 1 && members[0].email ? `person:${String(members[0].email).toLowerCase()}` : null
+        )
+      );
+    }
+    return cache.get(projectId)!;
+  }
+
   public async sync(): Promise<SyncResult> {
     const entities: CanonicalEntity[] = [];
     const edges: CanonicalEdge[] = [];
     const facts: CanonicalFact[] = [];
     const rawPayloads: RawPayloadRecord[] = [];
+    const projectPeople = new Map<string, Promise<string | null>>();
 
     // 1. Fetch Users
-    const usersRes = await this.guard.get(`${this.baseUrl}/api/v1/users`, {
-      headers: this.getHeaders(),
-    });
-    const users: any[] = usersRes.data?.data || usersRes.data || [];
+    const users = await this.listAll('/api/v1/users');
 
-    const userEmailMap = new Map<string, string>(); // n8n user id -> email
     for (const u of users) {
       if (!u.email) continue;
       const personId = `person:${u.email.toLowerCase()}`;
-      userEmailMap.set(u.id, personId);
 
       entities.push({
         id: personId,
@@ -113,19 +145,21 @@ export class N8nConnector extends BaseConnector {
 
     // 2. Fetch Credentials Metadata (never secret values)
     let credentials: any[] = [];
+    const credentialPerson = new Map<string, string>(); // n8n credential id -> person whose personal credential it is
     try {
-      const credRes = await this.guard.get(`${this.baseUrl}/api/v1/credentials`, {
-        headers: this.getHeaders(),
-      });
-      credentials = credRes.data?.data || credRes.data || [];
+      credentials = await this.listAll('/api/v1/credentials');
       for (const cred of credentials) {
         const credId = `credential:n8n:${cred.id}`;
+        // shared[].id is the project id; the owner role is credential:owner.
+        const ownerProject = (cred.shared ?? []).find((s: any) => s.role === 'credential:owner')?.id;
+        const person = ownerProject ? await this.projectPerson(ownerProject, projectPeople) : null;
+        if (person) credentialPerson.set(String(cred.id), person);
         entities.push({
           id: credId,
           kind: 'credential',
           name: cred.name || `Credential ${cred.id}`,
           description: `Type: ${cred.type}`,
-          externalRefs: { n8n: cred.id, type: cred.type },
+          externalRefs: { n8n: cred.id, type: cred.type, ...(ownerProject ? { n8nProject: ownerProject } : {}) },
           createdAt: new Date(cred.createdAt || Date.now()),
           updatedAt: new Date(cred.updatedAt || Date.now()),
         });
@@ -140,31 +174,30 @@ export class N8nConnector extends BaseConnector {
       console.warn('[N8nConnector] Could not list credentials (requires credential:read scope):', e);
     }
 
-    // 3. Fetch Workflows
-    const workflowsRes = await this.guard.get(`${this.baseUrl}/api/v1/workflows`, {
-      headers: this.getHeaders(),
-    });
-    const workflows: any[] = workflowsRes.data?.data || workflowsRes.data || [];
+    // 3. Fetch Workflows (the list already carries nodes and shared[])
+    const workflows = await this.listAll('/api/v1/workflows', { excludePinnedData: 'true' });
 
     for (const wfSummary of workflows) {
-      // Detailed workflow fetch for node graph
-      let wf: any;
-      try {
-        const wfDetail = await this.guard.get(`${this.baseUrl}/api/v1/workflows/${wfSummary.id}`, {
-          headers: this.getHeaders(),
-        });
-        wf = wfDetail.data;
-      } catch (err) {
-        wf = wfSummary;
+      let wf: any = wfSummary;
+      if (!Array.isArray(wf.nodes)) {
+        try {
+          wf = (await this.guard.get(`${this.baseUrl}/api/v1/workflows/${wfSummary.id}`, { headers: this.getHeaders() })).data;
+        } catch {
+          wf = wfSummary;
+        }
       }
+
+      // activeVersionId replaces the deprecated `active` flag; archived workflows never run.
+      const active = !wf.isArchived && ('activeVersionId' in wf ? wf.activeVersionId != null : Boolean(wf.active));
+      const ownerProject: string | undefined = (wf.shared ?? []).find((s: any) => s.role === 'workflow:owner')?.projectId;
 
       const workflowEntityId = `automation:n8n:${wf.id}`;
       entities.push({
         id: workflowEntityId,
         kind: 'automation',
         name: wf.name || `Workflow ${wf.id}`,
-        description: `n8n Active: ${wf.active}`,
-        externalRefs: { n8n: wf.id },
+        description: `n8n Active: ${active}`,
+        externalRefs: { n8n: wf.id, ...(ownerProject ? { n8nProject: ownerProject } : {}) },
         createdAt: new Date(wf.createdAt || Date.now()),
         updatedAt: new Date(wf.updatedAt || Date.now()),
       });
@@ -179,7 +212,7 @@ export class N8nConnector extends BaseConnector {
       facts.push({
         entityId: workflowEntityId,
         attribute: 'status',
-        value: wf.active ? 'active' : 'inactive',
+        value: active ? 'active' : 'inactive',
         grade: 'stated',
         source: 'connector:n8n',
         sourceRef: `workflow:${wf.id}`,
@@ -212,14 +245,13 @@ export class N8nConnector extends BaseConnector {
         validFrom: new Date(),
       });
 
-      // Ownership Edge (n8n workflow creator/owner)
-      const creatorPersonId = wf.ownedBy?.email
-        ? `person:${wf.ownedBy.email.toLowerCase()}`
-        : userEmailMap.get(wf.userId);
+      // Ownership Edge: the workflow:owner project, when one person stands behind it.
+      // A team project gets no edge: its owner is unknown until someone confirms it.
+      const ownerPersonId = ownerProject ? await this.projectPerson(ownerProject, projectPeople) : null;
 
-      if (creatorPersonId) {
+      if (ownerPersonId) {
         edges.push({
-          fromId: creatorPersonId,
+          fromId: ownerPersonId,
           toId: workflowEntityId,
           type: 'owns',
           grade: 'stated',
@@ -231,22 +263,24 @@ export class N8nConnector extends BaseConnector {
 
       // Analyze Nodes for Credential Dependencies & Model Calls
       const nodes: any[] = wf.nodes || [];
+      const seenEdges = new Set<string>(); // one edge per workflow and target, however many nodes share it
       for (const node of nodes) {
-        // Check for node credentials
+        // Check for node credentials: the workflow depends on the credential, and
+        // runs on the credentials of whoever owns it personally.
         if (node.credentials) {
-          for (const [credType, credRef] of Object.entries(node.credentials)) {
+          for (const credRef of Object.values(node.credentials)) {
             const credObj = credRef as { id?: string; name?: string };
-            if (credObj?.id) {
-              const credEntityId = `credential:n8n:${credObj.id}`;
-              edges.push({
-                fromId: workflowEntityId,
-                toId: credEntityId,
-                type: 'runs_on_credentials_of',
-                grade: 'stated',
-                source: 'connector:n8n',
-                sourceRef: `workflow:${wf.id}/node:${node.id || node.name}`,
-                validFrom: new Date(),
-              });
+            if (!credObj?.id) continue;
+            const sourceRef = `workflow:${wf.id}/node:${node.id || node.name}`;
+            const credEntityId = `credential:n8n:${credObj.id}`;
+            if (!seenEdges.has(`d|${credEntityId}`)) {
+              seenEdges.add(`d|${credEntityId}`);
+              edges.push({ fromId: workflowEntityId, toId: credEntityId, type: 'depends_on', grade: 'stated', source: 'connector:n8n', sourceRef, validFrom: new Date() });
+            }
+            const credOwner = credentialPerson.get(String(credObj.id));
+            if (credOwner && !seenEdges.has(`c|${credOwner}`)) {
+              seenEdges.add(`c|${credOwner}`);
+              edges.push({ fromId: workflowEntityId, toId: credOwner, type: 'runs_on_credentials_of', grade: 'stated', source: 'connector:n8n', sourceRef, validFrom: new Date() });
             }
           }
         }

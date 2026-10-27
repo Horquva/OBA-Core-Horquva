@@ -9,6 +9,8 @@ import { DataService } from '../../src/services/dataService.js';
 import { ConnectorRunner, CSV_CONNECTION_ID } from '../../src/connectors/sdk/runner.js';
 import { query } from '../../src/db/client.js';
 import { authedFetch } from '../helpers/session.js';
+import { resolveExecutionProvider, verifyDepartureExecutions } from '../../src/handover/postDepartureVerifier.js';
+import { markAccountDisabled } from '../../src/handover/successionService.js';
 import { resetDatabase, startServer, json } from './db.js';
 
 let server: http.Server;
@@ -18,6 +20,7 @@ let n8nUrl: string;
 let n8nDelayMs = 0;
 let n8nFail = false;
 let workflows: Array<{ id: string; name: string; active: boolean; ownerEmail: string }> = [];
+let executions: Array<{ id: string; workflowId: string; status: string; startedAt: string; stoppedAt?: string; data?: unknown }> = [];
 
 const API_KEY = 'n8n_api_key_DO_NOT_LEAK_7f3a';
 
@@ -34,13 +37,24 @@ function startFakeN8n(): Promise<void> {
     }
     const url = new URL(req.url!, 'http://x');
     const send = (body: unknown) => res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(body));
-    if (url.pathname === '/api/v1/users') return send({ data: [{ id: 'u1', email: 'omar@acme.com', firstName: 'Omar' }, { id: 'u2', email: 'nadia@uni.edu', firstName: 'Nadia' }] });
-    if (url.pathname === '/api/v1/credentials') return send({ data: [] });
-    if (url.pathname === '/api/v1/workflows') return send({ data: workflows.map((w) => ({ id: w.id, name: w.name, active: w.active })) });
-    const m = url.pathname.match(/^\/api\/v1\/workflows\/(.+)$/);
-    if (m) {
-      const w = workflows.find((x) => x.id === m[1])!;
-      return send({ id: w.id, name: w.name, active: w.active, ownedBy: { email: w.ownerEmail }, nodes: [] });
+    // n8n's public API shape: ownership is shared[] by project; each user has a personal project.
+    const users = [{ id: 'u1', email: 'omar@acme.com', firstName: 'Omar' }, { id: 'u2', email: 'nadia@uni.edu', firstName: 'Nadia' }];
+    if (url.pathname === '/api/v1/users') {
+      const projectId = url.searchParams.get('projectId');
+      return send({ data: projectId ? users.filter((u) => `p-${u.email}` === projectId) : users, nextCursor: null });
+    }
+    if (url.pathname === '/api/v1/credentials') return send({ data: [], nextCursor: null });
+    if (url.pathname === '/api/v1/workflows') {
+      return send({
+        data: workflows.map((w) => ({
+          id: w.id, name: w.name, active: w.active, activeVersionId: w.active ? `v-${w.id}` : null, isArchived: false, nodes: [],
+          shared: [{ role: 'workflow:owner', workflowId: w.id, projectId: `p-${w.ownerEmail}` }],
+        })),
+        nextCursor: null,
+      });
+    }
+    if (url.pathname === '/api/v1/executions') {
+      return send({ data: executions.filter((e) => e.workflowId === url.searchParams.get('workflowId')), nextCursor: null });
     }
     res.writeHead(404).end();
   });
@@ -160,6 +174,36 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
     await waitForSync(n8nId);
     const crit = (await query(`SELECT value, grade FROM fact WHERE entity_id = 'automation:n8n:w2' AND attribute = 'criticality' AND valid_to IS NULL`)).rows;
     expect(crit).toEqual([{ value: 'critical', grade: 'confirmed' }]);
+  });
+
+  it('the post-departure verifier reads executions through the saved n8n connection, not env', async () => {
+    const env = { ...process.env, N8N_BASE_URL: '', N8N_API_KEY: '' };
+    const provider = await resolveExecutionProvider(DataService.getInstance(), env);
+    expect(provider).not.toBeNull();
+
+    executions = [{
+      id: 'e1', workflowId: 'w2', status: 'error', startedAt: '2026-11-01T10:00:00.000Z', stoppedAt: '2026-11-01T10:00:02.000Z',
+      data: { resultData: { error: { message: '401 Unauthorized: token has been revoked' } } },
+    }];
+    const ds = DataService.getInstance();
+    const dep = ds.createDeparture({ personId: 'person:omar@acme.com', leaveDate: '2026-10-31T00:00:00.000Z', note: null });
+    markAccountDisabled(ds, dep.id);
+    dep.stageTimestamps.account_disabled = '2026-11-01T00:00:00.000Z';
+    const result = await verifyDepartureExecutions(ds, dep.id, { now: new Date('2026-11-01T12:00:00.000Z') });
+    executions = [];
+
+    expect(result.executionsChecked).toBe(true);
+    expect(result.alertsEmitted).toBe(1);
+    expect(result.watchLog.some((w) => w.executionId === 'e1' && w.severity === 'alert')).toBe(true);
+  });
+
+  it('reads no executions when several n8n connections make the instance ambiguous', async () => {
+    await query(
+      `INSERT INTO connection (id, type, name, config_encrypted, status) SELECT 'conn_second_n8n', type, 'Second n8n', config_encrypted, 'disconnected' FROM connection WHERE id = $1`,
+      [n8nId]
+    );
+    expect(await resolveExecutionProvider(DataService.getInstance(), { ...process.env, N8N_BASE_URL: '', N8N_API_KEY: '' })).toBeNull();
+    await query(`DELETE FROM connection WHERE id = 'conn_second_n8n'`);
   });
 
   it('imports CSV as a one-off sync without storing the file in the connection', async () => {

@@ -1,0 +1,75 @@
+{
+  "_source": "Shaped after n8n's public API v1 OpenAPI spec on master @ 7ac6ff19b0 (2026-10-27): handlers/workflows/spec/paths/getWorkflows.generated.yml, handlers/credentials/spec/paths/getCredentials.generated.yml, handlers/users/spec/paths/getUsers.generated.yml. Workflow ownership is shared[]{role,workflowId,projectId}; credential ownership is shared[]{id (project id),name,role}; there is no ownedBy or userId. Lists page with limit (default 100, max 250) and nextCursor.",
+  "users": [
+    { "id": "u-omar", "email": "Omar@acme.com", "firstName": "Omar", "lastName": "Farooq", "isPending": false, "createdAt": "2025-01-01T00:00:00.000Z", "updatedAt": "2025-01-01T00:00:00.000Z", "mfaEnabled": true },
+    { "id": "u-maya", "email": "maya@acme.com", "firstName": "Maya", "lastName": "Lin", "isPending": false, "createdAt": "2025-01-02T00:00:00.000Z", "updatedAt": "2025-01-02T00:00:00.000Z", "mfaEnabled": false },
+    { "id": "u-sam", "email": "sam@acme.com", "firstName": null, "lastName": null, "isPending": true, "createdAt": "2025-01-03T00:00:00.000Z", "updatedAt": "2025-01-03T00:00:00.000Z", "mfaEnabled": false }
+  ],
+  "projectMembers": {
+    "p-omar": ["u-omar"],
+    "p-maya": ["u-maya"],
+    "p-ops": ["u-omar", "u-maya"]
+  },
+  "credentials": [
+    {
+      "id": "c-gsheets", "name": "Omar's Google Sheets", "type": "googleSheetsOAuth2Api",
+      "createdAt": "2025-02-01T00:00:00.000Z", "updatedAt": "2025-02-01T00:00:00.000Z",
+      "shared": [
+        { "id": "p-omar", "name": "Omar Farooq <omar@acme.com>", "role": "credential:owner", "createdAt": "2025-02-01T00:00:00.000Z", "updatedAt": "2025-02-01T00:00:00.000Z" },
+        { "id": "p-ops", "name": "Ops", "role": "credential:user", "createdAt": "2025-02-02T00:00:00.000Z", "updatedAt": "2025-02-02T00:00:00.000Z" }
+      ]
+    },
+    {
+      "id": "c-slack", "name": "Ops Slack bot", "type": "slackApi",
+      "createdAt": "2025-02-03T00:00:00.000Z", "updatedAt": "2025-02-03T00:00:00.000Z",
+      "shared": [
+        { "id": "p-ops", "name": "Ops", "role": "credential:owner", "createdAt": "2025-02-03T00:00:00.000Z", "updatedAt": "2025-02-03T00:00:00.000Z" }
+      ]
+    },
+    {
+      "id": "c-openai", "name": "Maya OpenAI", "type": "openAiApi",
+      "createdAt": "2025-02-04T00:00:00.000Z", "updatedAt": "2025-02-04T00:00:00.000Z",
+      "shared": [
+        { "id": "p-maya", "name": "Maya Lin <maya@acme.com>", "role": "credential:owner", "createdAt": "2025-02-04T00:00:00.000Z", "updatedAt": "2025-02-04T00:00:00.000Z" }
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "id": "wf-invoices", "name": "Invoice sync", "active": true, "activeVersionId": "v-11", "isArchived": false, "versionId": "v-11", "triggerCount": 1,
+      "createdAt": "2025-03-01T00:00:00.000Z", "updatedAt": "2025-09-01T00:00:00.000Z",
+      "nodes": [
+        { "id": "n1", "name": "Schedule", "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1, "position": [0, 0], "parameters": {} },
+        { "id": "n2", "name": "Read sheet", "type": "n8n-nodes-base.googleSheets", "typeVersion": 4, "position": [200, 0], "parameters": {}, "credentials": { "googleSheetsOAuth2Api": { "id": "c-gsheets", "name": "Omar's Google Sheets" } } },
+        { "id": "n3", "name": "Summarise", "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi", "typeVersion": 1, "position": [400, 0], "parameters": { "model": "gpt-4o-mini" }, "credentials": { "openAiApi": { "id": "c-openai", "name": "Maya OpenAI" } } }
+      ],
+      "connections": {}, "settings": {}, "staticData": null, "tags": [],
+      "shared": [
+        { "role": "workflow:owner", "workflowId": "wf-invoices", "projectId": "p-omar", "createdAt": "2025-03-01T00:00:00.000Z", "updatedAt": "2025-03-01T00:00:00.000Z" },
+        { "role": "workflow:editor", "workflowId": "wf-invoices", "projectId": "p-ops", "createdAt": "2025-03-02T00:00:00.000Z", "updatedAt": "2025-03-02T00:00:00.000Z" }
+      ]
+    },
+    {
+      "id": "wf-alerts", "name": "Ops alerts", "active": true, "activeVersionId": "v-21", "isArchived": false, "versionId": "v-21", "triggerCount": 1,
+      "createdAt": "2025-03-03T00:00:00.000Z", "updatedAt": "2025-09-02T00:00:00.000Z",
+      "nodes": [
+        { "id": "n1", "name": "Post", "type": "n8n-nodes-base.slack", "typeVersion": 2, "position": [0, 0], "parameters": {}, "credentials": { "slackApi": { "id": "c-slack", "name": "Ops Slack bot" } } }
+      ],
+      "connections": {}, "settings": {}, "staticData": null, "tags": [],
+      "shared": [
+        { "role": "workflow:owner", "workflowId": "wf-alerts", "projectId": "p-ops", "createdAt": "2025-03-03T00:00:00.000Z", "updatedAt": "2025-03-03T00:00:00.000Z" }
+      ]
+    },
+    {
+      "id": "wf-drafts", "name": "Draft replies", "active": false, "activeVersionId": null, "isArchived": false, "versionId": "v-31", "triggerCount": 0,
+      "createdAt": "2025-03-05T00:00:00.000Z", "updatedAt": "2025-09-03T00:00:00.000Z",
+      "nodes": [
+        { "id": "n1", "name": "Draft", "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi", "typeVersion": 1, "position": [0, 0], "parameters": { "model": "gpt-4o" }, "credentials": { "openAiApi": { "id": "c-openai", "name": "Maya OpenAI" } } }
+      ],
+      "connections": {}, "settings": {}, "staticData": null, "tags": [],
+      "shared": [
+        { "role": "workflow:owner", "workflowId": "wf-drafts", "projectId": "p-maya", "createdAt": "2025-03-05T00:00:00.000Z", "updatedAt": "2025-03-05T00:00:00.000Z" }
+      ]
+    }
+  ]
+}

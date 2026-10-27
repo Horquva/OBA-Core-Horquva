@@ -14,9 +14,10 @@
 //     were actually checked, and no fatal failure occurred, automatically
 //     closes the departure into Stage 5 (verified).
 //
-// Execution history comes from n8n (N8N_BASE_URL + N8N_API_KEY). Without it the
-// window still runs but nothing is auto-verified: "no failures seen" is only
-// claimed when executions were really read.
+// Execution history comes from the n8n connection saved in Settings (or, with
+// none, N8N_BASE_URL + N8N_API_KEY). Without it the window still runs but
+// nothing is auto-verified: "no failures seen" is only claimed when executions
+// were really read.
 // =============================================================================
 
 import type { ContinuityGraph } from '../domain/graph/index.js';
@@ -56,15 +57,45 @@ export type ExecutionProvider = (
 
 const N8N_AUTOMATION_PREFIX = 'automation:n8n:';
 
-/** Live n8n execution history, when the instance is configured; otherwise null. */
-export function n8nExecutionProviderFromEnv(env: NodeJS.ProcessEnv = process.env): ExecutionProvider | null {
-  if (!env.N8N_BASE_URL || !env.N8N_API_KEY) return null;
-  const n8n = new N8nConnector('n8n', 'n8n', { baseUrl: env.N8N_BASE_URL, apiKey: env.N8N_API_KEY });
+function n8nExecutionProvider(n8n: N8nConnector): ExecutionProvider {
   return async (automationId, since) => {
     if (!automationId.startsWith(N8N_AUTOMATION_PREFIX)) return null;
     const failed = await n8n.fetchFailedExecutions(automationId.slice(N8N_AUTOMATION_PREFIX.length), since);
     return failed.map((e) => ({ ...e, status: 'error' as const }));
   };
+}
+
+/** Live n8n execution history, when the instance is configured; otherwise null. */
+export function n8nExecutionProviderFromEnv(env: NodeJS.ProcessEnv = process.env): ExecutionProvider | null {
+  if (!env.N8N_BASE_URL || !env.N8N_API_KEY) return null;
+  return n8nExecutionProvider(new N8nConnector('n8n', 'n8n', { baseUrl: env.N8N_BASE_URL, apiKey: env.N8N_API_KEY }));
+}
+
+/**
+ * The n8n connection saved in Settings, falling back to N8N_BASE_URL/N8N_API_KEY
+ * when there is none (or no database). Automation ids aren't namespaced per
+ * connection, so with several n8n connections we can't tell which instance a
+ * workflow lives on: nothing is read, and nothing is auto-verified.
+ */
+export async function resolveExecutionProvider(ds: DataService, env: NodeJS.ProcessEnv = process.env): Promise<ExecutionProvider | null> {
+  if (ds.isPersistent()) {
+    const { query } = await import('../db/client.js');
+    const { rows } = await query(`SELECT id FROM connection WHERE type = 'n8n' ORDER BY id`);
+    if (rows.length > 1) {
+      console.warn(`[PostDepartureVerifier] ${rows.length} n8n connections: can't tell which one runs a workflow, so executions are not read.`);
+      return null;
+    }
+    if (rows.length === 1) {
+      const { ConnectorRunner } = await import('../connectors/sdk/runner.js');
+      try {
+        return n8nExecutionProvider((await ConnectorRunner.load(rows[0].id)) as N8nConnector);
+      } catch (err: any) {
+        console.warn(`[PostDepartureVerifier] Couldn't load n8n connection ${rows[0].id}: ${err.message}`);
+        return null;
+      }
+    }
+  }
+  return n8nExecutionProviderFromEnv(env);
 }
 
 const DEFAULT_WINDOW_HOURS = 72;
@@ -130,7 +161,7 @@ export function getAssociatedAutomations(
 export interface VerifyOptions {
   now?: Date;
   windowHours?: number;
-  /** Omitted: n8n from env when configured. null: no execution source. */
+  /** Omitted: the saved n8n connection, else n8n from env. null: no execution source. */
   executionProvider?: ExecutionProvider | null;
   autoTransition?: boolean;
 }
@@ -182,7 +213,7 @@ export async function verifyDepartureExecutions(
   let failuresDetected = 0;
   let alertsEmitted = 0;
   let hasActiveAuthFailure = false;
-  const provider = options.executionProvider === undefined ? n8nExecutionProviderFromEnv() : options.executionProvider;
+  const provider = options.executionProvider === undefined ? await resolveExecutionProvider(ds) : options.executionProvider;
   // Nothing to watch counts as checked; otherwise every automation must be readable.
   let executionsChecked = automations.length === 0 || provider !== null;
   // The hourly scan re-reads the whole window; only new executions are recorded.
@@ -304,8 +335,11 @@ export async function verifyAllActiveDepartures(
     .filter((d) => d.stage === 'account_disabled');
 
   const results: VerificationResult[] = [];
+  if (activeDepartures.length === 0) return results;
+  // Resolve the execution source once for the whole run.
+  const executionProvider = options.executionProvider === undefined ? await resolveExecutionProvider(ds) : options.executionProvider;
   for (const dep of activeDepartures) {
-    const res = await verifyDepartureExecutions(ds, dep.id, options);
+    const res = await verifyDepartureExecutions(ds, dep.id, { ...options, executionProvider });
     results.push(res);
   }
   return results;
