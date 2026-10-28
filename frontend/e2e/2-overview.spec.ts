@@ -30,5 +30,5 @@ test('Overview shows the real coverage counts and top single points of failure',
   await expect(sidebar).toBeVisible();
   await sidebar.getByRole('link', { name: /Departures/ }).click();
   await expect(page).toHaveURL(/\/departures$/);
-  await expect(page.getByRole('heading', { name: 'Departures & Handover' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Departures' })).toBeVisible();
 });

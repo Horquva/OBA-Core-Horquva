@@ -15,11 +15,21 @@ test.beforeAll(async () => {
   n8n = http.createServer((req, res) => {
     if (req.headers['x-n8n-api-key'] !== N8N_KEY) return void res.writeHead(401).end();
     const send = (body: unknown) => res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(body));
-    const path = new URL(req.url!, 'http://x').pathname;
-    if (path === '/api/v1/users') return send({ data: [{ id: 'u1', email: 'nadia@northwind.edu', firstName: 'Nadia', lastName: 'Rahman' }] });
-    if (path === '/api/v1/credentials') return send({ data: [] });
-    if (path === '/api/v1/workflows') return send({ data: [{ id: 'w1', name: 'Grant intake triage', active: true }] });
-    if (path === '/api/v1/workflows/w1') return send({ id: 'w1', name: 'Grant intake triage', active: true, ownedBy: { email: 'nadia@northwind.edu' }, nodes: [] });
+    const url = new URL(req.url!, 'http://x');
+    // n8n's public API shape: workflows are owned by a project (shared[]); a personal
+    // project's one member, read from /users?projectId=, is the owner.
+    const nadia = { id: 'u1', email: 'nadia@northwind.edu', firstName: 'Nadia', lastName: 'Rahman' };
+    if (url.pathname === '/api/v1/users') {
+      const projectId = url.searchParams.get('projectId');
+      return send({ data: !projectId || projectId === 'p-nadia' ? [nadia] : [], nextCursor: null });
+    }
+    if (url.pathname === '/api/v1/credentials') return send({ data: [], nextCursor: null });
+    if (url.pathname === '/api/v1/workflows') {
+      return send({
+        data: [{ id: 'w1', name: 'Grant intake triage', activeVersionId: 'v-w1', isArchived: false, nodes: [], shared: [{ role: 'workflow:owner', workflowId: 'w1', projectId: 'p-nadia' }] }],
+        nextCursor: null,
+      });
+    }
     res.writeHead(404).end();
   });
   await new Promise<void>((r) => n8n.listen(0, '127.0.0.1', () => r()));
@@ -71,7 +81,7 @@ test('a new org sets up through the guide: name, n8n, first sync, invite', async
   expect(JSON.stringify(asset)).toContain('Nadia Rahman');
 
   await page.goto('/settings/connections');
-  const card = page.getByRole('heading', { name: 'n8n', level: 4 }).locator('xpath=ancestor::div[contains(@class,"shadow-card")][1]');
+  const card = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'n8n', level: 3 }) });
   await expect(card.getByText('connected', { exact: true })).toBeVisible();
   await expect(card.getByText(/Last run completed · \d+ people & systems/)).toBeVisible();
 

@@ -27,20 +27,20 @@ test('What-If: simulating a leaver shows the backend blast radius', async ({ pag
   const { name, result } = leaver!;
 
   await page.goto('/what-if');
-  await expect(page.getByRole('heading', { name: 'What-If Continuity Simulator' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'What-if' })).toBeVisible();
 
-  const simulate = page.getByRole('button', { name: /Simulate Impact/ });
+  const simulate = page.getByRole('button', { name: 'Run simulation' });
   await expect(simulate).toBeDisabled();
 
-  await page.getByRole('button', { name: '+ person' }).click();
+  await page.getByRole('button', { name: 'Person', exact: true }).click();
   await pickFromCombobox(page, page.getByRole('combobox').first(), name.split(' ')[0], name);
   await expect(page.getByRole('button', { name: `Remove ${name}` })).toBeVisible();
 
   await simulate.click();
 
-  await expect(page.getByRole('heading', { name: 'Simulated Blast Radius & Impact' })).toBeVisible();
+  await expect(page.getByText('Simulation result')).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: `Orphaned Critical Assets (${result.orphanedCriticalAssets.length})` }),
+    page.getByRole('heading', { name: new RegExp(`^Critical assets left without an owner\\s*${result.orphanedCriticalAssets.length}$`) }),
   ).toBeVisible();
   for (const row of result.orphanedCriticalAssets) {
     await expect(page.getByRole('link', { name: row.asset.name }).first()).toBeVisible();

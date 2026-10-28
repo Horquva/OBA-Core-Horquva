@@ -14,7 +14,7 @@ test('signed-out visit → sign-in → back to the page asked for → sign out',
   await page.getByRole('button', { name: 'admin', exact: true }).click();
 
   await expect(page).toHaveURL(/\/what-if$/);
-  await expect(page.getByRole('heading', { name: 'What-If Continuity Simulator' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'What-if' })).toBeVisible();
   const session = await apiGet<{ email: string; role: string }>(page.request, '/api/auth/session');
   expect(session).toMatchObject({ email: 'alex@acme.com', role: 'admin' });
 
