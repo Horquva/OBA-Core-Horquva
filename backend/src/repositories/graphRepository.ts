@@ -6,7 +6,7 @@
 // are versioned through FactStore's Postgres adapter, not here.
 // =============================================================================
 
-import type { CanonicalEdge, CanonicalEntity, CanonicalFact, EdgeType, EvidenceGrade, EntityKind, FactAttribute } from '@horquva/types';
+import type { CanonicalEdge, CanonicalEntity, CanonicalFact, EdgeType, EvidenceGrade, EntityKind, FactAttribute, OwnerKind } from '@horquva/types';
 import { query as defaultQuery } from '../db/client.js';
 
 export type Query = typeof defaultQuery;
@@ -22,7 +22,7 @@ const date = (v: unknown): Date => (v instanceof Date ? v : new Date(v as string
 export async function loadActiveGraph(q: Query = defaultQuery): Promise<GraphSnapshot> {
   const [ent, edg, fct] = await Promise.all([
     q(`SELECT id, kind, name, description, external_refs, created_at, updated_at FROM entity`),
-    q(`SELECT id, from_id, to_id, type, grade, source, source_ref, valid_from FROM edge WHERE valid_to IS NULL`),
+    q(`SELECT id, from_id, to_id, type, grade, source, source_ref, owner_kind, valid_from FROM edge WHERE valid_to IS NULL`),
     q(`SELECT id, entity_id, attribute, value, grade, source, source_ref, attested_by, valid_from FROM fact WHERE valid_to IS NULL`),
   ]);
   return {
@@ -43,6 +43,7 @@ export async function loadActiveGraph(q: Query = defaultQuery): Promise<GraphSna
       grade: r.grade as EvidenceGrade,
       source: r.source,
       sourceRef: r.source_ref ?? undefined,
+      ...(r.owner_kind ? { ownerKind: r.owner_kind as OwnerKind } : {}),
       validFrom: date(r.valid_from),
       validTo: null,
     })),
@@ -79,13 +80,13 @@ export async function insertSnapshot(snap: GraphSnapshot, q: Query = defaultQuer
     })))]
   );
   await q(
-    `INSERT INTO edge (from_id, to_id, type, grade, source, source_ref, valid_from, valid_to)
-     SELECT from_id, to_id, type, grade, source, source_ref, COALESCE(valid_from, NOW()), valid_to
-       FROM jsonb_to_recordset($1::jsonb) AS x(from_id text, to_id text, type text, grade text, source text, source_ref text, valid_from timestamptz, valid_to timestamptz)
+    `INSERT INTO edge (from_id, to_id, type, grade, source, source_ref, owner_kind, valid_from, valid_to)
+     SELECT from_id, to_id, type, grade, source, source_ref, owner_kind, COALESCE(valid_from, NOW()), valid_to
+       FROM jsonb_to_recordset($1::jsonb) AS x(from_id text, to_id text, type text, grade text, source text, source_ref text, owner_kind text, valid_from timestamptz, valid_to timestamptz)
      ON CONFLICT DO NOTHING`,
     [JSON.stringify(snap.edges.map((e) => ({
       from_id: e.fromId, to_id: e.toId, type: e.type, grade: e.grade, source: e.source,
-      source_ref: e.sourceRef ?? null, valid_from: e.validFrom ?? null, valid_to: e.validTo ?? null,
+      source_ref: e.sourceRef ?? null, owner_kind: e.ownerKind ?? null, valid_from: e.validFrom ?? null, valid_to: e.validTo ?? null,
     })))]
   );
   await q(
@@ -102,10 +103,10 @@ export async function insertSnapshot(snap: GraphSnapshot, q: Query = defaultQuer
 
 export async function insertEdge(edge: CanonicalEdge, q: Query = defaultQuery): Promise<void> {
   await q(
-    `INSERT INTO edge (from_id, to_id, type, grade, source, source_ref, valid_from)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO edge (from_id, to_id, type, grade, source, source_ref, owner_kind, valid_from)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT DO NOTHING`,
-    [edge.fromId, edge.toId, edge.type, edge.grade, edge.source, edge.sourceRef ?? null, edge.validFrom ?? new Date()]
+    [edge.fromId, edge.toId, edge.type, edge.grade, edge.source, edge.sourceRef ?? null, edge.ownerKind ?? null, edge.validFrom ?? new Date()]
   );
 }
 

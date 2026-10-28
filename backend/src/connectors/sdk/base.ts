@@ -27,7 +27,8 @@ export abstract class BaseConnector implements Connector {
    * Writes one sync's results into the SCD2 store in a single transaction, as
    * part of the `sync_run` the runner already recorded:
    * - raw payloads land unchanged (replayable);
-   * - entities are upserted;
+   * - entities are upserted; a person's directory name (Entra/Google) is not
+   *   overwritten by a source that isn't a directory (n8n, AI vendors);
    * - edges and facts are versioned by evidence grade: a sync never replaces
    *   a stronger active row (e.g. an attested 'confirmed' owner) with a weaker
    *   one, mirroring FactStore's precedence rules;
@@ -60,7 +61,11 @@ export abstract class BaseConnector implements Connector {
            FROM jsonb_to_recordset($1::jsonb) AS x(id text, kind text, name text, description text, external_refs jsonb)
          ON CONFLICT (id) DO UPDATE SET
            kind = EXCLUDED.kind,
-           name = EXCLUDED.name,
+           name = CASE
+             WHEN entity.kind = 'person'
+              AND (entity.external_refs ? 'entraId' OR entity.external_refs ? 'googleId')
+              AND NOT (EXCLUDED.external_refs ? 'entraId' OR EXCLUDED.external_refs ? 'googleId')
+             THEN entity.name ELSE EXCLUDED.name END,
            description = COALESCE(EXCLUDED.description, entity.description),
            external_refs = entity.external_refs || EXCLUDED.external_refs,
            updated_at = NOW()`,
@@ -70,9 +75,9 @@ export abstract class BaseConnector implements Connector {
       // 3. Edges, staged so each step is one statement
       await run(
         `CREATE TEMP TABLE incoming_edge ON COMMIT DROP AS
-         SELECT DISTINCT ON (from_id, to_id, type) from_id, to_id, type, grade, source, source_ref
-           FROM jsonb_to_recordset($1::jsonb) AS x(from_id text, to_id text, type text, grade text, source text, source_ref text)`,
-        [JSON.stringify(syncResult.edges.map((e) => ({ from_id: e.fromId, to_id: e.toId, type: e.type, grade: e.grade, source: e.source, source_ref: e.sourceRef ?? null })))]
+         SELECT DISTINCT ON (from_id, to_id, type) from_id, to_id, type, grade, source, source_ref, owner_kind
+           FROM jsonb_to_recordset($1::jsonb) AS x(from_id text, to_id text, type text, grade text, source text, source_ref text, owner_kind text)`,
+        [JSON.stringify(syncResult.edges.map((e) => ({ from_id: e.fromId, to_id: e.toId, type: e.type, grade: e.grade, source: e.source, source_ref: e.sourceRef ?? null, owner_kind: e.ownerKind ?? null })))]
       );
       const edgeOrphans = await run(
         `DELETE FROM incoming_edge i
@@ -85,10 +90,20 @@ export abstract class BaseConnector implements Connector {
             AND ${rank('i.grade')} > ${rank('e.grade')}`
       );
       const edgeCreated = await run(
-        `INSERT INTO edge (from_id, to_id, type, grade, source, source_ref, connection_id, valid_from)
-         SELECT i.from_id, i.to_id, i.type, i.grade, i.source, i.source_ref, $1, NOW() FROM incoming_edge i
+        `INSERT INTO edge (from_id, to_id, type, grade, source, source_ref, owner_kind, connection_id, valid_from)
+         SELECT i.from_id, i.to_id, i.type, i.grade, i.source, i.source_ref, i.owner_kind, $1, NOW() FROM incoming_edge i
           WHERE NOT EXISTS (SELECT 1 FROM edge e WHERE e.valid_to IS NULL AND e.from_id = i.from_id AND e.to_id = i.to_id AND e.type = i.type)`,
         [this.id]
+      );
+      // The insert only fires for a new triple, so a changed owner_kind on an
+      // existing one is updated in place (not a new version: same claim, more
+      // precise). A weaker claim never relabels a stronger one.
+      await run(
+        `UPDATE edge e SET owner_kind = i.owner_kind
+           FROM incoming_edge i
+          WHERE e.valid_to IS NULL AND e.from_id = i.from_id AND e.to_id = i.to_id AND e.type = i.type
+            AND e.owner_kind IS DISTINCT FROM i.owner_kind
+            AND ${rank('i.grade')} >= ${rank('e.grade')}`
       );
 
       // 4. Facts

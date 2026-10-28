@@ -13,6 +13,7 @@
 import crypto from 'node:crypto';
 import type { DataService } from '../dataService.js';
 import { calculateHeadlineMetrics } from '../../domain/checks/index.js';
+import { TELEMETRY_ATTRIBUTES } from '../../domain/facts/telemetry.js';
 import { query } from '../../db/client.js';
 
 export interface DailyHeadlineMetrics {
@@ -88,13 +89,16 @@ export class SnapshotService {
 
     for (const node of graph.getAllNodes()) {
       if (node.entity.kind === 'automation' || node.entity.kind === 'credential' || node.entity.kind === 'app') {
-        const owners = graph.getOwners(node.entity.id);
-        if (owners.length === 0) {
+        // A third-party app is someone else's to own; a service-account key is
+        // owned by design (it has no person behind it).
+        const thirdParty = node.entity.externalRefs?.thirdParty === 'true';
+        const serviceAccount = node.facts.get('owner_type')?.value === 'service_account';
+        if (!thirdParty && !serviceAccount && graph.getOwners(node.entity.id).length === 0) {
           ownerlessAssets++;
         }
       }
       for (const fact of node.facts.values()) {
-        if (fact.grade !== 'confirmed') {
+        if (fact.grade !== 'confirmed' && !TELEMETRY_ATTRIBUTES.has(fact.attribute)) {
           unconfirmedFacts++;
         }
       }
