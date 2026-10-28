@@ -15,7 +15,12 @@ export interface SyncStats {
   entitiesCreated: number;
   edgesCreated: number;
   factsCreated: number;
+  /** Core-module failures; > 0 means the sync is partial and closes nothing. */
   errors: number;
+  /** One line per core-module failure (see sdk/issues.ts). */
+  errorReasons?: string[];
+  /** One line per optional enrichment that failed; its facts were omitted. */
+  warnings?: string[];
 }
 
 /** What persistSync() actually changed in Postgres (stored on the sync_run). */

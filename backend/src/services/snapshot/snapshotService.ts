@@ -133,7 +133,7 @@ export class SnapshotService {
     // Automation failure counts from change events
     const failMap = new Map<string, { name: string; count: number }>();
     for (const change of ds.getChangeEvents()) {
-      if (change.kind === 'credential_risk' || change.kind === 'failure_spiked') {
+      if (change.kind === 'credential_risk' || change.kind === 'failures_spiked') {
         const autoId = change.href?.replace('/assets/', '') ?? change.id;
         const cur = failMap.get(autoId) ?? { name: change.title, count: 0 };
         cur.count++;

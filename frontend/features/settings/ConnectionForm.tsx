@@ -36,7 +36,7 @@ export const CONNECTION_FIELDS: Record<SyncableConnectionType, Field[]> = {
   entra: [
     { key: 'tenantId', label: 'Tenant ID', kind: 'text', placeholder: '00000000-0000-0000-0000-000000000000' },
     { key: 'clientId', label: 'Application (client) ID', kind: 'text' },
-    { key: 'clientSecret', label: 'Client secret', kind: 'secret', help: 'App registration with User.Read.All and Application.Read.All (application permissions, read-only).' },
+    { key: 'clientSecret', label: 'Client secret', kind: 'secret', help: 'App registration with User.Read.All and Application.Read.All (application permissions, read-only). Optional: User-LifeCycleInfo.Read.All to read leave dates.' },
   ],
   google: [
     { key: 'adminEmail', label: 'Admin email to act as', kind: 'text', placeholder: 'it-admin@your-org.edu' },

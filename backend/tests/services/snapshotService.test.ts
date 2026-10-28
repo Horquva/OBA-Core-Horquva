@@ -88,9 +88,12 @@ describe('TRD-01 / G-21: Daily Continuity Snapshot Service', () => {
 
   it('populates backupsLost and newlyExposed in changeSummaryFor when snapshots exist', async () => {
     const adminUser = ds.getUserById('user:admin')!;
+    // A fixed clock: with the real one, the 7-day window drifts past the
+    // hard-coded snapshot dates and the test starts failing on its own.
+    const now = new Date('2026-10-23T12:00:00Z');
 
     // Initial check without past snapshots: backupsLost and newlyExposed are null
-    const summaryBefore = await changeSummaryFor(ds, adminUser);
+    const summaryBefore = await changeSummaryFor(ds, adminUser, now);
     expect(summaryBefore.backupsLost).toBeNull();
     expect(summaryBefore.newlyExposed).toBeNull();
 
@@ -103,7 +106,7 @@ describe('TRD-01 / G-21: Daily Continuity Snapshot Service', () => {
 
     await SnapshotService.captureDailySnapshot(ds, '2026-10-23');
 
-    const summaryAfter = await changeSummaryFor(ds, adminUser, new Date('2026-10-23T12:00:00Z'));
+    const summaryAfter = await changeSummaryFor(ds, adminUser, now);
     expect(summaryAfter.backupsLost).toBe(1);
     expect(summaryAfter.newlyExposed).toBe(1);
   });

@@ -31,7 +31,7 @@ test('initiating a departure opens a handover workbench for that person', async 
   const leaveDate = new Date(Date.now() + 21 * 86_400_000).toISOString().slice(0, 10);
 
   await page.goto('/departures');
-  await page.getByRole('button', { name: '+ Initiate Departure' }).click();
+  await page.getByRole('button', { name: 'Record a departure' }).first().click();
   const sheet = page.getByRole('dialog', { name: 'Initiate Departure' });
   await expect(sheet).toBeVisible();
 
@@ -51,12 +51,13 @@ test('initiating a departure opens a handover workbench for that person', async 
   expect(created!).toMatchObject({ stage: 'initiated', group: 'upcoming' });
   expect(created!.assetsTotal).toBeGreaterThan(0);
 
-  // And the list shows it under Upcoming with the same counts.
-  const upcoming = page.getByRole('tabpanel');
-  await expect(upcoming.getByRole('link', { name: leaver.name })).toBeVisible();
-  await expect(upcoming.getByText(`0 of ${created!.assetsTotal} assets`)).toBeVisible();
+  // And the list shows it with the same handover counts.
+  const link = page.getByRole('link', { name: leaver.name });
+  const row = page.getByRole('row').filter({ has: link });
+  await expect(row).toBeVisible();
+  await expect(row.getByText(`0 of ${created!.assetsTotal}`, { exact: true })).toBeVisible();
 
-  await upcoming.getByRole('link', { name: leaver.name }).click();
+  await link.click();
   await expect(page).toHaveURL(new RegExp(`/departures/${encodeURIComponent(created!.id)}$`));
   await expect(page.getByRole('heading', { level: 1, name: leaver.name })).toBeVisible();
 

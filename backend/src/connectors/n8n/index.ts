@@ -7,6 +7,7 @@
 
 import { CanonicalEntity, CanonicalEdge, CanonicalFact } from '@horquva/types';
 import { BaseConnector } from '../sdk/base.js';
+import { SyncIssues } from '../sdk/issues.js';
 import { ConnectorCapabilities, SyncResult, RawPayloadRecord } from '../sdk/types.js';
 
 /** n8n's documented maximum page size for list endpoints. */
@@ -119,6 +120,7 @@ export class N8nConnector extends BaseConnector {
     const facts: CanonicalFact[] = [];
     const rawPayloads: RawPayloadRecord[] = [];
     const projectPeople = new Map<string, Promise<string | null>>();
+    const issues = new SyncIssues();
 
     // 1. Fetch Users
     const users = await this.listAll('/api/v1/users');
@@ -172,6 +174,8 @@ export class N8nConnector extends BaseConnector {
       }
     } catch (e) {
       console.warn('[N8nConnector] Could not list credentials (requires credential:read scope):', e);
+      // Without credential owners the runs_on_credentials_of edges can't be built.
+      issues.core('credentials', e);
     }
 
     // 3. Fetch Workflows (the list already carries nodes and shared[])
@@ -182,7 +186,9 @@ export class N8nConnector extends BaseConnector {
       if (!Array.isArray(wf.nodes)) {
         try {
           wf = (await this.guard.get(`${this.baseUrl}/api/v1/workflows/${wfSummary.id}`, { headers: this.getHeaders() })).data;
-        } catch {
+        } catch (e) {
+          // The summary has no nodes, so this workflow's credential edges are unknown.
+          issues.core(`workflows/${wfSummary.id}`, e);
           wf = wfSummary;
         }
       }
@@ -335,7 +341,7 @@ export class N8nConnector extends BaseConnector {
         entitiesCreated: uniqueEntities.length,
         edgesCreated: edges.length,
         factsCreated: facts.length,
-        errors: 0,
+        ...issues.stats(),
       },
     };
   }

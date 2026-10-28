@@ -34,7 +34,8 @@ export abstract class BaseConnector implements Connector {
    * - rows this connection asserted earlier but no longer reports are closed
    *   (valid_to = now), so a removed owner or member stops counting. That step
    *   is skipped when the sync reported errors or came back empty, so a
-   *   partial fetch can't wipe the graph.
+   *   partial fetch can't wipe the graph. Only core-module failures count as
+   *   errors; a failed optional enrichment is a warning (sdk/issues.ts).
    * Edges/facts pointing at entities that don't exist are skipped and counted.
    */
   public async persistSync(syncResult: SyncResult, syncRunId: string): Promise<PersistStats> {
@@ -139,6 +140,8 @@ export abstract class BaseConnector implements Connector {
 
       return {
         ...syncResult.stats,
+        errorReasons: syncResult.stats.errorReasons ?? [],
+        warnings: syncResult.stats.warnings ?? [],
         entitiesUpserted: ent.rowCount ?? 0,
         edgesCreated: edgeCreated.rowCount ?? 0,
         edgesSuperseded: edgeSuperseded.rowCount ?? 0,

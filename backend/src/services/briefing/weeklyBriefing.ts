@@ -184,7 +184,7 @@ export class WeeklyBriefingService {
       .getChangeEvents()
       .filter((c) => {
         const at = new Date(c.detectedAt).getTime();
-        return at >= sevenDaysAgo && (c.kind === 'credential_risk' || c.kind === 'failure_spiked');
+        return at >= sevenDaysAgo && (c.kind === 'credential_risk' || c.kind === 'failures_spiked');
       })
       .map((c) => ({
         id: c.id,

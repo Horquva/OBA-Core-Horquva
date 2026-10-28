@@ -6,7 +6,7 @@
 // credentialed by the leaver.
 //
 // If any automation fails with authentication/token/credential errors:
-//   - Emits a High-Severity Alert (change event kind 'credential_risk' / 'failure_spiked')
+//   - Emits a High-Severity Alert (change event kind 'credential_risk' / 'failures_spiked')
 //   - Appends an entry to the departure's watch log
 //
 // Once 72 hours have elapsed:

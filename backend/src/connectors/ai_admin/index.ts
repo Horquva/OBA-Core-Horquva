@@ -7,6 +7,7 @@
 
 import { CanonicalEntity, CanonicalEdge, CanonicalFact } from '@horquva/types';
 import { BaseConnector } from '../sdk/base.js';
+import { SyncIssues } from '../sdk/issues.js';
 import { ConnectorCapabilities, SyncResult, RawPayloadRecord } from '../sdk/types.js';
 
 export interface AiAdminConnectorConfig {
@@ -81,6 +82,7 @@ export class AiAdminConnector extends BaseConnector {
     const edges: CanonicalEdge[] = [];
     const facts: CanonicalFact[] = [];
     const rawPayloads: RawPayloadRecord[] = [];
+    const issues = new SyncIssues();
 
     if (this.vendor === 'openai') {
       // 1. Fetch OpenAI Models
@@ -112,6 +114,7 @@ export class AiAdminConnector extends BaseConnector {
         }
       } catch (err) {
         console.warn('[AiAdminConnector] Failed to query OpenAI models:', err);
+        issues.optional('models', err);
       }
 
       // 2. Query Organization Project / User Attribution if available
@@ -141,6 +144,7 @@ export class AiAdminConnector extends BaseConnector {
           }
         } catch (err) {
           // Organization API requires Admin tier
+          issues.core('organization/users', err);
         }
       }
     } else if (this.vendor === 'anthropic') {
@@ -184,7 +188,7 @@ export class AiAdminConnector extends BaseConnector {
         entitiesCreated: uniqueEntities.length,
         edgesCreated: edges.length,
         factsCreated: facts.length,
-        errors: 0,
+        ...issues.stats(),
       },
     };
   }

@@ -9,6 +9,7 @@
 
 import { CanonicalEntity, CanonicalEdge, CanonicalFact } from '@horquva/types';
 import { BaseConnector } from '../sdk/base.js';
+import { SyncIssues } from '../sdk/issues.js';
 import { ConnectorCapabilities, SyncResult, RawPayloadRecord } from '../sdk/types.js';
 import { GuardResponse } from '../sdk/guard.js';
 
@@ -105,6 +106,7 @@ export class EntraConnector extends BaseConnector {
     const edges: CanonicalEdge[] = [];
     const facts: CanonicalFact[] = [];
     const rawPayloads: RawPayloadRecord[] = [];
+    const issues = new SyncIssues();
     const headers = await this.getAuthHeaders();
 
     // 1. Fetch Users with employeeLeaveDateTime
@@ -201,13 +203,15 @@ export class EntraConnector extends BaseConnector {
               }
             }
           } catch (e) {
-            // Insufficient permissions or no owners listed
+            // No owners is a 200 with an empty list; a throw means we don't know them.
+            issues.core(`applications/${app.id}/owners`, e);
           }
         }
 
         appNextUrl = res.data?.['@odata.nextLink'] || null;
       } catch (err) {
         console.warn('[EntraConnector] Could not list applications:', err);
+        issues.core('applications', err);
         break;
       }
     }
@@ -224,7 +228,7 @@ export class EntraConnector extends BaseConnector {
         entitiesCreated: uniqueEntities.length,
         edgesCreated: edges.length,
         factsCreated: facts.length,
-        errors: 0,
+        ...issues.stats(),
       },
     };
   }
