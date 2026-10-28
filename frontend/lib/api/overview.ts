@@ -1,6 +1,6 @@
 import type { HeadlineMetrics } from '@horquva/types';
-import type { BriefingDetail, ChangeSummary, CoverageTrend, ExposureCause, HistoryPoint, NavCounts, OverviewCoverage, SpofAsset } from '@/types/view';
-import { request } from './client';
+import type { BriefingDetail, ChangeSummary, CoverageTrend, ExposureCause, HistoryPoint, NavCounts, OrphanScanResult, OverviewCoverage, SpofAsset } from '@/types/view';
+import { apiUrl, request } from './client';
 
 type OverviewResponse = { metrics: HeadlineMetrics & { unknownCriticalAssets?: number }; trend?: CoverageTrend | null; exposureByCause?: ExposureCause[] };
 
@@ -26,6 +26,14 @@ export async function fetchCoverageHistory(days: number): Promise<HistoryPoint[]
 export function fetchChangeSummary(): Promise<ChangeSummary> {
   return request<ChangeSummary>('/api/changes/summary'); // (planned) B-03 — backend computes "since last visit"
 }
+
+/** GET /api/continuity/orphan-scan: what is already orphaned, ranked. */
+export function fetchOrphanScan(): Promise<OrphanScanResult> {
+  return request<OrphanScanResult>('/api/continuity/orphan-scan');
+}
+
+/** The same scan as a CSV download (an <a href>, so the browser sends the session cookie). */
+export const orphanScanCsvUrl = () => apiUrl('/api/continuity/orphan-scan?format=csv');
 
 export async function fetchSpofAssets(limit = 5): Promise<SpofAsset[]> {
   const r = await request<{ assets: SpofAsset[] }>(`/api/continuity/spof-assets?limit=${limit}`); // (planned) B-04

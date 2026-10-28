@@ -20,6 +20,7 @@ const askEngine = new AskHorquvaEngine();
 import { DataService } from '../services/dataService.js';
 import { spofAssets, coverageTrend, coverageHistory, exposureByCause, HISTORY_MAX_DAYS } from '../views/overviewViews.js';
 import { WeeklyBriefingService } from '../services/briefing/weeklyBriefing.js';
+import { runOrphanScan, orphanScanCsv } from '../services/orphanScan/orphanScanService.js';
 
 /**
  * Loads the active snapshot from PostgreSQL or falls back to DataService.
@@ -109,6 +110,32 @@ continuityRouter.get('/history', async (req: Request, res: Response) => {
 continuityRouter.get('/spof-assets', (req: Request, res: Response) => {
   const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '5'), 10) || 5, 1), 50);
   res.json({ assets: spofAssets(DataService.getInstance(), limit) });
+});
+
+// 1c. Orphan scan: what is already orphaned on the current graph (JSON, or ?format=csv)
+continuityRouter.get('/orphan-scan', async (req: Request, res: Response) => {
+  try {
+    const ds = DataService.getInstance();
+    const connections = ds.isPersistent()
+      ? (await query(`SELECT id, type, name FROM connection ORDER BY name`)).rows.map((r: any) => ({ id: r.id, type: r.type, name: r.name }))
+      : [];
+    const result = runOrphanScan(ds.getGraph(), new Date(), {
+      departures: ds.getDepartures(),
+      connectionsScanned: connections,
+      // With saved connections, the directory counts as connected only if one is Entra or Google.
+      ...(connections.length ? { directoryConnected: connections.some((c) => c.type === 'entra' || c.type === 'google') } : {}),
+    });
+    if (req.query.format === 'csv') {
+      res
+        .type('text/csv')
+        .attachment(`orphan-scan-${result.scannedAt.slice(0, 10)}.csv`)
+        .send(orphanScanCsv(result));
+      return;
+    }
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to run the orphan scan.' });
+  }
 });
 
 // 2. Inventory: Filterable catalog

@@ -61,6 +61,7 @@ describe('API contracts', () => {
     ['tasks', () => reviewer.fetchReviewerTasks(), { confirmations: [], handovers: [] }, '/api/me/tasks', 'GET'],
     ['connections', () => settings.fetchConnections(), { store: 'unavailable', connections: [], sources: [] }, '/api/connections', 'GET'],
     ['identity', () => settings.fetchIdentityQueue(), { items: [] }, '/api/identity-queue', 'GET'],
+    ['orphan scan', () => overview.fetchOrphanScan(), { findings: [] }, '/api/continuity/orphan-scan', 'GET'],
   ])('%s hits the contract path', async (_n, fn, body, url, method) => {
     const spy = respond(body);
     await fn();

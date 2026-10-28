@@ -249,6 +249,58 @@ export const MissingFallbackCheck: CheckRule = {
   },
 };
 
+/** A workload key from an AI vendor (OpenAI / Anthropic), as the key connectors write it. */
+export function isVendorKey(entityId: string): boolean {
+  return entityId.startsWith('credential:openai:') || entityId.startsWith('credential:anthropic:');
+}
+
+/**
+ * C5: Key Outlives Owner
+ * A vendor key whose owner has left (status departed) or, for OpenAI, lost
+ * access to the key's project. A service-account key has no person behind it
+ * by design. Not registered in ALL_CHECKS yet: that lands with its labels (B6).
+ */
+export const KeyOutlivesOwnerCheck: CheckRule = {
+  id: 'C5_KEY_OUTLIVES_OWNER',
+  name: 'Key Outlives Owner',
+  description: 'An AI vendor key is still live after the person who owns it has gone.',
+  evaluate(entity, facts, graph) {
+    if (entity.kind !== 'credential' || !isVendorKey(entity.id)) {
+      return null;
+    }
+    const result = (status: CheckStatus, reason: string, evidence: Array<CanonicalFact | undefined> = []): CheckResult => ({
+      checkId: 'C5_KEY_OUTLIVES_OWNER',
+      entityId: entity.id,
+      status,
+      evidenceFactIds: evidence.flatMap((f) => (f?.id ? [f.id] : [])),
+      reason,
+    });
+
+    const ownerType = facts.get('owner_type');
+    if (ownerType?.value === 'service_account') {
+      return result('PASS', 'Key belongs to a service account.', [ownerType]);
+    }
+    const ownerAccess = facts.get('owner_access');
+    if (ownerAccess?.value === 'inactive') {
+      return result('FAIL', "Key's owner no longer has access to its project.", [ownerAccess]);
+    }
+
+    const owners = graph.getOwners(entity.id);
+    if (owners.length === 0) {
+      return result('UNKNOWN', 'Nobody on record owns this key.');
+    }
+    const statusOf = (id: string) => graph.getNode(id)?.facts.get('status');
+    const gone = owners.filter((o) => statusOf(o.id)?.value === 'departed');
+    if (gone.length > 0) {
+      return result('FAIL', `Key is owned by departed person(s): ${gone.map((o) => o.name).join(', ')}.`, gone.map((o) => statusOf(o.id)));
+    }
+    if (owners.every((o) => statusOf(o.id)?.value === 'active')) {
+      return result('PASS', `Key's owner is active: ${owners.map((o) => o.name).join(', ')}.`, owners.map((o) => statusOf(o.id)));
+    }
+    return result('UNKNOWN', "Whether the key's owner is still here isn't on record.");
+  },
+};
+
 export const ALL_CHECKS: CheckRule[] = [
   UnbackedCriticalAssetCheck,
   DepartedOwnerCheck,

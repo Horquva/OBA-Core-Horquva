@@ -43,6 +43,25 @@ export interface ChangeSummary {
   since: string | null; sinceKind?: 'last_sign_in' | 'first_visit_window';
   peopleLeft: number; backupsLost: number | null; newlyExposed: number | null; resolved: number;
 }
+/** GET /api/continuity/orphan-scan (mirrors backend services/orphanScan). A ranked list, no score. */
+export type OrphanFindingKind = 'key_owner_gone' | 'automation_on_gone_identity' | 'app_secret_expiring_unowned' | 'owner_not_in_directory';
+export type OrphanOwnerReason = 'account_disabled' | 'leave_date_passed' | 'departure_recorded' | 'marked_departed' | 'lost_project_access' | 'not_in_directory';
+export interface OrphanFinding {
+  kind: OrphanFindingKind;
+  severity: 'high' | 'medium' | 'low';
+  asset: { id: string; kind: EntityKind; name: string; vendor: string | null };
+  owner: { id: string; name: string; reason: OrphanOwnerReason } | null;
+  cost30dUsd: number | null;
+  lastUsedAt: string | null;
+  evidence: string[];
+}
+export interface OrphanScanResult {
+  scannedAt: string;
+  directoryConnected: boolean;
+  connectionsScanned: Array<{ id: string; type: string; name: string }>;
+  totals: { byKind: Record<OrphanFindingKind, number>; monthlyCostUsd: number };
+  findings: OrphanFinding[];
+}
 export interface SpofAsset { asset: EntityRef; reason: string; dependsOn: EntityRef; runsPerWeek: number | null }
 /** identityPending is null for non-admins (they can't see the queue). */
 export interface NavCounts { departuresSoon: number; openCriticalActions: number; identityPending: number | null }
