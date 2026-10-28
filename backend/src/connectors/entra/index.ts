@@ -133,6 +133,11 @@ export class EntraConnector extends BaseConnector {
             email,
             department: u.department || '',
             jobTitle: u.jobTitle || '',
+            // Why the status fact says departed. Stored as strings; an empty
+            // leave date means none is set (refs merge, so a cleared date must
+            // overwrite the old one rather than disappear).
+            ...(typeof u.accountEnabled === 'boolean' ? { accountEnabled: String(u.accountEnabled) } : {}),
+            ...('employeeLeaveDateTime' in u ? { employeeLeaveDateTime: u.employeeLeaveDateTime ?? '' } : {}),
           },
           createdAt: new Date(),
           updatedAt: new Date(),

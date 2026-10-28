@@ -107,7 +107,7 @@ export class CsvConnector extends BaseConnector {
           edges.push({
             fromId: personId,
             toId: `person:${managerEmail}`,
-            type: 'member_of',
+            type: 'reports_to',
             grade: 'stated',
             source: 'connector:csv',
             sourceRef: `row:${email}`,

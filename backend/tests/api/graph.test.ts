@@ -10,6 +10,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
 import { authedFetch } from '../helpers/session.js';
+import { DataService } from '../../src/services/dataService.js';
 
 describe('Graph REST API', () => {
   let server: http.Server;
@@ -44,6 +45,18 @@ describe('Graph REST API', () => {
     const nodeIds = body.nodes.map((n: any) => n.id);
     expect(nodeIds).toContain(rootId);
     expect(nodeIds).toContain('person:david@acme.com');
+  });
+
+  it("an automation's neighbourhood does not walk to its owner's manager", async () => {
+    const graph = DataService.getInstance().getGraph();
+    graph.addEntity({ id: 'person:boss@acme.com', kind: 'person', name: 'The Boss', externalRefs: {}, createdAt: new Date(), updatedAt: new Date() });
+    graph.addEdge({ fromId: 'person:david@acme.com', toId: 'person:boss@acme.com', type: 'reports_to', grade: 'stated', source: 'connector:test', validFrom: new Date() });
+
+    const res = await authedFetch(`${baseUrl}/api/graph/neighbourhood?root=${encodeURIComponent('automation:n8n:105')}&hops=2`);
+    const body = (await res.json()) as any;
+    const nodeIds = body.nodes.map((n: any) => n.id);
+    expect(nodeIds).toContain('person:david@acme.com');
+    expect(nodeIds).not.toContain('person:boss@acme.com');
   });
 
   it('GET /api/graph/blast-radius returns downstream and upstream reachable nodes', async () => {

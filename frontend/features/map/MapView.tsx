@@ -34,6 +34,8 @@ const RELATION_LABEL: Record<string, string> = {
   calls_model: 'calls the model',
   runs_on_credentials_of: 'runs on the credentials of',
   member_of: 'is a member of',
+  reports_to: 'reports to',
+  grants_access_to: 'has granted access to',
 };
 export const relationLabel = (type: string) => RELATION_LABEL[type] ?? type.replace(/_/g, ' ');
 

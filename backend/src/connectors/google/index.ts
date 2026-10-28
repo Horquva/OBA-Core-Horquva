@@ -151,6 +151,8 @@ export class GoogleWorkspaceConnector extends BaseConnector {
             googleId: u.id,
             primaryEmail: email,
             orgUnitPath: u.orgUnitPath || '/',
+            // Why the status fact says departed: a suspended account.
+            suspended: String(Boolean(u.suspended)),
           },
           createdAt: new Date(u.creationTime || Date.now()),
           updatedAt: new Date(),
@@ -172,7 +174,7 @@ export class GoogleWorkspaceConnector extends BaseConnector {
           validFrom: new Date(),
         });
 
-        // Manager relation if available
+        // Manager relation if available: a reporting line, not a team.
         if (Array.isArray(u.relations)) {
           const managerRelation = u.relations.find((r: any) => r.type === 'manager');
           if (managerRelation?.value) {
@@ -180,7 +182,7 @@ export class GoogleWorkspaceConnector extends BaseConnector {
             edges.push({
               fromId: personId,
               toId: `person:${managerEmail}`,
-              type: 'member_of',
+              type: 'reports_to',
               grade: 'stated',
               source: 'connector:google',
               sourceRef: `user:${u.id}/manager`,

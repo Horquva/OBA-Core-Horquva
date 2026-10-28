@@ -153,7 +153,7 @@ export function PeopleView({ initialTeams, minGroupSize: initialMinSize = 5 }: P
                 <p className="type-meta mt-1 text-ink-3">
                   {query
                     ? `Nothing matches "${query}".`
-                    : 'Connect your directory (Microsoft Entra ID or Google Workspace) and its groups appear here.'}
+                    : "Teams come from directory groups, which aren't connected yet."}
                 </p>
               </div>
             ) : (

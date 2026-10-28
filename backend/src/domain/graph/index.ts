@@ -163,6 +163,21 @@ export class ContinuityGraph {
   }
 
   /**
+   * The person's manager from the directory ('reports_to'), or null when the
+   * directory doesn't say. Null means unknown, never "has no manager".
+   */
+  public getManager(personId: string): CanonicalEntity | null {
+    if (!this.graph.hasNode(personId)) return null;
+    let manager: CanonicalEntity | null = null;
+    this.graph.forEachOutEdge(personId, (_edge, attributes, _source, target) => {
+      if (!manager && attributes.edge.type === 'reports_to') {
+        manager = this.graph.getNodeAttributes(target)?.entity ?? null;
+      }
+    });
+    return manager;
+  }
+
+  /**
    * Returns backups of an asset (people pointing to asset with 'backs_up').
    */
   public getBackups(assetId: string): CanonicalEntity[] {

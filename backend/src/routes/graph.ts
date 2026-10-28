@@ -13,6 +13,9 @@ import { EntityKind, EdgeType, EvidenceGrade } from '@horquva/types';
 
 export const graphRouter = Router();
 
+/** Edge types the neighbourhood walk doesn't follow (see the BFS below). */
+const NOT_WALKED: ReadonlySet<EdgeType> = new Set<EdgeType>(['reports_to', 'grants_access_to']);
+
 // 1. GET /api/graph/neighbourhood
 graphRouter.get('/neighbourhood', (req: Request, res: Response) => {
   try {
@@ -36,7 +39,9 @@ graphRouter.get('/neighbourhood', (req: Request, res: Response) => {
       return;
     }
 
-    // BFS extraction up to `hops` levels
+    // BFS extraction up to `hops` levels. Reporting lines and OAuth grants are
+    // not dependencies: following them would pull an owner's manager (and that
+    // manager's whole team) into an automation's neighbourhood.
     const visitedNodes = new Set<string>([rootId]);
     let currentLevel = new Set<string>([rootId]);
 
@@ -45,6 +50,7 @@ graphRouter.get('/neighbourhood', (req: Request, res: Response) => {
       for (const nodeId of currentLevel) {
         const edges = graph.getEdgesForEntity(nodeId);
         for (const e of edges) {
+          if (NOT_WALKED.has(e.type)) continue;
           if (!visitedNodes.has(e.fromId)) {
             visitedNodes.add(e.fromId);
             nextLevel.add(e.fromId);

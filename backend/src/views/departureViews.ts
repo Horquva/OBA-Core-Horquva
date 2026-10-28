@@ -10,7 +10,9 @@ import type { DataService, DepartureRecord } from '../services/dataService.js';
 /** The person's team from a `member_of` edge; null when the graph doesn't say (never a guess). */
 function teamOf(personId: string, dataService: DataService): string | null {
   const graph = dataService.getGraph();
-  const edge = graph.getEdgesForEntity(personId).find((e) => e.type === 'member_of' && e.fromId === personId);
+  const edge = graph
+    .getEdgesForEntity(personId)
+    .find((e) => e.type === 'member_of' && e.fromId === personId && graph.getNode(e.toId)?.entity?.kind === 'group');
   return edge ? graph.getNode(edge.toId)?.entity?.name ?? null : null;
 }
 

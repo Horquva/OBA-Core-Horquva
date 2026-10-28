@@ -120,7 +120,7 @@ export class SnapshotService {
         const owners = graph.getOwners(node.entity.id);
         for (const o of owners) {
           const edges = graph.getEdgesForEntity(o.id);
-          const memberEdge = edges.find((e) => e.type === 'member_of' && e.fromId === o.id);
+          const memberEdge = edges.find((e) => e.type === 'member_of' && e.fromId === o.id && graph.getNode(e.toId)?.entity?.kind === 'group');
           if (memberEdge) {
             const teamNode = graph.getNode(memberEdge.toId);
             const teamName = teamNode?.entity?.name ?? 'Unknown Team';
