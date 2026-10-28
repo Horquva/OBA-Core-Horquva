@@ -27,6 +27,7 @@ import type { BaseConnector } from './base.js';
 import type { PersistStats } from './types.js';
 import { DataService } from '../../services/dataService.js';
 import { queueUnmatchedAccounts } from '../../identity/syncHook.js';
+import { recordDirectoryLifecycle } from '../../services/lifecycle/directoryLifecycle.js';
 
 export const CONFIG_SCHEMAS = {
   n8n: z.object({ baseUrl: z.string().url(), apiKey: z.string().min(1) }),
@@ -177,7 +178,17 @@ export class ConnectorRunner {
       await query(`UPDATE sync_run SET status = 'completed', completed_at = NOW(), stats = $2 WHERE id = $1`, [syncRunId, JSON.stringify(stats)]);
       // Rebuild the graph before releasing the claim, so a client polling for "connected" sees the new data.
       const ds = DataService.getInstance();
+      // Hydrate swaps the graph object whole, so this reference keeps the pre-sync state for the lifecycle diff.
+      const previousGraph = ds.getGraph();
       if (ds.isPersistent()) await ds.hydrateGraphFromDatabase();
+      if (connector.type === 'entra' || connector.type === 'google') {
+        try {
+          const earlier = await query(`SELECT 1 FROM sync_run WHERE connection_id = $1 AND status = 'completed' AND id <> $2 LIMIT 1`, [connectionId, syncRunId]);
+          recordDirectoryLifecycle(ds, previousGraph, connector.type, earlier.rowCount === 0);
+        } catch (err) {
+          console.warn(`[ConnectorRunner] Leaver/mover detection failed for ${connectionId}:`, err);
+        }
+      }
       // Identity hygiene must never fail a sync that already landed.
       try {
         await queueUnmatchedAccounts(result.entities, ds.getGraph(), ds.getQueueService());

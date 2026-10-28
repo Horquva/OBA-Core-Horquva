@@ -2,8 +2,8 @@
 // Horquva Continuity Platform — Snapshot Diff & Change Engine
 // =============================================================================
 // Implements Snapshot Diffing and Downstream Blast Radius Detection (CHG-01, CHG-02).
-// Detects 6 core event kinds:
-// - person_left
+// Detects these event kinds:
+// - person_left, person_reenabled, person_moved (directory lifecycle)
 // - owner_changed
 // - workflow_edited
 // - model_swapped
@@ -57,12 +57,47 @@ export class DiffEngine {
       currNodeMap.set(n.entity.id, n);
     }
 
-    // 1. Detect person_left (Directory account departure)
+    // 1. Directory lifecycle: person_left, person_reenabled, person_moved. Only for
+    // someone already known before this sync: a person who first appears
+    // already departed was never "here" as far as we can tell.
+    const managerOf = (graph: ContinuityGraph, id: string) => graph.getManager(id)?.id ?? null;
+    // Entra/CSV record a department; Google's equivalent is the org unit.
+    const placeOf = (e: CanonicalEntity) => e.externalRefs?.department || e.externalRefs?.orgUnitPath || null;
     for (const [entityId, currNode] of currNodeMap.entries()) {
       if (currNode.entity.kind === 'person') {
         const prevNode = prevNodeMap.get(entityId);
-        const prevStatus = prevNode?.facts.get('status')?.value || 'active';
+        if (!prevNode) continue;
+        const prevStatus = prevNode.facts.get('status')?.value || 'active';
         const currStatus = currNode.facts.get('status')?.value || 'active';
+
+        if (prevStatus === 'departed' && currStatus === 'active') {
+          changes.push({
+            id: crypto.randomUUID(),
+            kind: 'person_reenabled',
+            entityId,
+            beforeState: { status: prevStatus },
+            afterState: { status: currStatus },
+            impactSummary: this.calculateImpact(entityId, input.currentGraph),
+            detectedAt: new Date(),
+          });
+        }
+
+        // A move needs both sides known: a value appearing for the first time is not a move.
+        const [prevPlace, currPlace] = [placeOf(prevNode.entity), placeOf(currNode.entity)];
+        const [prevManager, currManager] = [managerOf(input.previousGraph, entityId), managerOf(input.currentGraph, entityId)];
+        const placeChanged = !!prevPlace && !!currPlace && prevPlace !== currPlace;
+        const managerChanged = !!prevManager && !!currManager && prevManager !== currManager;
+        if (currStatus === 'active' && (placeChanged || managerChanged)) {
+          changes.push({
+            id: crypto.randomUUID(),
+            kind: 'person_moved',
+            entityId,
+            beforeState: { ...(placeChanged ? { department: prevPlace } : {}), ...(managerChanged ? { managerId: prevManager } : {}) },
+            afterState: { ...(placeChanged ? { department: currPlace } : {}), ...(managerChanged ? { managerId: currManager } : {}) },
+            impactSummary: this.calculateImpact(entityId, input.currentGraph),
+            detectedAt: new Date(),
+          });
+        }
 
         if (prevStatus === 'active' && currStatus === 'departed') {
           const impact = this.calculateImpact(entityId, input.currentGraph);

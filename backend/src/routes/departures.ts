@@ -184,6 +184,13 @@ const InitiateDepartureSchema = z.object({
   personId: z.string().min(1),
   leaveDate: z.string().min(1),
   note: z.string().nullable().optional(),
+  /** Set when an admin opens a "Possible leaver" suggestion from a directory sync. */
+  detectedFrom: z.enum(['entra', 'google']).optional(),
+  /** When the directory first reported the account gone (the suggestion's detectedAt). */
+  disabledAt: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)) && Date.parse(v) <= Date.now() + 60_000, 'disabledAt must be a past date-time')
+    .optional(),
 });
 
 departuresRouter.post('/', (req: Request, res: Response) => {
@@ -194,11 +201,23 @@ departuresRouter.post('/', (req: Request, res: Response) => {
   }
 
   try {
-    const record = initiateDeparture(DataService.getInstance(), {
+    const ds = DataService.getInstance();
+    const record = initiateDeparture(ds, {
       personId: parsed.data.personId,
       leaveDate: parsed.data.leaveDate,
       note: parsed.data.note ?? null,
+      detectedFrom: parsed.data.detectedFrom,
     });
+    // A detected leaver whose directory account is already disabled starts at account_disabled, timed
+    // from detection (the post-departure window starts then, not at the click). A passed leave date
+    // with the account still enabled stays `initiated`.
+    const refs = ds.getGraph().getNode(record.personId)?.entity.externalRefs ?? {};
+    if (parsed.data.detectedFrom && (refs.accountEnabled === 'false' || refs.suspended === 'true')) {
+      markAccountDisabled(ds, record.id, {
+        actor: 'system:sync',
+        at: parsed.data.disabledAt ? new Date(parsed.data.disabledAt) : new Date(),
+      });
+    }
     res.status(201).json({ id: record.id, handoverPack: record.handoverPack?.summary ?? null });
   } catch (err: any) {
     if (err instanceof DepartureError) {

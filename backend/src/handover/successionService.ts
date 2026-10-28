@@ -228,17 +228,24 @@ export function declineHandover(ds: DataService, handoverId: string, actor: User
 
 // ── Lifecycle after handover ──────────────────────────────────────────────
 
-/** Records that the leaver's account was disabled. Allowed at any point: accounts get disabled on the leave date whether or not handover finished. */
-export function markAccountDisabled(ds: DataService, departureId: string): DepartureRecord {
+/**
+ * Records that the leaver's account was disabled. Allowed at any point: accounts get disabled on the leave date whether or not handover finished.
+ * `at` is when it was disabled (a directory sync can report it before anyone clicks), `actor` who recorded it.
+ */
+export function markAccountDisabled(
+  ds: DataService,
+  departureId: string,
+  options: { actor?: string; at?: Date } = {}
+): DepartureRecord {
   const dep = requireDeparture(ds, departureId);
   if (dep.stage === 'account_disabled' || dep.stage === 'verified') {
     throw new SuccessionError(409, 'The account is already recorded as disabled.');
   }
   const unaccepted = dep.handovers.filter((h) => h.acceptance !== 'accepted').length;
-  enterStage(dep, 'account_disabled', new Date().toISOString());
+  enterStage(dep, 'account_disabled', (options.at ?? new Date()).toISOString());
   ds.persistDeparture(dep);
   ds.addAuditEntry(
-    'user:admin',
+    options.actor ?? 'user:admin',
     'ACCOUNT_DISABLED',
     `departure:${departureId}`,
     unaccepted ? `Account disabled with ${unaccepted} handover(s) not yet accepted.` : 'Account disabled; all handovers accepted.'
