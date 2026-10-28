@@ -21,7 +21,9 @@ export type EdgeType =
   | 'depends_on'
   | 'calls_model'
   | 'runs_on_credentials_of'
-  | 'member_of';
+  | 'member_of'
+  | 'reports_to'        // person -> manager
+  | 'grants_access_to'; // person -> app (OAuth grant)
 
 export type EvidenceGrade = 
   | 'stated'    // Pulled directly from an authoritative API
@@ -36,7 +38,15 @@ export type FactAttribute =
   | 'documented'
   | 'fallback_exists'
   | 'run_volume_weekly'
-  | 'status';
+  | 'status'
+  | 'last_used_at'
+  | 'expires_at'
+  | 'owner_access'
+  | 'owner_type'
+  | 'cost_30d_usd'
+  | 'usage_tokens_30d'
+  | 'credential_expires_at'
+  | 'created_by_user';
 
 export interface CanonicalEntity {
   id: string; // e.g. 'person:omar@acme.com', 'automation:n8n:41'
@@ -56,9 +66,12 @@ export interface CanonicalEdge {
   grade: EvidenceGrade;
   source: string; // e.g. 'n8n', 'entra', 'google', 'attestation'
   sourceRef?: string;
+  ownerKind?: OwnerKind; // only on 'owns' edges; how the ownership was established
   validFrom: Date;
   validTo?: Date | null;
 }
+
+export type OwnerKind = 'owner' | 'key_principal' | 'creator' | 'sponsor';
 
 export interface CanonicalFact {
   id?: string;
@@ -79,7 +92,9 @@ export type ChangeEventKind =
   | 'workflow_edited'
   | 'model_swapped'
   | 'credential_risk'
-  | 'failures_spiked';
+  | 'failures_spiked'
+  | 'person_moved'
+  | 'person_reenabled';
 
 export interface ChangeEvent {
   id: string;
