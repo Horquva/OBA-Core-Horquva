@@ -128,7 +128,7 @@ describe('Overview history and exposure causes (charts)', () => {
   it('groups failing checks by cause, counting distinct assets', async () => {
     const { exposureByCause } = (await get('/api/continuity/overview')).body;
     expect(exposureByCause.map((c: any) => c.checkId).sort()).toEqual(
-      ['C1_UNBACKED_CRITICAL', 'C2_DEPARTED_OWNER', 'C3_UNDOCUMENTED_CRITICAL', 'C4_MISSING_FALLBACK'],
+      ['C1_UNBACKED_CRITICAL', 'C2_DEPARTED_OWNER', 'C3_UNDOCUMENTED_CRITICAL', 'C4_MISSING_FALLBACK', 'C5_KEY_OUTLIVES_OWNER'],
     );
     // Fixture: 101, 102 and 104 are critical with no backup.
     expect(exposureByCause.find((c: any) => c.checkId === 'C1_UNBACKED_CRITICAL')).toMatchObject({ label: 'One owner, no backup', assets: 3 });

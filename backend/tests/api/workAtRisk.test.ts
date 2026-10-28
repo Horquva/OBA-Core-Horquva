@@ -38,7 +38,7 @@ describe('GET /api/departures/at-risk', () => {
   it('is empty when no open departure leaves critical work uncovered (past departures do not count)', async () => {
     const body = await atRisk();
     expect(body.assets).toEqual([]);
-    expect(body.totals).toEqual({ assets: 0, runsPerWeek: 0, unknownRuns: 0, personalCredential: 0, people: 0 });
+    expect(body.totals).toEqual({ assets: 0, runsPerWeek: 0, unknownRuns: 0, personalCredential: 0, keys: 0, people: 0 });
   });
 
   it("lists a leaver's unbacked critical assets and what runs on their credentials, soonest leaver first", async () => {
@@ -73,5 +73,34 @@ describe('GET /api/departures/at-risk', () => {
 
     const after = await atRisk();
     expect(after.assets.some((a: any) => a.asset.id === 'automation:n8n:102')).toBe(false);
+  });
+
+  it("lists the AI vendor keys a leaver owns, in the pack but without a handover row", async () => {
+    const ds = DataService.getInstance();
+    const graph = ds.getGraph();
+    const now = new Date();
+    graph.addEntity(
+      { id: 'credential:openai:key_chen', kind: 'credential', name: 'Chen prod key', externalRefs: { vendor: 'openai' }, createdAt: now, updatedAt: now },
+      [{ entityId: 'credential:openai:key_chen', attribute: 'last_used_at', value: '2026-10-30T09:00:00Z', grade: 'stated', source: 'connector:ai_admin', validFrom: now }]
+    );
+    graph.addEdge({ fromId: 'person:chen@acme.com', toId: 'credential:openai:key_chen', type: 'owns', grade: 'stated', source: 'connector:ai_admin', ownerKind: 'key_principal', validFrom: now });
+
+    const leaveDate = new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10);
+    const res = await post('/api/departures', { personId: 'person:chen@acme.com', leaveDate });
+    expect(res.status).toBe(201);
+    const { id } = (await res.json()) as any;
+
+    const { assets, totals } = await atRisk();
+    expect(assets.find((a: any) => a.asset.id === 'credential:openai:key_chen')).toMatchObject({
+      owner: { id: 'person:chen@acme.com' }, departureId: id, vendorKey: true, noSuccessor: false, personalCredential: false,
+    });
+    expect(totals.keys).toBe(1);
+
+    // Handover rows are for what a successor takes over; a key is rotated, so it is in the pack instead.
+    const dep = ds.getDeparture(id)!;
+    expect(dep.handovers.some((h) => h.assetId === 'credential:openai:key_chen')).toBe(false);
+    expect(dep.handoverPack?.keys).toEqual([
+      { keyId: 'credential:openai:key_chen', keyName: 'Chen prod key', ownerId: 'person:chen@acme.com', vendor: 'openai', lastUsedAt: '2026-10-30T09:00:00.000Z' },
+    ]);
   });
 });

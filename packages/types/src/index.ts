@@ -162,6 +162,14 @@ export interface WhatIfScenarioResult {
   totalRunsPerWeekAffected: number;
   affectedDownstreamAssetIds: string[];
   unknownFactsEncountered: number;
+  /** AI vendor keys the departing people own: rotate or revoke them. Absent when there are none. */
+  keysAtRisk?: Array<{
+    keyId: string;
+    keyName: string;
+    ownerId: string;
+    vendor: string | null;
+    lastUsedAt: string | null;
+  }>;
 }
 
 export interface SuccessionTestResult {

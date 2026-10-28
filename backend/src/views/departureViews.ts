@@ -6,6 +6,7 @@
 // =============================================================================
 
 import type { DataService, DepartureRecord } from '../services/dataService.js';
+import { isVendorKey } from '../domain/keys.js';
 
 /** The person's team from a `member_of` edge; null when the graph doesn't say (never a guess). */
 function teamOf(personId: string, dataService: DataService): string | null {
@@ -77,6 +78,8 @@ export interface AtRiskAsset {
   noSuccessor: boolean;
   /** Runs on the leaver's own credentials: it stops when their account is disabled. */
   personalCredential: boolean;
+  /** An AI vendor key the leaver owns: rotate or revoke it (no successor). */
+  vendorKey: boolean;
   successor: { id: string; kind: string; name: string } | null;
   acceptance: 'none' | 'requested' | 'accepted' | 'declined' | null;
 }
@@ -89,6 +92,8 @@ export interface WorkAtRisk {
     runsPerWeek: number;
     unknownRuns: number;
     personalCredential: number;
+    /** AI vendor keys open leavers own. */
+    keys: number;
     people: number;
   };
 }
@@ -126,6 +131,7 @@ export function workAtRisk(ds: DataService): WorkAtRisk {
           runsPerWeek: typeof runs === 'number' ? runs : null,
           noSuccessor: false,
           personalCredential: false,
+          vendorKey: false,
           successor: null,
           acceptance: null,
         };
@@ -146,6 +152,9 @@ export function workAtRisk(ds: DataService): WorkAtRisk {
     for (const e of graph.getAllEdges()) {
       if (e.type === 'runs_on_credentials_of' && e.toId === dep.personId && !e.validTo) row(e.fromId).personalCredential = true;
     }
+    for (const key of graph.getOwnedAssets(dep.personId, { includeVendorKeys: true })) {
+      if (isVendorKey(key.id)) row(key.id).vendorKey = true;
+    }
   }
 
   const assets = [...rows.values()].sort(
@@ -161,6 +170,7 @@ export function workAtRisk(ds: DataService): WorkAtRisk {
       runsPerWeek: assets.reduce((n, a) => n + (a.runsPerWeek ?? 0), 0),
       unknownRuns: assets.filter((a) => a.runsPerWeek === null).length,
       personalCredential: assets.filter((a) => a.personalCredential).length,
+      keys: assets.filter((a) => a.vendorKey).length,
       people: new Set(assets.map((a) => a.owner.id)).size,
     },
   };

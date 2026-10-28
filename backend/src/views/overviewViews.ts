@@ -153,6 +153,7 @@ const CAUSE_LABEL: Record<string, string> = {
   C2_DEPARTED_OWNER: 'Owner has left',
   C3_UNDOCUMENTED_CRITICAL: 'Undocumented',
   C4_MISSING_FALLBACK: 'No fallback',
+  C5_KEY_OUTLIVES_OWNER: 'Key outlives its owner',
 };
 
 /** Every known cause is listed (zero included), largest first. */

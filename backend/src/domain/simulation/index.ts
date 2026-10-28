@@ -14,6 +14,7 @@ import {
   CriticalityLevel,
 } from '@horquva/types';
 import { ContinuityGraph } from '../graph/index.js';
+import { isVendorKey, vendorTimestamp } from '../keys.js';
 
 type Ref = { id: string; kind: any; name: string };
 
@@ -117,12 +118,28 @@ export class SimulationEngine {
       }
     }
 
+    // 3. Vendor keys they own. Not part of the orphaned count: a key is rotated, not handed over.
+    const keysAtRisk: NonNullable<WhatIfScenarioResult['keysAtRisk']> = [];
+    for (const personId of departingPersonIds) {
+      for (const key of this.graph.getOwnedAssets(personId, { includeVendorKeys: true })) {
+        if (!isVendorKey(key.id) || keysAtRisk.some((k) => k.keyId === key.id)) continue;
+        keysAtRisk.push({
+          keyId: key.id,
+          keyName: key.name,
+          ownerId: personId,
+          vendor: key.externalRefs?.vendor ?? key.id.split(':')[1] ?? null,
+          lastUsedAt: vendorTimestamp(this.graph.getNode(key.id)?.facts.get('last_used_at')?.value),
+        });
+      }
+    }
+
     return {
       orphanedCriticalAssets: orphanedAssets,
       stoppedPersonalCredentialAutomations: brokenCredentialAutomations,
       totalRunsPerWeekAffected: totalWeeklyRuns,
       affectedDownstreamAssetIds: Array.from(affectedDownstreamIds),
       unknownFactsEncountered: unknownFactsCount,
+      ...(keysAtRisk.length ? { keysAtRisk } : {}),
     };
   }
 

@@ -26,6 +26,7 @@ const mockCoverage: OverviewCoverage = {
   exposureByCause: [
     { checkId: 'C1_UNBACKED_CRITICAL', label: 'One owner, no backup', assets: 9 },
     { checkId: 'C4_MISSING_FALLBACK', label: 'No fallback', assets: 0 },
+    { checkId: 'C5_KEY_OUTLIVES_OWNER', label: 'Key outlives its owner', assets: 0 },
   ],
 };
 

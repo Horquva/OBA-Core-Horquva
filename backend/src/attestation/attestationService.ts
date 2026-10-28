@@ -25,6 +25,7 @@ import crypto from 'node:crypto';
 import type { CanonicalEdge, CanonicalFact, FactAttribute } from '@horquva/types';
 import type { ContinuityGraph } from '../domain/graph/index.js';
 import { evaluateAllChecks } from '../domain/checks/index.js';
+import { isVendorKey } from '../domain/keys.js';
 import { DataService, onDatabaseReload } from '../services/dataService.js';
 import * as repo from '../repositories/attestationRepository.js';
 import { listTeams } from '../views/peopleViews.js';
@@ -140,7 +141,8 @@ function assetsInScope(graph: ContinuityGraph, scope: CampaignScope): string[] {
         const crit = n.facts.get('criticality');
         if (isAsset(n.entity.kind) && (!crit || crit.grade === 'unknown')) unknown.add(n.entity.id);
       }
-      return [...unknown].filter((id) => isOwnedAsset(graph.getNode(id)?.entity?.kind));
+      // Vendor keys have no criticality to confirm; their risk is C5's, not a campaign's.
+      return [...unknown].filter((id) => isOwnedAsset(graph.getNode(id)?.entity?.kind) && !isVendorKey(id));
     }
   }
 }

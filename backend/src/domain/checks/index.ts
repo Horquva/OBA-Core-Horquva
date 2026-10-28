@@ -17,6 +17,7 @@ import {
   CriticalityLevel,
 } from '@horquva/types';
 import { ContinuityGraph } from '../graph/index.js';
+import { isVendorKey } from '../keys.js';
 
 export interface CheckRule {
   id: string;
@@ -249,16 +250,13 @@ export const MissingFallbackCheck: CheckRule = {
   },
 };
 
-/** A workload key from an AI vendor (OpenAI / Anthropic), as the key connectors write it. */
-export function isVendorKey(entityId: string): boolean {
-  return entityId.startsWith('credential:openai:') || entityId.startsWith('credential:anthropic:');
-}
+export { isVendorKey };
 
 /**
  * C5: Key Outlives Owner
  * A vendor key whose owner has left (status departed) or, for OpenAI, lost
  * access to the key's project. A service-account key has no person behind it
- * by design. Not registered in ALL_CHECKS yet: that lands with its labels (B6).
+ * by design.
  */
 export const KeyOutlivesOwnerCheck: CheckRule = {
   id: 'C5_KEY_OUTLIVES_OWNER',
@@ -306,6 +304,7 @@ export const ALL_CHECKS: CheckRule[] = [
   DepartedOwnerCheck,
   UndocumentedCriticalAssetCheck,
   MissingFallbackCheck,
+  KeyOutlivesOwnerCheck,
 ];
 
 /**

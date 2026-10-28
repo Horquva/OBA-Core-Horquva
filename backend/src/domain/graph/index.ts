@@ -9,6 +9,7 @@
 
 import { MultiDirectedGraph } from 'graphology';
 import { CanonicalEntity, CanonicalEdge, CanonicalFact, FactAttribute } from '@horquva/types';
+import { isVendorKey } from '../keys.js';
 
 export interface GraphNodeAttributes {
   entity: CanonicalEntity;
@@ -197,14 +198,15 @@ export class ContinuityGraph {
   }
 
   /**
-   * Returns assets owned by a person.
+   * Returns assets owned by a person. Vendor keys are left out unless asked
+   * for: they are rotated, not handed over (domain/keys.ts).
    */
-  public getOwnedAssets(personId: string): CanonicalEntity[] {
+  public getOwnedAssets(personId: string, options: { includeVendorKeys?: boolean } = {}): CanonicalEntity[] {
     if (!this.graph.hasNode(personId)) return [];
     const assets: CanonicalEntity[] = [];
 
     this.graph.forEachOutEdge(personId, (_edge, attributes, _source, target) => {
-      if (attributes.edge.type === 'owns') {
+      if (attributes.edge.type === 'owns' && (options.includeVendorKeys || !isVendorKey(target))) {
         const targetNode = this.graph.getNodeAttributes(target);
         if (targetNode?.entity) {
           assets.push(targetNode.entity);

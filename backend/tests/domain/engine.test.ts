@@ -17,10 +17,11 @@ import {
   UnbackedCriticalAssetCheck,
   DepartedOwnerCheck,
   UndocumentedCriticalAssetCheck,
+  KeyOutlivesOwnerCheck,
 } from '../../src/domain/checks/index.js';
 import { SimulationEngine } from '../../src/domain/simulation/index.js';
 import { ABTestingEngine } from '../../src/domain/ab/index.js';
-import { CanonicalEntity, CanonicalEdge, CanonicalFact } from '@horquva/types';
+import { CanonicalEntity, CanonicalEdge, CanonicalFact, EntityKind, FactAttribute } from '@horquva/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -168,5 +169,93 @@ describe('Continuity Domain Engine', () => {
       expect(hasControl).toBe(true);
       expect(hasVariantA).toBe(true);
     });
+  });
+});
+
+// ── Vendor keys: the central key rule and C5 ────────────────────────────────
+describe('vendor keys', () => {
+  const now = new Date();
+  const entity = (id: string, kind: EntityKind, name = id, externalRefs: Record<string, string> = {}): CanonicalEntity => ({ id, kind, name, externalRefs, createdAt: now, updatedAt: now });
+  const fact = (entityId: string, attribute: FactAttribute, value: unknown): CanonicalFact => ({ entityId, attribute, value, grade: 'stated', source: 'connector:test', validFrom: now });
+  const owns = (fromId: string, toId: string): CanonicalEdge => ({ fromId, toId, type: 'owns', grade: 'stated', source: 'connector:test', validFrom: now });
+
+  const OMAR = 'person:omar@acme.com';
+  const assets = ['automation:n8n:1', 'automation:n8n:2', 'credential:openai:k1', 'credential:openai:k2', 'credential:anthropic:k3'];
+
+  it('getOwnedAssets leaves vendor keys out unless asked for', () => {
+    const g = ContinuityGraph.fromSnapshot(
+      [entity(OMAR, 'person'), ...assets.map((id) => entity(id, id.startsWith('automation') ? 'automation' : 'credential'))],
+      assets.map((id) => owns(OMAR, id)),
+      []
+    );
+    expect(g.getOwnedAssets(OMAR).map((a) => a.id)).toEqual(['automation:n8n:1', 'automation:n8n:2']);
+    expect(g.getOwnedAssets(OMAR, { includeVendorKeys: true })).toHaveLength(5);
+  });
+
+  const c5 = (owner: CanonicalEntity | null, ownerStatus: string | null, keyFacts: Array<[FactAttribute, unknown]> = []) => {
+    const key = entity('credential:openai:key', 'credential', 'Key');
+    const g = ContinuityGraph.fromSnapshot(
+      [key, ...(owner ? [owner] : [])],
+      owner ? [owns(owner.id, key.id)] : [],
+      [...(owner && ownerStatus ? [fact(owner.id, 'status', ownerStatus)] : []), ...keyFacts.map(([a, v]) => fact(key.id, a, v))]
+    );
+    return KeyOutlivesOwnerCheck.evaluate(key, g.getNode(key.id)!.facts, g)?.status;
+  };
+  const omar = entity(OMAR, 'person', 'Omar Farooq');
+
+  it('C5: FAIL when the owner left or lost project access', () => {
+    expect(c5(omar, 'departed')).toBe('FAIL');
+    expect(c5(omar, 'active', [['owner_access', 'inactive']])).toBe('FAIL');
+  });
+
+  it('C5: FAIL for a key whose owner Entra synced with accountEnabled false, with no departure recorded', () => {
+    // The Entra connector writes status 'departed' for a disabled account (B3 keeps accountEnabled in refs).
+    expect(c5(entity(OMAR, 'person', 'Omar Farooq', { entraId: 'e-omar', accountEnabled: 'false' }), 'departed')).toBe('FAIL');
+  });
+
+  it('C5: PASS for a service-account key or an active owner; UNKNOWN with no owner or no status', () => {
+    expect(c5(null, null, [['owner_type', 'service_account']])).toBe('PASS');
+    expect(c5(omar, 'active')).toBe('PASS');
+    expect(c5(null, null)).toBe('UNKNOWN');
+    expect(c5(omar, null)).toBe('UNKNOWN');
+  });
+
+  it('C5 ignores everything but vendor keys', () => {
+    const n8nCred = entity('credential:n8n:1', 'credential');
+    const g = ContinuityGraph.fromSnapshot([n8nCred], [], []);
+    expect(KeyOutlivesOwnerCheck.evaluate(n8nCred, g.getNode(n8nCred.id)!.facts, g)).toBeNull();
+  });
+
+  it("S1 lists the leaver's keys in keysAtRisk without counting them as orphaned assets", () => {
+    const key = entity('credential:anthropic:k9', 'credential', 'Claude key', { vendor: 'anthropic' });
+    const g = ContinuityGraph.fromSnapshot([omar, key], [owns(OMAR, key.id)], [fact(key.id, 'last_used_at', 1793000000)]);
+    const result = new SimulationEngine(g).simulateDeparture([OMAR]);
+    expect(result.orphanedCriticalAssets).toEqual([]);
+    expect(result.keysAtRisk).toEqual([
+      { keyId: key.id, keyName: 'Claude key', ownerId: OMAR, vendor: 'anthropic', lastUsedAt: new Date(1793000000 * 1000).toISOString() },
+    ]);
+    // No keys, no field: existing results keep their exact shape.
+    expect('keysAtRisk' in new SimulationEngine(g).simulateDeparture(['person:nobody@acme.com'])).toBe(false);
+  });
+});
+
+describe('vendor keys stay out of criticality work', () => {
+  const now = new Date();
+  const key: CanonicalEntity = { id: 'credential:openai:orphan', kind: 'credential', name: 'Orphan key', externalRefs: {}, createdAt: now, updatedAt: now };
+  const owned: CanonicalEntity = { id: 'credential:openai:owned', kind: 'credential', name: 'Owned key', externalRefs: {}, createdAt: now, updatedAt: now };
+  const omar: CanonicalEntity = { id: 'person:omar@acme.com', kind: 'person', name: 'Omar', externalRefs: {}, createdAt: now, updatedAt: now };
+  const g = () =>
+    ContinuityGraph.fromSnapshot([omar, key, owned], [{ fromId: omar.id, toId: owned.id, type: 'owns', grade: 'stated', source: 'connector:test', validFrom: now }], []);
+
+  it('the all-unknown-critical campaign does not ask about keys', async () => {
+    const { previewCampaign } = await import('../../src/attestation/attestationService.js');
+    const preview = previewCampaign(g(), { kind: 'all_unknown_critical' });
+    expect(preview.tasks.map((t) => t.assetEntityId)).not.toContain(owned.id);
+    expect(preview.unassignedAssets.map((a: any) => a.id ?? a)).not.toContain(key.id);
+  });
+
+  it('Ask does not count keys as assets with unknown criticality', async () => {
+    const { answerFromGraph } = await import('../../src/ai/graphAnswers.js');
+    expect(answerFromGraph('which critical assets have no backup?', g())).not.toMatch(/unknown criticality/);
   });
 });

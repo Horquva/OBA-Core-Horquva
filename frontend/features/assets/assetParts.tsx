@@ -34,6 +34,7 @@ const CHECK_LABEL: Record<string, string> = {
   C2_DEPARTED_OWNER: 'Owner is still here',
   C3_UNDOCUMENTED_CRITICAL: 'Documented',
   C4_MISSING_FALLBACK: 'Has a fallback',
+  C5_KEY_OUTLIVES_OWNER: "Key's owner is still here",
 };
 export const checkLabel = (id: string) => CHECK_LABEL[id] ?? id;
 

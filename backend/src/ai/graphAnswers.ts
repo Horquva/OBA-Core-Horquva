@@ -10,6 +10,7 @@
 
 import type { ContinuityGraph } from '../domain/graph/index.js';
 import { calculateHeadlineMetrics, evaluateAllChecks } from '../domain/checks/index.js';
+import { isVendorKey } from '../domain/keys.js';
 import { SimulationEngine } from '../domain/simulation/index.js';
 
 const cite = (id: string) => `[[${id}]]`;
@@ -87,7 +88,9 @@ function noBackup(graph: ContinuityGraph): string {
     .getAllNodes()
     .filter((n) => ['critical', 'high'].includes(critOf(graph, n.entity.id)) && graph.getBackups(n.entity.id).length === 0)
     .map((n) => `- ${cite(n.entity.id)} (criticality ${critOf(graph, n.entity.id)}, owner ${graph.getOwners(n.entity.id).map((o) => cite(o.id)).join(', ') || 'unknown'})`);
-  const unknown = graph.getAllNodes().filter((n) => n.entity.kind !== 'person' && n.entity.kind !== 'group' && critOf(graph, n.entity.id) === 'unknown').length;
+  const unknown = graph
+    .getAllNodes()
+    .filter((n) => n.entity.kind !== 'person' && n.entity.kind !== 'group' && !isVendorKey(n.entity.id) && critOf(graph, n.entity.id) === 'unknown').length;
   const out = rows.length ? [`${rows.length} critical or high asset(s) have no backup on record:`, ...rows] : ['Every critical or high asset has at least one backup on record.'];
   if (unknown > 0) out.push(`- ${unknown} asset(s) have unknown criticality and aren't counted here.`);
   return out.join('\n');

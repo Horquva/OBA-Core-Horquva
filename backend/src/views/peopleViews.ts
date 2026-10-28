@@ -137,7 +137,7 @@ export function holdingsOf(graph: ContinuityGraph, personId: string): Holding[] 
   const out: Holding[] = [];
   const crit = (id: string) => criticalityView(graph.getNode(id)?.facts.get('criticality')).level;
 
-  for (const asset of graph.getOwnedAssets(personId)) {
+  for (const asset of graph.getOwnedAssets(personId, { includeVendorKeys: true })) {
     out.push({ asset: ref(graph, asset.id)!, relation: 'owns', criticality: crit(asset.id), backup: edgeFactView(graph, asset.id, 'backs_up') });
   }
   for (const e of graph.getEdgesForEntity(personId)) {

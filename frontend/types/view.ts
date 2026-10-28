@@ -165,11 +165,13 @@ export interface AtRiskAsset {
   /** null = not recorded. */
   runsPerWeek: number | null;
   noSuccessor: boolean; personalCredential: boolean;
+  /** An AI vendor key the leaver owns: rotate or revoke it (no successor). */
+  vendorKey: boolean;
   successor: EntityRef | null; acceptance: 'none' | 'requested' | 'accepted' | 'declined' | null;
 }
 export interface WorkAtRisk {
   assets: AtRiskAsset[];
-  totals: { assets: number; runsPerWeek: number; unknownRuns: number; personalCredential: number; people: number };
+  totals: { assets: number; runsPerWeek: number; unknownRuns: number; personalCredential: number; keys: number; people: number };
 }
 export interface SuccessorSuggestion { person: EntityRef; reason: string }
 export interface HandoverAsset {

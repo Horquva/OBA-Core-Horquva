@@ -42,6 +42,8 @@ export interface HandoverPack {
   generatedAt: string;
   assets: HandoverPackAsset[];
   personalCredentialAutomations: WhatIfScenarioResult['stoppedPersonalCredentialAutomations'];
+  /** AI vendor keys to rotate or revoke (absent on packs from before keys, and when there are none). */
+  keys?: NonNullable<WhatIfScenarioResult['keysAtRisk']>;
   affectedDownstreamAssetIds: string[];
   summary: {
     assetsTotal: number;
@@ -98,6 +100,7 @@ export function buildHandoverPack(
     generatedAt: now.toISOString(),
     assets,
     personalCredentialAutomations: simulation.stoppedPersonalCredentialAutomations,
+    ...(simulation.keysAtRisk ? { keys: simulation.keysAtRisk } : {}),
     affectedDownstreamAssetIds: simulation.affectedDownstreamAssetIds,
     summary: {
       assetsTotal: assets.length,

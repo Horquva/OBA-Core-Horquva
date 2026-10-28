@@ -13,7 +13,8 @@
 
 import type { CanonicalEntity, EntityKind } from '@horquva/types';
 import type { ContinuityGraph } from '../../domain/graph/index.js';
-import { KeyOutlivesOwnerCheck, isVendorKey } from '../../domain/checks/index.js';
+import { KeyOutlivesOwnerCheck } from '../../domain/checks/index.js';
+import { isVendorKey, vendorTimestamp } from '../../domain/keys.js';
 
 export type OrphanFindingKind = 'key_owner_gone' | 'automation_on_gone_identity' | 'app_secret_expiring_unowned' | 'owner_not_in_directory';
 export type OrphanSeverity = 'high' | 'medium' | 'low';
@@ -64,12 +65,7 @@ const SEVERITY_RANK: Record<OrphanSeverity, number> = { high: 0, medium: 1, low:
 
 const isDirectoryPerson = (e: CanonicalEntity) => Boolean(e.externalRefs?.entraId || e.externalRefs?.googleId);
 
-/** Vendor timestamps arrive as ISO strings or Unix seconds; anything unreadable is null. */
-function isoOrNull(value: unknown): string | null {
-  if (value === null || value === undefined || value === '') return null;
-  const d = typeof value === 'number' ? new Date(value < 1e11 ? value * 1000 : value) : new Date(String(value));
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
+const isoOrNull = vendorTimestamp;
 
 export function runOrphanScan(graph: ContinuityGraph, now: Date, inputs: OrphanScanInputs = {}): OrphanScanResult {
   const departed = new Set((inputs.departures ?? []).map((d) => d.personId));
