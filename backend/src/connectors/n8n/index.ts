@@ -133,7 +133,7 @@ export class N8nConnector extends BaseConnector {
         id: personId,
         kind: 'person',
         name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
-        externalRefs: { n8n: u.id, email: u.email },
+        externalRefs: { n8nUserId: String(u.id), email: u.email },
         createdAt: new Date(u.createdAt || Date.now()),
         updatedAt: new Date(u.updatedAt || Date.now()),
       });

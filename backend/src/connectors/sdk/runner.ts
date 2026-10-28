@@ -26,6 +26,7 @@ import { CsvConnector } from '../csv/index.js';
 import type { BaseConnector } from './base.js';
 import type { PersistStats } from './types.js';
 import { DataService } from '../../services/dataService.js';
+import { queueUnmatchedAccounts } from '../../identity/syncHook.js';
 
 export const CONFIG_SCHEMAS = {
   n8n: z.object({ baseUrl: z.string().url(), apiKey: z.string().min(1) }),
@@ -177,6 +178,12 @@ export class ConnectorRunner {
       // Rebuild the graph before releasing the claim, so a client polling for "connected" sees the new data.
       const ds = DataService.getInstance();
       if (ds.isPersistent()) await ds.hydrateGraphFromDatabase();
+      // Identity hygiene must never fail a sync that already landed.
+      try {
+        await queueUnmatchedAccounts(result.entities, ds.getGraph(), ds.getQueueService());
+      } catch (err) {
+        console.warn(`[ConnectorRunner] Identity matching after sync failed for ${connectionId}:`, err);
+      }
       await query(
         `UPDATE connection SET status = 'connected', last_sync_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = $1`,
         [connectionId]

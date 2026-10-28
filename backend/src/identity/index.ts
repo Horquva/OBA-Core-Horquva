@@ -4,3 +4,4 @@
 
 export * from './matcher.js';
 export * from './queue.js';
+export * from './syncHook.js';

@@ -231,6 +231,26 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
     expect(status.steps).toMatchObject({ automations: true, baseline: true, directory: false });
   });
 
+  it('queues n8n accounts nobody in the directory matches, once, and never a directory person', async () => {
+    const queue = DataService.getInstance().getQueueService();
+    // The demo seed has its own queue items; only the fake n8n's accounts (u1, u2) are this test's.
+    const fromFake = async () => (await queue.listQueue({ source: 'n8n' })).filter((q) => ['u1', 'u2'].includes(q.externalAccountId));
+    // Omar is known to the directory (as if an Entra sync had run); Nadia isn't.
+    await query(`UPDATE entity SET external_refs = external_refs || '{"entraId":"e-omar"}'::jsonb WHERE id = 'person:omar@acme.com'`);
+    await DataService.getInstance().hydrateGraphFromDatabase();
+
+    await authedFetch(`${baseUrl}/api/connections/${n8nId}/sync`, json('POST'));
+    expect((await waitForSync(n8nId)).status).toBe('connected');
+    const queued = await fromFake();
+    expect(queued.map((q) => [q.externalAccountId, q.emailCandidate, q.status])).toEqual([['u2', 'nadia@uni.edu', 'pending']]);
+
+    // An admin ignores it: the next sync must not queue it again.
+    await queue.resolveIgnore(queued[0].id, 'user:admin');
+    await authedFetch(`${baseUrl}/api/connections/${n8nId}/sync`, json('POST'));
+    await waitForSync(n8nId);
+    expect((await fromFake()).map((q) => q.status)).toEqual(['ignored']);
+  });
+
   it('marks syncs interrupted by a restart as failed', async () => {
     await query(`UPDATE connection SET status = 'syncing' WHERE id = $1`, [n8nId]);
     await query(`INSERT INTO sync_run (connection_id, status) VALUES ($1, 'running')`, [n8nId]);
