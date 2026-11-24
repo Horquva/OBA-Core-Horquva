@@ -137,15 +137,6 @@ export interface InitialState {
   departures: DepartureRecord[];
 }
 
-/** DEMO_MODE seeds an empty database with demo data; never in production. */
-export function demoModeEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.DEMO_MODE !== 'true') return false;
-  if (env.NODE_ENV === 'production') {
-    throw new Error('DEMO_MODE=true is not allowed in production: it would seed demo people into a real database.');
-  }
-  return true;
-}
-
 /** Extra state other modules keep alongside DataService (e.g. attestation campaigns), reloaded with it. */
 type ReloadHook = () => Promise<void>;
 const reloadHooks: ReloadHook[] = [];
@@ -169,8 +160,6 @@ export class DataService {
   private users: Map<string, UserAccount> = new Map();
   private orgSettings: OrgSettings = { ...DEFAULT_ORG };
   private onboardingDismissedAt: string | null = null;
-  /** Set when demo data was just seeded: history is back-filled once the graph has loaded. */
-  private seedDemoHistoryAfterLoad = false;
 
   private readonly persistent: boolean;
   /** Serializes Postgres writes so they land in the order the app made the changes. */
@@ -212,19 +201,15 @@ export class DataService {
   }
 
   /**
-   * Boot entry point. With DATABASE_URL, loads state from Postgres (seeding
-   * demo data first if DEMO_MODE allows and the database is empty) and makes
-   * that the singleton. Without it, production refuses to start and dev falls
-   * back to the in-memory fixture.
+   * Boot entry point. Mandates DATABASE_URL: Horquva has no offline data.
+   * Loads state from Postgres and makes that the singleton.
    */
   public static async initialize(env: NodeJS.ProcessEnv = process.env): Promise<DataService> {
     if (!env.DATABASE_URL) {
-      if (env.NODE_ENV === 'production') throw new Error('DATABASE_URL must be set in production.');
-      console.warn('[DataService] No DATABASE_URL: running on the in-memory demo fixture. Nothing will survive a restart.');
-      return DataService.getInstance();
+      throw new Error('DATABASE_URL must be set: Horquva has no offline data.');
     }
     const ds = new DataService({ persistent: true });
-    await ds.loadFromDatabase({ seedDemo: demoModeEnabled(env) });
+    await ds.loadFromDatabase();
     DataService.instance = ds;
     return ds;
   }
@@ -250,23 +235,9 @@ export class DataService {
     this.addAuditEntry('system', 'INITIALIZE', 'data_service', 'Benchmark continuity store initialized.');
   }
 
-  private async seedDemoData(): Promise<void> {
-    const demo = DataService.initialStateProvider?.();
-    if (!demo) return;
-    await graphRepo.insertSnapshot({ entities: demo.entities, edges: demo.edges, facts: demo.facts });
-    for (const u of demo.users) await settingsRepo.saveUser(u);
-    await settingsRepo.saveOrganization(demo.org);
-    for (const c of demo.changeEvents) await settingsRepo.saveChangeEvent(c);
-    for (const q of demo.queueItems) await this.queueAdapter.enqueue(q);
-    for (const d of demo.departures) await departureRepo.saveDeparture(d);
-    console.warn('[DataService] DEMO_MODE: seeded the empty database with demo org.');
-    this.seedDemoHistoryAfterLoad = true;
-  }
-
   /** Replaces all in-memory state with what Postgres holds. */
-  public async loadFromDatabase(opts: { seedDemo?: boolean } = {}): Promise<void> {
+  public async loadFromDatabase(): Promise<void> {
     if (!this.persistent) throw new Error('loadFromDatabase() needs a persistent DataService.');
-    if (opts.seedDemo && (await graphRepo.countEntities()) === 0) await this.seedDemoData();
 
     const [departures, actions, changes, users, org, audit] = await Promise.all([
       departureRepo.listDepartures(),
@@ -291,11 +262,6 @@ export class DataService {
     }
     this.auditLogs = audit;
     for (const hook of reloadHooks) await hook();
-    if (this.seedDemoHistoryAfterLoad) {
-      this.seedDemoHistoryAfterLoad = false;
-      const { SnapshotService } = await import('./snapshot/snapshotService.js');
-      await SnapshotService.seedDemoHistory(this);
-    }
   }
 
   /**

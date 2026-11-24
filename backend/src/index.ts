@@ -34,9 +34,9 @@ async function main(): Promise<void> {
     const pending = (await getMigrationStatus()).filter((m) => !m.applied).map((m) => m.name);
     if (pending.length) throw new Error(`Database schema is behind: ${pending.join(', ')} not applied. Run \`npm run migrate\` first.`);
   }
-  // Load state from Postgres (or the in-memory fixture in dev) before serving any request.
+  // Load state from Postgres before serving any request.
   const ds = await DataService.initialize();
-  console.log(`[Horquva Core] State: ${ds.isPersistent() ? 'PostgreSQL' : 'in-memory demo fixture'}`);
+  console.log('[Horquva Core] State: PostgreSQL');
 
   if (ds.isPersistent()) {
     const interrupted = await ConnectorRunner.recoverInterruptedSyncs();

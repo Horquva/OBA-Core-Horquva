@@ -3,8 +3,8 @@
 // =============================================================================
 // Creates the database if needed, drops everything in it (app schema and the
 // pg-boss queue schema) and applies all migrations, so each Playwright run
-// starts from the same empty state and the backend seeds the demo org into it
-// (DEMO_MODE=true). Refuses any database whose name doesn't end in "_e2e".
+// starts from the same empty state and tests/e2e/seedE2E.ts seeds the fixture org into it.
+// Refuses any database whose name doesn't end in "_e2e".
 //   DATABASE_URL=postgresql://…/horquva_e2e npx tsx db/resetForE2E.ts
 // =============================================================================
 
