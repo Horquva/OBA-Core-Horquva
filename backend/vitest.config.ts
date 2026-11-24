@@ -7,6 +7,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     // Postgres-backed suites run separately against a real database: npm run test:pg
     exclude: ['tests/pg/**', 'node_modules/**'],
+    setupFiles: ['tests/setup/fixtureOrg.ts'],
     // Tests run on the in-memory fixture. Point Postgres at a closed local port so
     // "try the database first" fails instantly instead of reaching whatever
     // DATABASE_URL is in .env (a remote server here, 1.5–4 s per query).

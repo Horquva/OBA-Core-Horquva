@@ -11,8 +11,8 @@
 // - Connections & Organization Settings
 //
 // Two modes:
-// - In-memory (tests, and dev without DATABASE_URL): seeded from the 10-person
-//   benchmark fixture (handCheckableTruth.json) on construction.
+// - In-memory (tests, and dev without DATABASE_URL): starts empty unless populated
+//   via an initial state provider registered in the test harness.
 // - Postgres (DataService.initialize() with DATABASE_URL): state is loaded from
 //   the database at boot and every change is written through. Reads stay
 //   synchronous against the in-memory copy; this is safe because each
@@ -20,16 +20,14 @@
 //   DEMO_MODE=true outside production and the database has no entities.
 // =============================================================================
 
-import fs from 'node:fs';
-import path from 'node:path';
 import crypto from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import {
   CanonicalEntity,
   CanonicalEdge,
   CanonicalFact,
   CriticalityLevel,
   EvidenceGrade,
+  IdentityQueueItem,
 } from '@horquva/types';
 import { ContinuityGraph } from '../domain/graph/index.js';
 import { currentContext } from '../middleware/requestContext.js';
@@ -43,9 +41,6 @@ import * as settingsRepo from '../repositories/settingsRepository.js';
 
 /** Audit entries kept in memory (Postgres keeps them all; the newest this many are loaded at boot). */
 export const AUDIT_LOG_CAPACITY = 20000;
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export interface DepartureWatchEvent {
   at: string;
@@ -131,68 +126,15 @@ export interface OrgSettings {
 
 const DEFAULT_ORG: OrgSettings = { companyName: 'Your organization', logoUrl: null, minGroupSize: 5, departmentMappings: [] };
 
-/** Demo content: the fixture graph plus the users, feed, queue item and departure the screens are written against. */
-function demoState() {
-  const fixturePath = path.resolve(__dirname, '../../tests/fixtures/handCheckableTruth.json');
-  const fixture = fs.existsSync(fixturePath)
-    ? JSON.parse(fs.readFileSync(fixturePath, 'utf-8'))
-    : { entities: [], edges: [], facts: [] };
-  const users: UserAccount[] = [
-    { id: 'user:admin', name: 'Alex Rivera', email: 'alex@acme.com', role: 'admin', isHrManager: true, title: 'Head of Operations' },
-    { id: 'user:reviewer', name: 'Omar Farooq', email: 'omar@acme.com', role: 'reviewer', isHrManager: false, title: 'Staff Engineer' },
-    { id: 'user:chen', name: 'Chen Wei', email: 'chen@acme.com', role: 'reviewer', isHrManager: false, title: 'Senior Engineer' },
-    { id: 'user:maya', name: 'Maya Lin', email: 'maya@acme.com', role: 'viewer', isHrManager: false, title: 'Lead Architect' },
-  ];
-  const org: OrgSettings = {
-    companyName: 'Acme Corporation',
-    logoUrl: null,
-    minGroupSize: 5,
-    departmentMappings: [
-      { raw: 'Eng - Platform', mapped: 'Platform Engineering' },
-      { raw: 'RevOps & Growth', mapped: 'Revenue Operations' },
-    ],
-  };
-  const changeEvents: StoredChangeEvent[] = [
-    {
-      id: 'chg_001',
-      kind: 'person_left',
-      title: 'Sarah Connor marked departed in Entra ID',
-      impact: 'Single-owner automation "Customer Onboarding Flow" has no active owner.',
-      href: '/assets/automation:n8n:104',
-      // Dated from the fixture (Sarah's departure), not relative to server start.
-      detectedAt: '2025-01-15T00:00:00.000Z',
-      acknowledged: false,
-    },
-    {
-      id: 'chg_002',
-      kind: 'credential_risk',
-      title: 'Personal Credential bound to AI Ticket Routing',
-      impact: 'David Miller personal token executes 2,500 runs/week.',
-      href: '/assets/automation:n8n:105',
-      detectedAt: '2025-01-01T00:00:00.000Z',
-      acknowledged: false,
-    },
-  ];
-  const queueItem = {
-    externalAccountId: 'ext_usr_9921',
-    source: 'n8n',
-    displayName: 'D. Miller (n8n Dev)',
-    emailCandidate: 'david.dev@acme.com',
-    status: 'pending' as const,
-  };
-  const departure: DepartureRecord = {
-    id: 'dep_sarah_001',
-    personId: 'person:sarah@acme.com',
-    leaveDate: '2025-01-15T00:00:00Z',
-    stage: 'initiated',
-    note: 'Departed employee from Entra sync.',
-    detectedFrom: 'entra',
-    stageTimestamps: { initiated: '2025-01-15T00:00:00Z' },
-    handovers: [{ id: 'hnd_104', assetId: 'automation:n8n:104', successorId: null, acceptance: 'none', declineReason: null }],
-    createdAt: '2025-01-15T00:00:00Z',
-    updatedAt: '2025-01-15T00:00:00Z',
-  };
-  return { fixture, users, org, changeEvents, queueItem, departure };
+export interface InitialState {
+  entities: CanonicalEntity[];
+  edges: CanonicalEdge[];
+  facts: CanonicalFact[];
+  users: UserAccount[];
+  org: OrgSettings;
+  changeEvents: StoredChangeEvent[];
+  queueItems: IdentityQueueItem[];
+  departures: DepartureRecord[];
 }
 
 /** DEMO_MODE seeds an empty database with demo data; never in production. */
@@ -234,6 +176,12 @@ export class DataService {
   /** Serializes Postgres writes so they land in the order the app made the changes. */
   private writeChain: Promise<void> = Promise.resolve();
 
+  private static initialStateProvider: (() => InitialState) | null = null;
+
+  public static useInitialStateProvider(provider: (() => InitialState) | null): void {
+    DataService.initialStateProvider = provider;
+  }
+
   constructor(opts: { persistent?: boolean } = {}) {
     this.persistent = opts.persistent ?? false;
     this.graph = new ContinuityGraph();
@@ -246,7 +194,9 @@ export class DataService {
     }
     this.factStore = new FactStore(this.factStoreAdapter);
     this.queueService = new IdentityQueueService(this.queueAdapter);
-    if (!this.persistent) this.initDefaultState();
+    if (!this.persistent && DataService.initialStateProvider) {
+      this.applyInitialState(DataService.initialStateProvider());
+    }
   }
 
   public static getInstance(): DataService {
@@ -283,33 +233,33 @@ export class DataService {
     return this.persistent;
   }
 
-  private initDefaultState(): void {
-    const demo = demoState();
-    this.graph = ContinuityGraph.fromSnapshot(demo.fixture.entities, demo.fixture.edges, demo.fixture.facts);
-    for (const fact of demo.fixture.facts) {
+  private applyInitialState(state: InitialState): void {
+    this.graph = ContinuityGraph.fromSnapshot(state.entities, state.edges, state.facts);
+    for (const fact of state.facts) {
       void this.factStoreAdapter.createFact({
         ...fact,
         validFrom: new Date(fact.validFrom || Date.now()),
         validTo: fact.validTo ? new Date(fact.validTo) : null,
       });
     }
-    for (const u of demo.users) this.users.set(u.id, u);
-    this.orgSettings = demo.org;
-    this.changeEvents = demo.changeEvents;
-    void this.queueAdapter.enqueue(demo.queueItem);
-    this.departures.set(demo.departure.id, demo.departure);
+    for (const u of state.users) this.users.set(u.id, u);
+    this.orgSettings = state.org;
+    this.changeEvents = state.changeEvents;
+    for (const q of state.queueItems) void this.queueAdapter.enqueue(q);
+    for (const d of state.departures) this.departures.set(d.id, d);
     this.addAuditEntry('system', 'INITIALIZE', 'data_service', 'Benchmark continuity store initialized.');
   }
 
   private async seedDemoData(): Promise<void> {
-    const demo = demoState();
-    await graphRepo.insertSnapshot({ entities: demo.fixture.entities, edges: demo.fixture.edges, facts: demo.fixture.facts });
+    const demo = DataService.initialStateProvider?.();
+    if (!demo) return;
+    await graphRepo.insertSnapshot({ entities: demo.entities, edges: demo.edges, facts: demo.facts });
     for (const u of demo.users) await settingsRepo.saveUser(u);
     await settingsRepo.saveOrganization(demo.org);
     for (const c of demo.changeEvents) await settingsRepo.saveChangeEvent(c);
-    await this.queueAdapter.enqueue(demo.queueItem);
-    await departureRepo.saveDeparture(demo.departure);
-    console.warn('[DataService] DEMO_MODE: seeded the empty database with the 10-person demo org.');
+    for (const q of demo.queueItems) await this.queueAdapter.enqueue(q);
+    for (const d of demo.departures) await departureRepo.saveDeparture(d);
+    console.warn('[DataService] DEMO_MODE: seeded the empty database with demo org.');
     this.seedDemoHistoryAfterLoad = true;
   }
 
