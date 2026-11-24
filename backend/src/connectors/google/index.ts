@@ -62,8 +62,7 @@ export class GoogleWorkspaceConnector extends BaseConnector {
     }
 
     if (!this.serviceAccountKey.client_email || !this.serviceAccountKey.private_key) {
-      // In sandbox/mock mode without private keys, provide dummy token
-      return 'google-sandbox-token';
+      throw new Error('[GoogleWorkspaceConnector] serviceAccountKeyJson is missing or has no private_key.');
     }
 
     // Google JWT Bearer Grant exchange
