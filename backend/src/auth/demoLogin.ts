@@ -4,8 +4,8 @@
 // One shared email + password for a sales-demo deployment, where there is no
 // identity provider to sign in with. Off unless DEMO_LOGIN_EMAIL and
 // DEMO_LOGIN_PASSWORD are both set; unlike the dev sign-in it works in
-// production. It signs in only as the seeded user DEMO_LOGIN_EMAIL names, so
-// that account must exist (db/resetDemoDeployment.ts seeds it).
+// production. It signs in only as the user DEMO_LOGIN_EMAIL names, so
+// that account must exist (db/bootstrapUser.ts creates it).
 // =============================================================================
 
 import { createHash, timingSafeEqual } from 'node:crypto';
