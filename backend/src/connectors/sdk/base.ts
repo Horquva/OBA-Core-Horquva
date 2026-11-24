@@ -155,6 +155,7 @@ export abstract class BaseConnector implements Connector {
 
       return {
         ...syncResult.stats,
+        coverage: syncResult.coverage,
         errorReasons: syncResult.stats.errorReasons ?? [],
         warnings: syncResult.stats.warnings ?? [],
         entitiesUpserted: ent.rowCount ?? 0,

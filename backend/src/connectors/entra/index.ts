@@ -235,6 +235,7 @@ export class EntraConnector extends BaseConnector {
         factsCreated: facts.length,
         ...issues.stats(),
       },
+      coverage: {},
     };
   }
 }

@@ -256,6 +256,7 @@ export class CsvConnector extends BaseConnector {
         factsCreated: facts.length,
         errors: 0,
       },
+      coverage: {},
     };
   }
 }

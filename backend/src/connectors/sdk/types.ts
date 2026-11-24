@@ -33,6 +33,8 @@ export interface PersistStats extends SyncStats {
   orphansSkipped: number;
   /** True when closing vanished rows was skipped (errors or empty result). */
   vanishedCheckSkipped: boolean;
+  coverage: Record<string, number>;
+  visibilityDropped?: Array<{ type: string; previous: number; current: number }>;
 }
 
 export interface SyncResult {
@@ -41,6 +43,7 @@ export interface SyncResult {
   facts: CanonicalFact[];
   rawPayloads: RawPayloadRecord[];
   stats: SyncStats;
+  coverage: Record<string, number>;
 }
 
 export interface ConnectorCapabilities {

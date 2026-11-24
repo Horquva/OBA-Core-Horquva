@@ -13,7 +13,24 @@ export type EntityKind =
   | 'vendor'
   | 'group'
   | 'app'
-  | 'process';
+  | 'process'
+  | 'account'
+  | 'repository'
+  | 'project';
+
+export type LinkMethod = 'exact_email' | 'admin_link' | 'suggested';
+
+export interface IdentityLink {
+  id: string;
+  accountId: string;
+  personId: string;
+  grade: EvidenceGrade;
+  method: LinkMethod;
+  linkedBy: string | null;
+  note: string | null;
+  validFrom: Date;
+  validTo: Date | null;
+}
 
 export type EdgeType = 
   | 'owns'

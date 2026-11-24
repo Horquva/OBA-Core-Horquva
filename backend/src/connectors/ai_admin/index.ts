@@ -190,6 +190,7 @@ export class AiAdminConnector extends BaseConnector {
         factsCreated: facts.length,
         ...issues.stats(),
       },
+      coverage: {},
     };
   }
 }

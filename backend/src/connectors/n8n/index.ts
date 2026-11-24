@@ -343,6 +343,7 @@ export class N8nConnector extends BaseConnector {
         factsCreated: facts.length,
         ...issues.stats(),
       },
+      coverage: {},
     };
   }
 }

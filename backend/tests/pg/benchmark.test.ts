@@ -57,7 +57,7 @@ function syntheticOrg(ownerShift = 0): SyncResult {
     facts.push({ entityId: id, attribute: 'documented', value: a % 2 === 0, grade: 'stated', source: 'connector:n8n', validFrom: now });
     facts.push({ entityId: id, attribute: 'status', value: 'active', grade: 'stated', source: 'connector:n8n', validFrom: now });
   }
-  return { entities, edges, facts, rawPayloads: [], stats: { fetched: entities.length, entitiesCreated: entities.length, edgesCreated: edges.length, factsCreated: facts.length, errors: 0 } };
+  return { entities, edges, facts, rawPayloads: [], stats: { fetched: entities.length, entitiesCreated: entities.length, edgesCreated: edges.length, factsCreated: facts.length, errors: 0 }, coverage: {} };
 }
 
 async function timed<T>(label: string, fn: () => Promise<T> | T): Promise<{ ms: number; value: T }> {

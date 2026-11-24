@@ -207,6 +207,7 @@ export class GoogleWorkspaceConnector extends BaseConnector {
         factsCreated: facts.length,
         errors: 0,
       },
+      coverage: {},
     };
   }
 }

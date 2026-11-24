@@ -29,6 +29,11 @@ export interface GuardResponse<T = any> {
   durationMs: number;
 }
 
+export const TOKEN_ENDPOINTS: RegExp[] = [
+  /^https:\/\/login\.microsoftonline\.com\/[a-zA-Z0-9.-]+\/oauth2\/v2\.0\/token$/,
+  /^https:\/\/api\.github\.com\/app\/installations\/[0-9]+\/access_tokens$/,
+];
+
 export class ReadOnlyHttpGuard {
   private allowedHostPatterns: RegExp[];
 
@@ -169,6 +174,76 @@ export class ReadOnlyHttpGuard {
       throw new SecurityViolationError(
         `Non-GET HTTP method '${verb}' strictly prohibited by Horquva Read-Only Security Guard.`
       );
+    }
+  }
+
+  /**
+   * Secure, strictly controlled token exchange POST request.
+   * Only allowed against specific, audited identity provider token endpoints.
+   */
+  public async postTokenRequest<T = any>(
+    url: string,
+    body: URLSearchParams | Record<string, unknown>,
+    headers: Record<string, string> = {}
+  ): Promise<GuardResponse<T>> {
+    const isAllowed = TOKEN_ENDPOINTS.some((pattern) => pattern.test(url));
+    if (!isAllowed) {
+      throw new SecurityViolationError(`POST request forbidden to non-token endpoint: ${url}`);
+    }
+
+    const start = Date.now();
+    const timeoutMs = 15000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const isUrlSearchParams = body instanceof URLSearchParams;
+      const contentType = isUrlSearchParams ? 'application/x-www-form-urlencoded' : 'application/json';
+      const requestBody = isUrlSearchParams ? body.toString() : JSON.stringify(body);
+
+      const requestHeaders: Record<string, string> = {
+        'User-Agent': 'Horquva-Continuity-Engine/1.0',
+        'Content-Type': contentType,
+        ...headers,
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: requestHeaders,
+        body: requestBody,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const durationMs = Date.now() - start;
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        throw new Error(`HTTP Error ${response.status} ${response.statusText}: ${errorBody.substring(0, 500)}`);
+      }
+
+      const resContentType = response.headers.get('content-type') || '';
+      let data: any;
+      if (resContentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
+
+      const responseHeaders: Record<string, string> = {};
+      response.headers.forEach((val, key) => {
+        responseHeaders[key] = val;
+      });
+
+      return {
+        status: response.status,
+        headers: responseHeaders,
+        data,
+        durationMs,
+      };
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      throw err;
     }
   }
 }
