@@ -16,6 +16,7 @@ import { calculateHeadlineMetrics } from '../../src/domain/checks/index.js';
 import { authedFetch } from '../helpers/session.js';
 import { SnapshotService } from '../../src/services/snapshot/snapshotService.js';
 import { DataService } from '../../src/services/dataService.js';
+import { seedDemoHistory } from '../helpers/seedHistory.js';
 
 let server: http.Server;
 let baseUrl: string;
@@ -118,7 +119,7 @@ describe('Overview history and exposure causes (charts)', () => {
     const real = await SnapshotService.captureDailySnapshot(DataService.getInstance(), day(10));
     real.headline = { ...real.headline, coveredCount: 4, exposedCount: 0 };
 
-    expect(await SnapshotService.seedDemoHistory(DataService.getInstance(), 60)).toBe(59);
+    expect(await seedDemoHistory(DataService.getInstance(), 60)).toBe(59);
     const { body } = await get('/api/continuity/history?days=60');
     expect(body.points).toHaveLength(61);
     expect(body.points.find((p: any) => p.date === day(10))).toMatchObject({ covered: 4, exposed: 0 });

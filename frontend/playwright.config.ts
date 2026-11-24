@@ -48,7 +48,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'npx tsx db/resetForE2E.ts && npx tsx src/index.ts',
+      command: 'npx tsx db/resetForE2E.ts && npx tsx tests/e2e/seedE2E.ts && npx tsx src/index.ts',
       cwd: '../backend',
       url: `${API}/health`,
       reuseExistingServer: false,
@@ -59,7 +59,6 @@ export default defineConfig({
         PORT: String(API_PORT),
         // dotenv never overrides a variable that is already set, so these win over backend/.env.
         DATABASE_URL: E2E_DATABASE_URL,
-        DEMO_MODE: 'true',
         // Hourly syncs and reminders have no place in a test run; queued syncs still run in-process.
         JOBS_ENABLED: 'false',
         HORQUVA_SECRET_KEY: '',
