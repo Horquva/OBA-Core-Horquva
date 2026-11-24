@@ -30,7 +30,7 @@ class ScriptedConnector extends BaseConnector {
   }
   public async sync(): Promise<SyncResult> {
     const { entities, edges } = this.next;
-    return { entities, edges, facts: [], rawPayloads: [], stats: { fetched: 0, entitiesCreated: entities.length, edgesCreated: edges.length, factsCreated: 0, errors: 0 } };
+    return { entities, edges, facts: [], rawPayloads: [], stats: { fetched: 0, entitiesCreated: entities.length, edgesCreated: edges.length, factsCreated: 0, errors: 0 }, coverage: {} };
   }
   public async syncAndPersist() {
     const run = await query(`INSERT INTO sync_run (connection_id, status) VALUES ($1, 'running') RETURNING id`, [this.id]);
