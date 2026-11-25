@@ -8,16 +8,16 @@ import http from 'node:http';
 import { DataService } from '../../src/services/dataService.js';
 import { query } from '../../src/db/client.js';
 import { authedFetch } from '../helpers/session.js';
-import { resetDatabase, startServer, json } from './db.js';
+import { resetDatabase, seedFixtureOrgToPg, startServer, json } from './db.js';
 
 let server: http.Server;
 let baseUrl: string;
 
-const restart = () => DataService.initialize({ ...process.env, DEMO_MODE: 'true' });
+const restart = () => DataService.initialize();
 
 beforeAll(async () => {
   await resetDatabase();
-  await restart();
+  await seedFixtureOrgToPg();
   ({ server, baseUrl } = await startServer());
 });
 

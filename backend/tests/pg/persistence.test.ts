@@ -8,38 +8,48 @@ import http from 'node:http';
 import { DataService } from '../../src/services/dataService.js';
 import { query } from '../../src/db/client.js';
 import { authedFetch } from '../helpers/session.js';
-import { resetDatabase, startServer, json } from './db.js';
+import { resetDatabase, seedFixtureOrgToPg, startServer, json } from './db.js';
 
 let server: http.Server;
 let baseUrl: string;
 
-const restart = () => DataService.initialize({ ...process.env, DEMO_MODE: 'true' });
+const restart = () => DataService.initialize();
 
 beforeAll(async () => {
   await resetDatabase();
-  await restart();
+  await seedFixtureOrgToPg();
   ({ server, baseUrl } = await startServer());
 });
 
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 describe('Postgres-backed DataService', () => {
-  it('seeds the empty database once in DEMO_MODE and loads it', async () => {
-    const ds = DataService.getInstance();
+  it('seeds the fixture org via seedFixtureOrgToPg and reloads without duplicating rows', async () => {
+    await resetDatabase();
+    const ds = await seedFixtureOrgToPg();
     expect(ds.isPersistent()).toBe(true);
     expect(ds.getGraph().getAllNodes()).toHaveLength(19);
     expect(ds.getUsers().map((u) => u.id).sort()).toEqual(['user:admin', 'user:chen', 'user:maya', 'user:reviewer']);
     expect(ds.getDeparture('dep_sarah_001')?.handovers).toHaveLength(1);
 
-    // A second boot must not seed again.
+    // A second boot must not seed or duplicate rows.
     await restart();
     const counts = await query(`SELECT (SELECT COUNT(*) FROM entity)::int e, (SELECT COUNT(*) FROM user_account)::int u, (SELECT COUNT(*) FROM departure)::int d`);
     expect(counts.rows[0]).toEqual({ e: 19, u: 4, d: 1 });
   });
 
-  it('does not seed without DEMO_MODE, and refuses DEMO_MODE in production', async () => {
-    await expect(DataService.initialize({ ...process.env, DEMO_MODE: 'true', NODE_ENV: 'production' })).rejects.toThrow(/not allowed in production/);
-    await expect(DataService.initialize({ ...process.env, DATABASE_URL: '', NODE_ENV: 'production' })).rejects.toThrow(/DATABASE_URL must be set/);
+  it('does not seed on an empty database even with DEMO_MODE, and requires DATABASE_URL', async () => {
+    await resetDatabase();
+    try {
+      const empty = await DataService.initialize({ ...process.env, DEMO_MODE: 'true' });
+      expect(empty.getGraph().getAllNodes()).toHaveLength(0);
+      await expect(DataService.initialize({ ...process.env, DATABASE_URL: '' })).rejects.toThrow(
+        'DATABASE_URL must be set: Horquva has no offline data.'
+      );
+    } finally {
+      await resetDatabase();
+      await seedFixtureOrgToPg();
+    }
   });
 
   it('keeps departures, successors, actions, change acks, users, org and audit across a restart', async () => {
