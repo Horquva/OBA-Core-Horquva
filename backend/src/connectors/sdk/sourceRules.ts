@@ -35,6 +35,7 @@ export const STATED_RULES = new Set<string>([
   'connector:n8n|depends_on|credential',
   'connector:n8n|runs_on_credentials_of|credential',
   'connector:n8n|runs_on_credentials_of|person',
+  'connector:n8n|runs_on_credentials_of|account',
   'connector:n8n|calls_model|model',
   'connector:jira|owns|project',
   'connector:jira|backs_up|person',

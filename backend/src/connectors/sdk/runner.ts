@@ -26,7 +26,12 @@ import { CsvConnector } from '../csv/index.js';
 import type { BaseConnector } from './base.js';
 import type { PersistStats } from './types.js';
 import { DataService } from '../../services/dataService.js';
-import { queueUnmatchedAccounts } from '../../identity/syncHook.js';
+import { autoLink } from '../../identity/autoLink.js';
+import {
+  autoLinkAccountsFrom,
+  directoryInputsFrom,
+  queueUnmatchedAccounts,
+} from '../../identity/syncHook.js';
 import { recordDirectoryLifecycle } from '../../services/lifecycle/directoryLifecycle.js';
 
 export const CONFIG_SCHEMAS = {
@@ -191,7 +196,20 @@ export class ConnectorRunner {
       }
       // Identity hygiene must never fail a sync that already landed.
       try {
-        await queueUnmatchedAccounts(result.entities, ds.getGraph(), ds.getQueueService());
+        const directoryInputs = directoryInputsFrom(ds.getGraph());
+        const isDirectory = connector.type === 'entra' || connector.type === 'google';
+        const accountEntities = isDirectory
+          ? ds.getGraph().getAllNodes().map((n) => n.entity)
+          : result.entities;
+        const accountInputs = autoLinkAccountsFrom(accountEntities);
+        if (directoryInputs.length > 0 && accountInputs.length > 0) {
+          const linkStats = await autoLink(accountInputs, directoryInputs, ds.getLinkRepository());
+          if (ds.isPersistent() && (linkStats.created > 0 || linkStats.closed > 0)) {
+            await ds.hydrateGraphFromDatabase();
+          }
+        }
+        const activeLinks = await ds.getLinkRepository().listActive();
+        await queueUnmatchedAccounts(accountEntities, ds.getGraph(), ds.getQueueService(), activeLinks);
       } catch (err) {
         console.warn(`[ConnectorRunner] Identity matching after sync failed for ${connectionId}:`, err);
       }

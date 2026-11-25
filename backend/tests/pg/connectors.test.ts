@@ -3,10 +3,13 @@
 // sync_run bookkeeping, CSV import, vanished-row closing, grade protection.
 // =============================================================================
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import http from 'node:http';
+import type { CanonicalEntity } from '@horquva/types';
 import { DataService } from '../../src/services/dataService.js';
+import { BaseConnector } from '../../src/connectors/sdk/base.js';
 import { ConnectorRunner, CSV_CONNECTION_ID } from '../../src/connectors/sdk/runner.js';
+import type { ConnectorCapabilities, SyncResult } from '../../src/connectors/sdk/types.js';
 import { query } from '../../src/db/client.js';
 import { authedFetch } from '../helpers/session.js';
 import { resolveExecutionProvider, verifyDepartureExecutions } from '../../src/handover/postDepartureVerifier.js';
@@ -258,5 +261,208 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
     const c = (await query(`SELECT status, last_error FROM connection WHERE id = $1`, [n8nId])).rows[0];
     expect(c.status).toBe('error');
     expect((await query(`SELECT COUNT(*)::int n FROM sync_run WHERE status IN ('queued','running')`)).rows[0].n).toBe(0);
+  });
+
+  it('runs autoLink before queueUnmatchedAccounts for kind=account entities and links pre-existing accounts on directory sync', async () => {
+    class StubConnector extends BaseConnector {
+      public readonly id: string;
+      public readonly type: string;
+      public readonly name: string;
+      private readonly entities: CanonicalEntity[];
+
+      constructor(id: string, type: string, name: string, entities: CanonicalEntity[]) {
+        super([]);
+        this.id = id;
+        this.type = type;
+        this.name = name;
+        this.entities = entities;
+      }
+
+      public async testConnection(): Promise<boolean> {
+        return true;
+      }
+
+      public getCapabilities(): ConnectorCapabilities {
+        return {
+          canDiscoverUsers: true,
+          canDiscoverAutomations: false,
+          canDiscoverCredentials: false,
+          canDiscoverModelCalls: false,
+          supportsWebhooks: false,
+          pollingIntervalMinutes: 60,
+        };
+      }
+
+      public async sync(): Promise<SyncResult> {
+        return {
+          entities: this.entities,
+          edges: [],
+          facts: [],
+          rawPayloads: [],
+          stats: {
+            fetched: this.entities.length,
+            entitiesCreated: this.entities.length,
+            edgesCreated: 0,
+            factsCreated: 0,
+            errors: 0,
+          },
+          coverage: { users: this.entities.length },
+        };
+      }
+    }
+
+    const now = new Date('2026-11-01T00:00:00Z');
+    const dirConnId = 'conn_pg_dir_autolink';
+    const toolConnId = 'conn_pg_tool_autolink';
+    const preToolConnId = 'conn_pg_pretool_autolink';
+
+    await query(
+      `INSERT INTO connection (id, type, name, status)
+       VALUES ($1, 'entra', 'Entra Stub', 'disconnected'),
+              ($2, 'ai_admin', 'OpenAI Stub', 'disconnected'),
+              ($3, 'n8n', 'n8n PreTool Stub', 'disconnected')`,
+      [dirConnId, toolConnId, preToolConnId]
+    );
+
+    const dirEntities: CanonicalEntity[] = [
+      {
+        id: 'person:entra:dir-a',
+        kind: 'person',
+        name: 'Alice One',
+        externalRefs: {
+          entraId: 'dir-a',
+          email: 'alice@acme.com',
+          emails: JSON.stringify(['shared@acme.com']),
+        },
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'person:entra:dir-b',
+        kind: 'person',
+        name: 'Bob Two',
+        externalRefs: {
+          entraId: 'dir-b',
+          email: 'bob@acme.com',
+          emails: JSON.stringify(['shared@acme.com']),
+        },
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+
+    const preToolEntities: CanonicalEntity[] = [
+      {
+        id: 'account:n8n:acc-preexisting',
+        kind: 'account',
+        name: 'Carol Preexisting',
+        externalRefs: { source: 'n8n', email: 'carol@acme.com' },
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+
+    const toolEntities: CanonicalEntity[] = [
+      {
+        id: 'account:openai:acc-matched',
+        kind: 'account',
+        name: 'Alice OpenAI',
+        externalRefs: { source: 'openai', email: 'alice@acme.com' },
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'account:openai:acc-unmatched',
+        kind: 'account',
+        name: 'External Contractor',
+        externalRefs: { source: 'openai', email: 'contractor@external.io' },
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'account:openai:acc-ambiguous',
+        kind: 'account',
+        name: 'Shared Mailbox',
+        externalRefs: { source: 'openai', email: 'shared@acme.com' },
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+
+    const lateDirEntities: CanonicalEntity[] = [
+      ...dirEntities,
+      {
+        id: 'person:google:dir-c',
+        kind: 'person',
+        name: 'Carol Three',
+        externalRefs: { googleId: 'dir-c', primaryEmail: 'carol@acme.com' },
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+
+    const loadSpy = vi.spyOn(ConnectorRunner, 'load').mockImplementation(async (id: string) => {
+      if (id === dirConnId) return new StubConnector(dirConnId, 'entra', 'Entra Stub', dirEntities);
+      if (id === toolConnId) return new StubConnector(toolConnId, 'ai_admin', 'OpenAI Stub', toolEntities);
+      if (id === preToolConnId) return new StubConnector(preToolConnId, 'n8n', 'n8n PreTool Stub', preToolEntities);
+      throw new Error(`Unexpected connection id ${id}`);
+    });
+
+    try {
+      // 1. Sync pre-existing tool account before Carol is in the directory
+      const preRun = await ConnectorRunner.queueSync(preToolConnId);
+      expect((await ConnectorRunner.executeSync(preToolConnId, preRun.syncRunId)).ok).toBe(true);
+
+      // 2. Sync Entra directory (Alice + Bob)
+      const dirRun = await ConnectorRunner.queueSync(dirConnId);
+      expect((await ConnectorRunner.executeSync(dirConnId, dirRun.syncRunId)).ok).toBe(true);
+
+      // 3. Sync OpenAI accounts (matched, unmatched, ambiguous)
+      const toolRun = await ConnectorRunner.queueSync(toolConnId);
+      expect((await ConnectorRunner.executeSync(toolConnId, toolRun.syncRunId)).ok).toBe(true);
+
+      const ds = DataService.getInstance();
+      const linkRepo = ds.getLinkRepository();
+      const queue = ds.getQueueService();
+
+      const activeLinks = await linkRepo.listActive();
+      expect(activeLinks.find((l) => l.accountId === 'account:openai:acc-matched')).toMatchObject({
+        personId: 'person:entra:dir-a',
+        grade: 'stated',
+        method: 'exact_email',
+      });
+
+      const suggestions = await linkRepo.listActiveSuggestions();
+      expect(
+        suggestions
+          .filter((l) => l.accountId === 'account:openai:acc-ambiguous')
+          .map((l) => l.personId)
+          .sort()
+      ).toEqual(['person:entra:dir-a', 'person:entra:dir-b']);
+
+      const openaiQueued = (await queue.listQueue({ source: 'openai' }))
+        .map((q) => q.externalAccountId)
+        .sort();
+      expect(openaiQueued).toEqual([
+        'account:openai:acc-ambiguous',
+        'account:openai:acc-unmatched',
+      ]);
+
+      // 4. Directory sync adding Carol links the pre-existing n8n account
+      loadSpy.mockImplementationOnce(
+        async () => new StubConnector(dirConnId, 'google', 'Google Stub', lateDirEntities)
+      );
+      const dirRun2 = await ConnectorRunner.queueSync(dirConnId);
+      expect((await ConnectorRunner.executeSync(dirConnId, dirRun2.syncRunId)).ok).toBe(true);
+
+      const activeAfterDir = await linkRepo.listActive();
+      expect(activeAfterDir.find((l) => l.accountId === 'account:n8n:acc-preexisting')).toMatchObject({
+        personId: 'person:google:dir-c',
+        grade: 'stated',
+        method: 'exact_email',
+      });
+    } finally {
+      loadSpy.mockRestore();
+    }
   });
 });
