@@ -42,6 +42,8 @@ function normalizeExactEmail(email: string | null | undefined): string {
 function normalizeDisplayName(name: string | null | undefined): string {
   if (!name) return '';
   return name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
@@ -110,8 +112,51 @@ export async function autoLink(
   directory: AutoLinkDirectoryInput[],
   repo: LinkRepository = linkRepository
 ): Promise<AutoLinkStats> {
+  if (accounts.length === 0 || directory.length === 0) {
+    return { created: 0, closed: 0, suggested: 0 };
+  }
+
   return repo.runInTransaction(async (tx) => {
     const stats: AutoLinkStats = { created: 0, closed: 0, suggested: 0 };
+
+    // Build deduplicated directory indexes first so blank-personId directories
+    // short-circuit before loading or closing any links.
+    const emailIndex = new Map<string, Map<string, NormalizedDirectoryPerson>>();
+    const directoryPeople = new Map<string, NormalizedDirectoryPerson>();
+
+    for (const entry of directory) {
+      if (!entry.personId?.trim()) continue;
+
+      let person = directoryPeople.get(entry.personId);
+      const normName = normalizeDisplayName(entry.displayName);
+      if (!person) {
+        const displayName = entry.displayName?.trim() || entry.personId;
+        person = {
+          personId: entry.personId,
+          displayName,
+          normalizedName: normName,
+        };
+        directoryPeople.set(entry.personId, person);
+      } else if (!person.normalizedName && normName) {
+        person.displayName = entry.displayName!.trim();
+        person.normalizedName = normName;
+      }
+
+      for (const rawEmail of entry.emails) {
+        const normEmail = normalizeExactEmail(rawEmail);
+        if (!normEmail) continue;
+        let bucket = emailIndex.get(normEmail);
+        if (!bucket) {
+          bucket = new Map();
+          emailIndex.set(normEmail, bucket);
+        }
+        bucket.set(person.personId, person);
+      }
+    }
+
+    if (directoryPeople.size === 0) {
+      return stats;
+    }
 
     // Single query for all open links (zero N+1 queries)
     const openLinks = await tx.listAllOpen();
@@ -126,39 +171,6 @@ export async function autoLink(
         suggestionsByAccount.set(link.accountId, list);
       } else {
         activeByAccount.set(link.accountId, link);
-      }
-    }
-
-    // Build deduplicated directory indexes
-    const emailIndex = new Map<string, Map<string, NormalizedDirectoryPerson>>();
-    const directoryPeople = new Map<string, NormalizedDirectoryPerson>();
-
-    for (const entry of directory) {
-      if (!entry.personId) continue;
-
-      let person = directoryPeople.get(entry.personId);
-      if (!person) {
-        const displayName = entry.displayName?.trim() || entry.personId;
-        person = {
-          personId: entry.personId,
-          displayName,
-          normalizedName: normalizeDisplayName(entry.displayName),
-        };
-        directoryPeople.set(entry.personId, person);
-      } else if (!person.normalizedName && entry.displayName) {
-        person.displayName = entry.displayName.trim();
-        person.normalizedName = normalizeDisplayName(entry.displayName);
-      }
-
-      for (const rawEmail of entry.emails) {
-        const normEmail = normalizeExactEmail(rawEmail);
-        if (!normEmail) continue;
-        let bucket = emailIndex.get(normEmail);
-        if (!bucket) {
-          bucket = new Map();
-          emailIndex.set(normEmail, bucket);
-        }
-        bucket.set(person.personId, person);
       }
     }
 

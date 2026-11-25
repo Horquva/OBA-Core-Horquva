@@ -187,6 +187,11 @@ export class PostgresLinkRepository implements LinkRepository {
         return result;
       } catch (err) {
         await this.q(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+        try {
+          await this.q(`RELEASE SAVEPOINT ${savepoint}`);
+        } catch {
+          // Ignore release failures so the original error is never masked
+        }
         throw err;
       }
     }

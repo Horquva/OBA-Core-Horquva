@@ -192,4 +192,75 @@ describe('PostgresLinkRepository + autoLink (PG)', () => {
     const countRes = await query(`SELECT COUNT(*)::int AS n FROM identity_link`);
     expect(countRes.rows[0].n).toBe(0);
   });
+
+  it('empty directory preserves pre-existing exact_email, admin_link, and suggested links', async () => {
+    await repo.create({
+      accountId: 'account:n8n:10',
+      personId: 'person:omar@acme.com',
+      grade: 'stated',
+      method: 'exact_email',
+      linkedBy: 'autoLink',
+      note: 'Exact match',
+    });
+    await repo.create({
+      accountId: 'account:github:30',
+      personId: 'person:maya@acme.com',
+      grade: 'confirmed',
+      method: 'admin_link',
+      linkedBy: 'user:admin',
+      note: 'Admin link',
+    });
+    await repo.create({
+      accountId: 'account:github:sugg',
+      personId: 'person:sarah@acme.com',
+      grade: 'inferred',
+      method: 'suggested',
+      linkedBy: 'autoLink',
+      note: 'Name similarity',
+    });
+
+    const accounts: AutoLinkAccountInput[] = [
+      { id: 'account:n8n:10', email: 'omar@acme.com', displayName: 'Omar', isBot: false },
+      { id: 'account:github:30', email: 'maya@acme.com', displayName: 'Maya', isBot: false },
+      { id: 'account:github:sugg', email: 'sara.c@personal.dev', displayName: 'Sara Chen', isBot: false },
+    ];
+
+    expect(await autoLink(accounts, [], repo)).toEqual({ created: 0, closed: 0, suggested: 0 });
+    expect(
+      await autoLink(accounts, [{ personId: '   ', emails: ['omar@acme.com'], displayName: 'Omar' }], repo)
+    ).toEqual({ created: 0, closed: 0, suggested: 0 });
+    expect(await repo.listActive()).toHaveLength(2);
+    expect(await repo.listActiveSuggestions()).toHaveLength(1);
+  });
+
+  it('nested runInTransaction rolls back only inner savepoint when outer transaction catches error', async () => {
+    await repo.runInTransaction(async (outerTx) => {
+      await outerTx.create({
+        accountId: 'account:n8n:10',
+        personId: 'person:omar@acme.com',
+        grade: 'stated',
+        method: 'exact_email',
+        linkedBy: 'autoLink',
+        note: 'Outer write',
+      });
+
+      await expect(
+        outerTx.runInTransaction(async (innerTx) => {
+          await innerTx.create({
+            accountId: 'account:openai:20',
+            personId: 'person:maya@acme.com',
+            grade: 'stated',
+            method: 'exact_email',
+            linkedBy: 'autoLink',
+            note: 'Inner write',
+          });
+          throw new Error('inner savepoint rollback');
+        })
+      ).rejects.toThrow('inner savepoint rollback');
+    });
+
+    const active = await repo.listActive();
+    expect(active).toHaveLength(1);
+    expect(active[0].accountId).toBe('account:n8n:10');
+  });
 });
