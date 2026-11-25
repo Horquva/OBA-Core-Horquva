@@ -52,6 +52,8 @@ export interface OrphanScanInputs {
   connectionsScanned?: Array<{ id: string; type: string; name: string }>;
   /** Whether any directory (Entra / Google) was scanned. Defaults to: the graph holds a directory person. */
   directoryConnected?: boolean;
+  /** Account IDs that currently have an active non-suggested IdentityLink. */
+  linkedAccountIds?: ReadonlySet<string>;
 }
 
 const EXPIRY_WINDOW_MS = 30 * 86_400_000;
@@ -149,7 +151,13 @@ export function runOrphanScan(graph: ContinuityGraph, now: Date, inputs: OrphanS
 
     // 4. An owner the directory doesn't know: unverified, never "left".
     if (directoryConnected && !thirdParty && (entity.kind === 'automation' || entity.kind === 'credential' || entity.kind === 'app')) {
-      const unverified = graph.getOwners(entity.id).find((o) => o.kind === 'person' && !isDirectoryPerson(o) && !isGone(o.id));
+      const unverified = graph
+        .getOwners(entity.id)
+        .find(
+          (o) =>
+            (o.kind === 'person' && !isDirectoryPerson(o) && !isGone(o.id)) ||
+            (o.kind === 'account' && !inputs.linkedAccountIds?.has(o.id))
+        );
       if (unverified) {
         add('owner_not_in_directory', entity, { id: unverified.id, name: unverified.name, reason: 'not_in_directory' }, [
           `${unverified.name} isn't in the connected directory, so whether they still work here can't be checked.`,

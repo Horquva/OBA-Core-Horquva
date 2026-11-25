@@ -94,10 +94,12 @@ export class SimulationEngine {
 
       // 2. Personal Credentials owned by departing person used by automations
       const edges = this.graph.getEdgesForEntity(personId);
+      const seenCredWorkflowIds = new Set<string>();
       for (const edge of edges) {
-        if (edge.type === 'runs_on_credentials_of') {
+        if (edge.type === 'runs_on_credentials_of' && edge.toId === personId) {
           const automationNode = this.graph.getNode(edge.fromId);
-          if (automationNode?.entity) {
+          if (automationNode?.entity && !seenCredWorkflowIds.has(automationNode.entity.id)) {
+            seenCredWorkflowIds.add(automationNode.entity.id);
             const runs = typeof automationNode.facts.get('run_volume_weekly')?.value === 'number'
               ? (automationNode.facts.get('run_volume_weekly')!.value as number)
               : 0;
