@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   InMemoryLinkRepository,
+  PostgresLinkRepository,
   type LinkRepository,
 } from '../../src/identity/linkRepository.js';
 import {
@@ -34,6 +35,19 @@ describe('InMemoryLinkRepository', () => {
         note: null,
       })
     ).rejects.toThrow(/grade/i);
+  });
+
+  it('rejects invalid method matching migration 009 CHECK constraint', async () => {
+    await expect(
+      repo.create({
+        accountId: 'account:n8n:1',
+        personId: 'person:omar@acme.com',
+        grade: 'stated',
+        method: 'manual_guess' as any,
+        linkedBy: 'autoLink',
+        note: null,
+      })
+    ).rejects.toThrow(/method/i);
   });
 
   it('enforces active non-suggested uniqueness per account (uq_identity_link_active_account)', async () => {
@@ -195,6 +209,71 @@ describe('InMemoryLinkRepository', () => {
     await repo.close(created.id); // idempotent no-op
     await repo.close('non-existent-id');
     expect(await repo.listActive()).toHaveLength(0);
+  });
+
+  it('nested runInTransaction rolls back only inner writes when outer transaction catches the error', async () => {
+    await repo.runInTransaction(async (outerTx: LinkRepository) => {
+      await outerTx.create({
+        accountId: 'account:n8n:outer_keep',
+        personId: 'person:omar@acme.com',
+        grade: 'stated',
+        method: 'exact_email',
+        linkedBy: 'autoLink',
+        note: null,
+      });
+
+      await expect(
+        outerTx.runInTransaction(async (innerTx: LinkRepository) => {
+          await innerTx.create({
+            accountId: 'account:n8n:inner_rollback',
+            personId: 'person:maya@acme.com',
+            grade: 'stated',
+            method: 'exact_email',
+            linkedBy: 'autoLink',
+            note: null,
+          });
+          throw new Error('inner savepoint failure');
+        })
+      ).rejects.toThrow('inner savepoint failure');
+    });
+
+    const active = await repo.listActive();
+    expect(active).toHaveLength(1);
+    expect(active[0].accountId).toBe('account:n8n:outer_keep');
+  });
+
+  it('PostgresLinkRepository nested runInTransaction releases savepoint after rollback without masking original error', async () => {
+    const executedSql: string[] = [];
+    const fakeQuery = async (sql: string) => {
+      executedSql.push(sql.trim());
+      return { rows: [], rowCount: 0 } as any;
+    };
+
+    const pgTxRepo = new PostgresLinkRepository(fakeQuery as any, true);
+    await expect(
+      pgTxRepo.runInTransaction(async () => {
+        throw new Error('boom');
+      })
+    ).rejects.toThrow('boom');
+
+    expect(executedSql).toHaveLength(3);
+    expect(executedSql[0]).toMatch(/^SAVEPOINT sp_link_[0-9a-f]{32}$/);
+    expect(executedSql[1]).toMatch(/^ROLLBACK TO SAVEPOINT sp_link_[0-9a-f]{32}$/);
+    expect(executedSql[2]).toMatch(/^RELEASE SAVEPOINT sp_link_[0-9a-f]{32}$/);
+
+    // If RELEASE SAVEPOINT fails after rollback, original error is still thrown
+    const failingReleaseQuery = async (sql: string) => {
+      if (sql.trim().startsWith('RELEASE SAVEPOINT')) {
+        throw new Error('release failed');
+      }
+      return { rows: [], rowCount: 0 } as any;
+    };
+    const pgFailingRelease = new PostgresLinkRepository(failingReleaseQuery as any, true);
+    await expect(
+      pgFailingRelease.runInTransaction(async () => {
+        throw new Error('original error');
+      })
+    ).rejects.toThrow('original error');
   });
 });
 
@@ -514,5 +593,144 @@ describe('autoLink', () => {
     );
     expect(diverged).toEqual({ created: 0, closed: 1, suggested: 0 });
     expect(await repo.listActiveSuggestions()).toHaveLength(0);
+  });
+
+  it('10. empty directory or blank personId entries preserve pre-existing exact_email, admin_link, and suggested links', async () => {
+    await repo.create({
+      accountId: 'account:n8n:keep_exact',
+      personId: 'person:omar@acme.com',
+      grade: 'stated',
+      method: 'exact_email',
+      linkedBy: 'autoLink',
+      note: 'Exact match',
+    });
+    await repo.create({
+      accountId: 'account:github:keep_admin',
+      personId: 'person:maya@acme.com',
+      grade: 'confirmed',
+      method: 'admin_link',
+      linkedBy: 'user:admin',
+      note: 'Admin link',
+    });
+    await repo.create({
+      accountId: 'account:slack:keep_suggested',
+      personId: 'person:sarah@acme.com',
+      grade: 'inferred',
+      method: 'suggested',
+      linkedBy: 'autoLink',
+      note: 'Name similarity',
+    });
+
+    const accounts: AutoLinkAccountInput[] = [
+      { id: 'account:n8n:keep_exact', email: 'omar@acme.com', displayName: 'Omar', isBot: false },
+      { id: 'account:github:keep_admin', email: 'maya@acme.com', displayName: 'Maya', isBot: false },
+      { id: 'account:slack:keep_suggested', email: 'sara@external.dev', displayName: 'Sara Chen', isBot: false },
+    ];
+
+    const emptyStats = await autoLink(accounts, [], repo);
+    expect(emptyStats).toEqual({ created: 0, closed: 0, suggested: 0 });
+
+    const emptyAccountsStats = await autoLink([], directory, repo);
+    expect(emptyAccountsStats).toEqual({ created: 0, closed: 0, suggested: 0 });
+
+    const blankPersonStats = await autoLink(
+      accounts,
+      [
+        { personId: '', emails: ['omar@acme.com'], displayName: 'Omar' },
+        { personId: '   ', emails: ['maya@acme.com'], displayName: 'Maya' },
+      ],
+      repo
+    );
+    expect(blankPersonStats).toEqual({ created: 0, closed: 0, suggested: 0 });
+
+    expect(await repo.listActive()).toHaveLength(2);
+    expect(await repo.listActiveSuggestions()).toHaveLength(1);
+  });
+
+  it('11. folds Unicode diacritics in name similarity and ignores whitespace-only displayName on duplicate directory entries', async () => {
+    const unicodeDir: AutoLinkDirectoryInput[] = [
+      {
+        personId: 'person:jose@acme.com',
+        emails: ['jose.garcia@acme.com'],
+        displayName: 'José García',
+      },
+      {
+        personId: 'person:jose@acme.com',
+        emails: ['j.garcia@acme.com'],
+        displayName: '   ',
+      },
+      {
+        personId: 'person:adam@acme.com',
+        emails: ['adam.pal@acme.com'],
+        displayName: 'Ádám Pál',
+      },
+    ];
+
+    const stats = await autoLink(
+      [
+        {
+          id: 'account:github:jose',
+          email: 'jose@personal.dev',
+          displayName: 'Jose Garcia',
+          isBot: false,
+        },
+        {
+          id: 'account:github:adam',
+          email: 'adam@personal.dev',
+          displayName: 'Adam Pal',
+          isBot: false,
+        },
+      ],
+      unicodeDir,
+      repo
+    );
+
+    expect(stats).toEqual({ created: 0, closed: 0, suggested: 2 });
+    const suggestions = await repo.listActiveSuggestions();
+    expect(suggestions).toHaveLength(2);
+
+    const joseSugg = suggestions.find((s) => s.accountId === 'account:github:jose');
+    const adamSugg = suggestions.find((s) => s.accountId === 'account:github:adam');
+    expect(joseSugg?.personId).toBe('person:jose@acme.com');
+    expect(joseSugg?.note).toContain('1.00');
+    expect(joseSugg?.note).toContain('José García');
+    expect(adamSugg?.personId).toBe('person:adam@acme.com');
+    expect(adamSugg?.note).toContain('1.00');
+  });
+
+  it('12. deduplicates duplicate account.id entries and treats whitespace-only account.email as missing', async () => {
+    const dirWithBlankEmail: AutoLinkDirectoryInput[] = [
+      ...directory,
+      { personId: 'person:blank@acme.com', emails: ['   ', ''], displayName: 'Blank Email Person' },
+    ];
+
+    // Seed an existing exact_email link for account:n8n:ws_email so we verify whitespace-only email closes it
+    await repo.create({
+      accountId: 'account:n8n:ws_email',
+      personId: 'person:omar@acme.com',
+      grade: 'stated',
+      method: 'exact_email',
+      linkedBy: 'autoLink',
+      note: 'Prior link',
+    });
+
+    const stats = await autoLink(
+      [
+        { id: 'account:n8n:dup_id', email: 'omar@acme.com', displayName: 'Omar', isBot: false },
+        { id: 'account:n8n:dup_id', email: 'maya@acme.com', displayName: 'Maya', isBot: false },
+        { id: 'account:n8n:ws_email', email: '   ', displayName: 'Unmatched Name', isBot: false },
+      ],
+      dirWithBlankEmail,
+      repo
+    );
+
+    expect(stats).toEqual({ created: 1, closed: 1, suggested: 0 });
+    const active = await repo.listActive();
+    expect(active).toHaveLength(1);
+    expect(active[0]).toMatchObject({
+      accountId: 'account:n8n:dup_id',
+      personId: 'person:omar@acme.com',
+      method: 'exact_email',
+    });
   });
 });
