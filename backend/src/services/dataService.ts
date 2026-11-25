@@ -30,6 +30,7 @@ import {
   IdentityQueueItem,
 } from '@horquva/types';
 import { ContinuityGraph } from '../domain/graph/index.js';
+import { attributeAccounts, type GraphSnapshot } from '../domain/identity/attribution.js';
 import { currentContext } from '../middleware/requestContext.js';
 import type { HandoverPack } from '../handover/departureService.js';
 import { FactStore, FactStoreAdapter, InMemoryFactStoreAdapter, PostgresFactStoreAdapter } from '../domain/facts/factStore.js';
@@ -164,6 +165,7 @@ export class DataService {
   private onboardingDismissedAt: string | null = null;
 
   private readonly persistent: boolean;
+  private baseInMemorySnapshot: GraphSnapshot | null = null;
   /** Serializes Postgres writes so they land in the order the app made the changes. */
   private writeChain: Promise<void> = Promise.resolve();
 
@@ -222,8 +224,30 @@ export class DataService {
     return this.persistent;
   }
 
+  private attachInMemorySnapshotSync(graph: ContinuityGraph): void {
+    graph.onChange = (change) => {
+      if (!this.baseInMemorySnapshot) return;
+      if (change.type === 'edge_added') {
+        this.baseInMemorySnapshot.edges.push(change.edge);
+      } else {
+        const closedSet = new Set(change.edges.map((e) => `${e.fromId}|${e.toId}|${e.type}`));
+        this.baseInMemorySnapshot.edges = this.baseInMemorySnapshot.edges.map((e) =>
+          !e.validTo && closedSet.has(`${e.fromId}|${e.toId}|${e.type}`)
+            ? { ...e, validTo: change.edges[0]?.validTo ?? new Date() }
+            : e
+        );
+      }
+    };
+  }
+
   private applyInitialState(state: InitialState): void {
+    this.baseInMemorySnapshot = {
+      entities: [...state.entities],
+      edges: [...state.edges],
+      facts: [...state.facts],
+    };
     this.graph = ContinuityGraph.fromSnapshot(state.entities, state.edges, state.facts);
+    this.attachInMemorySnapshotSync(this.graph);
     for (const fact of state.facts) {
       void this.factStoreAdapter.createFact({
         ...fact,
@@ -269,20 +293,58 @@ export class DataService {
   }
 
   /**
-   * Rebuilds the graph from the active entity/edge/fact rows and swaps it in
-   * whole, so requests never read a half-built graph. Called at boot and after
-   * every connector sync.
+   * Rebuilds the graph from the active entity/edge/fact rows and active identity
+   * links, then swaps it in whole so requests never read a half-built graph.
+   * Called at boot, after every connector sync, and when links change.
    */
   public async hydrateGraphFromDatabase(): Promise<{ entities: number; edges: number; facts: number; ms: number }> {
     const started = Date.now();
-    const snap = await graphRepo.loadActiveGraph();
-    const graph = ContinuityGraph.fromSnapshot(snap.entities, snap.edges, snap.facts);
+    const [snap, activeLinks] = await Promise.all([
+      graphRepo.loadActiveGraph(),
+      this.linkRepository.listActive(),
+    ]);
+    const attributed = attributeAccounts(snap, activeLinks);
+    const graph = ContinuityGraph.fromSnapshot(
+      attributed.entities,
+      attributed.edges,
+      attributed.facts,
+      { linkedAccountIds: activeLinks.map((l) => l.accountId) }
+    );
     graph.onChange = (change) => {
       if (change.type === 'edge_added') this.persist(() => graphRepo.insertEdge(change.edge));
       else this.persist(() => graphRepo.closeEdges(change.edges));
     };
     this.graph = graph;
-    return { entities: snap.entities.length, edges: snap.edges.length, facts: snap.facts.length, ms: Date.now() - started };
+    return { entities: attributed.entities.length, edges: attributed.edges.length, facts: attributed.facts.length, ms: Date.now() - started };
+  }
+
+  /**
+   * Re-applies active identity links onto the graph in either persistent or
+   * in-memory mode (used after link creation/confirmation outside sync).
+   */
+  public async reattributeGraph(): Promise<void> {
+    if (this.persistent) {
+      await this.hydrateGraphFromDatabase();
+      return;
+    }
+    const baseEdges = this.baseInMemorySnapshot
+      ? this.baseInMemorySnapshot.edges
+      : this.graph.getAllEdges();
+    this.baseInMemorySnapshot = {
+      entities: this.graph.getAllNodes().map((n) => n.entity),
+      edges: [...baseEdges],
+      facts: this.graph.getAllNodes().flatMap((n) => Array.from(n.facts.values())),
+    };
+    const activeLinks = await this.linkRepository.listActive();
+    const attributed = attributeAccounts(this.baseInMemorySnapshot, activeLinks);
+    const graph = ContinuityGraph.fromSnapshot(
+      attributed.entities,
+      attributed.edges,
+      attributed.facts,
+      { linkedAccountIds: activeLinks.map((l) => l.accountId) }
+    );
+    this.attachInMemorySnapshotSync(graph);
+    this.graph = graph;
   }
 
   /**

@@ -26,11 +26,20 @@ export type GraphChange =
 
 export class ContinuityGraph {
   private graph: MultiDirectedGraph<GraphNodeAttributes, GraphEdgeAttributes>;
+  private linkedAccountIds: Set<string> = new Set();
   /** Told about edge changes made after the graph was built (DataService writes them to Postgres). */
   public onChange?: (change: GraphChange) => void;
 
   constructor() {
     this.graph = new MultiDirectedGraph<GraphNodeAttributes, GraphEdgeAttributes>();
+  }
+
+  public getLinkedAccountIds(): ReadonlySet<string> {
+    return this.linkedAccountIds;
+  }
+
+  public setLinkedAccountIds(ids: Iterable<string>): void {
+    this.linkedAccountIds = new Set(ids);
   }
 
   /**
@@ -96,9 +105,13 @@ export class ContinuityGraph {
   public static fromSnapshot(
     entities: CanonicalEntity[],
     edges: CanonicalEdge[],
-    facts: CanonicalFact[]
+    facts: CanonicalFact[],
+    options?: { linkedAccountIds?: Iterable<string> }
   ): ContinuityGraph {
     const cg = new ContinuityGraph();
+    if (options?.linkedAccountIds) {
+      cg.setLinkedAccountIds(options.linkedAccountIds);
+    }
 
     // Group active facts by entityId
     const factsByEntity = new Map<string, CanonicalFact[]>();
@@ -150,12 +163,19 @@ export class ContinuityGraph {
   public getOwners(assetId: string): CanonicalEntity[] {
     if (!this.graph.hasNode(assetId)) return [];
     const owners: CanonicalEntity[] = [];
+    const seen = new Set<string>();
 
     this.graph.forEachInEdge(assetId, (_edge, attributes, source) => {
       if (attributes.edge.type === 'owns') {
         const sourceNode = this.graph.getNodeAttributes(source);
-        if (sourceNode?.entity) {
-          owners.push(sourceNode.entity);
+        const entity = sourceNode?.entity;
+        if (
+          entity &&
+          !(entity.kind === 'account' && this.linkedAccountIds.has(entity.id)) &&
+          !seen.has(entity.id)
+        ) {
+          seen.add(entity.id);
+          owners.push(entity);
         }
       }
     });
@@ -184,12 +204,19 @@ export class ContinuityGraph {
   public getBackups(assetId: string): CanonicalEntity[] {
     if (!this.graph.hasNode(assetId)) return [];
     const backups: CanonicalEntity[] = [];
+    const seen = new Set<string>();
 
     this.graph.forEachInEdge(assetId, (_edge, attributes, source) => {
       if (attributes.edge.type === 'backs_up') {
         const sourceNode = this.graph.getNodeAttributes(source);
-        if (sourceNode?.entity) {
-          backups.push(sourceNode.entity);
+        const entity = sourceNode?.entity;
+        if (
+          entity &&
+          !(entity.kind === 'account' && this.linkedAccountIds.has(entity.id)) &&
+          !seen.has(entity.id)
+        ) {
+          seen.add(entity.id);
+          backups.push(entity);
         }
       }
     });
@@ -204,12 +231,15 @@ export class ContinuityGraph {
   public getOwnedAssets(personId: string, options: { includeVendorKeys?: boolean } = {}): CanonicalEntity[] {
     if (!this.graph.hasNode(personId)) return [];
     const assets: CanonicalEntity[] = [];
+    const seen = new Set<string>();
 
     this.graph.forEachOutEdge(personId, (_edge, attributes, _source, target) => {
       if (attributes.edge.type === 'owns' && (options.includeVendorKeys || !isVendorKey(target))) {
         const targetNode = this.graph.getNodeAttributes(target);
-        if (targetNode?.entity) {
-          assets.push(targetNode.entity);
+        const entity = targetNode?.entity;
+        if (entity && !seen.has(entity.id)) {
+          seen.add(entity.id);
+          assets.push(entity);
         }
       }
     });

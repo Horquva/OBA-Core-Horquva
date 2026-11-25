@@ -47,9 +47,18 @@ export function edgeFactView(
 ): FactView {
   // Open edges only; the strongest evidence wins, then the newest (a successor's
   // confirmed acceptance outranks the leaver's older stated ownership).
+  // Skip raw edges from linked accounts so the attributed person surfaces instead.
+  const linkedAccountIds = graph.getLinkedAccountIds();
   const edge = graph
     .getEdgesForEntity(assetId)
-    .filter((e) => e.type === type && e.toId === assetId && !e.validTo && !(exclude?.(e.fromId) ?? false))
+    .filter(
+      (e) =>
+        e.type === type &&
+        e.toId === assetId &&
+        !e.validTo &&
+        !linkedAccountIds.has(e.fromId) &&
+        !(exclude?.(e.fromId) ?? false)
+    )
     .sort(
       (a, b) =>
         GRADE_RANK[b.grade as EvidenceGrade] - GRADE_RANK[a.grade as EvidenceGrade] ||

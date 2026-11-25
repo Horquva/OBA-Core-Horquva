@@ -123,6 +123,33 @@ describe('orphan scan', () => {
     expect(r.findings).toEqual([]);
   });
 
+  it('unlinked account owner yields owner_not_in_directory', () => {
+    const acc = entity('account:n8n:u99', 'account', 'Unlinked n8n User', { source: 'n8n' });
+    const wf = entity('automation:n8n:99', 'automation', 'Orphaned Sync');
+    const r = scan([acc, wf], [edge(acc.id, 'owns', wf.id)], []);
+    expect(r.directoryConnected).toBe(true);
+    expect(r.findings).toEqual([
+      expect.objectContaining({
+        kind: 'owner_not_in_directory',
+        severity: 'low',
+        asset: expect.objectContaining({ id: wf.id }),
+        owner: { id: acc.id, name: 'Unlinked n8n User', reason: 'not_in_directory' },
+      }),
+    ]);
+  });
+
+  it('linked account owner (in linkedAccountIds) with directory person does not yield owner_not_in_directory', () => {
+    const acc = entity('account:n8n:u100', 'account', 'Priya n8n', { source: 'n8n' });
+    const wf = entity('automation:n8n:100', 'automation', 'Linked Sync');
+    const r = scan(
+      [acc, wf],
+      [edge(acc.id, 'owns', wf.id), edge(priya.id, 'owns', wf.id)],
+      [],
+      { linkedAccountIds: new Set([acc.id]) }
+    );
+    expect(r.findings.filter((f) => f.kind === 'owner_not_in_directory')).toEqual([]);
+  });
+
   it('ranks by severity, then cost (unknown last), then most recent use', () => {
     const keys = ['a', 'b', 'c', 'd'].map((k) => entity(`credential:openai:${k}`, 'credential', `Key ${k}`));
     const app = entity('app:entra:x', 'app', 'Expiring app');

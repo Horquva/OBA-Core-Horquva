@@ -9,10 +9,11 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { query } from '../db/client.js';
 import { ContinuityGraph } from '../domain/graph/index.js';
+import { attributeAccounts } from '../domain/identity/attribution.js';
 import { calculateHeadlineMetrics, evaluateAllChecks } from '../domain/checks/index.js';
 import { SimulationEngine } from '../domain/simulation/index.js';
 import { AskHorquvaEngine } from '../ai/gemini.js';
-import { CanonicalEntity, CanonicalEdge, CanonicalFact } from '@horquva/types';
+import * as graphRepo from '../repositories/graphRepository.js';
 
 export const continuityRouter = Router();
 const askEngine = new AskHorquvaEngine();
@@ -23,56 +24,31 @@ import { WeeklyBriefingService } from '../services/briefing/weeklyBriefing.js';
 import { runOrphanScan, orphanScanCsv } from '../services/orphanScan/orphanScanService.js';
 
 /**
- * Loads the active snapshot from PostgreSQL or falls back to DataService.
+ * Loads the active attributed snapshot from PostgreSQL or falls back to DataService.
  */
 async function loadGraphFromDatabase(): Promise<ContinuityGraph> {
+  const ds = DataService.getInstance();
+  if (!ds.isPersistent()) {
+    return ds.getGraph();
+  }
   try {
-    const entitiesRes = await query(`SELECT id, kind, name, description, external_refs, created_at, updated_at FROM entity;`);
-    if (entitiesRes && entitiesRes.rows && entitiesRes.rows.length > 0) {
-      const edgesRes = await query(`SELECT id, from_id, to_id, type, grade, source, source_ref, valid_from, valid_to FROM edge WHERE valid_to IS NULL;`);
-      const factsRes = await query(`SELECT id, entity_id, attribute, value, grade, source, source_ref, attested_by, valid_from, valid_to FROM fact WHERE valid_to IS NULL;`);
-
-      const entities: CanonicalEntity[] = entitiesRes.rows.map((r) => ({
-        id: r.id,
-        kind: r.kind,
-        name: r.name,
-        description: r.description,
-        externalRefs: r.external_refs || {},
-        createdAt: new Date(r.created_at),
-        updatedAt: new Date(r.updated_at),
-      }));
-
-      const edges: CanonicalEdge[] = edgesRes.rows.map((r) => ({
-        id: r.id,
-        fromId: r.from_id,
-        toId: r.to_id,
-        type: r.type,
-        grade: r.grade,
-        source: r.source,
-        sourceRef: r.source_ref,
-        validFrom: new Date(r.valid_from),
-        validTo: r.valid_to ? new Date(r.valid_to) : null,
-      }));
-
-      const facts: CanonicalFact[] = factsRes.rows.map((r) => ({
-        id: r.id,
-        entityId: r.entity_id,
-        attribute: r.attribute,
-        value: r.value,
-        grade: r.grade,
-        source: r.source,
-        sourceRef: r.source_ref,
-        attestedBy: r.attested_by,
-        validFrom: new Date(r.valid_from),
-        validTo: r.valid_to ? new Date(r.valid_to) : null,
-      }));
-
-      return ContinuityGraph.fromSnapshot(entities, edges, facts);
+    const [snap, activeLinks] = await Promise.all([
+      graphRepo.loadActiveGraph(),
+      ds.getLinkRepository().listActive(),
+    ]);
+    if (snap.entities.length > 0) {
+      const attributed = attributeAccounts(snap, activeLinks);
+      return ContinuityGraph.fromSnapshot(
+        attributed.entities,
+        attributed.edges,
+        attributed.facts,
+        { linkedAccountIds: activeLinks.map((l) => l.accountId) }
+      );
     }
   } catch (_err) {
     // Fall back to DataService benchmark graph
   }
-  return DataService.getInstance().getGraph();
+  return ds.getGraph();
 }
 
 // 1. Overview: Headline Metrics & Alerts
@@ -119,9 +95,13 @@ continuityRouter.get('/orphan-scan', async (req: Request, res: Response) => {
     const connections = ds.isPersistent()
       ? (await query(`SELECT id, type, name FROM connection ORDER BY name`)).rows.map((r: any) => ({ id: r.id, type: r.type, name: r.name }))
       : [];
+    const linkedAccountIds = ds.isPersistent()
+      ? new Set((await ds.getLinkRepository().listActive()).map((l) => l.accountId))
+      : ds.getGraph().getLinkedAccountIds();
     const result = runOrphanScan(ds.getGraph(), new Date(), {
       departures: ds.getDepartures(),
       connectionsScanned: connections,
+      linkedAccountIds,
       // With saved connections, the directory counts as connected only if one is Entra or Google.
       ...(connections.length ? { directoryConnected: connections.some((c) => c.type === 'entra' || c.type === 'google') } : {}),
     });
