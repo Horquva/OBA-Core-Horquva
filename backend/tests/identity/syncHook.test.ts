@@ -20,12 +20,12 @@ const now = new Date('2026-11-01T00:00:00Z');
 const person = (
   id: string,
   name: string,
-  externalRefs: Record<string, string>
+  externalRefs: Record<string, unknown>
 ): CanonicalEntity => ({
   id,
   kind: 'person',
   name,
-  externalRefs,
+  externalRefs: externalRefs as Record<string, string>,
   createdAt: now,
   updatedAt: now,
 });
@@ -33,12 +33,12 @@ const person = (
 const account = (
   id: string,
   name: string,
-  externalRefs: Record<string, string> = {}
+  externalRefs: Record<string, unknown> = {}
 ): CanonicalEntity => ({
   id,
   kind: 'account',
   name,
-  externalRefs,
+  externalRefs: externalRefs as Record<string, string>,
   createdAt: now,
   updatedAt: now,
 });
@@ -275,5 +275,127 @@ describe('identity hygiene after a sync (structural account hook)', () => {
     const ds2 = DataService.resetInstance();
     expect(ds2.getLinkRepository()).not.toBe(repo1);
     expect(await ds2.getLinkRepository().listActive()).toEqual([]);
+  });
+
+  it('skips canonical accounts when identity_queue has pre-2.5 pending or ignored rows keyed by raw platform ID', async () => {
+    const { graph, queue } = setup([omarDirectory]);
+
+    // Pre-2.5 pending row with raw platform ID 'u2'
+    await queue.enqueueUnmatched({
+      source: 'n8n',
+      externalAccountId: 'u2',
+      email: 'nadia@gmail.com',
+      displayName: 'Nadia',
+    });
+    // Pre-2.5 ignored row with raw platform ID 'ext_usr_9921'
+    const ignoredLegacy = await queue.enqueueUnmatched({
+      source: 'openai',
+      externalAccountId: 'ext_usr_9921',
+      email: 'legacy@other.org',
+      displayName: 'Legacy User',
+    });
+    await queue.resolveIgnore(ignoredLegacy.id, 'user:admin');
+
+    // Pre-2.5 ignored row with raw n8nUserId 'u_raw_99'
+    const ignoredN8n = await queue.enqueueUnmatched({
+      source: 'n8n',
+      externalAccountId: 'u_raw_99',
+      email: 'raw99@gmail.com',
+      displayName: 'Raw 99',
+    });
+    await queue.resolveIgnore(ignoredN8n.id, 'user:admin');
+
+    const incoming: CanonicalEntity[] = [
+      account('account:n8n:u2', 'Nadia', { source: 'n8n', email: 'nadia@gmail.com' }),
+      account('account:openai:ext_usr_9921', 'Legacy User', {
+        source: 'openai',
+        externalId: 'ext_usr_9921',
+        email: 'legacy@other.org',
+      }),
+      account('account:n8n:canon-99', 'Raw 99', {
+        source: 'n8n',
+        n8nUserId: 'u_raw_99',
+        email: 'raw99@gmail.com',
+      }),
+      account('account:openai:canon-77', 'External 77', {
+        source: 'openai',
+        externalId: 'ext_usr_9921',
+        email: 'ext77@other.org',
+      }),
+    ];
+
+    expect(await queueUnmatchedAccounts(incoming, graph, queue)).toBe(0);
+    expect(await queue.listQueue()).toHaveLength(3);
+  });
+
+  it('treats runtime JSON boolean isBot: true (and string "true") as bot in autoLinkAccountsFrom, autoLink, and queueUnmatchedAccounts', async () => {
+    const { graph, queue } = setup([omarDirectory]);
+    const repo = new InMemoryLinkRepository();
+
+    const boolBot = account('account:slack:bot-bool', 'Deploy Runner', {
+      source: 'slack',
+      isBot: true,
+      email: 'omar@acme.com',
+    });
+    const strBot = account('account:slack:bot-str', 'CI Runner', {
+      source: 'slack',
+      isBot: 'true',
+      email: 'omar@acme.com',
+    });
+
+    const inputs = autoLinkAccountsFrom([boolBot, strBot]);
+    expect(inputs).toEqual([
+      { id: 'account:slack:bot-bool', email: 'omar@acme.com', displayName: 'Deploy Runner', isBot: true },
+      { id: 'account:slack:bot-str', email: 'omar@acme.com', displayName: 'CI Runner', isBot: true },
+    ]);
+
+    const stats = await autoLink(inputs, directoryInputsFrom(graph), repo);
+    expect(stats).toEqual({ created: 0, closed: 0, suggested: 0 });
+    expect(await repo.listActive()).toEqual([]);
+
+    expect(await queueUnmatchedAccounts([boolBot, strBot], graph, queue, [])).toBe(0);
+    expect(await queue.listQueue()).toEqual([]);
+  });
+
+  it('returns empty aliases when externalRefs.emails is malformed [-prefixed JSON, null, or undefined', () => {
+    const malformedOne = person('person:entra:e-bad1', 'Bad One', {
+      entraId: 'e-bad1',
+      email: 'bad1@acme.com',
+      emails: '[broken',
+    });
+    const malformedTwo = person('person:entra:e-bad2', 'Bad Two', {
+      entraId: 'e-bad2',
+      email: 'bad2@acme.com',
+      emails: '["a@acme.com", bad',
+    });
+    const nullEmails = person('person:entra:e-null', 'Null Emails', {
+      entraId: 'e-null',
+      email: 'null@acme.com',
+      emails: null,
+    });
+    const undefinedEmails = person('person:entra:e-undef', 'Undef Emails', {
+      entraId: 'e-undef',
+      email: 'undef@acme.com',
+      emails: undefined,
+    });
+
+    const { graph } = setup([malformedOne, malformedTwo, nullEmails, undefinedEmails]);
+    const records = directoryFrom(graph);
+
+    expect(records.find((r) => r.id === 'person:entra:e-bad1')?.aliases).toEqual([]);
+    expect(records.find((r) => r.id === 'person:entra:e-bad2')?.aliases).toEqual([]);
+    expect(records.find((r) => r.id === 'person:entra:e-null')?.aliases).toEqual([]);
+    expect(records.find((r) => r.id === 'person:entra:e-undef')?.aliases).toEqual([]);
+  });
+
+  it('guards person:google:<id> non-email IDs when email and primaryEmail are absent', () => {
+    const noEmailGoogle = person('person:google:g-no-email', 'Google No Email', {
+      googleId: 'g-no-email',
+    });
+    const { graph } = setup([noEmailGoogle]);
+    const records = directoryFrom(graph);
+
+    expect(records).toHaveLength(1);
+    expect(records[0].primaryEmail).toBe('');
   });
 });

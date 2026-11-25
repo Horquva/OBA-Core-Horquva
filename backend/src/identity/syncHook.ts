@@ -52,9 +52,9 @@ function parseEmailAliases(raw: unknown, primaryEmail: string): string[] {
     if (trimmed.startsWith('[')) {
       try {
         const parsed = JSON.parse(trimmed);
-        items = Array.isArray(parsed) ? parsed : trimmed.split(',');
+        items = Array.isArray(parsed) ? parsed : [];
       } catch {
-        items = trimmed.split(',');
+        return [];
       }
     } else {
       items = trimmed.split(',');
@@ -145,19 +145,25 @@ export function toolAccounts(entities: CanonicalEntity[]): MatchCandidate[] {
   return out;
 }
 
+function isBotFlag(e: CanonicalEntity): boolean {
+  const rawIsBot = (e.externalRefs as Record<string, unknown> | undefined)?.isBot;
+  const flaggedBot =
+    rawIsBot === true ||
+    (typeof rawIsBot === 'string' && rawIsBot.trim().toLowerCase() === 'true');
+  const email = accountEmailOf(e) ?? '';
+  return flaggedBot || IdentityMatcher.isServiceAccountPattern(email, e.name);
+}
+
 export function autoLinkAccountsFrom(entities: CanonicalEntity[]): AutoLinkAccountInput[] {
   const out: AutoLinkAccountInput[] = [];
   for (const e of entities) {
     if (e.kind !== 'account') continue;
     const email = accountEmailOf(e) ?? null;
-    const isBot =
-      e.externalRefs?.isBot === 'true' ||
-      IdentityMatcher.isServiceAccountPattern(email ?? '', e.name);
     out.push({
       id: e.id,
       email,
       displayName: e.name,
-      isBot,
+      isBot: isBotFlag(e),
     });
   }
   return out;
@@ -187,16 +193,34 @@ export async function queueUnmatchedAccounts(
       .map((l) => l.accountId)
   );
 
-  const botAccountIds = new Set(
-    autoLinkAccountsFrom(entities)
-      .filter((a) => a.isBot)
-      .map((a) => a.id)
-  );
+  const botAccountIds = new Set<string>();
+  const rawIdsByAccountId = new Map<string, string[]>();
+  for (const e of entities) {
+    if (e.kind !== 'account') continue;
+    if (isBotFlag(e)) {
+      botAccountIds.add(e.id);
+    }
+    const rawRefs: string[] = [];
+    for (const refVal of [e.externalRefs?.n8nUserId, e.externalRefs?.externalId]) {
+      if (typeof refVal === 'string' && refVal.trim()) {
+        rawRefs.push(refVal.trim());
+      }
+    }
+    if (rawRefs.length > 0) {
+      rawIdsByAccountId.set(e.id, rawRefs);
+    }
+  }
 
   const known = new Set<string>();
   for (const source of new Set(candidates.map((c) => c.source))) {
     for (const item of await queue.listQueue({ source })) {
       known.add(`${item.source}:${item.externalAccountId}`);
+      const canonicalPrefix = `account:${item.source}:`;
+      if (!item.externalAccountId.startsWith('account:')) {
+        known.add(`${item.source}:${canonicalPrefix}${item.externalAccountId}`);
+      } else if (item.externalAccountId.startsWith(canonicalPrefix)) {
+        known.add(`${item.source}:${item.externalAccountId.slice(canonicalPrefix.length)}`);
+      }
     }
   }
 
@@ -221,7 +245,17 @@ export async function queueUnmatchedAccounts(
   let queued = 0;
   for (const candidate of candidates) {
     const key = `${candidate.source}:${candidate.externalAccountId}`;
-    if (known.has(key)) continue;
+    const canonicalPrefix = `account:${candidate.source}:`;
+    const candidateKeys = [key];
+    if (candidate.externalAccountId.startsWith(canonicalPrefix)) {
+      candidateKeys.push(
+        `${candidate.source}:${candidate.externalAccountId.slice(canonicalPrefix.length)}`
+      );
+    }
+    for (const raw of rawIdsByAccountId.get(candidate.externalAccountId) ?? []) {
+      candidateKeys.push(`${candidate.source}:${raw}`);
+    }
+    if (candidateKeys.some((k) => known.has(k))) continue;
 
     if (
       botAccountIds.has(candidate.externalAccountId) ||
@@ -247,7 +281,7 @@ export async function queueUnmatchedAccounts(
     }
 
     await queue.enqueueUnmatched(candidate);
-    known.add(key);
+    for (const k of candidateKeys) known.add(k);
     queued++;
   }
 
