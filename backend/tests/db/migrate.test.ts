@@ -65,14 +65,14 @@ describe('G-18: Database Migration Runner', () => {
       return { rows: [] } as any;
     };
 
-    // 1. Initial status: all 8 migrations pending
+    // 1. Initial status: all 9 migrations pending
     const initialStatus = await getMigrationStatus({ queryFn: mockQuery as any });
-    expect(initialStatus.length).toBe(8);
+    expect(initialStatus.length).toBe(9);
     expect(initialStatus.every((s) => !s.applied)).toBe(true);
 
-    // 2. First run: applies all 8 migrations
+    // 2. First run: applies all 9 migrations
     const firstRunReport = await runMigrations({ queryFn: mockQuery as any });
-    expect(firstRunReport.appliedCount).toBe(8);
+    expect(firstRunReport.appliedCount).toBe(9);
     expect(firstRunReport.migrationsApplied).toEqual([
       '001_initial_schema.sql',
       '002_sprint_2_tables.sql',
@@ -82,9 +82,10 @@ describe('G-18: Database Migration Runner', () => {
       '006_builtin_uuid_defaults.sql',
       '007_assistant_conversations.sql',
       '008_accountability.sql',
+      '009_identity_link.sql',
     ]);
 
-    // 3. Status check: all 8 now applied
+    // 3. Status check: all 9 now applied
     const postStatus = await getMigrationStatus({ queryFn: mockQuery as any });
     expect(postStatus.every((s) => s.applied)).toBe(true);
     expect(postStatus.every((s) => s.appliedAt !== null)).toBe(true);
@@ -93,7 +94,7 @@ describe('G-18: Database Migration Runner', () => {
     const secondRunReport = await runMigrations({ queryFn: mockQuery as any });
     expect(secondRunReport.appliedCount).toBe(0);
     expect(secondRunReport.migrationsApplied.length).toBe(0);
-    expect(secondRunReport.alreadyAppliedCount).toBe(8);
+    expect(secondRunReport.alreadyAppliedCount).toBe(9);
   });
 
   it('rolls a failing migration back and does not record it', async () => {
