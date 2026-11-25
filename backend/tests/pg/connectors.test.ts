@@ -11,7 +11,7 @@ import { query } from '../../src/db/client.js';
 import { authedFetch } from '../helpers/session.js';
 import { resolveExecutionProvider, verifyDepartureExecutions } from '../../src/handover/postDepartureVerifier.js';
 import { markAccountDisabled } from '../../src/handover/successionService.js';
-import { resetDatabase, startServer, json } from './db.js';
+import { resetDatabase, seedFixtureOrgToPg, startServer, json } from './db.js';
 
 let server: http.Server;
 let baseUrl: string;
@@ -76,7 +76,7 @@ async function waitForSync(connectionId: string): Promise<any> {
 
 beforeAll(async () => {
   await resetDatabase();
-  await DataService.initialize({ ...process.env, DEMO_MODE: 'true' });
+  await seedFixtureOrgToPg();
   ({ server, baseUrl } = await startServer());
   await startFakeN8n();
 });

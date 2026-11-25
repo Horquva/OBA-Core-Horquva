@@ -6,14 +6,14 @@ import { DataService } from '../../src/services/dataService.js';
 import { _tokensFor } from '../../src/attestation/attestationService.js';
 import { authedFetch } from '../helpers/session.js';
 import { query } from '../../src/db/client.js';
-import { resetDatabase, startServer, json } from './db.js';
+import { resetDatabase, seedFixtureOrgToPg, startServer, json } from './db.js';
 
 let server: http.Server;
 let baseUrl: string;
 
 beforeAll(async () => {
   await resetDatabase();
-  await DataService.initialize({ ...process.env, DEMO_MODE: 'true' });
+  await seedFixtureOrgToPg();
   ({ server, baseUrl } = await startServer());
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));

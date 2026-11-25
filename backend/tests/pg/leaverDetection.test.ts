@@ -11,7 +11,7 @@ import { EntraConnector } from '../../src/connectors/entra/index.js';
 import { ReadOnlyHttpGuard } from '../../src/connectors/sdk/guard.js';
 import { query } from '../../src/db/client.js';
 import { authedFetch } from '../helpers/session.js';
-import { resetDatabase, startServer, json } from './db.js';
+import { resetDatabase, seedFixtureOrgToPg, startServer, json } from './db.js';
 
 const CONNECTION_ID = 'conn_entra_leavers';
 
@@ -50,8 +50,8 @@ beforeAll(async () => {
   graphUrl = `http://localhost:${(fakeGraph.address() as any).port}`;
 
   await resetDatabase();
-  // The demo seed provides the admin the requests sign in as; the fake directory uses its own domain.
-  await DataService.initialize({ ...process.env, DEMO_MODE: 'true' });
+  // The fixture seed provides the admin the requests sign in as; the fake directory uses its own domain.
+  await seedFixtureOrgToPg();
   ({ server, baseUrl } = await startServer());
   await query(`INSERT INTO connection (id, type, name) VALUES ($1, 'entra', 'Entra')`, [CONNECTION_ID]);
 
