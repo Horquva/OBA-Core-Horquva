@@ -33,6 +33,7 @@ import { ContinuityGraph } from '../domain/graph/index.js';
 import { currentContext } from '../middleware/requestContext.js';
 import type { HandoverPack } from '../handover/departureService.js';
 import { FactStore, FactStoreAdapter, InMemoryFactStoreAdapter, PostgresFactStoreAdapter } from '../domain/facts/factStore.js';
+import { InMemoryLinkRepository, PostgresLinkRepository, type LinkRepository } from '../identity/linkRepository.js';
 import { IdentityQueueAdapter, IdentityQueueService, InMemoryIdentityQueueAdapter, PostgresIdentityQueueAdapter } from '../identity/queue.js';
 import * as graphRepo from '../repositories/graphRepository.js';
 import * as departureRepo from '../repositories/departureRepository.js';
@@ -152,6 +153,7 @@ export class DataService {
   private factStoreAdapter: FactStoreAdapter;
   private queueService: IdentityQueueService;
   private queueAdapter: IdentityQueueAdapter;
+  private linkRepository: LinkRepository;
 
   private departures: Map<string, DepartureRecord> = new Map();
   private actionOverrides: Map<string, ActionRecord> = new Map();
@@ -177,9 +179,11 @@ export class DataService {
     if (this.persistent) {
       this.factStoreAdapter = new PostgresFactStoreAdapter();
       this.queueAdapter = new PostgresIdentityQueueAdapter();
+      this.linkRepository = new PostgresLinkRepository();
     } else {
       this.factStoreAdapter = new InMemoryFactStoreAdapter();
       this.queueAdapter = new InMemoryIdentityQueueAdapter();
+      this.linkRepository = new InMemoryLinkRepository();
     }
     this.factStore = new FactStore(this.factStoreAdapter);
     this.queueService = new IdentityQueueService(this.queueAdapter);
@@ -361,6 +365,10 @@ export class DataService {
 
   public getQueueService(): IdentityQueueService {
     return this.queueService;
+  }
+
+  public getLinkRepository(): LinkRepository {
+    return this.linkRepository;
   }
 
   /**
