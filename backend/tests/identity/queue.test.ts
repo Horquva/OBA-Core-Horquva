@@ -82,7 +82,6 @@ describe('IdentityQueueService (SRS ID-02, ID-03, SEC-06)', () => {
       );
 
       expect(resolved.status).toBe('linked');
-      expect(resolved.linkedPersonId).toBe('person:omar@acme.com');
       expect(resolved.reviewedBy).toBe('admin:sec-officer@acme.com');
       expect(resolved.reviewedAt).toBeInstanceOf(Date);
 
@@ -92,7 +91,7 @@ describe('IdentityQueueService (SRS ID-02, ID-03, SEC-06)', () => {
       expect(logs[0].action).toBe('identity_queue.resolve_link');
       expect(logs[0].userId).toBe('admin:sec-officer@acme.com');
       expect(logs[0].resourceId).toBe(item.id);
-      expect(logs[0].details.linkedPersonId).toBe('person:omar@acme.com');
+      expect(logs[0].details.personId).toBe('person:omar@acme.com');
     });
   });
 

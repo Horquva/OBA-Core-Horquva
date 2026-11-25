@@ -109,7 +109,7 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
       INSERT INTO identity_queue (external_account_id, source, display_name, email_candidate, status, created_at)
       VALUES ($1, $2, $3, $4, $5, NOW())
       RETURNING id, external_account_id, source, display_name, email_candidate, status,
-                linked_person_id, notes, reviewed_by, reviewed_at, created_at;
+                notes, reviewed_by, reviewed_at, created_at;
       `,
       [data.externalAccountId, data.source, data.displayName || null, data.emailCandidate || null, data.status]
     );
@@ -121,7 +121,7 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
     const res = await query(
       `
       SELECT id, external_account_id, source, display_name, email_candidate, status,
-             linked_person_id, notes, reviewed_by, reviewed_at, created_at
+             notes, reviewed_by, reviewed_at, created_at
       FROM identity_queue
       WHERE source = $1 AND external_account_id = $2 AND status = 'pending'
       LIMIT 1;
@@ -136,7 +136,7 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
   public async list(filter?: QueueItemFilter): Promise<IdentityQueueItem[]> {
     let sql = `
       SELECT id, external_account_id, source, display_name, email_candidate, status,
-             linked_person_id, notes, reviewed_by, reviewed_at, created_at
+             notes, reviewed_by, reviewed_at, created_at
       FROM identity_queue
       WHERE 1=1
     `;
@@ -161,7 +161,7 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
     const res = await query(
       `
       SELECT id, external_account_id, source, display_name, email_candidate, status,
-             linked_person_id, notes, reviewed_by, reviewed_at, created_at
+             notes, reviewed_by, reviewed_at, created_at
       FROM identity_queue
       WHERE id = $1;
       `,
@@ -180,10 +180,6 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
     if (updates.status !== undefined) {
       fields.push(`status = $${idx++}`);
       values.push(updates.status);
-    }
-    if (updates.linkedPersonId !== undefined) {
-      fields.push(`linked_person_id = $${idx++}`);
-      values.push(updates.linkedPersonId);
     }
     if (updates.notes !== undefined) {
       fields.push(`notes = $${idx++}`);
@@ -204,7 +200,7 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
       SET ${fields.join(', ')}
       WHERE id = $${idx}
       RETURNING id, external_account_id, source, display_name, email_candidate, status,
-                linked_person_id, notes, reviewed_by, reviewed_at, created_at;
+                notes, reviewed_by, reviewed_at, created_at;
     `;
 
     const res = await query(sql, values);
@@ -229,7 +225,6 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
       displayName: row.display_name || null,
       emailCandidate: row.email_candidate || null,
       status: row.status,
-      linkedPersonId: row.linked_person_id || null,
       notes: row.notes || null,
       reviewedBy: row.reviewed_by || null,
       reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : null,
@@ -263,7 +258,6 @@ export class IdentityQueueService {
       displayName: candidate.displayName || null,
       emailCandidate: candidate.email || null,
       status: 'pending',
-      linkedPersonId: null,
       notes: null,
       reviewedBy: null,
       reviewedAt: null,
@@ -284,7 +278,6 @@ export class IdentityQueueService {
   public async resolveLink(id: string, personEntityId: string, adminUserId: string): Promise<IdentityQueueItem> {
     const updated = await this.adapter.update(id, {
       status: 'linked',
-      linkedPersonId: personEntityId,
       reviewedBy: adminUserId,
       reviewedAt: new Date(),
     });
@@ -297,7 +290,7 @@ export class IdentityQueueService {
       details: {
         externalAccountId: updated.externalAccountId,
         source: updated.source,
-        linkedPersonId: personEntityId,
+        personId: personEntityId,
       },
     });
 

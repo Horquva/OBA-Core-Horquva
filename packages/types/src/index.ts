@@ -235,7 +235,6 @@ export interface IdentityQueueItem {
   displayName?: string | null;
   emailCandidate?: string | null;
   status: 'pending' | 'linked' | 'service_account' | 'departed' | 'ignored';
-  linkedPersonId?: string | null;
   notes?: string | null;
   reviewedBy?: string | null;
   reviewedAt?: Date | null;
