@@ -19,13 +19,27 @@ export async function resetDatabase(): Promise<void> {
   await runMigrations();
 }
 
-export async function seedFixtureOrgToPg(opts?: { withHistory?: boolean }): Promise<DataService> {
-  const dbUrl = process.env.DATABASE_URL || process.env.PG_TEST_URL || '';
-  if (!/\/[^/?]+_test(\?|$)/.test(dbUrl)) {
+export function assertTestDatabaseUrl(dbUrl: string | undefined): string {
+  const value = dbUrl ?? '';
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
     throw new Error(
-      `Refusing to seed "${dbUrl || '(unset)'}": database name must end in _test.`
+      `Refusing to seed "${value || '(unset)'}": database name must end in _test.`
     );
   }
+  const dbName = parsed.pathname.replace(/^\//, '');
+  if (!/^[a-z0-9_-]+_test$/i.test(dbName)) {
+    throw new Error(
+      `Refusing to seed "${value || '(unset)'}": database name must end in _test.`
+    );
+  }
+  return value;
+}
+
+export async function seedFixtureOrgToPg(opts?: { withHistory?: boolean }): Promise<DataService> {
+  assertTestDatabaseUrl(process.env.DATABASE_URL);
 
   const demo = demoState();
   await graphRepo.insertSnapshot({
@@ -37,11 +51,15 @@ export async function seedFixtureOrgToPg(opts?: { withHistory?: boolean }): Prom
   await settingsRepo.saveOrganization(demo.org);
   for (const c of demo.changeEvents) await settingsRepo.saveChangeEvent(c);
   const queueAdapter = new PostgresIdentityQueueAdapter();
-  await queueAdapter.enqueue(demo.queueItem);
+  const existing = await queueAdapter.list({ source: demo.queueItem.source });
+  if (!existing.some((item) => item.externalAccountId === demo.queueItem.externalAccountId)) {
+    await queueAdapter.enqueue(demo.queueItem);
+  }
   await departureRepo.saveDeparture(demo.departure);
 
+  const ds = await DataService.initialize();
+
   if (opts?.withHistory) {
-    const ds = await DataService.initialize({ ...process.env, DATABASE_URL: dbUrl });
     const { headline, teamConcentration, automationFailures } = SnapshotService.computeMetrics(ds);
     const total = headline.totalCriticalAssets;
     const coveredStart = Math.max(0, Math.round(headline.coveredCount * 0.4) - 1);
@@ -65,7 +83,7 @@ export async function seedFixtureOrgToPg(opts?: { withHistory?: boolean }): Prom
     }
   }
 
-  return await DataService.initialize({ ...process.env, DATABASE_URL: dbUrl });
+  return ds;
 }
 
 export async function startServer(): Promise<{ server: http.Server; baseUrl: string }> {
