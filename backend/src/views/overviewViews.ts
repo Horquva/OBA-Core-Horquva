@@ -7,7 +7,7 @@
 // =============================================================================
 
 import type { DataService, UserAccount } from '../services/dataService.js';
-import type { CheckResult, HeadlineMetrics } from '@horquva/types';
+import type { CheckResult, EvidenceGrade, HeadlineMetrics } from '@horquva/types';
 import { criticalityView } from './factViews.js';
 
 const DAY_MS = 86_400_000;
@@ -179,6 +179,7 @@ export interface SpofAsset {
 }
 
 const CRIT_ORDER: Record<string, number> = { critical: 0, high: 1 };
+const GRADE_RANK: Record<EvidenceGrade, number> = { confirmed: 3, stated: 2, inferred: 1, unknown: 0 };
 
 /**
  * Critical/high assets that hang on exactly one person: a sole owner with no
@@ -188,6 +189,7 @@ const CRIT_ORDER: Record<string, number> = { critical: 0, high: 1 };
  */
 export function spofAssets(ds: DataService, limit: number): SpofAsset[] {
   const graph = ds.getGraph();
+  const linkedAccountIds = graph.getLinkedAccountIds();
   const out: Array<SpofAsset & { crit: string }> = [];
 
   for (const node of graph.getAllNodes()) {
@@ -201,7 +203,12 @@ export function spofAssets(ds: DataService, limit: number): SpofAsset[] {
     const backups = graph.getBackups(asset.id);
     const credentialEdge = graph
       .getEdgesForEntity(asset.id)
-      .find((e) => e.type === 'runs_on_credentials_of' && e.fromId === asset.id);
+      .filter((e) => e.type === 'runs_on_credentials_of' && e.fromId === asset.id && !e.validTo && !linkedAccountIds.has(e.toId))
+      .sort(
+        (a, b) =>
+          (GRADE_RANK[b.grade as EvidenceGrade] ?? 0) - (GRADE_RANK[a.grade as EvidenceGrade] ?? 0) ||
+          new Date(b.validFrom).getTime() - new Date(a.validFrom).getTime()
+      )[0];
     const credentialOwner = credentialEdge ? graph.getNode(credentialEdge.toId)?.entity : undefined;
 
     let dependsOn: { id: string; kind: string; name: string } | null = null;

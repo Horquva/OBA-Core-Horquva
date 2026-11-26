@@ -45,8 +45,8 @@ async function loadGraphFromDatabase(): Promise<ContinuityGraph> {
         { linkedAccountIds: activeLinks.map((l) => l.accountId) }
       );
     }
-  } catch (_err) {
-    // Fall back to DataService benchmark graph
+  } catch (err) {
+    console.warn('[continuity] loadGraphFromDatabase failed, falling back to DataService graph:', err);
   }
   return ds.getGraph();
 }
@@ -95,13 +95,11 @@ continuityRouter.get('/orphan-scan', async (req: Request, res: Response) => {
     const connections = ds.isPersistent()
       ? (await query(`SELECT id, type, name FROM connection ORDER BY name`)).rows.map((r: any) => ({ id: r.id, type: r.type, name: r.name }))
       : [];
-    const linkedAccountIds = ds.isPersistent()
-      ? new Set((await ds.getLinkRepository().listActive()).map((l) => l.accountId))
-      : ds.getGraph().getLinkedAccountIds();
-    const result = runOrphanScan(ds.getGraph(), new Date(), {
+    const graph = await loadGraphFromDatabase();
+    const result = runOrphanScan(graph, new Date(), {
       departures: ds.getDepartures(),
       connectionsScanned: connections,
-      linkedAccountIds,
+      linkedAccountIds: graph.getLinkedAccountIds(),
       // With saved connections, the directory counts as connected only if one is Entra or Google.
       ...(connections.length ? { directoryConnected: connections.some((c) => c.type === 'entra' || c.type === 'google') } : {}),
     });

@@ -17,6 +17,9 @@ import { ContinuityGraph } from '../../src/domain/graph/index.js';
 import { SimulationEngine } from '../../src/domain/simulation/index.js';
 import { DataService } from '../../src/services/dataService.js';
 import { edgeFactView } from '../../src/views/factViews.js';
+import { holdingsOf } from '../../src/views/peopleViews.js';
+import { spofAssets } from '../../src/views/overviewViews.js';
+import { answerFromGraph } from '../../src/ai/graphAnswers.js';
 
 const NOW = new Date('2026-11-10T12:00:00Z');
 
@@ -365,5 +368,146 @@ describe('identity attribution through graded links', () => {
     await ds.reattributeGraph();
     expect(ds.getGraph().getOwners(wf.id).map((o) => o.id)).toEqual([acc.id]);
     expect(ds.getGraph().getLinkedAccountIds().has(acc.id)).toBe(false);
+  });
+
+  it('holdingsOf deduplicates backs_up and credential holdings across multiple linked accounts', () => {
+    const omar = entity('person:entra:h1', 'person', 'Omar Holdings', { entraId: 'h1' });
+    const acc1 = entity('account:n8n:h1', 'account', 'Omar n8n', { source: 'n8n' });
+    const acc2 = entity('account:openai:h2', 'account', 'Omar OpenAI', { source: 'openai' });
+    const wfBackup = entity('automation:n8n:hb1', 'automation', 'Backup Target');
+    const wfCred = entity('automation:n8n:hc1', 'automation', 'Credential Target');
+
+    const { graph } = buildGraph(
+      {
+        entities: [omar, acc1, acc2, wfBackup, wfCred],
+        edges: [
+          edge('eb1', acc1.id, 'backs_up', wfBackup.id, 'stated', 'connector:n8n'),
+          edge('eb2', acc2.id, 'backs_up', wfBackup.id, 'confirmed', 'connector:openai'),
+          edge('ec1', wfCred.id, 'runs_on_credentials_of', acc1.id, 'stated', 'connector:n8n'),
+          edge('ec2', wfCred.id, 'runs_on_credentials_of', acc2.id, 'stated', 'connector:openai'),
+        ],
+        facts: [],
+      },
+      [
+        link({ id: 'lh1', accountId: acc1.id, personId: omar.id, grade: 'stated' }),
+        link({ id: 'lh2', accountId: acc2.id, personId: omar.id, grade: 'confirmed', method: 'admin_link' }),
+      ]
+    );
+
+    const holdings = holdingsOf(graph, omar.id);
+    expect(holdings.filter((h) => h.relation === 'backs_up').map((h) => h.asset.id)).toEqual([wfBackup.id]);
+    expect(holdings.filter((h) => h.relation === 'credential').map((h) => h.asset.id)).toEqual([wfCred.id]);
+  });
+
+  it('spofAssets attributes runs_on_credentials_of to linked person and preserves unlinked account', async () => {
+    const ds = new DataService({ persistent: false });
+    const omar = entity('person:entra:sp1', 'person', 'Omar Spofer', { entraId: 'sp1' });
+    const lina = entity('person:entra:sp2', 'person', 'Lina Backup', { entraId: 'sp2' });
+    const david = entity('person:entra:sp3', 'person', 'David Cred', { entraId: 'sp3' });
+    const davidAcc = entity('account:n8n:sp_david', 'account', 'David n8n', { source: 'n8n' });
+    const unlinkedAcc = entity('account:n8n:sp_unlinked', 'account', 'Unlinked Service', { source: 'n8n' });
+    const wfLinked = entity('automation:n8n:sp_wf1', 'automation', 'Linked Cred Flow');
+    const wfUnlinked = entity('automation:n8n:sp_wf2', 'automation', 'Unlinked Cred Flow');
+
+    const critFact = (entityId: string): CanonicalFact => ({
+      entityId,
+      attribute: 'criticality',
+      value: 'critical',
+      grade: 'confirmed',
+      source: 'test',
+      validFrom: NOW,
+      validTo: null,
+    });
+
+    const g = ds.getGraph();
+    g.addEntity(omar);
+    g.addEntity(lina);
+    g.addEntity(david);
+    g.addEntity(davidAcc);
+    g.addEntity(unlinkedAcc);
+    g.addEntity(wfLinked, [critFact(wfLinked.id)]);
+    g.addEntity(wfUnlinked, [critFact(wfUnlinked.id)]);
+
+    // wfLinked has owner + backup, so its SPOF reason must come from credentialOwner (david, NOT davidAcc)
+    g.addEdge(edge('es1', omar.id, 'owns', wfLinked.id, 'confirmed', 'test'));
+    g.addEdge(edge('es2', lina.id, 'backs_up', wfLinked.id, 'confirmed', 'test'));
+    g.addEdge(edge('es3', wfLinked.id, 'runs_on_credentials_of', davidAcc.id, 'stated', 'connector:n8n'));
+
+    // wfUnlinked has owner + backup + unlinked account credentials
+    g.addEdge(edge('es4', omar.id, 'owns', wfUnlinked.id, 'confirmed', 'test'));
+    g.addEdge(edge('es5', lina.id, 'backs_up', wfUnlinked.id, 'confirmed', 'test'));
+    g.addEdge(edge('es6', wfUnlinked.id, 'runs_on_credentials_of', unlinkedAcc.id, 'stated', 'connector:n8n'));
+
+    await ds.getLinkRepository().create({
+      accountId: davidAcc.id,
+      personId: david.id,
+      grade: 'stated',
+      method: 'exact_email',
+      linkedBy: 'autoLink',
+      note: null,
+    });
+    await ds.reattributeGraph();
+
+    const spofs = spofAssets(ds, 20);
+    const linkedSpof = spofs.find((s) => s.asset.id === wfLinked.id);
+    const unlinkedSpof = spofs.find((s) => s.asset.id === wfUnlinked.id);
+    expect(linkedSpof).toBeDefined();
+    expect(linkedSpof?.dependsOn).toEqual({ id: david.id, kind: 'person', name: david.name });
+    expect(linkedSpof?.reason).toContain(david.name);
+    expect(unlinkedSpof).toBeDefined();
+    expect(unlinkedSpof?.dependsOn).toEqual({ id: unlinkedAcc.id, kind: 'account', name: unlinkedAcc.name });
+  });
+
+  it('answerFromGraph personalCredentials skips linked accounts, deduplicates, and keeps unlinked accounts', () => {
+    const omar = entity('person:entra:ga1', 'person', 'Omar Answer', { entraId: 'ga1' });
+    const acc1 = entity('account:n8n:ga1', 'account', 'Omar n8n', { source: 'n8n' });
+    const acc2 = entity('account:openai:ga2', 'account', 'Omar OpenAI', { source: 'openai' });
+    const unlinkedAcc = entity('account:n8n:ga_unlinked', 'account', 'Orphan Bot', { source: 'n8n' });
+    const wf1 = entity('automation:n8n:ga_wf1', 'automation', 'Linked Cred Flow');
+    const wf2 = entity('automation:n8n:ga_wf2', 'automation', 'Unlinked Cred Flow');
+
+    const { graph } = buildGraph(
+      {
+        entities: [omar, acc1, acc2, unlinkedAcc, wf1, wf2],
+        edges: [
+          edge('ega1', wf1.id, 'runs_on_credentials_of', acc1.id, 'stated', 'connector:n8n'),
+          edge('ega2', wf1.id, 'runs_on_credentials_of', acc2.id, 'stated', 'connector:openai'),
+          edge('ega3', wf2.id, 'runs_on_credentials_of', unlinkedAcc.id, 'stated', 'connector:n8n'),
+        ],
+        facts: [],
+      },
+      [
+        link({ id: 'lga1', accountId: acc1.id, personId: omar.id, grade: 'stated' }),
+        link({ id: 'lga2', accountId: acc2.id, personId: omar.id, grade: 'confirmed', method: 'admin_link' }),
+      ]
+    );
+
+    const ans = answerFromGraph('Which workflows run on personal credentials?', graph);
+    expect(ans.startsWith('2 automation(s) run on someone\'s personal credentials:')).toBe(true);
+    expect(ans).toContain(`[[${wf1.id}]] runs on the personal credentials of [[${omar.id}]]`);
+    expect(ans).toContain(`[[${wf2.id}]] runs on the personal credentials of [[${unlinkedAcc.id}]]`);
+    expect(ans).not.toContain(acc1.id);
+    expect(ans).not.toContain(acc2.id);
+  });
+
+  it('skips synthetic self-loops when two distinct accounts of the same person have an edge between them', () => {
+    const omar = entity('person:entra:sl1', 'person', 'Omar Self', { entraId: 'sl1' });
+    const acc1 = entity('account:n8n:sl1', 'account', 'Omar n8n 1', { source: 'n8n' });
+    const acc2 = entity('account:csv:sl2', 'account', 'Omar CSV 2', { source: 'csv' });
+
+    const { attributed, graph } = buildGraph(
+      {
+        entities: [omar, acc1, acc2],
+        edges: [edge('e-self', acc1.id, 'reports_to', acc2.id, 'stated', 'connector:csv')],
+        facts: [],
+      },
+      [
+        link({ id: 'lsl1', accountId: acc1.id, personId: omar.id, grade: 'stated' }),
+        link({ id: 'lsl2', accountId: acc2.id, personId: omar.id, grade: 'stated' }),
+      ]
+    );
+
+    expect(attributed.edges.some((e) => e.fromId === omar.id && e.toId === omar.id)).toBe(false);
+    expect(graph.getManager(omar.id)).toBeNull();
   });
 });

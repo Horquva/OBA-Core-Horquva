@@ -96,4 +96,40 @@ describe('CHG-03 / G-11: Weekly Continuity Executive Briefing Service', () => {
     expect(result).toMatchObject({ success: false, recipientCount: 0 });
     expect(ds.getAuditLog({ action: 'SEND_WEEKLY_BRIEFING' }).length).toBe(0);
   });
+
+  it('credentialExposures skips linked accounts, deduplicates across linked accounts, and keeps unlinked accounts', async () => {
+    const now = new Date('2026-11-10T12:00:00Z');
+    const g = ds.getGraph();
+    const omar = { id: 'person:omar@acme.com', kind: 'person' as const, name: 'Omar Farooq', externalRefs: {}, createdAt: now, updatedAt: now };
+    const acc1 = { id: 'account:n8n:wb1', kind: 'account' as const, name: 'Omar n8n 1', externalRefs: { source: 'n8n' }, createdAt: now, updatedAt: now };
+    const acc2 = { id: 'account:openai:wb2', kind: 'account' as const, name: 'Omar OpenAI 2', externalRefs: { source: 'openai' }, createdAt: now, updatedAt: now };
+    const unlinkedAcc = { id: 'account:n8n:wb_unlinked', kind: 'account' as const, name: 'Unlinked Cred Account', externalRefs: { source: 'n8n' }, createdAt: now, updatedAt: now };
+    const wfMulti = { id: 'automation:n8n:wb_multi', kind: 'automation' as const, name: 'Multi Linked Cred Flow', externalRefs: {}, createdAt: now, updatedAt: now };
+    const wfUnlinked = { id: 'automation:n8n:wb_unlinked', kind: 'automation' as const, name: 'Unlinked Cred Flow', externalRefs: {}, createdAt: now, updatedAt: now };
+
+    g.addEntity(omar);
+    g.addEntity(acc1);
+    g.addEntity(acc2);
+    g.addEntity(unlinkedAcc);
+    g.addEntity(wfMulti);
+    g.addEntity(wfUnlinked);
+
+    g.addEdge({ id: 'ewb1', fromId: wfMulti.id, toId: acc1.id, type: 'runs_on_credentials_of', grade: 'stated', source: 'connector:n8n', validFrom: now, validTo: null });
+    g.addEdge({ id: 'ewb2', fromId: wfMulti.id, toId: acc2.id, type: 'runs_on_credentials_of', grade: 'stated', source: 'connector:openai', validFrom: now, validTo: null });
+    g.addEdge({ id: 'ewb3', fromId: wfUnlinked.id, toId: unlinkedAcc.id, type: 'runs_on_credentials_of', grade: 'stated', source: 'connector:n8n', validFrom: now, validTo: null });
+
+    await ds.getLinkRepository().create({ accountId: acc1.id, personId: omar.id, grade: 'stated', method: 'exact_email', linkedBy: 'autoLink', note: null });
+    await ds.getLinkRepository().create({ accountId: acc2.id, personId: omar.id, grade: 'confirmed', method: 'admin_link', linkedBy: 'admin', note: null });
+    await ds.reattributeGraph();
+
+    const data = WeeklyBriefingService.compileBriefingData(ds);
+    const multiHits = data.credentialExposures.filter((c) => c.automationId === wfMulti.id);
+    expect(multiHits).toEqual([
+      { automationId: wfMulti.id, automationName: wfMulti.name, credentialOwnerName: 'Omar Farooq' },
+    ]);
+    const unlinkedHits = data.credentialExposures.filter((c) => c.automationId === wfUnlinked.id);
+    expect(unlinkedHits).toEqual([
+      { automationId: wfUnlinked.id, automationName: wfUnlinked.name, credentialOwnerName: 'Unlinked Cred Account' },
+    ]);
+  });
 });

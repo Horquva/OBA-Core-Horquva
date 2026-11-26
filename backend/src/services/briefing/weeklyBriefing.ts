@@ -164,11 +164,16 @@ export class WeeklyBriefingService {
 
     // 3. Credential exposures (runs_on_credentials_of)
     const credentialExposures: CredentialExposureBriefing[] = [];
+    const linkedAccountIds = graph.getLinkedAccountIds();
+    const seenCredentialExposures = new Set<string>();
     for (const edge of graph.getAllEdges()) {
-      if (edge.type === 'runs_on_credentials_of' && !edge.validTo) {
+      if (edge.type === 'runs_on_credentials_of' && !edge.validTo && !linkedAccountIds.has(edge.toId)) {
+        const pairKey = `${edge.fromId}|${edge.toId}`;
+        if (seenCredentialExposures.has(pairKey)) continue;
         const autoNode = graph.getNode(edge.fromId);
         const ownerNode = graph.getNode(edge.toId);
         if (autoNode && ownerNode) {
+          seenCredentialExposures.add(pairKey);
           credentialExposures.push({
             automationId: autoNode.entity.id,
             automationName: autoNode.entity.name,

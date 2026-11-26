@@ -140,14 +140,19 @@ export function holdingsOf(graph: ContinuityGraph, personId: string): Holding[] 
   for (const asset of graph.getOwnedAssets(personId, { includeVendorKeys: true })) {
     out.push({ asset: ref(graph, asset.id)!, relation: 'owns', criticality: crit(asset.id), backup: edgeFactView(graph, asset.id, 'backs_up') });
   }
+  const seenBackups = new Set<string>();
+  const seenCredentials = new Set<string>();
   for (const e of graph.getEdgesForEntity(personId)) {
+    if (e.validTo) continue;
     const asset = ref(graph, e.toId);
-    if (e.type === 'backs_up' && e.fromId === personId && asset) {
+    if (e.type === 'backs_up' && e.fromId === personId && asset && !seenBackups.has(asset.id)) {
+      seenBackups.add(asset.id);
       // Their own backup role, with that edge's real evidence.
       out.push({ asset, relation: 'backs_up', criticality: crit(asset.id), backup: edgeFactView(graph, asset.id, 'backs_up', (p) => p !== personId) });
     }
     const wf = ref(graph, e.fromId);
-    if (e.type === 'runs_on_credentials_of' && e.toId === personId && wf) {
+    if (e.type === 'runs_on_credentials_of' && e.toId === personId && wf && !seenCredentials.has(wf.id)) {
+      seenCredentials.add(wf.id);
       out.push({ asset: wf, relation: 'credential', criticality: crit(wf.id), backup: edgeFactView(graph, wf.id, 'backs_up') });
     }
   }

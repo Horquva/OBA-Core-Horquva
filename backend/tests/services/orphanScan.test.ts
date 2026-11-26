@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { CanonicalEdge, CanonicalEntity, CanonicalFact, EdgeType, EntityKind, FactAttribute } from '@horquva/types';
 import { ContinuityGraph } from '../../src/domain/graph/index.js';
+import { attributeAccounts } from '../../src/domain/identity/attribution.js';
 import { runOrphanScan, orphanScanCsv } from '../../src/services/orphanScan/orphanScanService.js';
 
 const NOW = new Date('2026-11-04T12:00:00Z');
@@ -167,6 +168,33 @@ describe('orphan scan', () => {
     expect(r.findings.map((f) => f.asset.name)).toEqual(['Key b', 'Key a', 'Key d', 'Key c', 'Expiring app']);
     expect(r.totals.byKind).toEqual({ key_owner_gone: 4, automation_on_gone_identity: 0, app_secret_expiring_unowned: 1, owner_not_in_directory: 0 });
     expect(r.totals.monthlyCostUsd).toBe(910);
+  });
+
+  it('automation_on_gone_identity deduplicates runsAs evidence across multiple linked accounts of the same person', () => {
+    const acc1 = entity('account:n8n:lina1', 'account', 'Lina n8n 1', { source: 'n8n' });
+    const acc2 = entity('account:openai:lina2', 'account', 'Lina OpenAI 2', { source: 'openai' });
+    const wf = entity('automation:n8n:multi-lina', 'automation', 'Multi-account Flow');
+    const attributed = attributeAccounts(
+      {
+        entities: [...people, acc1, acc2, wf],
+        edges: [
+          edge(wf.id, 'runs_on_credentials_of', acc1.id),
+          edge(wf.id, 'runs_on_credentials_of', acc2.id),
+        ],
+        facts: [...peopleStatus],
+      },
+      [
+        { id: 'll1', accountId: acc1.id, personId: lina.id, grade: 'stated', method: 'exact_email', linkedBy: 'autoLink', note: null, validFrom: NOW, validTo: null },
+        { id: 'll2', accountId: acc2.id, personId: lina.id, grade: 'stated', method: 'exact_email', linkedBy: 'autoLink', note: null, validFrom: NOW, validTo: null },
+      ]
+    );
+    const graph = ContinuityGraph.fromSnapshot(attributed.entities, attributed.edges, attributed.facts, {
+      linkedAccountIds: [acc1.id, acc2.id],
+    });
+    const r = runOrphanScan(graph, NOW, { linkedAccountIds: graph.getLinkedAccountIds() });
+    const found = r.findings.filter((f) => f.kind === 'automation_on_gone_identity' && f.asset.id === wf.id);
+    expect(found).toHaveLength(1);
+    expect(found[0].evidence).toEqual(['Runs on the credentials of Lina Haddad, who has left.']);
   });
 
   it('exports CSV with a fixed header and neutralises spreadsheet formulas', () => {

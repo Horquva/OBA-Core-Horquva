@@ -64,6 +64,7 @@ export function attributeAccounts(
     const nextFromId = fromLink ? fromLink.personId : edge.fromId;
     const nextToId = toLink ? toLink.personId : edge.toId;
     if (nextFromId === edge.fromId && nextToId === edge.toId) continue;
+    if (nextFromId === nextToId && edge.fromId !== edge.toId) continue;
 
     const linkSuffix =
       fromLink && toLink

@@ -121,10 +121,16 @@ export function runOrphanScan(graph: ContinuityGraph, now: Date, inputs: OrphanS
     // 2. An active automation owned by, or running on the credentials of, someone gone.
     if (entity.kind === 'automation' && facts.get('status')?.value !== 'inactive') {
       const ownedBy = graph.getOwners(entity.id).filter((p) => isGone(p.id));
-      const runsAs = graph
-        .getEdgesForEntity(entity.id)
-        .filter((e) => e.type === 'runs_on_credentials_of' && e.fromId === entity.id && isGone(e.toId))
-        .flatMap((e) => graph.getNode(e.toId)?.entity ?? []);
+      const runsAsMap = new Map<string, CanonicalEntity>();
+      for (const e of graph.getEdgesForEntity(entity.id)) {
+        if (e.type === 'runs_on_credentials_of' && e.fromId === entity.id && !e.validTo && isGone(e.toId)) {
+          const p = graph.getNode(e.toId)?.entity;
+          if (p && !runsAsMap.has(p.id)) {
+            runsAsMap.set(p.id, p);
+          }
+        }
+      }
+      const runsAs = [...runsAsMap.values()];
       const first = runsAs[0] ?? ownedBy[0];
       if (first) {
         add('automation_on_gone_identity', entity, { id: first.id, name: first.name, reason: goneReason(first) }, [

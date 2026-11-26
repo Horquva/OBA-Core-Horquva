@@ -97,10 +97,16 @@ function noBackup(graph: ContinuityGraph): string {
 }
 
 function personalCredentials(graph: ContinuityGraph): string {
-  const rows = graph
-    .getAllEdges()
-    .filter((e) => e.type === 'runs_on_credentials_of' && !e.validTo)
-    .map((e) => `- ${cite(e.fromId)} runs on the personal credentials of ${cite(e.toId)} (${runs(weeklyRuns(graph, e.fromId))})`);
+  const linkedAccountIds = graph.getLinkedAccountIds();
+  const seen = new Set<string>();
+  const rows: string[] = [];
+  for (const e of graph.getAllEdges()) {
+    if (e.type !== 'runs_on_credentials_of' || e.validTo || linkedAccountIds.has(e.toId)) continue;
+    const key = `${e.fromId}|${e.toId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(`- ${cite(e.fromId)} runs on the personal credentials of ${cite(e.toId)} (${runs(weeklyRuns(graph, e.fromId))})`);
+  }
   return rows.length ? [`${rows.length} automation(s) run on someone's personal credentials:`, ...rows].join('\n') : 'No automation on record runs on personal credentials.';
 }
 

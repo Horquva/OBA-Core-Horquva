@@ -14,7 +14,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { DataService, DepartureRecord } from '../services/dataService.js';
-import { CriticalityLevel, EvidenceGrade } from '@horquva/types';
+import { CriticalityLevel } from '@horquva/types';
 import { DepartureError, initiateDeparture } from '../handover/departureService.js';
 import {
   SuccessionError,
@@ -25,6 +25,7 @@ import {
 } from '../handover/successionService.js';
 import { verifyDepartureExecutions } from '../handover/postDepartureVerifier.js';
 import { departureSummary, workAtRisk } from '../views/departureViews.js';
+import { edgeFactView } from '../views/factViews.js';
 
 function sendSuccessionError(res: Response, err: any, fallback: string): void {
   if (err instanceof SuccessionError) {
@@ -82,28 +83,9 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
       const critFact = assetNode?.facts.get('criticality');
       const criticality: CriticalityLevel = (critFact?.value as CriticalityLevel) || 'medium';
 
-      // Report the backup edge's real evidence, not a blanket 'confirmed'.
-      const backupEdge = graph
-        .getEdgesForEntity(h.assetId)
-        .find((e) => e.type === 'backs_up' && e.toId === h.assetId && e.fromId !== dep.personId);
-      const backupEntity = backupEdge ? graph.getNode(backupEdge.fromId)?.entity : undefined;
-      const currentBackup = backupEdge && backupEntity
-        ? {
-            state: 'value' as const,
-            display: backupEntity.name,
-            grade: backupEdge.grade as EvidenceGrade,
-            source: backupEdge.source,
-            observedAt: new Date(backupEdge.validFrom).toISOString(),
-            ref: { id: backupEntity.id, kind: backupEntity.kind, name: backupEntity.name },
-          }
-        : {
-            state: 'none' as const,
-            display: null,
-            grade: 'unknown' as EvidenceGrade,
-            source: null,
-            observedAt: null,
-            ref: null,
-          };
+      // Report the backup edge's real evidence, not a blanket 'confirmed',
+      // skipping raw linked-account endpoints and ranking by grade/recency.
+      const currentBackup = edgeFactView(graph, h.assetId, 'backs_up', (id) => id === dep.personId);
 
       let successor = null;
       if (h.successorId) {
@@ -114,9 +96,9 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
       }
 
       // Suggest only someone the graph backs: the existing backup. No backup → no suggestion.
-      const suggestion = !successor && backupEntity
+      const suggestion = !successor && currentBackup.ref
         ? {
-            person: { id: backupEntity.id, kind: backupEntity.kind, name: backupEntity.name },
+            person: { id: currentBackup.ref.id, kind: currentBackup.ref.kind, name: currentBackup.ref.name },
             reason: 'Existing designated backup',
           }
         : null;
@@ -135,11 +117,13 @@ departuresRouter.get('/:id', (req: Request, res: Response) => {
 
     // Personal credentials
     const personalCredentialAutomations: Array<{ workflow: any; weeklyRuns: number | null }> = [];
+    const seenCredWorkflows = new Set<string>();
     const edges = graph.getEdgesForEntity(dep.personId);
     for (const edge of edges) {
-      if (edge.type === 'runs_on_credentials_of' && edge.toId === dep.personId) {
+      if (edge.type === 'runs_on_credentials_of' && edge.toId === dep.personId && !edge.validTo) {
         const wfNode = graph.getNode(edge.fromId);
-        if (wfNode?.entity) {
+        if (wfNode?.entity && !seenCredWorkflows.has(wfNode.entity.id)) {
+          seenCredWorkflows.add(wfNode.entity.id);
           const runs = typeof wfNode.facts.get('run_volume_weekly')?.value === 'number'
             ? (wfNode.facts.get('run_volume_weekly')!.value as number)
             : null;
