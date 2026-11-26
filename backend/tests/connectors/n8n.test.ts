@@ -71,10 +71,10 @@ describe('N8nConnector.sync against the public API shape', () => {
       'automation:n8n:wf-invoices',
     ]);
     expect(r.entities.filter((e) => e.kind === 'credential')).toHaveLength(3);
-    expect(r.entities.filter((e) => e.kind === 'person').map((e) => e.id).sort()).toEqual([
-      'person:maya@acme.com',
-      'person:omar@acme.com',
-      'person:sam@acme.com',
+    expect(r.entities.filter((e) => e.kind === 'account').map((e) => e.id).sort()).toEqual([
+      'account:n8n:u-maya',
+      'account:n8n:u-omar',
+      'account:n8n:u-sam',
     ]);
     expect(requests.some((u) => u.pathname === '/api/v1/workflows' && u.searchParams.get('cursor') === '2')).toBe(true);
     for (const u of requests) {
@@ -85,8 +85,8 @@ describe('N8nConnector.sync against the public API shape', () => {
   it('reads workflow owners from shared[] workflow:owner via the owning project\'s single member', async () => {
     const r = await sync();
     expect(edgesOf(r, 'owns')).toEqual([
-      'person:maya@acme.com -> automation:n8n:wf-drafts',
-      'person:omar@acme.com -> automation:n8n:wf-invoices',
+      'account:n8n:u-maya -> automation:n8n:wf-drafts',
+      'account:n8n:u-omar -> automation:n8n:wf-invoices',
     ]);
     expect(r.edges.filter((e) => e.type === 'owns').every((e) => e.grade === 'stated')).toBe(true);
   });
@@ -97,15 +97,29 @@ describe('N8nConnector.sync against the public API shape', () => {
     expect(r.entities.find((e) => e.id === 'automation:n8n:wf-alerts')?.externalRefs.n8nProject).toBe('p-ops');
   });
 
-  it('links a workflow to the person whose personal credential it runs on', async () => {
+  it('links a workflow to the account whose personal credential it runs on', async () => {
     const r = await sync();
     expect(edgesOf(r, 'runs_on_credentials_of')).toEqual([
-      'automation:n8n:wf-drafts -> person:maya@acme.com',
-      'automation:n8n:wf-invoices -> person:maya@acme.com',
-      'automation:n8n:wf-invoices -> person:omar@acme.com',
+      'automation:n8n:wf-drafts -> account:n8n:u-maya',
+      'automation:n8n:wf-invoices -> account:n8n:u-maya',
+      'automation:n8n:wf-invoices -> account:n8n:u-omar',
     ]);
-    // Every runs_on_credentials_of edge points at a person: that is what every consumer assumes.
-    expect(r.edges.filter((e) => e.type === 'runs_on_credentials_of').every((e) => e.toId.startsWith('person:'))).toBe(true);
+    // Every runs_on_credentials_of edge points at the n8n account; attribution projects it onto the linked person.
+    expect(r.edges.filter((e) => e.type === 'runs_on_credentials_of').every((e) => e.toId.startsWith('account:n8n:'))).toBe(true);
+  });
+
+  it('n8n users become account entities, never person', async () => {
+    const r = await sync();
+    expect(r.entities.some((e) => e.kind === 'person')).toBe(false);
+    const omar = r.entities.find((e) => e.id === 'account:n8n:u-omar')!;
+    expect(omar.externalRefs).toEqual({ n8nUserId: 'u-omar', email: 'omar@acme.com' });
+  });
+
+  it('n8n workflow owner edge starts at the account', async () => {
+    const r = await sync();
+    const owns = r.edges.filter((e) => e.type === 'owns');
+    expect(owns.length).toBeGreaterThan(0);
+    expect(owns.every((e) => e.fromId.startsWith('account:n8n:'))).toBe(true);
   });
 
   it('records which credential each workflow uses as a depends_on edge', async () => {

@@ -135,7 +135,8 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
 
     const graph = DataService.getInstance().getGraph();
     expect(graph.getNode('automation:n8n:w1')?.entity.name).toBe('Grant intake');
-    expect(graph.getOwners('automation:n8n:w1').map((p) => p.id)).toEqual(['person:nadia@uni.edu']);
+    // No identity link yet: the owner is Nadia's n8n account, not a person.
+    expect(graph.getOwners('automation:n8n:w1').map((p) => p.id)).toEqual(['account:n8n:u2']);
   });
 
   it('closes an owner the source no longer reports, but never an attested edge', async () => {
@@ -150,11 +151,11 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
     await authedFetch(`${baseUrl}/api/connections/${n8nId}/sync`, json('POST'));
     await waitForSync(n8nId);
 
-    const owners = DataService.getInstance().getGraph().getOwners('automation:n8n:w1').map((p) => p.id);
-    expect(owners).toEqual(['person:omar@acme.com']);
+    const owners = DataService.getInstance().getGraph().getOwners('automation:n8n:w1').map((p) => p.id).sort();
+    expect(owners).toEqual(['account:n8n:u1', 'person:omar@acme.com']);
     const omar = (await query(`SELECT grade, source FROM edge WHERE from_id = 'person:omar@acme.com' AND to_id = 'automation:n8n:w1' AND valid_to IS NULL`)).rows;
-    expect(omar).toEqual([{ grade: 'confirmed', source: 'attestation' }]); // the sync's weaker 'stated' didn't replace it
-    const nadia = (await query(`SELECT valid_to FROM edge WHERE from_id = 'person:nadia@uni.edu' AND to_id = 'automation:n8n:w1'`)).rows;
+    expect(omar).toEqual([{ grade: 'confirmed', source: 'attestation' }]); // the sync never touches the attested edge
+    const nadia = (await query(`SELECT valid_to FROM edge WHERE from_id = 'account:n8n:u2' AND to_id = 'automation:n8n:w1'`)).rows;
     expect(nadia[0].valid_to).not.toBeNull();
   });
 
@@ -168,7 +169,7 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
     expect(after.lastError).not.toContain(API_KEY);
     const run = (await query(`SELECT status, error_message FROM sync_run WHERE id = $1`, [syncRunId])).rows[0];
     expect(run.status).toBe('failed');
-    expect(DataService.getInstance().getGraph().getOwners('automation:n8n:w2').map((p) => p.id)).toEqual(['person:omar@acme.com']);
+    expect(DataService.getInstance().getGraph().getOwners('automation:n8n:w2').map((p) => p.id)).toEqual(['account:n8n:u1']);
   });
 
   it('keeps a confirmed criticality when a sync only knows "unknown"', async () => {
@@ -189,6 +190,9 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
       data: { resultData: { error: { message: '401 Unauthorized: token has been revoked' } } },
     }];
     const ds = DataService.getInstance();
+    // Omar's n8n account reaches Omar only through an identity link.
+    await ds.getLinkRepository().create({ accountId: 'account:n8n:u1', personId: 'person:omar@acme.com', grade: 'confirmed', method: 'admin_link', linkedBy: 'user:admin', note: null });
+    await ds.hydrateGraphFromDatabase();
     const dep = ds.createDeparture({ personId: 'person:omar@acme.com', leaveDate: '2026-10-31T00:00:00.000Z', note: null });
     markAccountDisabled(ds, dep.id);
     dep.stageTimestamps.account_disabled = '2026-11-01T00:00:00.000Z';
@@ -237,7 +241,7 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
   it('queues n8n accounts nobody in the directory matches, once, and never a directory person', async () => {
     const queue = DataService.getInstance().getQueueService();
     // The demo seed has its own queue items; only the fake n8n's accounts (u1, u2) are this test's.
-    const fromFake = async () => (await queue.listQueue({ source: 'n8n' })).filter((q) => ['u1', 'u2'].includes(q.externalAccountId));
+    const fromFake = async () => (await queue.listQueue({ source: 'n8n' })).filter((q) => ['account:n8n:u1', 'account:n8n:u2'].includes(q.externalAccountId));
     // Omar is known to the directory (as if an Entra sync had run); Nadia isn't.
     await query(`UPDATE entity SET external_refs = external_refs || '{"entraId":"e-omar"}'::jsonb WHERE id = 'person:omar@acme.com'`);
     await DataService.getInstance().hydrateGraphFromDatabase();
@@ -245,7 +249,11 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
     await authedFetch(`${baseUrl}/api/connections/${n8nId}/sync`, json('POST'));
     expect((await waitForSync(n8nId)).status).toBe('connected');
     const queued = await fromFake();
-    expect(queued.map((q) => [q.externalAccountId, q.emailCandidate, q.status])).toEqual([['u2', 'nadia@uni.edu', 'pending']]);
+    expect(queued.map((q) => [q.externalAccountId, q.emailCandidate, q.status])).toEqual([['account:n8n:u2', 'nadia@uni.edu', 'pending']]);
+    // Omar's account is linked to his directory person, so ownership reaches him.
+    const links = await DataService.getInstance().getLinkRepository().listActive();
+    expect(links.some((l) => l.accountId === 'account:n8n:u1' && l.personId === 'person:omar@acme.com')).toBe(true);
+    expect(DataService.getInstance().getGraph().getOwners('automation:n8n:w2').map((p) => p.id)).toEqual(['person:omar@acme.com']);
 
     // An admin ignores it: the next sync must not queue it again.
     await queue.resolveIgnore(queued[0].id, 'user:admin');

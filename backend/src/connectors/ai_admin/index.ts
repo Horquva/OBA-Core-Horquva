@@ -124,14 +124,15 @@ export class AiAdminConnector extends BaseConnector {
             headers: this.getHeaders(),
           });
           const orgUsers: any[] = usersRes.data?.data || [];
+          // Organization members are tool accounts; a person only through identity_link.
           for (const u of orgUsers) {
-            if (!u.email) continue;
-            const personId = `person:${u.email.toLowerCase()}`;
+            if (!u.id) continue;
+            const email = typeof u.email === 'string' && u.email.trim() ? u.email.trim().toLowerCase() : null;
             entities.push({
-              id: personId,
-              kind: 'person',
-              name: u.name || u.email,
-              externalRefs: { openaiUserId: u.id, email: u.email, role: u.role },
+              id: `account:openai:${u.id}`,
+              kind: 'account',
+              name: u.name || email || `OpenAI user ${u.id}`,
+              externalRefs: { openaiUserId: String(u.id), ...(email ? { email } : {}), ...(u.role ? { role: u.role } : {}) },
               createdAt: new Date(u.added_at ? u.added_at * 1000 : Date.now()),
               updatedAt: new Date(),
             });

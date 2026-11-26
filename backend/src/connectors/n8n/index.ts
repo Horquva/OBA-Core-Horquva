@@ -18,6 +18,9 @@ export interface N8nConnectorConfig {
   apiKey: string;
 }
 
+/** Canonical id of an n8n user account (plan Global Constraints: account:<source>:<platform id>). */
+export const n8nAccountId = (userId: string | number): string => `account:n8n:${userId}`;
+
 export class N8nConnector extends BaseConnector {
   public readonly id: string;
   public readonly type = 'n8n';
@@ -107,7 +110,7 @@ export class N8nConnector extends BaseConnector {
       cache.set(
         projectId,
         this.listAll('/api/v1/users', { projectId }).then((members) =>
-          members.length === 1 && members[0].email ? `person:${String(members[0].email).toLowerCase()}` : null
+          members.length === 1 && members[0].id != null ? n8nAccountId(members[0].id) : null
         )
       );
     }
@@ -125,15 +128,17 @@ export class N8nConnector extends BaseConnector {
     // 1. Fetch Users
     const users = await this.listAll('/api/v1/users');
 
+    // An n8n user is a tool account, never a person: it becomes a person's only
+    // through an identity_link (autoLink by email, or an admin in the queue).
     for (const u of users) {
-      if (!u.email) continue;
-      const personId = `person:${u.email.toLowerCase()}`;
+      if (u.id == null) continue;
+      const email = typeof u.email === 'string' && u.email.trim() ? u.email.trim().toLowerCase() : null;
 
       entities.push({
-        id: personId,
-        kind: 'person',
-        name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
-        externalRefs: { n8nUserId: String(u.id), email: u.email },
+        id: n8nAccountId(u.id),
+        kind: 'account',
+        name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || email || `n8n user ${u.id}`,
+        externalRefs: { n8nUserId: String(u.id), ...(email ? { email } : {}) },
         createdAt: new Date(u.createdAt || Date.now()),
         updatedAt: new Date(u.updatedAt || Date.now()),
       });
@@ -147,7 +152,7 @@ export class N8nConnector extends BaseConnector {
 
     // 2. Fetch Credentials Metadata (never secret values)
     let credentials: any[] = [];
-    const credentialPerson = new Map<string, string>(); // n8n credential id -> person whose personal credential it is
+    const credentialPerson = new Map<string, string>(); // n8n credential id -> account whose personal credential it is
     try {
       credentials = await this.listAll('/api/v1/credentials');
       for (const cred of credentials) {
