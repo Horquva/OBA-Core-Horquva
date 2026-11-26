@@ -20,6 +20,30 @@ export interface EntraConnectorConfig {
   graphBaseUrl?: string; // defaults to 'https://graph.microsoft.com/v1.0'
 }
 
+/** Canonical id of an Entra user: the object id never changes, an email can. */
+export const entraPersonId = (objectId: string): string => `person:entra:${objectId}`;
+
+/**
+ * Every address Entra knows for a user, lower-cased and de-duplicated: mail,
+ * userPrincipalName, the SMTP entries of proxyAddresses (prefix stripped, any
+ * case; SIP, X500 and others are not addresses) and otherMails.
+ */
+export function entraEmails(u: { mail?: string | null; userPrincipalName?: string | null; proxyAddresses?: string[] | null; otherMails?: string[] | null }): string[] {
+  const out = new Set<string>();
+  const add = (v: unknown) => {
+    if (typeof v !== 'string') return;
+    const e = v.trim().toLowerCase();
+    if (e.includes('@')) out.add(e);
+  };
+  add(u.mail);
+  add(u.userPrincipalName);
+  for (const p of u.proxyAddresses ?? []) {
+    if (typeof p === 'string' && /^smtp:/i.test(p)) add(p.slice(5));
+  }
+  for (const m of u.otherMails ?? []) add(m);
+  return [...out];
+}
+
 export class EntraConnector extends BaseConnector {
   public readonly id: string;
   public readonly type = 'entra';
@@ -110,28 +134,29 @@ export class EntraConnector extends BaseConnector {
     const headers = await this.getAuthHeaders();
 
     // 1. Fetch Users with employeeLeaveDateTime
-    let nextUrl: string | null = `${this.graphBaseUrl}/users?$select=id,displayName,mail,userPrincipalName,department,jobTitle,accountEnabled,employeeLeaveDateTime&$top=100`;
+    let nextUrl: string | null = `${this.graphBaseUrl}/users?$select=id,displayName,mail,userPrincipalName,proxyAddresses,otherMails,department,jobTitle,accountEnabled,employeeLeaveDateTime&$top=100`;
 
     while (nextUrl) {
       const res: GuardResponse = await this.guard.get(nextUrl, { headers });
       const users: any[] = res.data?.value || [];
 
       for (const u of users) {
+        if (!u.id) continue;
         const email = (u.mail || u.userPrincipalName || '').toLowerCase();
-        if (!email) continue;
-
-        const personId = `person:${email}`;
+        // Keyed on the immutable object id, so an email change keeps the person (Task 2.4).
+        const personId = entraPersonId(u.id);
         const isDeparted = !u.accountEnabled || (u.employeeLeaveDateTime && new Date(u.employeeLeaveDateTime) <= new Date());
 
         entities.push({
           id: personId,
           kind: 'person',
-          name: u.displayName || email,
+          name: u.displayName || email || u.id,
           // Only what Entra says: no default title or department (F11).
           description: [u.jobTitle, u.department].filter(Boolean).join(' - ') || undefined,
           externalRefs: {
             entraId: u.id,
-            email,
+            ...(email ? { email } : {}),
+            emails: JSON.stringify(entraEmails(u)),
             // Empty when Entra has none. Refs merge on upsert, so a cleared
             // value must overwrite the old one rather than disappear.
             department: u.department || '',
@@ -197,18 +222,18 @@ export class EntraConnector extends BaseConnector {
             const ownersRes = await this.guard.get(`${this.graphBaseUrl}/applications/${app.id}/owners`, { headers });
             const owners: any[] = ownersRes.data?.value || [];
             for (const owner of owners) {
-              const ownerEmail = (owner.mail || owner.userPrincipalName || '').toLowerCase();
-              if (ownerEmail) {
-                edges.push({
-                  fromId: `person:${ownerEmail}`,
-                  toId: appEntityId,
-                  type: 'owns',
-                  grade: 'stated',
-                  source: 'connector:entra',
-                  sourceRef: `application:${app.id}/owner:${owner.id}`,
-                  validFrom: new Date(),
-                });
-              }
+              // Owners can be service principals; only users are people.
+              const odataType = owner['@odata.type'];
+              if (!owner.id || (odataType && odataType !== '#microsoft.graph.user')) continue;
+              edges.push({
+                fromId: entraPersonId(owner.id),
+                toId: appEntityId,
+                type: 'owns',
+                grade: 'stated',
+                source: 'connector:entra',
+                sourceRef: `application:${app.id}/owner:${owner.id}`,
+                validFrom: new Date(),
+              });
             }
           } catch (e) {
             // No owners is a 200 with an empty list; a throw means we don't know them.

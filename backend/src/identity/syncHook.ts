@@ -29,15 +29,10 @@ function primaryEmailOf(e: CanonicalEntity): string {
     typeof e.externalRefs?.primaryEmail === 'string' ? e.externalRefs.primaryEmail.trim() : '';
   if (primaryRef) return primaryRef;
 
+  // Legacy ids were person:<email>; anchored ids (person:entra:<id>,
+  // person:google:<id>, person:csv:<email>) carry their email in refs.
   const stripped = e.id.replace(/^person:/, '');
-  if (
-    stripped.includes('@') &&
-    !stripped.startsWith('entra:') &&
-    !stripped.startsWith('google:')
-  ) {
-    return stripped;
-  }
-  return '';
+  return stripped.includes('@') && !stripped.includes(':') ? stripped : '';
 }
 
 function parseEmailAliases(raw: unknown, primaryEmail: string): string[] {

@@ -116,7 +116,9 @@ const refOf = (graph: ContinuityGraph, id: string): Ref | null => {
   return e ? { id: e.id, kind: e.kind, name: e.name } : null;
 };
 const emailOf = (graph: ContinuityGraph, personId: string) =>
-  (graph.getNode(personId)?.entity?.externalRefs as Record<string, string> | undefined)?.email ?? personId.replace(/^person:/, '');
+  (graph.getNode(personId)?.entity?.externalRefs as Record<string, string> | undefined)?.email ??
+  (graph.getNode(personId)?.entity?.externalRefs as Record<string, string> | undefined)?.primaryEmail ??
+  personId.replace(/^person:(csv:)?/, '');
 const isAsset = (kind: string | undefined) => !!kind && kind !== 'person' && kind !== 'group';
 // Things an owner can attest to. Models and vendors are external: nobody inside "owns" them.
 const isOwnedAsset = (kind: string | undefined) => isAsset(kind) && kind !== 'model' && kind !== 'vendor';

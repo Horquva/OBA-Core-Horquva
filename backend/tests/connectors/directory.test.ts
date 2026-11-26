@@ -31,7 +31,7 @@ beforeAll(async () => {
     if (url.pathname === '/graph/users') {
       return send({
         value: [
-          { id: 'e-omar', displayName: 'Omar Farooq', mail: 'omar@acme.com', accountEnabled: false, employeeLeaveDateTime: null },
+          { id: 'e-omar', displayName: 'Omar Farooq', mail: 'omar@acme.com', userPrincipalName: 'Omar.F@acme.onmicrosoft.com', proxyAddresses: ['SMTP:omar@acme.com', 'smtp:o.farooq@acme.com', 'SIP:omar@acme.com', 'X500:/o=ExchangeLabs'], otherMails: ['omar.personal@example.org'], accountEnabled: false, employeeLeaveDateTime: null },
           { id: 'e-chen', displayName: 'Chen Wei', mail: 'chen@acme.com', accountEnabled: true, employeeLeaveDateTime: '2026-12-31T00:00:00Z', jobTitle: 'Staff Engineer' },
           { id: 'e-lina', displayName: 'Lina Haddad', mail: 'lina@acme.com', accountEnabled: true, jobTitle: 'Researcher', department: 'Ethics' },
         ],
@@ -57,14 +57,14 @@ describe('Google Workspace connector', () => {
     const result = await google.sync();
 
     expect(result.edges).toEqual([
-      expect.objectContaining({ fromId: 'person:omar@acme.com', toId: 'person:maya@acme.com', type: 'reports_to' }),
+      expect.objectContaining({ fromId: 'person:google:g-omar', toId: 'person:google:g-maya', type: 'reports_to' }),
     ]);
     expect(result.edges.some((e) => e.type === 'member_of')).toBe(false);
 
-    const maya = result.entities.find((e) => e.id === 'person:maya@acme.com')!;
+    const maya = result.entities.find((e) => e.id === 'person:google:g-maya')!;
     expect(maya.externalRefs.suspended).toBe('true');
     expect(result.facts.find((f) => f.entityId === maya.id && f.attribute === 'status')?.value).toBe('departed');
-    expect(result.entities.find((e) => e.id === 'person:omar@acme.com')!.externalRefs.suspended).toBe('false');
+    expect(result.entities.find((e) => e.id === 'person:google:g-omar')!.externalRefs.suspended).toBe('false');
   });
 });
 
@@ -104,12 +104,35 @@ describe('Entra connector', () => {
     const entra = offline(new EntraConnector('conn_e', 'Entra', { tenantId: 't', clientId: 'c', clientSecret: 's', graphBaseUrl: `${baseUrl}/graph` }));
     const result = await entra.sync();
 
-    const omar = result.entities.find((e) => e.id === 'person:omar@acme.com')!;
+    const omar = result.entities.find((e) => e.id === 'person:entra:e-omar')!;
     expect(omar.externalRefs).toMatchObject({ accountEnabled: 'false', employeeLeaveDateTime: '' });
     expect(result.facts.find((f) => f.entityId === omar.id && f.attribute === 'status')?.value).toBe('departed');
 
-    const chen = result.entities.find((e) => e.id === 'person:chen@acme.com')!;
+    const chen = result.entities.find((e) => e.id === 'person:entra:e-chen')!;
     expect(chen.externalRefs).toMatchObject({ accountEnabled: 'true', employeeLeaveDateTime: '2026-12-31T00:00:00Z' });
+  });
+});
+
+describe('Entra people anchored on object id (Task 2.4)', () => {
+  it('proxyAddresses become aliases', async () => {
+    const entra = offline(new EntraConnector('conn_e5', 'Entra', { tenantId: 't', clientId: 'c', clientSecret: 's', graphBaseUrl: `${baseUrl}/graph` }));
+    const result = await entra.sync();
+    const omar = result.entities.find((e) => e.id === 'person:entra:e-omar')!;
+    expect(omar.externalRefs.email).toBe('omar@acme.com');
+    expect(JSON.parse(omar.externalRefs.emails)).toEqual([
+      'omar@acme.com',
+      'omar.f@acme.onmicrosoft.com',
+      'o.farooq@acme.com',
+      'omar.personal@example.org',
+    ]);
+  });
+
+  it('two Entra users never share an entity', async () => {
+    const entra = offline(new EntraConnector('conn_e6', 'Entra', { tenantId: 't', clientId: 'c', clientSecret: 's', graphBaseUrl: `${baseUrl}/graph` }));
+    const result = await entra.sync();
+    const people = result.entities.filter((e) => e.kind === 'person');
+    expect(new Set(people.map((p) => p.id)).size).toBe(people.length);
+    expect(people.every((p) => p.id === `person:entra:${p.externalRefs.entraId}`)).toBe(true);
   });
 });
 
@@ -117,6 +140,6 @@ describe('CSV connector', () => {
   it('writes manager_email as reports_to', async () => {
     const csv = new CsvConnector('conn_csv', 'CSV', { peopleCsvContent: 'email,name,manager_email\nomar@acme.com,Omar,maya@acme.com\nmaya@acme.com,Maya,\n' });
     const result = await csv.sync();
-    expect(result.edges.filter((e) => e.fromId === 'person:omar@acme.com').map((e) => [e.type, e.toId])).toEqual([['reports_to', 'person:maya@acme.com']]);
+    expect(result.edges.filter((e) => e.fromId === 'person:csv:omar@acme.com').map((e) => [e.type, e.toId])).toEqual([['reports_to', 'person:csv:maya@acme.com']]);
   });
 });

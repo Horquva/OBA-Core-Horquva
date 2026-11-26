@@ -74,7 +74,7 @@ describe('leaver and mover suggestions from Entra (Postgres)', () => {
     set('nadia', { accountEnabled: false });
     await sync();
     expect(lifecycleEvents()).toEqual([]);
-    expect(DataService.getInstance().getGraph().getNode('person:nadia@globex.com')?.facts.get('status')?.value).toBe('departed');
+    expect(DataService.getInstance().getGraph().getNode('person:entra:nadia')?.facts.get('status')?.value).toBe('departed');
   });
 
   it('a later disable is exactly one "Possible leaver" suggestion, and no departure', async () => {
@@ -82,8 +82,8 @@ describe('leaver and mover suggestions from Entra (Postgres)', () => {
     await sync();
     const events = lifecycleEvents();
     expect(events.map((e) => [e.kind, e.title])).toEqual([['person_left', 'Possible leaver: Omar Farooq (Entra)']]);
-    expect(events[0].href).toMatch(/^\/departures\?record=person%3Aomar%40globex\.com&source=entra&detectedAt=/);
-    expect(DataService.getInstance().getDepartures().filter((d) => d.personId.endsWith('@globex.com'))).toEqual([]);
+    expect(events[0].href).toMatch(/^\/departures\?record=person%3Aentra%3Aomar&source=entra&detectedAt=/);
+    expect(DataService.getInstance().getDepartures().filter((d) => d.personId.startsWith('person:entra:'))).toEqual([]);
   });
 
   it('re-syncing the same state adds nothing', async () => {
@@ -95,7 +95,7 @@ describe('leaver and mover suggestions from Entra (Postgres)', () => {
     const href = lifecycleEvents()[0].href!;
     const detectedAt = new URLSearchParams(href.split('?')[1]).get('detectedAt')!;
     const today = new Date().toISOString().slice(0, 10);
-    const res = await authedFetch(`${baseUrl}/api/departures`, json('POST', { personId: 'person:omar@globex.com', leaveDate: today, detectedFrom: 'entra', disabledAt: detectedAt }));
+    const res = await authedFetch(`${baseUrl}/api/departures`, json('POST', { personId: 'person:entra:omar', leaveDate: today, detectedFrom: 'entra', disabledAt: detectedAt }));
     expect(res.status).toBe(201);
     const { id } = (await res.json()) as any;
 
@@ -112,7 +112,7 @@ describe('leaver and mover suggestions from Entra (Postgres)', () => {
     expect(lifecycleEvents().some((e) => e.title === 'Possible leaver: Chen Wei (Entra)')).toBe(true);
 
     const today = new Date().toISOString().slice(0, 10);
-    const res = await authedFetch(`${baseUrl}/api/departures`, json('POST', { personId: 'person:chen@globex.com', leaveDate: today, detectedFrom: 'entra', disabledAt: new Date().toISOString() }));
+    const res = await authedFetch(`${baseUrl}/api/departures`, json('POST', { personId: 'person:entra:chen', leaveDate: today, detectedFrom: 'entra', disabledAt: new Date().toISOString() }));
     expect(res.status).toBe(201);
     expect(DataService.getInstance().getDeparture(((await res.json()) as any).id)?.stage).toBe('initiated');
   });
@@ -126,7 +126,7 @@ describe('leaver and mover suggestions from Entra (Postgres)', () => {
   });
 
   it('rejects a disabledAt in the future', async () => {
-    const res = await authedFetch(`${baseUrl}/api/departures`, json('POST', { personId: 'person:priya@globex.com', leaveDate: '2026-12-01', detectedFrom: 'entra', disabledAt: '2999-01-01T00:00:00Z' }));
+    const res = await authedFetch(`${baseUrl}/api/departures`, json('POST', { personId: 'person:entra:priya', leaveDate: '2026-12-01', detectedFrom: 'entra', disabledAt: '2999-01-01T00:00:00Z' }));
     expect(res.status).toBe(400);
   });
 });

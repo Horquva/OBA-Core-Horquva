@@ -61,7 +61,7 @@ async function syncOnce(): Promise<any> {
 }
 
 const activeOwnerEdges = async () =>
-  (await query(`SELECT 1 FROM edge WHERE from_id = 'person:omar@acme.com' AND to_id = 'app:entra:app-1' AND type = 'owns' AND valid_to IS NULL`)).rowCount;
+  (await query(`SELECT 1 FROM edge WHERE from_id = 'person:entra:u-omar' AND to_id = 'app:entra:app-1' AND type = 'owns' AND valid_to IS NULL`)).rowCount;
 
 beforeAll(async () => {
   await resetDatabase();

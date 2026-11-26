@@ -17,6 +17,24 @@ export interface GoogleConnectorConfig {
   apiBaseUrl?: string;
 }
 
+/** Canonical id of a Google Workspace user: the user id never changes, an email can. */
+export const googlePersonId = (userId: string): string => `person:google:${userId}`;
+
+/** primaryEmail, aliases, nonEditableAliases and emails[].address, lower-cased and de-duplicated. */
+export function googleEmails(u: { primaryEmail?: string; aliases?: string[]; nonEditableAliases?: string[]; emails?: Array<{ address?: string }> }): string[] {
+  const out = new Set<string>();
+  const add = (v: unknown) => {
+    if (typeof v !== 'string') return;
+    const e = v.trim().toLowerCase();
+    if (e.includes('@')) out.add(e);
+  };
+  add(u.primaryEmail);
+  for (const a of u.aliases ?? []) add(a);
+  for (const a of u.nonEditableAliases ?? []) add(a);
+  for (const e of u.emails ?? []) add(e?.address);
+  return [...out];
+}
+
 export class GoogleWorkspaceConnector extends BaseConnector {
   public readonly id: string;
   public readonly type = 'google';
@@ -126,6 +144,9 @@ export class GoogleWorkspaceConnector extends BaseConnector {
     const facts: CanonicalFact[] = [];
     const rawPayloads: RawPayloadRecord[] = [];
     const headers = await this.getAuthHeaders();
+    // Manager relations name an email; they are resolved to ids once every page is read.
+    const emailToPerson = new Map<string, string>();
+    const pendingManagers: Array<{ personId: string; managerEmail: string; userId: string }> = [];
 
     let pageToken: string | null = null;
     do {
@@ -135,20 +156,23 @@ export class GoogleWorkspaceConnector extends BaseConnector {
       const users: any[] = res.data?.users || [];
 
       for (const u of users) {
+        if (!u.id) continue;
         const email = (u.primaryEmail || '').toLowerCase();
-        if (!email) continue;
-
-        const personId = `person:${email}`;
+        // Keyed on the immutable user id, so an email change keeps the person (Task 2.4).
+        const personId = googlePersonId(u.id);
+        const emails = googleEmails(u);
+        for (const e of emails) if (!emailToPerson.has(e)) emailToPerson.set(e, personId);
         const isDeparted = Boolean(u.suspended);
 
         entities.push({
           id: personId,
           kind: 'person',
-          name: u.name?.fullName || email,
+          name: u.name?.fullName || email || u.id,
           description: `Google Workspace (${u.orgUnitPath || '/'})`,
           externalRefs: {
             googleId: u.id,
-            primaryEmail: email,
+            ...(email ? { primaryEmail: email } : {}),
+            emails: JSON.stringify(emails),
             orgUnitPath: u.orgUnitPath || '/',
             // Why the status fact says departed: a suspended account.
             suspended: String(Boolean(u.suspended)),
@@ -177,22 +201,28 @@ export class GoogleWorkspaceConnector extends BaseConnector {
         if (Array.isArray(u.relations)) {
           const managerRelation = u.relations.find((r: any) => r.type === 'manager');
           if (managerRelation?.value) {
-            const managerEmail = managerRelation.value.toLowerCase();
-            edges.push({
-              fromId: personId,
-              toId: `person:${managerEmail}`,
-              type: 'reports_to',
-              grade: 'stated',
-              source: 'connector:google',
-              sourceRef: `user:${u.id}/manager`,
-              validFrom: new Date(),
-            });
+            pendingManagers.push({ personId, managerEmail: String(managerRelation.value).trim().toLowerCase(), userId: u.id });
           }
         }
       }
 
       pageToken = res.data?.nextPageToken || null;
     } while (pageToken);
+
+    // A manager outside this directory has no id to point at: no edge, never a guessed person.
+    for (const m of pendingManagers) {
+      const managerId = emailToPerson.get(m.managerEmail);
+      if (!managerId || managerId === m.personId) continue;
+      edges.push({
+        fromId: m.personId,
+        toId: managerId,
+        type: 'reports_to',
+        grade: 'stated',
+        source: 'connector:google',
+        sourceRef: `user:${m.userId}/manager`,
+        validFrom: new Date(),
+      });
+    }
 
     return {
       entities,

@@ -222,7 +222,7 @@ describe('connections API + ConnectorRunner (Postgres)', () => {
     expect(body.ok).toBe(true);
 
     const graph = DataService.getInstance().getGraph();
-    expect(graph.getOwners('automation:csv:r1').map((p) => p.id)).toEqual(['person:lina@uni.edu']);
+    expect(graph.getOwners('automation:csv:r1').map((p) => p.id)).toEqual(['person:csv:lina@uni.edu']);
     const backup = (await query(`SELECT grade FROM edge WHERE type = 'backs_up' AND to_id = 'automation:csv:r1' AND valid_to IS NULL`)).rows;
     expect(backup).toEqual([{ grade: 'stated' }]); // a spreadsheet can't confirm on the backup's behalf
 

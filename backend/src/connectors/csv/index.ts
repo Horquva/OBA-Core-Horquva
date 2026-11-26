@@ -3,6 +3,10 @@
 // =============================================================================
 // Streaming CSV parser with schema validation for people and automations catalogs.
 // Enables rapid onboarding and offline/manual continuity data ingestion.
+//
+// People are keyed person:csv:<lower-cased email>. A spreadsheet has no
+// immutable id, so an email change in the sheet is a new person (unlike Entra
+// and Google, which key on their object ids; plan Task 2.4).
 // =============================================================================
 
 import { parse } from 'csv-parse/sync';
@@ -69,7 +73,7 @@ export class CsvConnector extends BaseConnector {
       for (const row of records) {
         if (!row.email) continue;
         const email = row.email.toLowerCase().trim();
-        const personId = `person:${email}`;
+        const personId = `person:csv:${email}`;
 
         entities.push({
           id: personId,
@@ -106,7 +110,7 @@ export class CsvConnector extends BaseConnector {
           const managerEmail = row.manager_email.toLowerCase().trim();
           edges.push({
             fromId: personId,
-            toId: `person:${managerEmail}`,
+            toId: `person:csv:${managerEmail}`,
             type: 'reports_to',
             grade: 'stated',
             source: 'connector:csv',
@@ -159,7 +163,7 @@ export class CsvConnector extends BaseConnector {
         if (row.owner_email) {
           const ownerEmail = row.owner_email.toLowerCase().trim();
           edges.push({
-            fromId: `person:${ownerEmail}`,
+            fromId: `person:csv:${ownerEmail}`,
             toId: automationEntityId,
             type: 'owns',
             grade: 'stated',
@@ -173,7 +177,7 @@ export class CsvConnector extends BaseConnector {
         if (row.backup_owner_email) {
           const backupEmail = row.backup_owner_email.toLowerCase().trim();
           edges.push({
-            fromId: `person:${backupEmail}`,
+            fromId: `person:csv:${backupEmail}`,
             toId: automationEntityId,
             type: 'backs_up',
             grade: 'stated', // a spreadsheet names the backup; only the backup can confirm (attestation)
