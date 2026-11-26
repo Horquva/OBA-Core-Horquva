@@ -27,10 +27,10 @@ const sampleNeighbourhood: Neighbourhood = {
   rootId: 'w-1',
   nodes: [
     { id: 'p-1', kind: 'person', name: 'Sarah Connor', ring: null },
-    { id: 'w-1', kind: 'workflow', name: 'Stripe Billing Pipeline', ring: 'fail' },
+    { id: 'w-1', kind: 'automation', name: 'Stripe Billing Pipeline', ring: 'fail' },
     { id: 'c-1', kind: 'credential', name: 'Stripe Live Secret Key', ring: 'unknown' },
     { id: 'v-1', kind: 'vendor', name: 'Stripe Payments API', ring: null },
-    { id: 'w-2', kind: 'workflow', name: 'Monthly Invoice Dispatcher', ring: null },
+    { id: 'w-2', kind: 'automation', name: 'Monthly Invoice Dispatcher', ring: null },
   ],
   edges: [
     { id: 'e-1', from: 'p-1', to: 'w-1', type: 'owns', grade: 'confirmed' },
@@ -42,7 +42,7 @@ const sampleNeighbourhood: Neighbourhood = {
 
 const sampleBlastRadius: BlastRadius = {
   rootId: 'w-1',
-  downstream: [{ id: 'w-2', kind: 'workflow', name: 'Monthly Invoice Dispatcher' }],
+  downstream: [{ id: 'w-2', kind: 'automation', name: 'Monthly Invoice Dispatcher' }],
   upstream: [
     { id: 'p-1', kind: 'person', name: 'Sarah Connor' },
     { id: 'c-1', kind: 'credential', name: 'Stripe Live Secret Key' },
@@ -217,7 +217,7 @@ describe('Dependency Map Feature (Task 26)', () => {
         data: {
           id: 'w-1',
           name: 'Stripe Billing Pipeline',
-          kind: 'workflow',
+          kind: 'automation',
           ring: 'fail',
           isRoot: false,
         },

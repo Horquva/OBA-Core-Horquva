@@ -24,8 +24,7 @@ export interface MapNodeData extends Record<string, unknown> {
 
 export type CustomMapNode = Node<MapNodeData>;
 
-/** Older mock data says "workflow"; the product calls these automations. */
-export const nodeKindLabel = (kind: string) => (kind === 'workflow' ? 'Automation' : kindLabel(kind));
+export const nodeKindLabel = (kind: string) => kindLabel(kind);
 
 const STATUS_TEXT = { fail: ', failing a check', unknown: ', has unknown facts' } as const;
 
@@ -66,7 +65,7 @@ function MapNodeCard({ data }: NodeProps<CustomMapNode>) {
         <Avatar name={name} size={32} />
       ) : (
         <span aria-hidden="true" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-rule bg-surface-sunken text-ink-2">
-          <EntityKindIcon kind={(kind as string) === 'workflow' ? 'automation' : kind} className="h-4 w-4" />
+          <EntityKindIcon kind={kind} className="h-4 w-4" />
         </span>
       )}
       <span className="min-w-0 flex-1">
@@ -88,12 +87,14 @@ export const AutomationNode = MapNodeCard;
 export const VendorModelNode = MapNodeCard;
 export const CredentialNode = MapNodeCard;
 
-// Keyed by the entity kinds the backend sends, plus the older mock kinds.
+// Keyed by the entity kinds the backend sends.
 // A kind missing here renders as React Flow's blank default box.
 export const nodeTypes = {
   person: MapNodeCard,
   automation: MapNodeCard,
-  workflow: MapNodeCard,
+  account: MapNodeCard,
+  repository: MapNodeCard,
+  project: MapNodeCard,
   app: MapNodeCard,
   process: MapNodeCard,
   group: MapNodeCard,
