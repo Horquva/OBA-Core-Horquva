@@ -13,9 +13,11 @@ import { ReadOnlyHttpGuard } from '../../src/connectors/sdk/guard.js';
 
 let fake: http.Server;
 let baseUrl: string;
+let requestCount = 0;
 
 beforeAll(async () => {
   fake = http.createServer((req, res) => {
+    requestCount++;
     const url = new URL(req.url!, 'http://x');
     const send = (body: unknown) => res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(body));
     if (url.pathname === '/google/users') {
@@ -62,6 +64,21 @@ describe('Google Workspace connector', () => {
     expect(maya.externalRefs.suspended).toBe('true');
     expect(result.facts.find((f) => f.entityId === maya.id && f.attribute === 'status')?.value).toBe('departed');
     expect(result.entities.find((e) => e.id === 'person:omar@acme.com')!.externalRefs.suspended).toBe('false');
+  });
+});
+
+describe('Google Workspace connector without a key', () => {
+  it('google connector without service account key throws a configuration error naming serviceAccountKeyJson', async () => {
+    const before = requestCount;
+    const google = new GoogleWorkspaceConnector('conn_g2', 'Google', { adminEmail: 'admin@acme.com', serviceAccountKeyJson: '{}', apiBaseUrl: `${baseUrl}/google` });
+    Object.assign(google, { guard: new ReadOnlyHttpGuard(['localhost']) });
+
+    const err = await (google as any).getAccessToken().catch((e: Error) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toContain('serviceAccountKeyJson');
+    expect(err.message).not.toMatch(/sandbox|token:/i);
+    await google.sync().catch(() => undefined);
+    expect(requestCount).toBe(before);
   });
 });
 

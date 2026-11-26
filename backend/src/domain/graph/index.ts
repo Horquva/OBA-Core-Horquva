@@ -20,6 +20,19 @@ export interface GraphEdgeAttributes {
   edge: CanonicalEdge;
 }
 
+const LINK_MARK = '|link:';
+
+/** The stored edge id behind an attributed edge id (or the id itself). */
+export function baseEdgeId(id: string): string {
+  const at = id.indexOf(LINK_MARK);
+  return at === -1 ? id : id.slice(0, at);
+}
+
+/** True for an in-memory projection of an account edge onto a person. */
+export function isAttributedEdge(edge: CanonicalEdge): boolean {
+  return typeof edge.id === 'string' && edge.id.includes(LINK_MARK);
+}
+
 export type GraphChange =
   | { type: 'edge_added'; edge: CanonicalEdge }
   | { type: 'edges_closed'; edges: CanonicalEdge[] };
@@ -87,15 +100,33 @@ export class ContinuityGraph {
    * live graph) and returns the closed edges, so callers can audit what changed.
    */
   public closeEdges(predicate: (edge: CanonicalEdge) => boolean, at: Date = new Date()): CanonicalEdge[] {
-    const closed: CanonicalEdge[] = [];
+    // An attributed edge (id `<stored edge id>|link:<link id>`, see
+    // domain/identity/attribution.ts) exists only in memory. Closing it must
+    // close the stored account edge it was projected from, or the next hydrate
+    // brings it back; closing a stored edge also drops its projections.
+    const matched = new Set<string>();
+    const storedIds = new Set<string>();
     for (const key of this.graph.edges()) {
       const edge = this.graph.getEdgeAttributes(key).edge;
       if (!edge.validTo && predicate(edge)) {
-        closed.push({ ...edge, validTo: at });
-        this.graph.dropEdge(key);
+        matched.add(key);
+        if (edge.id) storedIds.add(baseEdgeId(edge.id));
       }
     }
-    if (closed.length) this.onChange?.({ type: 'edges_closed', edges: closed });
+    if (storedIds.size) {
+      for (const key of this.graph.edges()) {
+        const edge = this.graph.getEdgeAttributes(key).edge;
+        if (!edge.validTo && edge.id && storedIds.has(baseEdgeId(edge.id))) matched.add(key);
+      }
+    }
+
+    const closed: CanonicalEdge[] = [];
+    for (const key of matched) {
+      closed.push({ ...this.graph.getEdgeAttributes(key).edge, validTo: at });
+      this.graph.dropEdge(key);
+    }
+    const stored = closed.filter((e) => !isAttributedEdge(e));
+    if (stored.length) this.onChange?.({ type: 'edges_closed', edges: stored });
     return closed;
   }
 

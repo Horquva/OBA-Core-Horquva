@@ -114,6 +114,37 @@ describe('identity attribution through graded links', () => {
     expect(graph.getOwnedAssets(omar.id).map((a) => a.id)).toEqual([wf.id]);
   });
 
+  it('closing an attributed edge closes the stored account edge and persists only that', () => {
+    const omar = entity('person:entra:1', 'person', 'Omar Farooq', { entraId: '1' });
+    const n8nAcc = entity('account:n8n:u1', 'account', 'Omar n8n', { source: 'n8n' });
+    const wf = entity('automation:n8n:w1', 'automation', 'Payroll Sync');
+    const rawEdge = edge('edge-1', n8nAcc.id, 'owns', wf.id, 'stated', 'connector:n8n', 'wf:w1');
+    const l = link({ id: 'link-1', accountId: n8nAcc.id, personId: omar.id });
+    const { graph } = buildGraph({ entities: [omar, n8nAcc, wf], edges: [rawEdge], facts: [] }, [l]);
+
+    const persisted: CanonicalEdge[] = [];
+    graph.onChange = (c) => {
+      if (c.type === 'edges_closed') persisted.push(...c.edges);
+    };
+    const closed = graph.closeEdges((e) => e.type === 'owns' && e.fromId === omar.id && e.toId === wf.id, NOW);
+
+    expect(closed).toHaveLength(2);
+    expect(persisted.map((e) => e.id)).toEqual(['edge-1']);
+    expect(graph.getAllEdges().filter((e) => e.type === 'owns' && !e.validTo)).toEqual([]);
+  });
+
+  it('closing a stored account edge drops its attributed projection', () => {
+    const omar = entity('person:entra:1', 'person', 'Omar Farooq', { entraId: '1' });
+    const n8nAcc = entity('account:n8n:u1', 'account', 'Omar n8n', { source: 'n8n' });
+    const wf = entity('automation:n8n:w1', 'automation', 'Payroll Sync');
+    const rawEdge = edge('edge-1', n8nAcc.id, 'owns', wf.id);
+    const l = link({ id: 'link-1', accountId: n8nAcc.id, personId: omar.id });
+    const { graph } = buildGraph({ entities: [omar, n8nAcc, wf], edges: [rawEdge], facts: [] }, [l]);
+
+    graph.closeEdges((e) => e.id === 'edge-1', NOW);
+    expect(graph.getOwners(wf.id)).toEqual([]);
+  });
+
   it('confirmed link plus inferred edge gives inferred', () => {
     const omar = entity('person:entra:1', 'person', 'Omar Farooq', { entraId: '1' });
     const n8nAcc = entity('account:n8n:u1', 'account', 'Omar n8n', { source: 'n8n' });

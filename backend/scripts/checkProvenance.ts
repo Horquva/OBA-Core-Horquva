@@ -1,40 +1,48 @@
 // =============================================================================
 // Horquva Continuity Platform — Trust Guard T7: Provenance Verification CLI
 // =============================================================================
-// Runs findUnbackedEntities() against the active database.
-// Exits 0 if all entities trace to verifiable evidence.
-// Exits 1 with an error report table if unbacked (fabricated) entities exist.
+// Runs findUnbackedEntities() against DATABASE_URL.
+// Exits 0 when every entity traces to evidence, 1 with a table otherwise.
 //
 // Usage:
-//   npx tsx scripts/checkProvenance.ts
+//   npm run check:provenance
 // =============================================================================
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { findUnbackedEntities } from '../src/security/provenance.js';
-import { closePool } from '../src/db/client.js';
+import { closePool, query as defaultQuery } from '../src/db/client.js';
+import type { Query } from '../src/repositories/graphRepository.js';
 
 dotenv.config();
 
-async function main(): Promise<void> {
-  if (!process.env.DATABASE_URL) {
-    console.error('[check:provenance] DATABASE_URL is not set: cannot check provenance without database.');
-    process.exit(1);
-  }
-
-  const unbacked = await findUnbackedEntities();
+/** The CLI's exit code: 0 when every entity is backed, 1 otherwise. */
+export async function runProvenanceCheck(q: Query = defaultQuery, log: Pick<Console, 'log' | 'error' | 'table'> = console): Promise<0 | 1> {
+  const unbacked = await findUnbackedEntities(q);
   if (unbacked.length === 0) {
-    console.log('[check:provenance] All entities trace to evidence (T7 Provenance Guard passed).');
-    process.exit(0);
+    log.log('[check:provenance] Every entity traces to evidence.');
+    return 0;
   }
-
-  console.error(`[check:provenance] FAILED: Found ${unbacked.length} unbacked entity/entities:`);
-  console.table(unbacked);
-  process.exit(1);
+  log.error(`[check:provenance] FAILED: ${unbacked.length} unbacked entit${unbacked.length === 1 ? 'y' : 'ies'}:`);
+  log.table(unbacked);
+  return 1;
 }
 
-main()
-  .catch((err) => {
-    console.error('[check:provenance] Error:', err instanceof Error ? err.message : err);
+async function main(): Promise<void> {
+  if (!process.env.DATABASE_URL) {
+    console.error('[check:provenance] DATABASE_URL is not set.');
     process.exit(1);
-  })
-  .finally(() => closePool());
+  }
+  const code = await runProvenanceCheck();
+  await closePool();
+  process.exit(code);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch(async (err) => {
+    console.error('[check:provenance] Error:', err instanceof Error ? err.message : err);
+    await closePool().catch(() => undefined);
+    process.exit(1);
+  });
+}

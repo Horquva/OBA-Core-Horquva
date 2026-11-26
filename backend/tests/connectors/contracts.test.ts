@@ -125,35 +125,54 @@ describe('Task 0.A Contracts & Shared Foundation', () => {
   });
 
   describe('Source Rules & Grade Enforcement (sourceRules)', () => {
-    it('exports REF_KEYS for all required platforms with authoritative keys', () => {
-      expect(REF_KEYS.entra).toEqual(['entraId', 'objectId', 'entraAppId']);
+    it('exports REF_KEYS with the keys each connector actually writes', () => {
+      expect(REF_KEYS.entra).toEqual(['entraId', 'objectId']);
       expect(REF_KEYS.n8n).toEqual(['n8nUserId', 'n8n']);
-      expect(REF_KEYS.ai_admin).toEqual(['openaiUserId', 'modelId', 'vendorId']);
+      expect(REF_KEYS.ai_admin).toEqual(['openaiUserId', 'modelId']);
       expect(REF_KEYS.google).toEqual(['googleId']);
-      expect(REF_KEYS.csv).toEqual(['csvRow', 'csvId', 'email']);
-      expect(REF_KEYS.slack).toEqual(['slackUserId', 'slackChannelId']);
-      expect(REF_KEYS.jira).toEqual(['jiraAccountId', 'jiraProjectId', 'jiraComponentId']);
-      expect(REF_KEYS.github).toEqual(['githubUserId', 'githubRepoId', 'githubTeamId']);
+      expect(REF_KEYS.csv).toEqual(['email', 'csvId']);
     });
 
-    it('contains authoritative stated edge combinations in STATED_RULES', () => {
-      expect(STATED_RULES.has('connector:entra|owns|app')).toBe(true);
-      expect(STATED_RULES.has('connector:entra|member_of|group')).toBe(true);
-      expect(STATED_RULES.has('connector:entra|reports_to|person')).toBe(true);
-      expect(STATED_RULES.has('connector:entra|grants_access_to|vendor')).toBe(true);
-      expect(STATED_RULES.has('connector:n8n|owns|workflow')).toBe(true);
-      expect(STATED_RULES.has('connector:n8n|depends_on|workflow')).toBe(true);
-      expect(STATED_RULES.has('connector:n8n|depends_on|credential')).toBe(true);
-      expect(STATED_RULES.has('connector:n8n|runs_on_credentials_of|credential')).toBe(true);
-      expect(STATED_RULES.has('connector:n8n|runs_on_credentials_of|person')).toBe(true);
-      expect(STATED_RULES.has('connector:n8n|calls_model|model')).toBe(true);
-      expect(STATED_RULES.has('connector:jira|owns|project')).toBe(true);
-      expect(STATED_RULES.has('connector:jira|backs_up|person')).toBe(true);
-      expect(STATED_RULES.has('connector:jira|backs_up|project')).toBe(true);
-      expect(STATED_RULES.has('connector:slack|member_of|channel')).toBe(true);
-      expect(STATED_RULES.has('connector:github|member_of|team')).toBe(true);
-      expect(STATED_RULES.has('connector:google|owns|app')).toBe(true);
-      expect(STATED_RULES.has('connector:google|reports_to|person')).toBe(true);
+    it('STATED_RULES holds exactly the plan Task 3.4 table plus the Google and CSV literal fields', () => {
+      expect([...STATED_RULES].sort()).toEqual([
+        'connector:csv|backs_up',
+        'connector:csv|owns',
+        'connector:csv|reports_to',
+        'connector:entra|member_of',
+        'connector:entra|owns',
+        'connector:entra|reports_to',
+        'connector:github|member_of',
+        'connector:google|reports_to',
+        'connector:jira|owns',
+        'connector:n8n|calls_model',
+        'connector:n8n|depends_on',
+        'connector:n8n|owns',
+        'connector:n8n|runs_on_credentials_of',
+        'connector:slack|member_of',
+      ]);
+    });
+
+    it('assertGradeRules flags a stated inferred-only edge', () => {
+      const now = new Date();
+      const result: SyncResult = {
+        entities: [],
+        edges: [
+          { fromId: 'person:a', toId: 'vendor:openai', type: 'grants_access_to', grade: 'stated', source: 'connector:entra', validFrom: now },
+          { fromId: 'person:a', toId: 'automation:n8n:1', type: 'owns', ownerKind: 'creator', grade: 'stated', source: 'connector:n8n', validFrom: now },
+          { fromId: 'person:a', toId: 'project:jira:P', type: 'backs_up', grade: 'stated', source: 'connector:jira', validFrom: now },
+          { fromId: 'person:a', toId: 'automation:n8n:1', type: 'owns', ownerKind: 'owner', grade: 'stated', source: 'connector:n8n', validFrom: now },
+          { fromId: 'person:a', toId: 'vendor:openai', type: 'grants_access_to', grade: 'inferred', source: 'connector:entra', validFrom: now },
+        ],
+        facts: [],
+        rawPayloads: [],
+        stats: { fetched: 5, entitiesCreated: 0, edgesCreated: 5, factsCreated: 0, errors: 0 },
+        coverage: {},
+      };
+      const violations = assertGradeRules(result);
+      expect(violations).toHaveLength(3);
+      expect(violations[0]).toContain('grants_access_to');
+      expect(violations[1]).toContain('owns [creator]');
+      expect(violations[2]).toContain('backs_up');
     });
 
     it('passes assertGradeRules when all stated edges conform to rules', () => {
@@ -201,14 +220,6 @@ describe('Task 0.A Contracts & Shared Foundation', () => {
             source: 'connector:n8n',
             validFrom: now,
           },
-          {
-            fromId: 'person:alice@acme.com',
-            toId: 'project:jira:proj1',
-            type: 'backs_up',
-            grade: 'stated',
-            source: 'connector:jira',
-            validFrom: now,
-          },
         ],
         facts: [],
         rawPayloads: [],
@@ -220,7 +231,7 @@ describe('Task 0.A Contracts & Shared Foundation', () => {
       expect(violations).toEqual([]);
     });
 
-    it('validates canonical connector edges: n8n runs_on_credentials_of person, depends_on credential, and jira backs_up project', () => {
+    it('validates canonical connector edges: n8n runs_on_credentials_of person and depends_on credential', () => {
       const now = new Date();
       const mockResult: SyncResult = {
         entities: [],
@@ -239,14 +250,6 @@ describe('Task 0.A Contracts & Shared Foundation', () => {
             type: 'depends_on',
             grade: 'stated',
             source: 'connector:n8n',
-            validFrom: now,
-          },
-          {
-            fromId: 'person:carol@acme.com',
-            toId: 'project:jira:proj1',
-            type: 'backs_up',
-            grade: 'stated',
-            source: 'connector:jira',
             validFrom: now,
           },
         ],
