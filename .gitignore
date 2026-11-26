@@ -53,3 +53,7 @@ HOMEPAGE_COPY_REWRITE_SPEC.md
 
 # Vercel CLI link (repo-root deploys)
 .vercel
+
+# Platform credentials for the connector scripts (plan Task 0.1)
+backend/.env.connectors
+!backend/.env.connectors.example
