@@ -13,11 +13,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   IdentityQueueService,
+  IdentityQueueError,
   InMemoryIdentityQueueAdapter,
+  PostgresIdentityQueueAdapter,
   IdentityQueueConflictError,
   IdentityQueueNotFoundError,
 } from '../../src/identity/queue.js';
-import { InMemoryLinkRepository } from '../../src/identity/linkRepository.js';
+import { InMemoryLinkRepository, PostgresLinkRepository, type LinkRepository } from '../../src/identity/linkRepository.js';
+import type { Query } from '../../src/repositories/graphRepository.js';
 import { ContinuityGraph } from '../../src/domain/graph/index.js';
 import { MatchCandidate } from '../../src/identity/matcher.js';
 
@@ -531,6 +534,302 @@ describe('IdentityQueueService (SRS ID-02, ID-03, SEC-06)', () => {
       // Verify atomic rollback: validSug is still open and q1 is still pending
       expect((await service.getQueueItem(q1.id))?.status).toBe('pending');
       expect((await linkRepo.listActiveSuggestions()).some((s) => s.id === validSug.id)).toBe(true);
+    });
+  });
+
+  describe('8. Concurrency Hardening, Error Mapping, & Non-Link Suggestion Cleanup', () => {
+    function makePgStubQuery(opts: { insertErrorCode?: '23505' | '23503' }): Query {
+      const queueId = '11111111-1111-4111-8111-111111111111';
+      const sugId = '22222222-2222-4222-8222-222222222222';
+      const nowIso = new Date('2026-11-26T00:00:00Z').toISOString();
+
+      return (async (sql: string) => {
+        const normalized = sql.replace(/\s+/g, ' ').trim().toUpperCase();
+        if (
+          normalized.startsWith('SAVEPOINT ') ||
+          normalized.startsWith('RELEASE SAVEPOINT ') ||
+          normalized.startsWith('ROLLBACK TO SAVEPOINT ')
+        ) {
+          return { rows: [], rowCount: 0 };
+        }
+        if (normalized.includes('FROM IDENTITY_QUEUE') && normalized.includes('WHERE ID = $1')) {
+          return {
+            rows: [
+              {
+                id: queueId,
+                external_account_id: 'ext_pg_1',
+                source: 'n8n',
+                display_name: 'PG Race Account',
+                email_candidate: 'race@acme.com',
+                status: 'pending',
+                notes: null,
+                reviewed_by: null,
+                reviewed_at: null,
+                created_at: nowIso,
+              },
+            ],
+            rowCount: 1,
+          };
+        }
+        if (normalized.includes('FROM IDENTITY_LINK') && normalized.includes('WHERE ID = ANY($1::UUID[])')) {
+          return {
+            rows: [
+              {
+                id: sugId,
+                account_id: 'account:n8n:ext_pg_1',
+                person_id: 'person:omar@acme.com',
+                grade: 'inferred',
+                method: 'suggested',
+                linked_by: 'autoLink',
+                note: 'Suggested match',
+                valid_from: nowIso,
+                valid_to: null,
+              },
+            ],
+            rowCount: 1,
+          };
+        }
+        if (normalized.includes('FROM IDENTITY_LINK') && normalized.includes('ACCOUNT_ID = ANY($1::TEXT[])')) {
+          return { rows: [], rowCount: 0 };
+        }
+        if (normalized.startsWith('UPDATE IDENTITY_LINK')) {
+          return { rows: [], rowCount: 1 };
+        }
+        if (normalized.startsWith('INSERT INTO IDENTITY_LINK')) {
+          if (opts.insertErrorCode === '23505') {
+            throw Object.assign(
+              new Error('duplicate key value violates unique constraint "uq_identity_link_active_account"'),
+              {
+                code: '23505',
+                constraint: 'uq_identity_link_active_account',
+                detail: 'Key (account_id)=(account:n8n:ext_pg_1) already exists.',
+              }
+            );
+          }
+          if (opts.insertErrorCode === '23503') {
+            throw Object.assign(
+              new Error('insert or update on table "identity_link" violates foreign key constraint "identity_link_person_id_fkey"'),
+              {
+                code: '23503',
+                constraint: 'identity_link_person_id_fkey',
+                detail: 'Key (person_id)=(person:missing@acme.com) is not present in table "entity".',
+              }
+            );
+          }
+        }
+        return { rows: [], rowCount: 0 };
+      }) as Query;
+    }
+
+    it('maps Postgres 23505 during resolveLink and confirmSuggestions to IdentityQueueConflictError (409) without leaking PG details', async () => {
+      const stubQuery = makePgStubQuery({ insertErrorCode: '23505' });
+      const pgQueue = new IdentityQueueService(
+        new PostgresIdentityQueueAdapter(stubQuery),
+        new PostgresLinkRepository(stubQuery, true)
+      );
+
+      let resolveErr: unknown;
+      try {
+        await pgQueue.resolveLink(
+          '11111111-1111-4111-8111-111111111111',
+          'person:omar@acme.com',
+          'user:admin'
+        );
+      } catch (e) {
+        resolveErr = e;
+      }
+      expect(resolveErr).toBeInstanceOf(IdentityQueueConflictError);
+      expect((resolveErr as IdentityQueueError).status).toBe(409);
+      expect((resolveErr as Error).message).not.toMatch(/uq_identity_link_active_account|Key \(account_id\)/i);
+
+      let confirmErr: unknown;
+      try {
+        await pgQueue.confirmSuggestions(['22222222-2222-4222-8222-222222222222'], 'user:admin');
+      } catch (e) {
+        confirmErr = e;
+      }
+      expect(confirmErr).toBeInstanceOf(IdentityQueueConflictError);
+      expect((confirmErr as IdentityQueueError).status).toBe(409);
+      expect((confirmErr as Error).message).not.toMatch(/uq_identity_link_active_account|Key \(account_id\)/i);
+    });
+
+    it('maps Postgres 23503 during resolveLink and confirmSuggestions to IdentityQueueError (400) without leaking FK/table details', async () => {
+      const stubQuery = makePgStubQuery({ insertErrorCode: '23503' });
+      const pgQueue = new IdentityQueueService(
+        new PostgresIdentityQueueAdapter(stubQuery),
+        new PostgresLinkRepository(stubQuery, true)
+      );
+
+      let resolveErr: unknown;
+      try {
+        await pgQueue.resolveLink(
+          '11111111-1111-4111-8111-111111111111',
+          'person:missing@acme.com',
+          'user:admin'
+        );
+      } catch (e) {
+        resolveErr = e;
+      }
+      expect(resolveErr).toBeInstanceOf(IdentityQueueError);
+      expect((resolveErr as IdentityQueueError).status).toBe(400);
+      expect((resolveErr as Error).message).not.toMatch(/identity_link_person_id_fkey|Key \(person_id\)|table "entity"/i);
+
+      let confirmErr: unknown;
+      try {
+        await pgQueue.confirmSuggestions(['22222222-2222-4222-8222-222222222222'], 'user:admin');
+      } catch (e) {
+        confirmErr = e;
+      }
+      expect(confirmErr).toBeInstanceOf(IdentityQueueError);
+      expect((confirmErr as IdentityQueueError).status).toBe(400);
+      expect((confirmErr as Error).message).not.toMatch(/identity_link_person_id_fkey|Key \(person_id\)|table "entity"/i);
+    });
+
+    it('sorts accountIds deterministically in confirmSuggestions even when linkIds are supplied out of order', async () => {
+      const sugZ = await linkRepo.create({
+        accountId: 'account:n8n:z-last',
+        personId: 'person:omar@acme.com',
+        grade: 'inferred',
+        method: 'suggested',
+        linkedBy: 'autoLink',
+        note: 'Z',
+      });
+      const sugA = await linkRepo.create({
+        accountId: 'account:n8n:a-first',
+        personId: 'person:david@acme.com',
+        grade: 'inferred',
+        method: 'suggested',
+        linkedBy: 'autoLink',
+        note: 'A',
+      });
+      const sugM = await linkRepo.create({
+        accountId: 'account:n8n:m-mid',
+        personId: 'person:lina@acme.com',
+        grade: 'inferred',
+        method: 'suggested',
+        linkedBy: 'autoLink',
+        note: 'M',
+      });
+
+      const recordedCalls: { method: string; accountIds: string[] }[] = [];
+      const origRunInTx = linkRepo.runInTransaction.bind(linkRepo);
+      const spyRepo: LinkRepository = {
+        listActive: () => linkRepo.listActive(),
+        listActiveSuggestions: () => linkRepo.listActiveSuggestions(),
+        listAllOpen: () => linkRepo.listAllOpen(),
+        findByIds: (ids) => linkRepo.findByIds(ids),
+        findActiveByAccounts: (ids) => linkRepo.findActiveByAccounts(ids),
+        create: (l) => linkRepo.create(l),
+        createMany: (ls) => linkRepo.createMany(ls),
+        close: (id) => linkRepo.close(id),
+        closeActiveByAccount: (id, m) => linkRepo.closeActiveByAccount(id, m),
+        closeActiveByAccounts: (ids, m) => linkRepo.closeActiveByAccounts(ids, m),
+        runInTransaction: (fn) =>
+          origRunInTx(async (tx) => {
+            const wrappedTx: LinkRepository = {
+              ...tx,
+              findActiveByAccounts: (ids) => {
+                recordedCalls.push({ method: 'findActiveByAccounts', accountIds: [...ids] });
+                return tx.findActiveByAccounts(ids);
+              },
+              closeActiveByAccounts: (ids, m) => {
+                recordedCalls.push({ method: 'closeActiveByAccounts', accountIds: [...ids] });
+                return tx.closeActiveByAccounts(ids, m);
+              },
+              createMany: (ls) => {
+                recordedCalls.push({
+                  method: 'createMany',
+                  accountIds: ls.map((l) => l.accountId),
+                });
+                return tx.createMany(ls);
+              },
+            };
+            return fn(wrappedTx);
+          }),
+      };
+
+      const origMarkLinked = adapter.markLinkedByAccounts.bind(adapter);
+      adapter.markLinkedByAccounts = async (ids, reviewedBy, reviewedAt) => {
+        recordedCalls.push({ method: 'markLinkedByAccounts', accountIds: [...ids] });
+        return origMarkLinked(ids, reviewedBy, reviewedAt);
+      };
+
+      const spyService = new IdentityQueueService(adapter, spyRepo);
+      const confirmed = await spyService.confirmSuggestions([sugZ.id, sugA.id, sugM.id], 'user:admin');
+
+      const expectedSorted = [
+        'account:n8n:a-first',
+        'account:n8n:m-mid',
+        'account:n8n:z-last',
+      ];
+      expect(recordedCalls).toEqual([
+        { method: 'findActiveByAccounts', accountIds: expectedSorted },
+        { method: 'closeActiveByAccounts', accountIds: expectedSorted },
+        { method: 'createMany', accountIds: expectedSorted },
+        { method: 'markLinkedByAccounts', accountIds: expectedSorted },
+      ]);
+      // Caller order is still preserved in return value
+      expect(confirmed.map((l) => l.accountId)).toEqual([
+        'account:n8n:z-last',
+        'account:n8n:a-first',
+        'account:n8n:m-mid',
+      ]);
+    });
+
+    it('closes open suggested links on resolveMarkServiceAccount, resolveMarkDeparted, and resolveIgnore so stale suggestions cannot later be confirmed', async () => {
+      const qSvc = await service.enqueueUnmatched({
+        externalAccountId: 'raw_svc_1',
+        source: 'n8n',
+        displayName: 'Cron Runner',
+      });
+      const sugSvc = await linkRepo.create({
+        accountId: 'account:n8n:raw_svc_1',
+        personId: 'person:omar@acme.com',
+        grade: 'inferred',
+        method: 'suggested',
+        linkedBy: 'autoLink',
+        note: 'Stale svc suggestion',
+      });
+
+      const qDep = await service.enqueueUnmatched({
+        externalAccountId: 'account:openai:dep_1',
+        source: 'openai',
+        displayName: 'Former Contractor',
+      });
+      const sugDep = await linkRepo.create({
+        accountId: 'account:openai:dep_1',
+        personId: 'person:david@acme.com',
+        grade: 'inferred',
+        method: 'suggested',
+        linkedBy: 'autoLink',
+        note: 'Stale departed suggestion',
+      });
+
+      const qIgn = await service.enqueueUnmatched({
+        externalAccountId: 'ign_1',
+        source: 'n8n',
+        displayName: 'Test Account',
+      });
+      const sugIgn = await linkRepo.create({
+        accountId: 'account:n8n:ign_1',
+        personId: 'person:lina@acme.com',
+        grade: 'inferred',
+        method: 'suggested',
+        linkedBy: 'autoLink',
+        note: 'Stale ignore suggestion',
+      });
+
+      await service.resolveMarkServiceAccount(qSvc.id, 'user:admin', 'Programmatic bot');
+      await service.resolveMarkDeparted(qDep.id, 'user:admin', 'Left company');
+      await service.resolveIgnore(qIgn.id, 'user:admin', 'External vendor');
+
+      expect(await linkRepo.listActiveSuggestions()).toHaveLength(0);
+
+      for (const staleSug of [sugSvc, sugDep, sugIgn]) {
+        await expect(
+          service.confirmSuggestions([staleSug.id], 'user:admin')
+        ).rejects.toBeInstanceOf(IdentityQueueConflictError);
+      }
     });
   });
 });

@@ -40,7 +40,7 @@ function primaryEmailOf(e: CanonicalEntity): string {
   return '';
 }
 
-function parseEmailAliases(raw: unknown, primaryEmail: string): string[] {
+export function parseEmailAliases(raw: unknown, primaryEmail: string): string[] {
   if (raw === undefined || raw === null) return [];
 
   let items: unknown[] = [];

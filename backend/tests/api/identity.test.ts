@@ -6,7 +6,7 @@
 // - POST /api/identity-queue/:id/resolve (Resolve with link/service_account/departed/ignore)
 // =============================================================================
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import http from 'node:http';
 import { app } from '../../src/server.js';
 import { DataService } from '../../src/services/dataService.js';
@@ -422,6 +422,69 @@ describe('Identity Queue REST API (SRS ID-02, ID-03)', () => {
         expect(confirmedResources.has(`identity_link:${link.id}`)).toBe(true);
       }
       expect(auditBody.entries.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('returns sanitized 500 error envelopes without leaking internal error details on unexpected failures', async () => {
+      const ds = DataService.getInstance();
+      const queue = ds.getQueueService();
+      const qItem = await queue.enqueueUnmatched({
+        source: 'n8n',
+        externalAccountId: 'account:n8n:err_leak_test',
+        displayName: 'Leak Check',
+      });
+
+      const listSpy = vi
+        .spyOn(queue, 'listPendingWithSuggestions')
+        .mockRejectedValueOnce(
+          new Error('DETAIL: relation "identity_link" constraint "uq_internal_leak" failed')
+        );
+      try {
+        const res = await authedFetch(`${baseUrl}/api/identity-queue`);
+        expect(res.status).toBe(500);
+        const body = (await res.json()) as any;
+        expect(typeof body.error).toBe('string');
+        expect(body.error).not.toMatch(/DETAIL:|identity_link|uq_internal_leak/i);
+      } finally {
+        listSpy.mockRestore();
+      }
+
+      const confirmSpy = vi
+        .spyOn(queue, 'confirmSuggestions')
+        .mockRejectedValueOnce(
+          new Error('DETAIL: syntax error near secret_column in table identity_link')
+        );
+      try {
+        const res = await authedFetch(`${baseUrl}/api/identity-queue/confirm-suggestions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ linkIds: ['22222222-2222-4222-8222-222222222222'] }),
+        });
+        expect(res.status).toBe(500);
+        const body = (await res.json()) as any;
+        expect(typeof body.error).toBe('string');
+        expect(body.error).not.toMatch(/DETAIL:|secret_column|syntax error/i);
+      } finally {
+        confirmSpy.mockRestore();
+      }
+
+      const resolveSpy = vi
+        .spyOn(queue, 'resolveIgnore')
+        .mockRejectedValueOnce(
+          new Error('DETAIL: password authentication failed for user "postgres_internal"')
+        );
+      try {
+        const res = await authedFetch(`${baseUrl}/api/identity-queue/${encodeURIComponent(qItem.id)}/resolve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'ignore' }),
+        });
+        expect(res.status).toBe(500);
+        const body = (await res.json()) as any;
+        expect(typeof body.error).toBe('string');
+        expect(body.error).not.toMatch(/DETAIL:|password authentication|postgres_internal/i);
+      } finally {
+        resolveSpy.mockRestore();
+      }
     });
   });
 });

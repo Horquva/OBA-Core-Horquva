@@ -22,8 +22,9 @@ identityRouter.get('/', async (_req: Request, res: Response) => {
     const items = await queueService.listPendingWithSuggestions(dataService.getGraph());
 
     res.json({ items });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to fetch identity queue.' });
+  } catch (err: unknown) {
+    console.error('[identity-queue] Failed to fetch identity queue:', err);
+    res.status(500).json({ error: 'Failed to fetch identity queue.' });
   }
 });
 
@@ -57,12 +58,13 @@ identityRouter.post('/confirm-suggestions', async (req: Request, res: Response) 
     }
 
     res.json({ confirmed: links.length, links });
-  } catch (err: any) {
-    if (err instanceof IdentityQueueError) {
+  } catch (err: unknown) {
+    if (err instanceof IdentityQueueError && err.status < 500) {
       res.status(err.status).json({ error: err.message });
       return;
     }
-    res.status(500).json({ error: err.message || 'Failed to confirm suggested links.' });
+    console.error('[identity-queue] Failed to confirm identity suggestions:', err);
+    res.status(500).json({ error: 'Failed to confirm identity suggestions.' });
   }
 });
 
@@ -131,11 +133,12 @@ identityRouter.post('/:id/resolve', async (req: Request, res: Response) => {
     dataService.addAuditEntry(actor, 'IDENTITY_RESOLVED', `identity:${queueItemId}`, `${item.source} account "${label}" ${outcome}.`);
 
     res.json({ success: true });
-  } catch (err: any) {
-    if (err instanceof IdentityQueueError) {
+  } catch (err: unknown) {
+    if (err instanceof IdentityQueueError && err.status < 500) {
       res.status(err.status).json({ error: err.message });
       return;
     }
-    res.status(500).json({ error: err.message || 'Failed to resolve identity item.' });
+    console.error('[identity-queue] Failed to resolve identity queue item:', err);
+    res.status(500).json({ error: 'Failed to resolve identity queue item.' });
   }
 });

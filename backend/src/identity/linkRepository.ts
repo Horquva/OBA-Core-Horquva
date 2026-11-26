@@ -116,31 +116,33 @@ export class PostgresLinkRepository implements LinkRepository {
   }
 
   public async findByIds(ids: string[]): Promise<IdentityLink[]> {
-    const validIds = Array.from(new Set(ids.filter((id) => UUID_REGEX.test(id))));
+    const validIds = Array.from(new Set(ids.filter((id) => UUID_REGEX.test(id)))).sort();
     if (validIds.length === 0) {
       return [];
     }
+    const lockClause = this.inTransaction ? ' ORDER BY account_id ASC, id ASC FOR UPDATE' : '';
     const res = await this.q(
       `SELECT ${SELECT_COLUMNS}
          FROM identity_link
-        WHERE id = ANY($1::uuid[])`,
+        WHERE id = ANY($1::uuid[])${lockClause}`,
       [validIds]
     );
     return res.rows.map(rowToIdentityLink);
   }
 
   public async findActiveByAccounts(accountIds: string[]): Promise<IdentityLink[]> {
-    const uniqueIds = Array.from(new Set(accountIds));
+    const uniqueIds = Array.from(new Set(accountIds)).sort();
     if (uniqueIds.length === 0) {
       return [];
     }
+    const forUpdate = this.inTransaction ? ' FOR UPDATE' : '';
     const res = await this.q(
       `SELECT ${SELECT_COLUMNS}
          FROM identity_link
         WHERE account_id = ANY($1::text[])
           AND valid_to IS NULL
           AND method <> 'suggested'
-        ORDER BY valid_from ASC, id ASC`,
+        ORDER BY account_id ASC, valid_from ASC, id ASC${forUpdate}`,
       [uniqueIds]
     );
     return res.rows.map(rowToIdentityLink);
@@ -219,13 +221,30 @@ export class PostgresLinkRepository implements LinkRepository {
     accountIds: string[],
     methods?: LinkMethod[]
   ): Promise<number> {
-    const uniqueIds = Array.from(new Set(accountIds));
+    const uniqueIds = Array.from(new Set(accountIds)).sort();
     if (uniqueIds.length === 0) {
       return 0;
     }
     if (methods !== undefined) {
       if (methods.length === 0) {
         return 0;
+      }
+      if (this.inTransaction) {
+        const res = await this.q(
+          `UPDATE identity_link
+              SET valid_to = NOW()
+            WHERE id IN (
+              SELECT id
+                FROM identity_link
+               WHERE account_id = ANY($1::text[])
+                 AND valid_to IS NULL
+                 AND method = ANY($2::text[])
+               ORDER BY account_id ASC, id ASC
+               FOR UPDATE
+            )`,
+          [uniqueIds, methods]
+        );
+        return res.rowCount ?? 0;
       }
       const res = await this.q(
         `UPDATE identity_link
@@ -234,6 +253,23 @@ export class PostgresLinkRepository implements LinkRepository {
             AND valid_to IS NULL
             AND method = ANY($2::text[])`,
         [uniqueIds, methods]
+      );
+      return res.rowCount ?? 0;
+    }
+
+    if (this.inTransaction) {
+      const res = await this.q(
+        `UPDATE identity_link
+            SET valid_to = NOW()
+          WHERE id IN (
+            SELECT id
+              FROM identity_link
+             WHERE account_id = ANY($1::text[])
+               AND valid_to IS NULL
+             ORDER BY account_id ASC, id ASC
+             FOR UPDATE
+          )`,
+        [uniqueIds]
       );
       return res.rowCount ?? 0;
     }

@@ -14,6 +14,7 @@ import type { Query } from '../repositories/graphRepository.js';
 import type { ContinuityGraph } from '../domain/graph/index.js';
 import { InMemoryLinkRepository, type LinkRepository } from './linkRepository.js';
 import { IdentityMatcher, type MatchCandidate } from './matcher.js';
+import { parseEmailAliases } from './syncHook.js';
 
 export class IdentityQueueError extends Error {
   public readonly status: number;
@@ -65,40 +66,15 @@ export interface IdentityQueueItemEnriched {
   suggestions: QueueSuggestionView[];
 }
 
-function parseEmailAliases(raw: unknown, primaryEmail: string): string[] {
-  if (raw === undefined || raw === null) return [];
-
-  let entries: unknown[] = [];
-  if (Array.isArray(raw)) {
-    entries = raw;
-  } else if (typeof raw === 'string') {
-    const trimmed = raw.trim();
-    if (!trimmed) return [];
-    if (trimmed.startsWith('[')) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        entries = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    } else {
-      entries = trimmed.split(',');
-    }
-  } else {
-    return [];
+function getPgErrorCode(err: unknown): string | undefined {
+  if (!err || typeof err !== 'object') return undefined;
+  const rec = err as { code?: unknown; cause?: unknown };
+  if (typeof rec.code === 'string') return rec.code;
+  if (rec.cause && typeof rec.cause === 'object') {
+    const causeCode = (rec.cause as { code?: unknown }).code;
+    if (typeof causeCode === 'string') return causeCode;
   }
-
-  const primaryLower = primaryEmail.trim().toLowerCase();
-  const seen = new Set<string>();
-  const aliases: string[] = [];
-  for (const entry of entries) {
-    if (typeof entry !== 'string') continue;
-    const norm = entry.trim().toLowerCase();
-    if (!norm || norm === primaryLower || seen.has(norm)) continue;
-    seen.add(norm);
-    aliases.push(norm);
-  }
-  return aliases;
+  return undefined;
 }
 
 export interface QueueItemFilter {
@@ -122,6 +98,7 @@ export interface IdentityQueueAdapter {
   findPendingByCandidate(source: string, externalAccountId: string): Promise<IdentityQueueItem | null>;
   list(filter?: QueueItemFilter): Promise<IdentityQueueItem[]>;
   findById(id: string): Promise<IdentityQueueItem | null>;
+  findByIdForUpdate?(id: string): Promise<IdentityQueueItem | null>;
   update(id: string, updates: Partial<IdentityQueueItem>): Promise<IdentityQueueItem>;
   recordAuditLog(log: AuditLogEntry): Promise<void>;
   withQuery?(q: Query): IdentityQueueAdapter;
@@ -170,6 +147,10 @@ export class InMemoryIdentityQueueAdapter implements IdentityQueueAdapter {
   public async findById(id: string): Promise<IdentityQueueItem | null> {
     const found = this.items.find((i) => i.id === id);
     return found ? { ...found } : null;
+  }
+
+  public async findByIdForUpdate(id: string): Promise<IdentityQueueItem | null> {
+    return this.findById(id);
   }
 
   public async update(id: string, updates: Partial<IdentityQueueItem>): Promise<IdentityQueueItem> {
@@ -306,6 +287,23 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
     return this.rowToQueueItem(res.rows[0]);
   }
 
+  public async findByIdForUpdate(id: string): Promise<IdentityQueueItem | null> {
+    if (!UUID_REGEX.test(id)) return null;
+    const res = await this.q(
+      `
+      SELECT id, external_account_id, source, display_name, email_candidate, status,
+             notes, reviewed_by, reviewed_at, created_at
+      FROM identity_queue
+      WHERE id = $1
+      FOR UPDATE;
+      `,
+      [id]
+    );
+
+    if (res.rows.length === 0) return null;
+    return this.rowToQueueItem(res.rows[0]);
+  }
+
   public async update(id: string, updates: Partial<IdentityQueueItem>): Promise<IdentityQueueItem> {
     if (!UUID_REGEX.test(id)) {
       throw new IdentityQueueNotFoundError(`Queue item with ID ${id} not found.`);
@@ -360,7 +358,7 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
     reviewedBy: string,
     reviewedAt: Date
   ): Promise<IdentityQueueItem[]> {
-    const uniqueAccountIds = Array.from(new Set(accountIds));
+    const uniqueAccountIds = Array.from(new Set(accountIds)).sort();
     if (uniqueAccountIds.length === 0) return [];
     const res = await this.q(
       `
@@ -424,6 +422,29 @@ export class IdentityQueueService {
       return this.adapter.withQuery(txRepo.getQuery());
     }
     return this.adapter;
+  }
+
+  private async runLinkTransaction<T>(fn: (txRepo: LinkRepository) => Promise<T>): Promise<T> {
+    try {
+      return await this.linkRepo.runInTransaction(fn);
+    } catch (err) {
+      if (err instanceof IdentityQueueError) {
+        throw err;
+      }
+      const code = getPgErrorCode(err);
+      if (code === '23505') {
+        throw new IdentityQueueConflictError(
+          'Account already has a conflicting active identity link.'
+        );
+      }
+      if (code === '23503') {
+        throw new IdentityQueueError(
+          400,
+          'Referenced account or person entity does not exist.'
+        );
+      }
+      throw err;
+    }
   }
 
   /**
@@ -571,7 +592,7 @@ export class IdentityQueueService {
    * Action 'link': Transactionally links an account to a confirmed directory person ID.
    */
   public async resolveLink(id: string, personEntityId: string, adminUserId: string): Promise<IdentityQueueItem> {
-    return this.linkRepo.runInTransaction(async (txRepo) => {
+    return this.runLinkTransaction(async (txRepo) => {
       const txAdapter = this.adapterFor(txRepo);
       const item = await txAdapter.findById(id);
       if (!item) {
@@ -598,6 +619,18 @@ export class IdentityQueueService {
         linkedBy: adminUserId,
         note: `Linked via identity queue (${id})`,
       });
+
+      if (txAdapter.findByIdForUpdate) {
+        const locked = await txAdapter.findByIdForUpdate(id);
+        if (!locked) {
+          throw new IdentityQueueNotFoundError(`Identity queue item ${id} not found.`);
+        }
+        if (locked.status !== 'pending') {
+          throw new IdentityQueueConflictError(
+            `Identity queue item ${id} is already resolved (${locked.status}).`
+          );
+        }
+      }
 
       const updated = await txAdapter.update(id, {
         status: 'linked',
@@ -639,7 +672,7 @@ export class IdentityQueueService {
       seenIds.add(id);
     }
 
-    return this.linkRepo.runInTransaction(async (txRepo) => {
+    return this.runLinkTransaction(async (txRepo) => {
       const txAdapter = this.adapterFor(txRepo);
       const foundLinks = await txRepo.findByIds(linkIds);
       const byId = new Map(foundLinks.map((l) => [l.id, l]));
@@ -668,7 +701,7 @@ export class IdentityQueueService {
         seenAccounts.add(link.accountId);
       }
 
-      const accountIds = Array.from(seenAccounts);
+      const accountIds = Array.from(seenAccounts).sort();
       const existingActive = await txRepo.findActiveByAccounts(accountIds);
       const conflictingAdmin = existingActive.find((l) => l.method === 'admin_link');
       if (conflictingAdmin) {
@@ -679,8 +712,11 @@ export class IdentityQueueService {
 
       await txRepo.closeActiveByAccounts(accountIds, ['suggested', 'exact_email']);
 
-      const createdLinks = await txRepo.createMany(
-        requestedLinks.map((sug) => ({
+      const sortedLinks = [...requestedLinks].sort((a, b) =>
+        a.accountId < b.accountId ? -1 : a.accountId > b.accountId ? 1 : 0
+      );
+      const createdLinksSorted = await txRepo.createMany(
+        sortedLinks.map((sug) => ({
           accountId: sug.accountId,
           personId: sug.personId,
           grade: 'confirmed',
@@ -689,6 +725,8 @@ export class IdentityQueueService {
           note: sug.note ? `Confirmed suggestion: ${sug.note}` : `Confirmed suggestion (${sug.id})`,
         }))
       );
+      const createdByAccount = new Map(createdLinksSorted.map((l) => [l.accountId, l]));
+      const createdLinks = requestedLinks.map((sug) => createdByAccount.get(sug.accountId)!);
 
       const now = new Date();
       if (txAdapter.markLinkedByAccounts) {
@@ -724,81 +762,100 @@ export class IdentityQueueService {
     });
   }
 
+  private async resolveNonLink(
+    id: string,
+    status: 'service_account' | 'departed' | 'ignored',
+    auditAction: string,
+    adminUserId: string,
+    notes?: string
+  ): Promise<IdentityQueueItem> {
+    return this.runLinkTransaction(async (txRepo) => {
+      const txAdapter = this.adapterFor(txRepo);
+      const item = await txAdapter.findById(id);
+      if (!item) {
+        throw new IdentityQueueNotFoundError(`Queue item with ID ${id} not found.`);
+      }
+      if (item.status !== 'pending') {
+        throw new IdentityQueueConflictError(
+          `Identity queue item ${id} is already resolved (${item.status}).`
+        );
+      }
+
+      const accountId = toCanonicalAccountId(item.source, item.externalAccountId);
+      await txRepo.closeActiveByAccount(accountId, ['suggested']);
+
+      if (txAdapter.findByIdForUpdate) {
+        const locked = await txAdapter.findByIdForUpdate(id);
+        if (!locked) {
+          throw new IdentityQueueNotFoundError(`Queue item with ID ${id} not found.`);
+        }
+        if (locked.status !== 'pending') {
+          throw new IdentityQueueConflictError(
+            `Identity queue item ${id} is already resolved (${locked.status}).`
+          );
+        }
+      }
+
+      const updated = await txAdapter.update(id, {
+        status,
+        notes: notes || null,
+        reviewedBy: adminUserId,
+        reviewedAt: new Date(),
+      });
+
+      await txAdapter.recordAuditLog({
+        userId: adminUserId,
+        action: auditAction,
+        resourceType: 'identity_queue',
+        resourceId: id,
+        details: {
+          externalAccountId: updated.externalAccountId,
+          source: updated.source,
+          accountId,
+          notes,
+        },
+      });
+
+      return updated;
+    });
+  }
+
   /**
    * Action 'mark_service_account': Classifies account as programmatic service account.
    */
   public async resolveMarkServiceAccount(id: string, adminUserId: string, notes?: string): Promise<IdentityQueueItem> {
-    const updated = await this.adapter.update(id, {
-      status: 'service_account',
-      notes: notes || null,
-      reviewedBy: adminUserId,
-      reviewedAt: new Date(),
-    });
-
-    await this.adapter.recordAuditLog({
-      userId: adminUserId,
-      action: 'identity_queue.mark_service_account',
-      resourceType: 'identity_queue',
-      resourceId: id,
-      details: {
-        externalAccountId: updated.externalAccountId,
-        source: updated.source,
-        notes,
-      },
-    });
-
-    return updated;
+    return this.resolveNonLink(
+      id,
+      'service_account',
+      'identity_queue.mark_service_account',
+      adminUserId,
+      notes
+    );
   }
 
   /**
    * Action 'mark_departed': Confirms account belonged to a departed employee.
    */
   public async resolveMarkDeparted(id: string, adminUserId: string, notes?: string): Promise<IdentityQueueItem> {
-    const updated = await this.adapter.update(id, {
-      status: 'departed',
-      notes: notes || null,
-      reviewedBy: adminUserId,
-      reviewedAt: new Date(),
-    });
-
-    await this.adapter.recordAuditLog({
-      userId: adminUserId,
-      action: 'identity_queue.mark_departed',
-      resourceType: 'identity_queue',
-      resourceId: id,
-      details: {
-        externalAccountId: updated.externalAccountId,
-        source: updated.source,
-        notes,
-      },
-    });
-
-    return updated;
+    return this.resolveNonLink(
+      id,
+      'departed',
+      'identity_queue.mark_departed',
+      adminUserId,
+      notes
+    );
   }
 
   /**
    * Action 'ignore': Ignores unneeded candidate account.
    */
   public async resolveIgnore(id: string, adminUserId: string, notes?: string): Promise<IdentityQueueItem> {
-    const updated = await this.adapter.update(id, {
-      status: 'ignored',
-      notes: notes || null,
-      reviewedBy: adminUserId,
-      reviewedAt: new Date(),
-    });
-
-    await this.adapter.recordAuditLog({
-      userId: adminUserId,
-      action: 'identity_queue.ignore',
-      resourceType: 'identity_queue',
-      resourceId: id,
-      details: {
-        externalAccountId: updated.externalAccountId,
-        source: updated.source,
-        notes,
-      },
-    });
-
-    return updated;
+    return this.resolveNonLink(
+      id,
+      'ignored',
+      'identity_queue.ignore',
+      adminUserId,
+      notes
+    );
   }
 }
