@@ -32,7 +32,8 @@ beforeAll(async () => {
       return send({
         value: [
           { id: 'e-omar', displayName: 'Omar Farooq', mail: 'omar@acme.com', accountEnabled: false, employeeLeaveDateTime: null },
-          { id: 'e-chen', displayName: 'Chen Wei', mail: 'chen@acme.com', accountEnabled: true, employeeLeaveDateTime: '2026-12-31T00:00:00Z' },
+          { id: 'e-chen', displayName: 'Chen Wei', mail: 'chen@acme.com', accountEnabled: true, employeeLeaveDateTime: '2026-12-31T00:00:00Z', jobTitle: 'Staff Engineer' },
+          { id: 'e-lina', displayName: 'Lina Haddad', mail: 'lina@acme.com', accountEnabled: true, jobTitle: 'Researcher', department: 'Ethics' },
         ],
       });
     }
@@ -83,6 +84,22 @@ describe('Google Workspace connector without a key', () => {
 });
 
 describe('Entra connector', () => {
+  it('missing jobTitle and department produce no description', async () => {
+    const entra = offline(new EntraConnector('conn_e3', 'Entra', { tenantId: 't', clientId: 'c', clientSecret: 's', graphBaseUrl: `${baseUrl}/graph` }));
+    const result = await entra.sync();
+    const omar = result.entities.find((e) => e.externalRefs.entraId === 'e-omar')!;
+    expect(omar.description).toBeUndefined();
+    expect(omar.externalRefs).toMatchObject({ jobTitle: '', department: '' });
+    expect(JSON.stringify(result.entities)).not.toMatch(/Team Member|Operations/);
+  });
+
+  it('jobTitle only gives description equal to jobTitle', async () => {
+    const entra = offline(new EntraConnector('conn_e4', 'Entra', { tenantId: 't', clientId: 'c', clientSecret: 's', graphBaseUrl: `${baseUrl}/graph` }));
+    const result = await entra.sync();
+    expect(result.entities.find((e) => e.externalRefs.entraId === 'e-chen')!.description).toBe('Staff Engineer');
+    expect(result.entities.find((e) => e.externalRefs.entraId === 'e-lina')!.description).toBe('Researcher - Ethics');
+  });
+
   it('stores accountEnabled and the leave date as strings, and a disabled user is departed', async () => {
     const entra = offline(new EntraConnector('conn_e', 'Entra', { tenantId: 't', clientId: 'c', clientSecret: 's', graphBaseUrl: `${baseUrl}/graph` }));
     const result = await entra.sync();

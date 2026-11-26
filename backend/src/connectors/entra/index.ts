@@ -127,10 +127,13 @@ export class EntraConnector extends BaseConnector {
           id: personId,
           kind: 'person',
           name: u.displayName || email,
-          description: `${u.jobTitle || 'Team Member'} - ${u.department || 'Operations'}`,
+          // Only what Entra says: no default title or department (F11).
+          description: [u.jobTitle, u.department].filter(Boolean).join(' - ') || undefined,
           externalRefs: {
             entraId: u.id,
             email,
+            // Empty when Entra has none. Refs merge on upsert, so a cleared
+            // value must overwrite the old one rather than disappear.
             department: u.department || '',
             jobTitle: u.jobTitle || '',
             // Why the status fact says departed. Stored as strings; an empty
