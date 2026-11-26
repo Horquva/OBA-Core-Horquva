@@ -20,6 +20,7 @@ import { DepartureRowPreview } from './DepartureRowPreview';
 import { cn } from '@/lib/cn';
 import { useSession } from '@/lib/session';
 import { canInitiateDeparture } from '@/lib/permissions';
+import { UnknownValue } from '@/components/ui/marks';
 
 export interface DeparturesListProps {
   initialDepartures?: DepartureSummary[];
@@ -254,7 +255,7 @@ export function DeparturesList({ initialDepartures }: DeparturesListProps) {
                                   {dep.person.name}
                                 </Link>
                                 <p className="type-meta truncate text-ink-3">
-                                  {[dep.role, dep.team].filter(Boolean).join(' · ') || 'Team member'}
+                                  {[dep.role, dep.team].filter(Boolean).join(' · ') || <UnknownValue title="Role and team not recorded in the directory" />}
                                 </p>
                               </div>
                             </div>

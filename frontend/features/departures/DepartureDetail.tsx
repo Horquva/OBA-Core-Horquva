@@ -401,7 +401,7 @@ export function DepartureDetail({ id, initialDetail }: DepartureDetailProps) {
                 <h1 className="type-title text-ink">{detail.person.name}</h1>
                 <span className={cn('inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium', STATUS_PILL[status])}>{STATUS_LABEL[status]}</span>
               </div>
-              <p className="mt-0.5 text-sm text-ink-2">{[detail.role, detail.team].filter(Boolean).join(' · ') || 'Team member'}</p>
+              <p className="mt-0.5 text-sm text-ink-2">{[detail.role, detail.team].filter(Boolean).join(' · ') || <UnknownValue title="Role and team not recorded in the directory" />}</p>
               <div className="type-meta mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-ink-3">
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />

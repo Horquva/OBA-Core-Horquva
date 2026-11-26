@@ -90,7 +90,7 @@ export async function generateHandoverPackPdf(
       // ── Who is leaving ─────────────────────────────────────────────────────
       doc.font('Helvetica-Bold').fontSize(22).fillColor(BRAND.ink).text(summary.person.name, L, y);
       y += 28;
-      const roleLine = [summary.role, summary.team].filter(Boolean).join(' · ') || 'Team member';
+      const roleLine = [summary.role, summary.team].filter(Boolean).join(' · ') || 'Role unknown';
       doc.font('Helvetica').fontSize(10).fillColor(BRAND.ink2).text(roleLine, L, y);
       y += 22;
 
@@ -426,7 +426,7 @@ export async function generateExecutiveScanPdf(ds: DataService, options: PdfGene
         doc.font('Helvetica-Bold').fontSize(9.5).fillColor(BRAND.ink).text(d.person.name, L, y);
         doc.font('Helvetica').fontSize(9).fillColor(BRAND.ink2).text(`Leaves ${ymdDate(d.leaveDate)}`, L, y, { width: CONTENT_W, align: 'right' });
         y += 13;
-        const meta = `${d.role || d.team || 'Team member'} · ${d.assetsHandedOver} of ${d.assetsTotal} handed over`;
+        const meta = `${d.role || d.team || 'Role unknown'} · ${d.assetsHandedOver} of ${d.assetsTotal} handed over`;
         doc.font('Helvetica').fontSize(8.5).fillColor(BRAND.ink3).text(meta, L, y);
         y += 12;
         if (d.hasAlert) {

@@ -9,6 +9,7 @@ import { ErrorState } from '@/components/ui/states';
 import { formatDate, formatRelativeTime } from '@/lib/format';
 import { DEPARTURE_STAGES, STAGE_LABEL, type DepartureSummary } from '@/types/view';
 import { cn } from '@/lib/cn';
+import { UnknownValue } from '@/components/ui/marks';
 
 export interface DeparturesPanelProps {
   /** undefined = loading, null = failed to load. */
@@ -83,7 +84,7 @@ export function DeparturesPanel({ departures, onRetry, className }: DeparturesPa
                       </time>
                     </div>
                     <p className="type-meta mt-0.5 truncate text-ink-3">
-                      {dep.role || dep.team || 'Team member'}
+                      {dep.role || dep.team || <UnknownValue title="Role and team not recorded in the directory" />}
                       <span aria-hidden="true"> · </span>
                       {STAGE_LABEL[dep.stage]} (step {step} of {DEPARTURE_STAGES.length})
                     </p>
