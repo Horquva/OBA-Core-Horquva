@@ -5,7 +5,7 @@ import { HeroArt } from '@/components/ui/HeroArt';
 import { Brand } from '@/components/shell/Brand';
 import { Button } from '@/components/ui/Button';
 import { ErrorState, Skeleton } from '@/components/ui/states';
-import { DEV_USERS } from '@/lib/session';
+import { devRoles, devUsers } from '@/lib/session';
 import { navigate, replace } from '@/lib/navigation';
 import {
   authStartUrl,
@@ -82,7 +82,7 @@ export default function SignInPage() {
   const handleDevSignIn = async (role: Role) => {
     setDevError(null);
     try {
-      await devSignIn(DEV_USERS[role]);
+      await devSignIn(devUsers()[role]!);
       navigate(returnTo);
     } catch (err) {
       setDevError(err instanceof Error ? err.message : 'Dev sign-in failed.');
@@ -228,11 +228,11 @@ export default function SignInPage() {
               </Button>
             ))}
 
-            {options.status === 'ready' && options.data.devLogin && (
+            {options.status === 'ready' && options.data.devLogin && devRoles().length > 0 && (
               <div className="space-y-2 rounded-control border border-dashed border-rule p-3">
-                <p className="text-[11px] text-ink-3">Local development only: sign in as a seeded user.</p>
+                <p className="text-[11px] text-ink-3">Local development only: sign in as a test-org user.</p>
                 <div className="flex gap-2">
-                  {(Object.keys(DEV_USERS) as Role[]).map((role) => (
+                  {devRoles().map((role) => (
                     <Button key={role} variant="ghost" className="flex-1 justify-center capitalize" onClick={() => handleDevSignIn(role)}>
                       {role}
                     </Button>

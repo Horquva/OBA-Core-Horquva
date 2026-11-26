@@ -3,7 +3,8 @@
 import * as React from 'react';
 import type { Role, Session } from '@/types/view';
 import { devSignIn, fetchSession } from './api/session';
-import { ApiError } from './api/client';
+import { API_BASE, ApiError } from './api/client';
+import { ErrorState } from '@/components/ui/states';
 import { navigate } from './navigation';
 
 /** Production, no session: full-page trip to sign-in, coming back to where the user was. */
@@ -23,26 +24,36 @@ export interface SessionContextValue {
 const SessionContext = React.createContext<SessionContextValue | undefined>(undefined);
 
 /**
- * Dev mode signs in for real, as a seeded backend user per role, through
+ * Dev mode signs in for real, as a test-org user per role, through
  * POST /api/auth/dev/sign-in (backend needs AUTH_DEV_LOGIN=true). The backend
  * then enforces the same role the UI shows. Production never uses this.
+ *
+ * The users come from NEXT_PUBLIC_DEV_{ADMIN,REVIEWER,VIEWER}_EMAIL; a role
+ * with no email is not offered. Read at call time, with literal names so
+ * Next inlines them.
  */
-export const DEV_USERS: Record<Role, string> = {
-  admin: 'alex@acme.com',
-  reviewer: 'chen@acme.com',
-  viewer: 'maya@acme.com',
-};
+export function devUsers(): Partial<Record<Role, string>> {
+  const users: Partial<Record<Role, string>> = {};
+  const admin = process.env.NEXT_PUBLIC_DEV_ADMIN_EMAIL?.trim();
+  const reviewer = process.env.NEXT_PUBLIC_DEV_REVIEWER_EMAIL?.trim();
+  const viewer = process.env.NEXT_PUBLIC_DEV_VIEWER_EMAIL?.trim();
+  if (admin) users.admin = admin;
+  if (reviewer) users.reviewer = reviewer;
+  if (viewer) users.viewer = viewer;
+  return users;
+}
 
-/** Shown only until the dev sign-in answers, or if the backend is not running. */
-function offlineDevSession(role: Role): Session {
-  return {
-    userId: 'usr-dev-offline',
-    name: 'Dev user (backend offline)',
-    email: DEV_USERS[role],
-    role,
-    isHrManager: role === 'admin',
-    title: null,
-  };
+/** Roles the dev switcher offers, in a fixed order. */
+export function devRoles(): Role[] {
+  const users = devUsers();
+  return (['admin', 'reviewer', 'viewer'] as Role[]).filter((r) => users[r]);
+}
+
+/** Why the dev session could not start, in words the developer can act on. */
+function devSignInError(err: unknown): Error {
+  if (err instanceof ApiError && err.status === 0) return new Error(`Backend not reachable at ${API_BASE}`);
+  const detail = err instanceof Error ? err.message : String(err);
+  return new Error(`Dev sign-in failed: ${detail}`);
 }
 
 export interface SessionProviderProps {
@@ -62,12 +73,10 @@ export function SessionProvider({
   const envRole = process.env.NEXT_PUBLIC_DEV_ROLE as Role | undefined;
   const isDevSession =
     isDevProp ?? (process.env.NODE_ENV !== 'production' || Boolean(envRole));
-  const startRole: Role = envRole && envRole in DEV_USERS ? envRole : 'admin';
+  const roles = devRoles();
+  const startRole: Role | undefined = envRole && roles.includes(envRole) ? envRole : roles[0];
 
-  const [session, setSession] = React.useState<Session | null>(() => {
-    if (initialSession) return initialSession;
-    return isDevSession ? offlineDevSession(startRole) : null;
-  });
+  const [session, setSession] = React.useState<Session | null>(initialSession ?? null);
 
   const [isLoading, setIsLoading] = React.useState(!initialSession && !isDevSession);
   const [error, setError] = React.useState<Error | null>(null);
@@ -92,13 +101,17 @@ export function SessionProvider({
         return;
       }
       // No session cookie yet: sign in as the dev user for the starting role.
-      try {
-        setSession(await devSignIn(DEV_USERS[startRole]));
-      } catch (devErr) {
-        console.warn(
-          '[dev] Could not sign in to the backend. Is it running with AUTH_DEV_LOGIN=true? API calls will return 401.',
-          devErr
-        );
+      // Without one there is no session at all: never a made-up user.
+      if (err instanceof ApiError && err.status === 0) {
+        setError(devSignInError(err));
+      } else if (!startRole) {
+        setError(new Error('No dev user configured: set NEXT_PUBLIC_DEV_ADMIN_EMAIL (or the reviewer or viewer email) in frontend/.env.local.'));
+      } else {
+        try {
+          setSession(await devSignIn(devUsers()[startRole]!));
+        } catch (devErr) {
+          setError(devSignInError(devErr));
+        }
       }
       setReady(true);
     } finally {
@@ -113,11 +126,16 @@ export function SessionProvider({
   }, [initialSession, refetchSession]);
 
   const setDevRole = React.useCallback((role: Role) => {
-    // Optimistic so the UI switches at once; then become that role's backend user.
-    setSession((prev) => (prev ? { ...prev, role } : null));
-    devSignIn(DEV_USERS[role]).then(setSession, () => {
-      // Backend offline or dev login disabled: UI-only role switch.
-    });
+    const email = devUsers()[role];
+    if (!email) return;
+    // Become that role's backend user; the UI follows the session the backend returns.
+    devSignIn(email).then(
+      (next) => {
+        setError(null);
+        setSession(next);
+      },
+      (err) => setError(devSignInError(err)),
+    );
   }, []);
 
   const value = React.useMemo(
@@ -132,7 +150,22 @@ export function SessionProvider({
     [session, isLoading, error, isDevSession, setDevRole, refetchSession]
   );
 
-  return <SessionContext.Provider value={value}>{ready ? children : null}</SessionContext.Provider>;
+  // Dev with no session: say why, instead of rendering screens for nobody.
+  const devBlocked = ready && isDevSession && !session && error;
+  return (
+    <SessionContext.Provider value={value}>
+      {devBlocked ? (
+        <div className="mx-auto max-w-md p-8">
+          <ErrorState
+            message={error.message.startsWith('Backend not reachable') ? `${error.message}. Start the backend, then retry.` : error.message}
+            onRetry={() => void refetchSession()}
+          />
+        </div>
+      ) : ready ? (
+        children
+      ) : null}
+    </SessionContext.Provider>
+  );
 }
 
 export function useSession(): SessionContextValue {

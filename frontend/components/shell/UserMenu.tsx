@@ -3,10 +3,9 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
-import { useSession } from '@/lib/session';
+import { devRoles, useSession } from '@/lib/session';
 import { signOut } from '@/lib/api/session';
 import { useThemePreference, ThemePreference } from '@/lib/theme';
-import type { Role } from '@/types/view';
 
 export interface UserMenuProps extends React.HTMLAttributes<HTMLDivElement> {
   compact?: boolean;
@@ -116,13 +115,13 @@ export function UserMenu({ compact = false, className, ...props }: UserMenuProps
           </div>
 
           {/* Dev Role Switcher */}
-          {isDevSession && (
+          {isDevSession && devRoles().length > 0 && (
             <div className="space-y-1.5 border-t border-rule pt-2">
               <span className="text-[11px] font-medium text-amber-ink uppercase tracking-wider">
-                Dev Role Emulation
+                Dev role
               </span>
               <div className="grid grid-cols-3 gap-1">
-                {(['admin', 'viewer', 'reviewer'] as Role[]).map((r) => (
+                {devRoles().map((r) => (
                   <button
                     key={r}
                     type="button"

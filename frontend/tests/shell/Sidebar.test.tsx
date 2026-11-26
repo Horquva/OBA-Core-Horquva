@@ -77,6 +77,7 @@ describe('Sidebar & Navigation Shell (Task 17)', () => {
     });
 
     it('toggles UserMenu preferences modal', () => {
+      vi.stubEnv('NEXT_PUBLIC_DEV_ADMIN_EMAIL', 'admin@acme.corp');
       render(
         <SessionProvider initialSession={adminSession}>
           <Sidebar />
@@ -90,7 +91,7 @@ describe('Sidebar & Navigation Shell (Task 17)', () => {
 
       expect(screen.getByRole('dialog', { name: 'User preferences and theme' })).toBeInTheDocument();
       expect(screen.getByText('Theme')).toBeInTheDocument();
-      expect(screen.getByText('Dev Role Emulation')).toBeInTheDocument();
+      expect(screen.getByText('Dev role')).toBeInTheDocument();
     });
   });
 

@@ -75,7 +75,13 @@ export default defineConfig({
       url: APP,
       reuseExistingServer: false,
       timeout: 600_000,
-      env: { NEXT_PUBLIC_API_URL: API },
+      env: {
+        NEXT_PUBLIC_API_URL: API,
+        // Dev sign-in users: the fixture org's accounts seeded by tests/e2e/seedE2E.ts.
+        NEXT_PUBLIC_DEV_ADMIN_EMAIL: 'alex@acme.com',
+        NEXT_PUBLIC_DEV_REVIEWER_EMAIL: 'chen@acme.com',
+        NEXT_PUBLIC_DEV_VIEWER_EMAIL: 'maya@acme.com',
+      },
     },
   ],
 });

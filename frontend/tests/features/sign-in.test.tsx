@@ -107,13 +107,17 @@ describe('Sign-in page (Sprint 3 D13, SEC-01)', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
-  it('in local dev, signs in as a seeded role and returns to the page', async () => {
+  it('in local dev, signs in as an env-configured role and returns to the page', async () => {
+    vi.stubEnv('NEXT_PUBLIC_DEV_ADMIN_EMAIL', 'alex@acme.com');
+    vi.stubEnv('NEXT_PUBLIC_DEV_REVIEWER_EMAIL', 'chen@acme.com');
     const calls = mockBackend({ providers: [], devLogin: true });
     visit('?returnTo=%2Fpeople');
     render(<SignInPage />);
     fireEvent.click(await screen.findByRole('button', { name: 'reviewer' }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/people'));
     expect(calls.find((c) => c.url.endsWith('/dev/sign-in'))?.body).toEqual({ email: 'chen@acme.com' });
+    expect(screen.queryByRole('button', { name: 'viewer' })).toBeNull();
+    vi.unstubAllEnvs();
   });
 
   it('on a demo deployment, signs in with the demo email and password', async () => {
