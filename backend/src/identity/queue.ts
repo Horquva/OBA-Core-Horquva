@@ -8,9 +8,98 @@
 // =============================================================================
 
 import crypto from 'node:crypto';
-import { IdentityQueueItem } from '@horquva/types';
-import { query } from '../db/client.js';
-import { MatchCandidate } from './matcher.js';
+import type { IdentityLink, IdentityQueueItem } from '@horquva/types';
+import { query as defaultQuery } from '../db/client.js';
+import type { Query } from '../repositories/graphRepository.js';
+import type { ContinuityGraph } from '../domain/graph/index.js';
+import { InMemoryLinkRepository, type LinkRepository } from './linkRepository.js';
+import { IdentityMatcher, type MatchCandidate } from './matcher.js';
+
+export class IdentityQueueError extends Error {
+  public readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'IdentityQueueError';
+    this.status = status;
+  }
+}
+
+export class IdentityQueueNotFoundError extends IdentityQueueError {
+  constructor(message: string) {
+    super(404, message);
+    this.name = 'IdentityQueueNotFoundError';
+  }
+}
+
+export class IdentityQueueConflictError extends IdentityQueueError {
+  constructor(message: string) {
+    super(409, message);
+    this.name = 'IdentityQueueConflictError';
+  }
+}
+
+export function toCanonicalAccountId(source: string, externalAccountId: string): string {
+  return externalAccountId.startsWith('account:')
+    ? externalAccountId
+    : `account:${source}:${externalAccountId}`;
+}
+
+export interface QueueSuggestionView {
+  linkId: string | null;
+  person: {
+    id: string;
+    kind: 'person';
+    name: string;
+  };
+  reason: string;
+}
+
+export interface IdentityQueueItemEnriched {
+  id: string;
+  accountId: string;
+  source: string;
+  displayName: string | null;
+  emailCandidate: string | null;
+  suggestion: QueueSuggestionView | null;
+  suggestions: QueueSuggestionView[];
+}
+
+function parseEmailAliases(raw: unknown, primaryEmail: string): string[] {
+  if (raw === undefined || raw === null) return [];
+
+  let entries: unknown[] = [];
+  if (Array.isArray(raw)) {
+    entries = raw;
+  } else if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        entries = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    } else {
+      entries = trimmed.split(',');
+    }
+  } else {
+    return [];
+  }
+
+  const primaryLower = primaryEmail.trim().toLowerCase();
+  const seen = new Set<string>();
+  const aliases: string[] = [];
+  for (const entry of entries) {
+    if (typeof entry !== 'string') continue;
+    const norm = entry.trim().toLowerCase();
+    if (!norm || norm === primaryLower || seen.has(norm)) continue;
+    seen.add(norm);
+    aliases.push(norm);
+  }
+  return aliases;
+}
 
 export interface QueueItemFilter {
   status?: 'pending' | 'linked' | 'service_account' | 'departed' | 'ignored';
@@ -26,6 +115,8 @@ export interface AuditLogEntry {
   createdAt?: Date;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface IdentityQueueAdapter {
   enqueue(item: Omit<IdentityQueueItem, 'id' | 'createdAt'>): Promise<IdentityQueueItem>;
   findPendingByCandidate(source: string, externalAccountId: string): Promise<IdentityQueueItem | null>;
@@ -33,6 +124,12 @@ export interface IdentityQueueAdapter {
   findById(id: string): Promise<IdentityQueueItem | null>;
   update(id: string, updates: Partial<IdentityQueueItem>): Promise<IdentityQueueItem>;
   recordAuditLog(log: AuditLogEntry): Promise<void>;
+  withQuery?(q: Query): IdentityQueueAdapter;
+  markLinkedByAccounts?(
+    accountIds: string[],
+    reviewedBy: string,
+    reviewedAt: Date
+  ): Promise<IdentityQueueItem[]>;
 }
 
 /**
@@ -78,13 +175,39 @@ export class InMemoryIdentityQueueAdapter implements IdentityQueueAdapter {
   public async update(id: string, updates: Partial<IdentityQueueItem>): Promise<IdentityQueueItem> {
     const index = this.items.findIndex((i) => i.id === id);
     if (index === -1) {
-      throw new Error(`Queue item with ID ${id} not found.`);
+      throw new IdentityQueueNotFoundError(`Queue item with ID ${id} not found.`);
     }
     this.items[index] = {
       ...this.items[index],
       ...updates,
     };
     return { ...this.items[index] };
+  }
+
+  public async markLinkedByAccounts(
+    accountIds: string[],
+    reviewedBy: string,
+    reviewedAt: Date
+  ): Promise<IdentityQueueItem[]> {
+    if (accountIds.length === 0) return [];
+    const accountSet = new Set(accountIds);
+    const updated: IdentityQueueItem[] = [];
+
+    for (let i = 0; i < this.items.length; i++) {
+      const item = this.items[i];
+      if (item.status !== 'pending') continue;
+      const canonical = toCanonicalAccountId(item.source, item.externalAccountId);
+      if (accountSet.has(item.externalAccountId) || accountSet.has(canonical)) {
+        this.items[i] = {
+          ...item,
+          status: 'linked',
+          reviewedBy,
+          reviewedAt,
+        };
+        updated.push({ ...this.items[i] });
+      }
+    }
+    return updated;
   }
 
   public async recordAuditLog(log: AuditLogEntry): Promise<void> {
@@ -103,8 +226,18 @@ export class InMemoryIdentityQueueAdapter implements IdentityQueueAdapter {
  * PostgreSQL Review Queue Adapter using 001_initial_schema.sql tables.
  */
 export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
+  private readonly q: Query;
+
+  constructor(q: Query = defaultQuery) {
+    this.q = q;
+  }
+
+  public withQuery(q: Query): PostgresIdentityQueueAdapter {
+    return new PostgresIdentityQueueAdapter(q);
+  }
+
   public async enqueue(data: Omit<IdentityQueueItem, 'id' | 'createdAt'>): Promise<IdentityQueueItem> {
-    const res = await query(
+    const res = await this.q(
       `
       INSERT INTO identity_queue (external_account_id, source, display_name, email_candidate, status, created_at)
       VALUES ($1, $2, $3, $4, $5, NOW())
@@ -118,7 +251,7 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
   }
 
   public async findPendingByCandidate(source: string, externalAccountId: string): Promise<IdentityQueueItem | null> {
-    const res = await query(
+    const res = await this.q(
       `
       SELECT id, external_account_id, source, display_name, email_candidate, status,
              notes, reviewed_by, reviewed_at, created_at
@@ -153,12 +286,13 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
 
     sql += ` ORDER BY created_at DESC;`;
 
-    const res = await query(sql, params);
+    const res = await this.q(sql, params);
     return res.rows.map((r) => this.rowToQueueItem(r));
   }
 
   public async findById(id: string): Promise<IdentityQueueItem | null> {
-    const res = await query(
+    if (!UUID_REGEX.test(id)) return null;
+    const res = await this.q(
       `
       SELECT id, external_account_id, source, display_name, email_candidate, status,
              notes, reviewed_by, reviewed_at, created_at
@@ -173,6 +307,9 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
   }
 
   public async update(id: string, updates: Partial<IdentityQueueItem>): Promise<IdentityQueueItem> {
+    if (!UUID_REGEX.test(id)) {
+      throw new IdentityQueueNotFoundError(`Queue item with ID ${id} not found.`);
+    }
     const fields: string[] = [];
     const values: any[] = [];
     let idx = 1;
@@ -194,6 +331,14 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
       values.push(updates.reviewedAt);
     }
 
+    if (fields.length === 0) {
+      const existing = await this.findById(id);
+      if (!existing) {
+        throw new IdentityQueueNotFoundError(`Queue item with ID ${id} not found.`);
+      }
+      return existing;
+    }
+
     values.push(id);
     const sql = `
       UPDATE identity_queue
@@ -203,12 +348,41 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
                 notes, reviewed_by, reviewed_at, created_at;
     `;
 
-    const res = await query(sql, values);
+    const res = await this.q(sql, values);
+    if (res.rows.length === 0) {
+      throw new IdentityQueueNotFoundError(`Queue item with ID ${id} not found.`);
+    }
     return this.rowToQueueItem(res.rows[0]);
   }
 
+  public async markLinkedByAccounts(
+    accountIds: string[],
+    reviewedBy: string,
+    reviewedAt: Date
+  ): Promise<IdentityQueueItem[]> {
+    const uniqueAccountIds = Array.from(new Set(accountIds));
+    if (uniqueAccountIds.length === 0) return [];
+    const res = await this.q(
+      `
+      UPDATE identity_queue
+      SET status = 'linked',
+          reviewed_by = $2,
+          reviewed_at = $3
+      WHERE status = 'pending'
+        AND (
+          external_account_id = ANY($1::text[])
+          OR ('account:' || source || ':' || external_account_id) = ANY($1::text[])
+        )
+      RETURNING id, external_account_id, source, display_name, email_candidate, status,
+                notes, reviewed_by, reviewed_at, created_at;
+      `,
+      [uniqueAccountIds, reviewedBy, reviewedAt]
+    );
+    return res.rows.map((r) => this.rowToQueueItem(r));
+  }
+
   public async recordAuditLog(log: AuditLogEntry): Promise<void> {
-    await query(
+    await this.q(
       `
       INSERT INTO audit_log (user_id, action, resource_type, resource_id, details, created_at)
       VALUES ($1, $2, $3, $4, $5, NOW());
@@ -238,9 +412,18 @@ export class PostgresIdentityQueueAdapter implements IdentityQueueAdapter {
  */
 export class IdentityQueueService {
   private adapter: IdentityQueueAdapter;
+  private linkRepo: LinkRepository;
 
-  constructor(adapter?: IdentityQueueAdapter) {
+  constructor(adapter?: IdentityQueueAdapter, linkRepo?: LinkRepository) {
     this.adapter = adapter || new PostgresIdentityQueueAdapter();
+    this.linkRepo = linkRepo || new InMemoryLinkRepository();
+  }
+
+  private adapterFor(txRepo: LinkRepository): IdentityQueueAdapter {
+    if (this.adapter.withQuery && txRepo.getQuery) {
+      return this.adapter.withQuery(txRepo.getQuery());
+    }
+    return this.adapter;
   }
 
   /**
@@ -273,28 +456,272 @@ export class IdentityQueueService {
   }
 
   /**
-   * Action 'link': Assigns external account to a confirmed directory person ID.
+   * Lists pending queue items that do not have an active non-suggested link,
+   * enriched with stored `suggested` links (falling back to IdentityMatcher
+   * only when no stored suggestion exists for that account).
+   */
+  public async listPendingWithSuggestions(graph: ContinuityGraph): Promise<IdentityQueueItemEnriched[]> {
+    const [pending, activeLinks, activeSuggestions] = await Promise.all([
+      this.adapter.list({ status: 'pending' }),
+      this.linkRepo.listActive(),
+      this.linkRepo.listActiveSuggestions(),
+    ]);
+
+    const activeAccountIds = new Set(
+      activeLinks
+        .filter((l) => l.validTo === null && l.method !== 'suggested')
+        .map((l) => l.accountId)
+    );
+
+    const suggestionsByAccount = new Map<string, IdentityLink[]>();
+    for (const sug of activeSuggestions) {
+      const list = suggestionsByAccount.get(sug.accountId) ?? [];
+      list.push(sug);
+      suggestionsByAccount.set(sug.accountId, list);
+    }
+
+    let matcher: IdentityMatcher | null = null;
+    const getMatcher = () => {
+      if (matcher) return matcher;
+      const peopleNodes = graph.getAllNodes().filter((n) => n.entity.kind === 'person');
+      const directoryPeople = peopleNodes.map((n) => {
+        const refs = (n.entity.externalRefs ?? {}) as Record<string, unknown>;
+        const primaryEmail =
+          (typeof refs.email === 'string' && refs.email.trim()) ||
+          (typeof refs.primaryEmail === 'string' && refs.primaryEmail.trim()) ||
+          n.entity.id.replace(/^person:/, '');
+        return {
+          id: n.entity.id,
+          primaryEmail,
+          displayName: n.entity.name,
+          aliases: parseEmailAliases(refs.emails, primaryEmail),
+          status: ((n.facts.get('status')?.value as 'active' | 'departed') || 'active'),
+        };
+      });
+      matcher = new IdentityMatcher(directoryPeople);
+      return matcher;
+    };
+
+    const enriched: IdentityQueueItemEnriched[] = [];
+
+    for (const item of pending) {
+      const accountId = toCanonicalAccountId(item.source, item.externalAccountId);
+      if (activeAccountIds.has(accountId)) {
+        continue;
+      }
+
+      const stored = suggestionsByAccount.get(accountId) ?? [];
+      let suggestions: QueueSuggestionView[];
+
+      if (stored.length > 0) {
+        suggestions = stored.map((link) => {
+          const personNode = graph.getNode(link.personId);
+          return {
+            linkId: link.id,
+            person: {
+              id: link.personId,
+              kind: 'person' as const,
+              name: personNode?.entity.name || link.personId,
+            },
+            reason: link.note || 'Suggested match',
+          };
+        });
+      } else if (item.emailCandidate || item.displayName) {
+        const match = getMatcher().match({
+          source: item.source,
+          externalAccountId: item.externalAccountId,
+          email: item.emailCandidate || undefined,
+          displayName: item.displayName || undefined,
+        });
+        if (match.matched && match.directoryPersonId) {
+          const matchedNode = graph.getNode(match.directoryPersonId);
+          suggestions = [
+            {
+              linkId: null,
+              person: {
+                id: match.directoryPersonId,
+                kind: 'person' as const,
+                name: matchedNode?.entity.name || match.directoryPersonId,
+              },
+              reason: match.reasons.join('; ') || 'Name/email similarity match',
+            },
+          ];
+        } else {
+          suggestions = [];
+        }
+      } else {
+        suggestions = [];
+      }
+
+      enriched.push({
+        id: item.id,
+        accountId,
+        source: item.source,
+        displayName: item.displayName ?? null,
+        emailCandidate: item.emailCandidate ?? null,
+        suggestion: suggestions[0] ?? null,
+        suggestions,
+      });
+    }
+
+    return enriched;
+  }
+
+  /**
+   * Action 'link': Transactionally links an account to a confirmed directory person ID.
    */
   public async resolveLink(id: string, personEntityId: string, adminUserId: string): Promise<IdentityQueueItem> {
-    const updated = await this.adapter.update(id, {
-      status: 'linked',
-      reviewedBy: adminUserId,
-      reviewedAt: new Date(),
-    });
+    return this.linkRepo.runInTransaction(async (txRepo) => {
+      const txAdapter = this.adapterFor(txRepo);
+      const item = await txAdapter.findById(id);
+      if (!item) {
+        throw new IdentityQueueNotFoundError(`Identity queue item ${id} not found.`);
+      }
+      if (item.status !== 'pending') {
+        throw new IdentityQueueConflictError(`Identity queue item ${id} is already resolved (${item.status}).`);
+      }
 
-    await this.adapter.recordAuditLog({
-      userId: adminUserId,
-      action: 'identity_queue.resolve_link',
-      resourceType: 'identity_queue',
-      resourceId: id,
-      details: {
-        externalAccountId: updated.externalAccountId,
-        source: updated.source,
+      const accountId = toCanonicalAccountId(item.source, item.externalAccountId);
+      const existingActive = await txRepo.findActiveByAccounts([accountId]);
+      if (existingActive.some((link) => link.method === 'admin_link')) {
+        throw new IdentityQueueConflictError(`Account ${accountId} already has an active admin link.`);
+      }
+
+      await txRepo.closeActiveByAccount(accountId, ['exact_email', 'suggested']);
+
+      const now = new Date();
+      const createdLink = await txRepo.create({
+        accountId,
         personId: personEntityId,
-      },
-    });
+        grade: 'confirmed',
+        method: 'admin_link',
+        linkedBy: adminUserId,
+        note: `Linked via identity queue (${id})`,
+      });
 
-    return updated;
+      const updated = await txAdapter.update(id, {
+        status: 'linked',
+        reviewedBy: adminUserId,
+        reviewedAt: now,
+      });
+
+      await txAdapter.recordAuditLog({
+        userId: adminUserId,
+        action: 'identity_queue.resolve_link',
+        resourceType: 'identity_queue',
+        resourceId: id,
+        details: {
+          externalAccountId: updated.externalAccountId,
+          source: updated.source,
+          accountId,
+          personId: personEntityId,
+          linkId: createdLink.id,
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  /**
+   * Bulk confirms active suggested links into confirmed admin_links in one transaction.
+   */
+  public async confirmSuggestions(linkIds: string[], adminUserId: string): Promise<IdentityLink[]> {
+    if (linkIds.length === 0) {
+      throw new IdentityQueueError(400, 'At least one linkId is required.');
+    }
+
+    const seenIds = new Set<string>();
+    for (const id of linkIds) {
+      if (seenIds.has(id)) {
+        throw new IdentityQueueConflictError(`Duplicate linkId "${id}" in confirmation batch.`);
+      }
+      seenIds.add(id);
+    }
+
+    return this.linkRepo.runInTransaction(async (txRepo) => {
+      const txAdapter = this.adapterFor(txRepo);
+      const foundLinks = await txRepo.findByIds(linkIds);
+      const byId = new Map(foundLinks.map((l) => [l.id, l]));
+
+      const missingIds = linkIds.filter((id) => !byId.has(id));
+      if (missingIds.length > 0) {
+        throw new IdentityQueueNotFoundError(`Suggested link(s) not found: ${missingIds.join(', ')}`);
+      }
+
+      const requestedLinks = linkIds.map((id) => byId.get(id)!);
+      const seenAccounts = new Set<string>();
+      for (const link of requestedLinks) {
+        if (link.validTo !== null) {
+          throw new IdentityQueueConflictError(`Suggested link ${link.id} is already closed.`);
+        }
+        if (link.method !== 'suggested') {
+          throw new IdentityQueueConflictError(
+            `Link ${link.id} cannot be confirmed because its method is "${link.method}" (expected "suggested").`
+          );
+        }
+        if (seenAccounts.has(link.accountId)) {
+          throw new IdentityQueueConflictError(
+            `Multiple suggestions for account ${link.accountId} cannot be confirmed in the same batch.`
+          );
+        }
+        seenAccounts.add(link.accountId);
+      }
+
+      const accountIds = Array.from(seenAccounts);
+      const existingActive = await txRepo.findActiveByAccounts(accountIds);
+      const conflictingAdmin = existingActive.find((l) => l.method === 'admin_link');
+      if (conflictingAdmin) {
+        throw new IdentityQueueConflictError(
+          `Account ${conflictingAdmin.accountId} already has an active admin link.`
+        );
+      }
+
+      await txRepo.closeActiveByAccounts(accountIds, ['suggested', 'exact_email']);
+
+      const createdLinks = await txRepo.createMany(
+        requestedLinks.map((sug) => ({
+          accountId: sug.accountId,
+          personId: sug.personId,
+          grade: 'confirmed',
+          method: 'admin_link',
+          linkedBy: adminUserId,
+          note: sug.note ? `Confirmed suggestion: ${sug.note}` : `Confirmed suggestion (${sug.id})`,
+        }))
+      );
+
+      const now = new Date();
+      if (txAdapter.markLinkedByAccounts) {
+        await txAdapter.markLinkedByAccounts(accountIds, adminUserId, now);
+      } else {
+        const pending = await txAdapter.list({ status: 'pending' });
+        for (const item of pending) {
+          const canonical = toCanonicalAccountId(item.source, item.externalAccountId);
+          if (seenAccounts.has(item.externalAccountId) || seenAccounts.has(canonical)) {
+            await txAdapter.update(item.id, {
+              status: 'linked',
+              reviewedBy: adminUserId,
+              reviewedAt: now,
+            });
+          }
+        }
+      }
+
+      await txAdapter.recordAuditLog({
+        userId: adminUserId,
+        action: 'identity_queue.confirm_suggestions',
+        resourceType: 'identity_link',
+        resourceId: createdLinks.map((l) => l.id).join(','),
+        details: {
+          confirmedCount: createdLinks.length,
+          confirmedSuggestionIds: linkIds,
+          createdLinkIds: createdLinks.map((l) => l.id),
+          accountIds,
+        },
+      });
+
+      return createdLinks;
+    });
   }
 
   /**

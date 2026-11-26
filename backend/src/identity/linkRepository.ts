@@ -18,10 +18,14 @@ export interface LinkRepository {
   listActiveSuggestions(): Promise<IdentityLink[]>;
   listAllOpen(): Promise<IdentityLink[]>;
   findByIds(ids: string[]): Promise<IdentityLink[]>;
+  findActiveByAccounts(accountIds: string[]): Promise<IdentityLink[]>;
   create(link: CreateLinkInput): Promise<IdentityLink>;
+  createMany(links: CreateLinkInput[]): Promise<IdentityLink[]>;
   close(id: string): Promise<void>;
   closeActiveByAccount(accountId: string, methods?: LinkMethod[]): Promise<number>;
+  closeActiveByAccounts(accountIds: string[], methods?: LinkMethod[]): Promise<number>;
   runInTransaction<T>(fn: (txRepo: LinkRepository) => Promise<T>): Promise<T>;
+  getQuery?(): Query;
 }
 
 const VALID_GRADES = new Set<EvidenceGrade>(['stated', 'confirmed', 'inferred']);
@@ -107,6 +111,10 @@ export class PostgresLinkRepository implements LinkRepository {
     return res.rows.map(rowToIdentityLink);
   }
 
+  public getQuery(): Query {
+    return this.q;
+  }
+
   public async findByIds(ids: string[]): Promise<IdentityLink[]> {
     const validIds = Array.from(new Set(ids.filter((id) => UUID_REGEX.test(id))));
     if (validIds.length === 0) {
@@ -117,6 +125,23 @@ export class PostgresLinkRepository implements LinkRepository {
          FROM identity_link
         WHERE id = ANY($1::uuid[])`,
       [validIds]
+    );
+    return res.rows.map(rowToIdentityLink);
+  }
+
+  public async findActiveByAccounts(accountIds: string[]): Promise<IdentityLink[]> {
+    const uniqueIds = Array.from(new Set(accountIds));
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+    const res = await this.q(
+      `SELECT ${SELECT_COLUMNS}
+         FROM identity_link
+        WHERE account_id = ANY($1::text[])
+          AND valid_to IS NULL
+          AND method <> 'suggested'
+        ORDER BY valid_from ASC, id ASC`,
+      [uniqueIds]
     );
     return res.rows.map(rowToIdentityLink);
   }
@@ -139,6 +164,38 @@ export class PostgresLinkRepository implements LinkRepository {
     return rowToIdentityLink(res.rows[0]);
   }
 
+  public async createMany(links: CreateLinkInput[]): Promise<IdentityLink[]> {
+    if (links.length === 0) {
+      return [];
+    }
+    for (const link of links) {
+      assertValidLinkInput(link);
+    }
+    const params: any[] = [];
+    const valuesSql = links
+      .map((link) => {
+        const base = params.length;
+        params.push(
+          link.accountId,
+          link.personId,
+          link.grade,
+          link.method,
+          link.linkedBy ?? null,
+          link.note ?? null
+        );
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`;
+      })
+      .join(', ');
+
+    const res = await this.q(
+      `INSERT INTO identity_link (account_id, person_id, grade, method, linked_by, note)
+       VALUES ${valuesSql}
+       RETURNING ${SELECT_COLUMNS}`,
+      params
+    );
+    return res.rows.map(rowToIdentityLink);
+  }
+
   public async close(id: string): Promise<void> {
     if (!UUID_REGEX.test(id)) {
       return;
@@ -155,6 +212,17 @@ export class PostgresLinkRepository implements LinkRepository {
     accountId: string,
     methods?: LinkMethod[]
   ): Promise<number> {
+    return this.closeActiveByAccounts([accountId], methods);
+  }
+
+  public async closeActiveByAccounts(
+    accountIds: string[],
+    methods?: LinkMethod[]
+  ): Promise<number> {
+    const uniqueIds = Array.from(new Set(accountIds));
+    if (uniqueIds.length === 0) {
+      return 0;
+    }
     if (methods !== undefined) {
       if (methods.length === 0) {
         return 0;
@@ -162,8 +230,10 @@ export class PostgresLinkRepository implements LinkRepository {
       const res = await this.q(
         `UPDATE identity_link
             SET valid_to = NOW()
-          WHERE account_id = $1 AND valid_to IS NULL AND method = ANY($2::text[])`,
-        [accountId, methods]
+          WHERE account_id = ANY($1::text[])
+            AND valid_to IS NULL
+            AND method = ANY($2::text[])`,
+        [uniqueIds, methods]
       );
       return res.rowCount ?? 0;
     }
@@ -171,8 +241,8 @@ export class PostgresLinkRepository implements LinkRepository {
     const res = await this.q(
       `UPDATE identity_link
           SET valid_to = NOW()
-        WHERE account_id = $1 AND valid_to IS NULL`,
-      [accountId]
+        WHERE account_id = ANY($1::text[]) AND valid_to IS NULL`,
+      [uniqueIds]
     );
     return res.rowCount ?? 0;
   }
@@ -232,6 +302,13 @@ export class InMemoryLinkRepository implements LinkRepository {
     return this.rows.filter((r) => idSet.has(r.id)).map(cloneLink);
   }
 
+  public async findActiveByAccounts(accountIds: string[]): Promise<IdentityLink[]> {
+    const accountSet = new Set(accountIds);
+    return this.rows
+      .filter((r) => r.validTo === null && r.method !== 'suggested' && accountSet.has(r.accountId))
+      .map(cloneLink);
+  }
+
   public async create(link: CreateLinkInput): Promise<IdentityLink> {
     assertValidLinkInput(link);
 
@@ -274,6 +351,17 @@ export class InMemoryLinkRepository implements LinkRepository {
     return cloneLink(created);
   }
 
+  public async createMany(links: CreateLinkInput[]): Promise<IdentityLink[]> {
+    if (links.length === 0) return [];
+    return this.executeWithSavepoint(async () => {
+      const created: IdentityLink[] = [];
+      for (const link of links) {
+        created.push(await this.create(link));
+      }
+      return created;
+    }, true);
+  }
+
   public async close(id: string): Promise<void> {
     const row = this.rows.find((r) => r.id === id && r.validTo === null);
     if (row) {
@@ -285,15 +373,23 @@ export class InMemoryLinkRepository implements LinkRepository {
     accountId: string,
     methods?: LinkMethod[]
   ): Promise<number> {
-    if (methods !== undefined && methods.length === 0) {
+    return this.closeActiveByAccounts([accountId], methods);
+  }
+
+  public async closeActiveByAccounts(
+    accountIds: string[],
+    methods?: LinkMethod[]
+  ): Promise<number> {
+    if (accountIds.length === 0 || (methods !== undefined && methods.length === 0)) {
       return 0;
     }
+    const accountSet = new Set(accountIds);
     const methodSet = methods ? new Set<LinkMethod>(methods) : null;
     const now = new Date();
     let count = 0;
 
     for (const row of this.rows) {
-      if (row.validTo === null && row.accountId === accountId) {
+      if (row.validTo === null && accountSet.has(row.accountId)) {
         if (!methodSet || methodSet.has(row.method)) {
           row.validTo = now;
           count += 1;
@@ -346,10 +442,23 @@ export class InMemoryLinkRepository implements LinkRepository {
       listActiveSuggestions: () => this.listActiveSuggestions(),
       listAllOpen: () => this.listAllOpen(),
       findByIds: (ids) => this.findByIds(ids),
+      findActiveByAccounts: (accountIds) => this.findActiveByAccounts(accountIds),
       create: (link) => this.create(link),
+      createMany: async (links) => {
+        if (links.length === 0) return [];
+        return this.executeWithSavepoint(async () => {
+          const created: IdentityLink[] = [];
+          for (const link of links) {
+            created.push(await this.create(link));
+          }
+          return created;
+        }, false);
+      },
       close: (id) => this.close(id),
       closeActiveByAccount: (accountId, methods) =>
         this.closeActiveByAccount(accountId, methods),
+      closeActiveByAccounts: (accountIds, methods) =>
+        this.closeActiveByAccounts(accountIds, methods),
       runInTransaction: (fn) => this.executeWithSavepoint(fn, false),
     };
   }

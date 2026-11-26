@@ -188,7 +188,7 @@ export class DataService {
       this.linkRepository = new InMemoryLinkRepository();
     }
     this.factStore = new FactStore(this.factStoreAdapter);
-    this.queueService = new IdentityQueueService(this.queueAdapter);
+    this.queueService = new IdentityQueueService(this.queueAdapter, this.linkRepository);
     if (!this.persistent && DataService.initialStateProvider) {
       this.applyInitialState(DataService.initialStateProvider());
     }
