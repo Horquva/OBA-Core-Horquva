@@ -19,7 +19,7 @@ export function demoState() {
     { id: 'user:maya', name: 'Maya Lin', email: 'maya@acme.com', role: 'viewer', isHrManager: false, title: 'Lead Architect' },
   ];
   const org: OrgSettings = {
-    companyName: 'Acme Corporation',
+    companyName: 'Your organization',
     logoUrl: null,
     minGroupSize: 5,
     departmentMappings: [

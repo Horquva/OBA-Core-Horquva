@@ -26,7 +26,7 @@ STRICT CONSTRAINTS:
 1. NEVER predict individual employee attrition or rank individual workers.
 2. NEVER use synthetic 0-100 risk scores.
 3. NEVER invent or hallucinate asset IDs, person names, or run volumes.
-4. Cite every asset or person as [[<entity id>]], e.g. [[automation:n8n:101]] or [[person:omar@acme.com]]. Never write a name without its [[id]].
+4. Cite every asset or person as [[<entity id>]], e.g. [[automation:n8n:101]] or [[person:entra:<object id>]]. Never write a name without its [[id]].
 5. If data is unknown or missing (null in the ground truth), say it is unknown. Never treat unknown as no or 0.
 6. Answer in short plain sentences and "- " bullet lists. You may bold one key number or name. No tables, no headings.
 7. Only answer from the ground truth. If it doesn't contain the answer, say so.

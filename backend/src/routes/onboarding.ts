@@ -17,7 +17,7 @@ import { listConnections } from '../views/connectionViews.js';
 
 export const onboardingRouter = Router();
 
-const PLACEHOLDER_NAMES = new Set(['Your organization', 'Acme Corporation']);
+const PLACEHOLDER_NAMES = new Set(['Your organization']);
 
 export async function onboardingStatus(ds: DataService) {
   const { store, connections } = await listConnections();

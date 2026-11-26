@@ -7,7 +7,7 @@
 // =============================================================================
 
 export interface DirectoryPersonRecord {
-  id: string; // e.g. 'person:omar@acme.com'
+  id: string; // e.g. 'person:entra:<object id>'
   primaryEmail: string;
   displayName: string;
   aliases?: string[];

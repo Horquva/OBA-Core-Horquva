@@ -22,7 +22,7 @@ const STEPS: WizardStep[] = [
 
 const DIRECTORY_TYPES: SyncableConnectionType[] = ['entra', 'google'];
 /** Same list the backend uses to decide the organization step is not done (routes/onboarding.ts). */
-const PLACEHOLDER_NAMES = new Set(['Your organization', 'Acme Corporation']);
+const PLACEHOLDER_NAMES = new Set(['Your organization']);
 const POLL_MS = 2000;
 
 const inputClass =
