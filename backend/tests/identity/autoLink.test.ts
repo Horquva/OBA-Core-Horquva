@@ -733,4 +733,59 @@ describe('autoLink', () => {
       method: 'exact_email',
     });
   });
+
+  it('13. locks and processes deduplicated accounts in deterministic sorted account.id order before listAllOpen', async () => {
+    const events: string[] = [];
+    const origRunInTx = repo.runInTransaction.bind(repo);
+
+    const spyRepo: LinkRepository = {
+      listActive: () => repo.listActive(),
+      listActiveSuggestions: () => repo.listActiveSuggestions(),
+      listAllOpen: () => repo.listAllOpen(),
+      findByIds: (ids) => repo.findByIds(ids),
+      findActiveByAccounts: (ids) => repo.findActiveByAccounts(ids),
+      lockAccounts: (ids) => repo.lockAccounts(ids),
+      create: (l) => repo.create(l),
+      createMany: (ls) => repo.createMany(ls),
+      close: (id) => repo.close(id),
+      closeActiveByAccount: (id, m) => repo.closeActiveByAccount(id, m),
+      closeActiveByAccounts: (ids, m) => repo.closeActiveByAccounts(ids, m),
+      runInTransaction: (fn) =>
+        origRunInTx(async (tx) => {
+          const wrappedTx: LinkRepository = {
+            ...tx,
+            lockAccounts: (ids) => {
+              events.push(`lockAccounts:${ids.join(',')}`);
+              return tx.lockAccounts(ids);
+            },
+            listAllOpen: () => {
+              events.push('listAllOpen');
+              return tx.listAllOpen();
+            },
+            create: (l) => {
+              events.push(`create:${l.accountId}`);
+              return tx.create(l);
+            },
+          };
+          return fn(wrappedTx);
+        }),
+    };
+
+    const unsortedAccounts: AutoLinkAccountInput[] = [
+      { id: 'account:n8n:z-last', email: 'omar@acme.com', displayName: 'Omar Z', isBot: false },
+      { id: 'account:n8n:a-first', email: 'maya@acme.com', displayName: 'Maya A', isBot: false },
+      { id: 'account:n8n:m-mid', email: 'sarah.chen@acme.com', displayName: 'Sarah M', isBot: false },
+      { id: 'account:n8n:a-first', email: 'omar@acme.com', displayName: 'Duplicate ignored', isBot: false },
+    ];
+
+    const stats = await autoLink(unsortedAccounts, directory, spyRepo);
+    expect(stats).toEqual({ created: 3, closed: 0, suggested: 0 });
+    expect(events).toEqual([
+      'lockAccounts:account:n8n:a-first,account:n8n:m-mid,account:n8n:z-last',
+      'listAllOpen',
+      'create:account:n8n:a-first',
+      'create:account:n8n:m-mid',
+      'create:account:n8n:z-last',
+    ]);
+  });
 });

@@ -719,6 +719,7 @@ describe('IdentityQueueService (SRS ID-02, ID-03, SEC-06)', () => {
         listAllOpen: () => linkRepo.listAllOpen(),
         findByIds: (ids) => linkRepo.findByIds(ids),
         findActiveByAccounts: (ids) => linkRepo.findActiveByAccounts(ids),
+        lockAccounts: (ids) => linkRepo.lockAccounts(ids),
         create: (l) => linkRepo.create(l),
         createMany: (ls) => linkRepo.createMany(ls),
         close: (id) => linkRepo.close(id),
@@ -728,6 +729,14 @@ describe('IdentityQueueService (SRS ID-02, ID-03, SEC-06)', () => {
           origRunInTx(async (tx) => {
             const wrappedTx: LinkRepository = {
               ...tx,
+              lockAccounts: (ids) => {
+                recordedCalls.push({ method: 'lockAccounts', accountIds: [...ids] });
+                return tx.lockAccounts(ids);
+              },
+              findByIds: (ids) => {
+                recordedCalls.push({ method: 'findByIds', accountIds: [...ids] });
+                return tx.findByIds(ids);
+              },
               findActiveByAccounts: (ids) => {
                 recordedCalls.push({ method: 'findActiveByAccounts', accountIds: [...ids] });
                 return tx.findActiveByAccounts(ids);
@@ -763,6 +772,9 @@ describe('IdentityQueueService (SRS ID-02, ID-03, SEC-06)', () => {
         'account:n8n:z-last',
       ];
       expect(recordedCalls).toEqual([
+        { method: 'findByIds', accountIds: [sugZ.id, sugA.id, sugM.id] },
+        { method: 'lockAccounts', accountIds: expectedSorted },
+        { method: 'findByIds', accountIds: [sugZ.id, sugA.id, sugM.id] },
         { method: 'findActiveByAccounts', accountIds: expectedSorted },
         { method: 'closeActiveByAccounts', accountIds: expectedSorted },
         { method: 'createMany', accountIds: expectedSorted },
@@ -830,6 +842,176 @@ describe('IdentityQueueService (SRS ID-02, ID-03, SEC-06)', () => {
           service.confirmSuggestions([staleSug.id], 'user:admin')
         ).rejects.toBeInstanceOf(IdentityQueueConflictError);
       }
+    });
+
+    it('PostgresLinkRepository never emits FOR UPDATE in findByIds/findActiveByAccounts/closeActiveByAccounts and acquires sorted pg_advisory_xact_lock via lockAccounts', async () => {
+      const sqlLog: { sql: string; params: unknown[] }[] = [];
+      const stubQuery: Query = (async (sql: string, params: unknown[] = []) => {
+        sqlLog.push({ sql: sql.replace(/\s+/g, ' ').trim(), params });
+        return { rows: [], rowCount: 0 } as any;
+      }) as Query;
+
+      const pgNonTx = new PostgresLinkRepository(stubQuery, false);
+      await pgNonTx.lockAccounts(['account:n8n:z', 'account:n8n:a']);
+      expect(sqlLog).toHaveLength(0);
+
+      const pgTx = new PostgresLinkRepository(stubQuery, true);
+      await pgTx.lockAccounts([]);
+      expect(sqlLog).toHaveLength(0);
+
+      await pgTx.lockAccounts(['account:n8n:z', 'account:n8n:a', 'account:n8n:z']);
+      expect(sqlLog).toHaveLength(1);
+      expect(sqlLog[0].sql).toMatch(/pg_advisory_xact_lock\(hashtextextended\('identity_link:' \|\| a, 0\)\)/i);
+      expect(sqlLog[0].sql).toMatch(/FROM unnest\(\$1::text\[\]\) WITH ORDINALITY AS u\(a, ord\)\s+ORDER BY ord/i);
+      expect(sqlLog[0].params).toEqual([['account:n8n:a', 'account:n8n:z']]);
+
+      await pgTx.findByIds(['22222222-2222-4222-8222-222222222222']);
+      await pgTx.findActiveByAccounts(['account:n8n:a']);
+      await pgTx.closeActiveByAccounts(['account:n8n:a'], ['suggested']);
+      await pgTx.closeActiveByAccounts(['account:n8n:a']);
+
+      for (const entry of sqlLog.slice(1)) {
+        expect(entry.sql.toUpperCase()).not.toContain('FOR UPDATE');
+      }
+    });
+
+    it('confirmSuggestions executes sorted pg_advisory_xact_lock before re-reading and rejects 409 without mutating if a suggestion closes concurrently before lock acquisition', async () => {
+      const sugId = '33333333-3333-4333-8333-333333333333';
+      const nowIso = new Date('2026-11-26T00:00:00Z').toISOString();
+      const queriesExecuted: string[] = [];
+      let lockAcquired = false;
+
+      const raceQuery: Query = (async (sql: string) => {
+        const normalized = sql.replace(/\s+/g, ' ').trim();
+        queriesExecuted.push(normalized);
+        const upper = normalized.toUpperCase();
+
+        if (upper.includes('PG_ADVISORY_XACT_LOCK')) {
+          lockAcquired = true;
+          return { rows: [], rowCount: 0 } as any;
+        }
+        if (upper.includes('FROM IDENTITY_LINK') && upper.includes('WHERE ID = ANY($1::UUID[])')) {
+          // Before lock: open suggested link; After lock: concurrently closed!
+          return {
+            rows: [
+              {
+                id: sugId,
+                account_id: 'account:n8n:race_1',
+                person_id: 'person:omar@acme.com',
+                grade: 'inferred',
+                method: 'suggested',
+                linked_by: 'autoLink',
+                note: 'Suggested match',
+                valid_from: nowIso,
+                valid_to: lockAcquired ? nowIso : null,
+              },
+            ],
+            rowCount: 1,
+          } as any;
+        }
+        return { rows: [], rowCount: 0 } as any;
+      }) as Query;
+
+      const pgQueue = new IdentityQueueService(
+        new PostgresIdentityQueueAdapter(raceQuery),
+        new PostgresLinkRepository(raceQuery, true)
+      );
+
+      await expect(pgQueue.confirmSuggestions([sugId], 'user:admin')).rejects.toBeInstanceOf(
+        IdentityQueueConflictError
+      );
+
+      const lockIdx = queriesExecuted.findIndex((s) =>
+        s.toLowerCase().includes('pg_advisory_xact_lock')
+      );
+      expect(lockIdx).toBeGreaterThan(-1);
+      const findByIdsIndices = queriesExecuted
+        .map((s, idx) => (s.toUpperCase().includes('WHERE ID = ANY($1::UUID[])') ? idx : -1))
+        .filter((idx) => idx !== -1);
+      expect(findByIdsIndices.length).toBe(2);
+      expect(findByIdsIndices[0]).toBeLessThan(lockIdx);
+      expect(findByIdsIndices[1]).toBeGreaterThan(lockIdx);
+
+      // Must NOT mutate identity_link or identity_queue after post-lock 409
+      expect(queriesExecuted.some((s) => s.toUpperCase().startsWith('UPDATE IDENTITY_LINK'))).toBe(false);
+      expect(queriesExecuted.some((s) => s.toUpperCase().startsWith('INSERT INTO IDENTITY_LINK'))).toBe(false);
+      expect(queriesExecuted.some((s) => s.toUpperCase().startsWith('UPDATE IDENTITY_QUEUE'))).toBe(false);
+    });
+
+    it('resolveLink and resolveNonLink acquire lockAccounts([accountId]) before reading/mutating links or locking queue row', async () => {
+      const qLink = await service.enqueueUnmatched({
+        externalAccountId: 'raw_lock_link',
+        source: 'n8n',
+        displayName: 'Lock Link',
+      });
+      const qNonLink = await service.enqueueUnmatched({
+        externalAccountId: 'raw_lock_nonlink',
+        source: 'openai',
+        displayName: 'Lock NonLink',
+      });
+
+      const events: string[] = [];
+      const origRunInTx = linkRepo.runInTransaction.bind(linkRepo);
+      const spyRepo: LinkRepository = {
+        listActive: () => linkRepo.listActive(),
+        listActiveSuggestions: () => linkRepo.listActiveSuggestions(),
+        listAllOpen: () => linkRepo.listAllOpen(),
+        findByIds: (ids) => linkRepo.findByIds(ids),
+        findActiveByAccounts: (ids) => linkRepo.findActiveByAccounts(ids),
+        lockAccounts: (ids) => linkRepo.lockAccounts(ids),
+        create: (l) => linkRepo.create(l),
+        createMany: (ls) => linkRepo.createMany(ls),
+        close: (id) => linkRepo.close(id),
+        closeActiveByAccount: (id, m) => linkRepo.closeActiveByAccount(id, m),
+        closeActiveByAccounts: (ids, m) => linkRepo.closeActiveByAccounts(ids, m),
+        runInTransaction: (fn) =>
+          origRunInTx(async (tx) => {
+            const wrappedTx: LinkRepository = {
+              ...tx,
+              lockAccounts: (ids) => {
+                events.push(`lockAccounts:${ids.join(',')}`);
+                return tx.lockAccounts(ids);
+              },
+              findActiveByAccounts: (ids) => {
+                events.push(`findActiveByAccounts:${ids.join(',')}`);
+                return tx.findActiveByAccounts(ids);
+              },
+              closeActiveByAccount: (id, m) => {
+                events.push(`closeActiveByAccount:${id}`);
+                return tx.closeActiveByAccount(id, m);
+              },
+              create: (l) => {
+                events.push(`create:${l.accountId}`);
+                return tx.create(l);
+              },
+            };
+            return fn(wrappedTx);
+          }),
+      };
+
+      const origFindByIdForUpdate = adapter.findByIdForUpdate.bind(adapter);
+      adapter.findByIdForUpdate = async (id) => {
+        events.push(`findByIdForUpdate:${id}`);
+        return origFindByIdForUpdate(id);
+      };
+
+      const spyService = new IdentityQueueService(adapter, spyRepo);
+      await spyService.resolveLink(qLink.id, 'person:omar@acme.com', 'user:admin');
+      expect(events).toEqual([
+        'lockAccounts:account:n8n:raw_lock_link',
+        'findActiveByAccounts:account:n8n:raw_lock_link',
+        'closeActiveByAccount:account:n8n:raw_lock_link',
+        'create:account:n8n:raw_lock_link',
+        `findByIdForUpdate:${qLink.id}`,
+      ]);
+
+      events.length = 0;
+      await spyService.resolveMarkServiceAccount(qNonLink.id, 'user:admin', 'Svc');
+      expect(events).toEqual([
+        'lockAccounts:account:openai:raw_lock_nonlink',
+        'closeActiveByAccount:account:openai:raw_lock_nonlink',
+        `findByIdForUpdate:${qNonLink.id}`,
+      ]);
     });
   });
 });

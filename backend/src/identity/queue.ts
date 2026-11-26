@@ -603,6 +603,8 @@ export class IdentityQueueService {
       }
 
       const accountId = toCanonicalAccountId(item.source, item.externalAccountId);
+      await txRepo.lockAccounts([accountId]);
+
       const existingActive = await txRepo.findActiveByAccounts([accountId]);
       if (existingActive.some((link) => link.method === 'admin_link')) {
         throw new IdentityQueueConflictError(`Account ${accountId} already has an active admin link.`);
@@ -674,34 +676,49 @@ export class IdentityQueueService {
 
     return this.runLinkTransaction(async (txRepo) => {
       const txAdapter = this.adapterFor(txRepo);
-      const foundLinks = await txRepo.findByIds(linkIds);
-      const byId = new Map(foundLinks.map((l) => [l.id, l]));
-
-      const missingIds = linkIds.filter((id) => !byId.has(id));
-      if (missingIds.length > 0) {
-        throw new IdentityQueueNotFoundError(`Suggested link(s) not found: ${missingIds.join(', ')}`);
-      }
-
-      const requestedLinks = linkIds.map((id) => byId.get(id)!);
-      const seenAccounts = new Set<string>();
-      for (const link of requestedLinks) {
-        if (link.validTo !== null) {
-          throw new IdentityQueueConflictError(`Suggested link ${link.id} is already closed.`);
+      const validateBatch = (foundLinks: IdentityLink[]) => {
+        const byId = new Map(foundLinks.map((l) => [l.id, l]));
+        const missingIds = linkIds.filter((id) => !byId.has(id));
+        if (missingIds.length > 0) {
+          throw new IdentityQueueNotFoundError(`Suggested link(s) not found: ${missingIds.join(', ')}`);
         }
-        if (link.method !== 'suggested') {
-          throw new IdentityQueueConflictError(
-            `Link ${link.id} cannot be confirmed because its method is "${link.method}" (expected "suggested").`
-          );
-        }
-        if (seenAccounts.has(link.accountId)) {
-          throw new IdentityQueueConflictError(
-            `Multiple suggestions for account ${link.accountId} cannot be confirmed in the same batch.`
-          );
-        }
-        seenAccounts.add(link.accountId);
-      }
 
-      const accountIds = Array.from(seenAccounts).sort();
+        const requestedLinks = linkIds.map((id) => byId.get(id)!);
+        const seenAccounts = new Set<string>();
+        for (const link of requestedLinks) {
+          if (link.validTo !== null) {
+            throw new IdentityQueueConflictError(`Suggested link ${link.id} is already closed.`);
+          }
+          if (link.method !== 'suggested') {
+            throw new IdentityQueueConflictError(
+              `Link ${link.id} cannot be confirmed because its method is "${link.method}" (expected "suggested").`
+            );
+          }
+          if (seenAccounts.has(link.accountId)) {
+            throw new IdentityQueueConflictError(
+              `Multiple suggestions for account ${link.accountId} cannot be confirmed in the same batch.`
+            );
+          }
+          seenAccounts.add(link.accountId);
+        }
+
+        return {
+          requestedLinks,
+          seenAccounts,
+          accountIds: Array.from(seenAccounts).sort(),
+        };
+      };
+
+      // 1. Unlocked initial read to discover canonical accountIds and fail fast on invalid input
+      const initialValidation = validateBatch(await txRepo.findByIds(linkIds));
+
+      // 2. Acquire deterministic sorted per-account advisory transaction locks
+      await txRepo.lockAccounts(initialValidation.accountIds);
+
+      // 3. Re-read and re-validate under the account locks to prevent TOCTOU races
+      const { requestedLinks, seenAccounts, accountIds } = validateBatch(
+        await txRepo.findByIds(linkIds)
+      );
       const existingActive = await txRepo.findActiveByAccounts(accountIds);
       const conflictingAdmin = existingActive.find((l) => l.method === 'admin_link');
       if (conflictingAdmin) {
@@ -782,6 +799,7 @@ export class IdentityQueueService {
       }
 
       const accountId = toCanonicalAccountId(item.source, item.externalAccountId);
+      await txRepo.lockAccounts([accountId]);
       await txRepo.closeActiveByAccount(accountId, ['suggested']);
 
       if (txAdapter.findByIdForUpdate) {

@@ -158,6 +158,21 @@ export async function autoLink(
       return stats;
     }
 
+    // Deduplicate and sort accounts deterministically by account.id so all
+    // concurrent identity_link writers acquire advisory locks in identical order.
+    const deduplicatedAccounts = new Map<string, AutoLinkAccountInput>();
+    for (const account of accounts) {
+      if (!deduplicatedAccounts.has(account.id)) {
+        deduplicatedAccounts.set(account.id, account);
+      }
+    }
+    const sortedAccounts = Array.from(deduplicatedAccounts.values()).sort((a, b) =>
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+    );
+    const sortedAccountIds = sortedAccounts.map((a) => a.id);
+
+    await tx.lockAccounts(sortedAccountIds);
+
     // Single query for all open links (zero N+1 queries)
     const openLinks = await tx.listAllOpen();
 
@@ -175,13 +190,8 @@ export async function autoLink(
     }
 
     const uniqueDirectoryPeople = Array.from(directoryPeople.values());
-    const seenAccounts = new Set<string>();
 
-    for (const account of accounts) {
-      if (seenAccounts.has(account.id)) {
-        continue;
-      }
-      seenAccounts.add(account.id);
+    for (const account of sortedAccounts) {
 
       const activeLink = activeByAccount.get(account.id);
       const openSuggestions = suggestionsByAccount.get(account.id) ?? [];

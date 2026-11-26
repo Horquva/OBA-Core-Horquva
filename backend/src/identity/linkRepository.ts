@@ -19,6 +19,7 @@ export interface LinkRepository {
   listAllOpen(): Promise<IdentityLink[]>;
   findByIds(ids: string[]): Promise<IdentityLink[]>;
   findActiveByAccounts(accountIds: string[]): Promise<IdentityLink[]>;
+  lockAccounts(accountIds: string[]): Promise<void>;
   create(link: CreateLinkInput): Promise<IdentityLink>;
   createMany(links: CreateLinkInput[]): Promise<IdentityLink[]>;
   close(id: string): Promise<void>;
@@ -120,11 +121,10 @@ export class PostgresLinkRepository implements LinkRepository {
     if (validIds.length === 0) {
       return [];
     }
-    const lockClause = this.inTransaction ? ' ORDER BY account_id ASC, id ASC FOR UPDATE' : '';
     const res = await this.q(
       `SELECT ${SELECT_COLUMNS}
          FROM identity_link
-        WHERE id = ANY($1::uuid[])${lockClause}`,
+        WHERE id = ANY($1::uuid[])`,
       [validIds]
     );
     return res.rows.map(rowToIdentityLink);
@@ -135,17 +135,29 @@ export class PostgresLinkRepository implements LinkRepository {
     if (uniqueIds.length === 0) {
       return [];
     }
-    const forUpdate = this.inTransaction ? ' FOR UPDATE' : '';
     const res = await this.q(
       `SELECT ${SELECT_COLUMNS}
          FROM identity_link
         WHERE account_id = ANY($1::text[])
           AND valid_to IS NULL
           AND method <> 'suggested'
-        ORDER BY account_id ASC, valid_from ASC, id ASC${forUpdate}`,
+        ORDER BY account_id ASC, valid_from ASC, id ASC`,
       [uniqueIds]
     );
     return res.rows.map(rowToIdentityLink);
+  }
+
+  public async lockAccounts(accountIds: string[]): Promise<void> {
+    if (!this.inTransaction || accountIds.length === 0) {
+      return;
+    }
+    const uniqueIds = Array.from(new Set(accountIds)).sort();
+    await this.q(
+      `SELECT pg_advisory_xact_lock(hashtextextended('identity_link:' || a, 0))
+         FROM unnest($1::text[]) WITH ORDINALITY AS u(a, ord)
+        ORDER BY ord`,
+      [uniqueIds]
+    );
   }
 
   public async create(link: CreateLinkInput): Promise<IdentityLink> {
@@ -229,23 +241,6 @@ export class PostgresLinkRepository implements LinkRepository {
       if (methods.length === 0) {
         return 0;
       }
-      if (this.inTransaction) {
-        const res = await this.q(
-          `UPDATE identity_link
-              SET valid_to = NOW()
-            WHERE id IN (
-              SELECT id
-                FROM identity_link
-               WHERE account_id = ANY($1::text[])
-                 AND valid_to IS NULL
-                 AND method = ANY($2::text[])
-               ORDER BY account_id ASC, id ASC
-               FOR UPDATE
-            )`,
-          [uniqueIds, methods]
-        );
-        return res.rowCount ?? 0;
-      }
       const res = await this.q(
         `UPDATE identity_link
             SET valid_to = NOW()
@@ -253,23 +248,6 @@ export class PostgresLinkRepository implements LinkRepository {
             AND valid_to IS NULL
             AND method = ANY($2::text[])`,
         [uniqueIds, methods]
-      );
-      return res.rowCount ?? 0;
-    }
-
-    if (this.inTransaction) {
-      const res = await this.q(
-        `UPDATE identity_link
-            SET valid_to = NOW()
-          WHERE id IN (
-            SELECT id
-              FROM identity_link
-             WHERE account_id = ANY($1::text[])
-               AND valid_to IS NULL
-             ORDER BY account_id ASC, id ASC
-             FOR UPDATE
-          )`,
-        [uniqueIds]
       );
       return res.rowCount ?? 0;
     }
@@ -343,6 +321,10 @@ export class InMemoryLinkRepository implements LinkRepository {
     return this.rows
       .filter((r) => r.validTo === null && r.method !== 'suggested' && accountSet.has(r.accountId))
       .map(cloneLink);
+  }
+
+  public async lockAccounts(_accountIds: string[]): Promise<void> {
+    // No-op: InMemoryLinkRepository.runInTransaction serializes via txMutex.
   }
 
   public async create(link: CreateLinkInput): Promise<IdentityLink> {
@@ -479,6 +461,7 @@ export class InMemoryLinkRepository implements LinkRepository {
       listAllOpen: () => this.listAllOpen(),
       findByIds: (ids) => this.findByIds(ids),
       findActiveByAccounts: (accountIds) => this.findActiveByAccounts(accountIds),
+      lockAccounts: (accountIds) => this.lockAccounts(accountIds),
       create: (link) => this.create(link),
       createMany: async (links) => {
         if (links.length === 0) return [];
