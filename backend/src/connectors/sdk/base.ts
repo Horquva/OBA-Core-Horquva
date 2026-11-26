@@ -66,7 +66,12 @@ export abstract class BaseConnector implements Connector {
               AND (entity.external_refs ? 'entraId' OR entity.external_refs ? 'googleId')
               AND NOT (EXCLUDED.external_refs ? 'entraId' OR EXCLUDED.external_refs ? 'googleId')
              THEN entity.name ELSE EXCLUDED.name END,
-           description = COALESCE(EXCLUDED.description, entity.description),
+           -- A directory is the authority for its own people: an absent title there
+           -- means none, so it clears the old one. Other sources only fill gaps.
+           description = CASE
+             WHEN EXCLUDED.kind = 'person'
+              AND (EXCLUDED.external_refs ? 'entraId' OR EXCLUDED.external_refs ? 'googleId')
+             THEN EXCLUDED.description ELSE COALESCE(EXCLUDED.description, entity.description) END,
            external_refs = entity.external_refs || EXCLUDED.external_refs,
            updated_at = NOW()`,
         [JSON.stringify(syncResult.entities.map((e) => ({ id: e.id, kind: e.kind, name: e.name, description: e.description ?? null, external_refs: e.externalRefs ?? {} })))]

@@ -27,7 +27,7 @@ let omar: Record<string, unknown> = {
   proxyAddresses: ['SMTP:omar@acme.com'],
   accountEnabled: true,
 };
-const chen = { id: 'e-chen', displayName: 'Chen Wei', mail: 'chen@acme.com', userPrincipalName: 'chen@acme.onmicrosoft.com', accountEnabled: true };
+let chen: Record<string, unknown> = { id: 'e-chen', displayName: 'Chen Wei', mail: 'chen@acme.com', userPrincipalName: 'chen@acme.onmicrosoft.com', jobTitle: 'Staff Engineer', accountEnabled: true };
 
 beforeAll(async () => {
   await resetDatabase();
@@ -93,5 +93,13 @@ describe('people anchored on directory ids (Task 2.4)', () => {
   it('two Entra users never share an entity', async () => {
     const ids = (await query(`SELECT id FROM entity WHERE kind = 'person' ORDER BY id`)).rows.map((r) => r.id);
     expect(ids).toEqual(['person:entra:e-chen', 'person:entra:e-omar']);
+  });
+
+  it('a title cleared in Entra clears the stored description', async () => {
+    const desc = async () => (await query(`SELECT description FROM entity WHERE id = 'person:entra:e-chen'`)).rows[0].description;
+    expect(await desc()).toBe('Staff Engineer');
+    chen = { ...chen, jobTitle: null };
+    await syncEntra();
+    expect(await desc()).toBeNull();
   });
 });
