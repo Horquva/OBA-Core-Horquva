@@ -37,6 +37,11 @@ services:
       # n8n listens on 5678; Render routes traffic to PORT.
       - key: PORT
         value: "5678"
+      # The free instance has 512 MB. Without an explicit limit the first-boot
+      # migrations exhausted Node's heap (exit 134, 27 Nov 2026). 360 MB leaves
+      # room for n8n's internal task-runner process inside the 512 MB.
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=360"
       # Generated once by Render. Never change it after the first deploy:
       # every credential stored in n8n is encrypted with it.
       - key: N8N_ENCRYPTION_KEY
