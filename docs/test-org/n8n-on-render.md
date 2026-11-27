@@ -15,7 +15,7 @@ Why it is shaped this way:
 1. A free Render Postgres is deleted 30 days after creation, so n8n's data lives in Supabase instead. A free Supabase project does not expire; it pauses after a week without activity, which n8n's own activity prevents.
 2. Supabase allows two active free projects per owner, so n8n shares the test org's project in its own schema rather than taking a second one.
 3. A free Render web service sleeps after 15 minutes without traffic, and n8n's schedules do not run while it sleeps. The ping keeps it awake.
-4. Supabase's session pooler allows 15 clients. The backend takes up to 14 during a deploy, so n8n is limited to 1 connection.
+4. n8n keeps its default pool of 2 connections. A pool of 1 made every query wait behind the one running, and the backlog ran n8n out of memory (28 Nov 2026). Supabase's session pooler allows 15 clients, so the backend's pool is lowered before it moves to this project (runbook R8).
 
 Sources, checked 27 Nov 2026: render.com/docs/deploy-n8n, render.com/hosting/n8n, render.com/docs/your-first-deploy, supabase.com/pricing, supabase.com/docs/guides/platform/billing-faq, docs.n8n.io database environment variables, cron-job.org/faq.
 
