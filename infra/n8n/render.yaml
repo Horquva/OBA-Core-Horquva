@@ -7,7 +7,7 @@
 #
 # Based on Render's official template (github.com/render-examples/n8n), with
 # two changes for the free plan:
-# - Data lives in the test org's Supabase project (schema "n8n"), not a Render
+# - Data lives in the test org's Supabase project (schema "n8n_v1"), not a Render
 #   Postgres: a free Render Postgres is deleted 30 days after creation.
 # - The pool is n8n's default 2. Supabase's session pooler allows 15 clients;
 #   lower the backend's pool before it moves here (R8) so the total fits.
@@ -30,8 +30,11 @@ services:
     plan: free
     runtime: image
     image:
-      # Same image as Render's template. Pin to the deployed version once it runs.
-      url: docker.io/n8nio/n8n:latest
+      # Pinned to the 1.x line. n8n 2.x (latest, 2.50.3 on 28 Nov 2026) ran out of
+      # heap on the free 512 MB instance every few minutes ("JavaScript heap out
+      # of memory"), even with a heap cap. The public API (/api/v1) our
+      # connector reads is the same in 1.x.
+      url: docker.io/n8nio/n8n:1.123.102
     healthCheckPath: /healthz
     envVars:
       # n8n listens on 5678; Render routes traffic to PORT.
@@ -61,8 +64,10 @@ services:
       - key: DB_POSTGRESDB_PASSWORD
         sync: false
       # Its own schema, so n8n's tables never mix with Horquva's in "public".
+      # n8n_v1, not n8n: the abandoned 2.x install left newer tables in "n8n"
+      # that 1.x cannot open. Drop "n8n" once this runs.
       - key: DB_POSTGRESDB_SCHEMA
-        value: n8n
+        value: n8n_v1
       # Supabase's CA fails strict verification (plan runbook R7); per n8n's docs
       # this setting also turns SSL on.
       - key: DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED

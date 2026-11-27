@@ -6,8 +6,8 @@ The original test-org n8n is gone (owner, 27 Nov 2026), so it is rebuilt on Rend
 
 | Part | Where | Plan |
 | --- | --- | --- |
-| n8n web service `horquva-n8n` | Render, image `n8nio/n8n` | Free |
-| n8n's database | The test org's Supabase project (`horquva-live-test`), schema `n8n` | Free |
+| n8n web service `horquva-n8n` | Render, image `n8nio/n8n:1.123.102` | Free |
+| n8n's database | The test org's Supabase project (`horquva-live-test`), schema `n8n_v1` | Free |
 | Keep-awake ping | cron-job.org, `/healthz` every 10 minutes | Free |
 
 Why it is shaped this way:
@@ -16,6 +16,7 @@ Why it is shaped this way:
 2. Supabase allows two active free projects per owner, so n8n shares the test org's project in its own schema rather than taking a second one.
 3. A free Render web service sleeps after 15 minutes without traffic, and n8n's schedules do not run while it sleeps. The ping keeps it awake.
 4. n8n keeps its default pool of 2 connections. A pool of 1 made every query wait behind the one running, and the backlog ran n8n out of memory (28 Nov 2026). Supabase's session pooler allows 15 clients, so the backend's pool is lowered before it moves to this project (runbook R8).
+5. n8n is pinned to 1.123.102. n8n 2.x ran out of heap on the free 512 MB instance every few minutes ("JavaScript heap out of memory", 27–28 Nov 2026), even with a heap cap and the default pool. The `/api/v1` public API is the same in 1.x.
 
 Sources, checked 27 Nov 2026: render.com/docs/deploy-n8n, render.com/hosting/n8n, render.com/docs/your-first-deploy, supabase.com/pricing, supabase.com/docs/guides/platform/billing-faq, docs.n8n.io database environment variables, cron-job.org/faq.
 
@@ -25,7 +26,7 @@ Sources, checked 27 Nov 2026: render.com/docs/deploy-n8n, render.com/hosting/n8n
 
 1. At supabase.com, create a new project named `horquva-live-test` on the Free plan. Save the database password in the password manager.
 2. Choose the region closest to where the Render service will run (Render's region is picked in 2.2; use the same part of the world for both).
-3. Open SQL Editor, run `create schema if not exists n8n;`.
+3. Open SQL Editor, run `create schema if not exists n8n_v1;`.
 4. Click Connect, choose Session pooler, and keep that panel open for 2.2. You need the host, the user (it looks like `postgres.<project ref>`) and the password.
 
 ### 2.2 Render Blueprint
