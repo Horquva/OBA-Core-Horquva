@@ -1,0 +1,71 @@
+# =============================================================================
+# n8n for the test organization, on Render's free plan (plan runbook R6)
+# =============================================================================
+# A separate Blueprint from the backend's root render.yaml, so creating or
+# changing n8n never touches the backend deployment. When creating the
+# Blueprint in Render, set the Blueprint file path to infra/n8n/render.yaml.
+#
+# Based on Render's official template (github.com/render-examples/n8n), with
+# two changes for the free plan:
+# - Data lives in the test org's Supabase project (schema "n8n"), not a Render
+#   Postgres: a free Render Postgres is deleted 30 days after creation.
+# - The pool is 1 connection. Supabase's session pooler allows 15 clients and
+#   the backend takes up to 14 during a deploy (7 per instance, two overlap).
+#
+# Free-plan behaviour to know (render.com/docs, checked 27 Nov 2026):
+# - The service sleeps after 15 minutes without inbound traffic, and n8n's
+#   schedules do not run while it sleeps. An external uptime monitor hitting
+#   /healthz every 5 minutes keeps it awake (runbook step in
+#   docs/test-org/n8n-on-render.md).
+# - One always-on free service uses about 744 of the workspace's 750 free
+#   instance hours a month, so no other free service should share it.
+#
+# Values marked "sync: false" are secrets or per-deployment values. Render asks
+# for them in its own form when the Blueprint is created; they never go in Git.
+# =============================================================================
+
+services:
+  - type: web
+    name: horquva-n8n
+    plan: free
+    runtime: image
+    image:
+      # Same image as Render's template. Pin to the deployed version once it runs.
+      url: docker.io/n8nio/n8n:latest
+    healthCheckPath: /healthz
+    envVars:
+      # n8n listens on 5678; Render routes traffic to PORT.
+      - key: PORT
+        value: "5678"
+      # Generated once by Render. Never change it after the first deploy:
+      # every credential stored in n8n is encrypted with it.
+      - key: N8N_ENCRYPTION_KEY
+        generateValue: true
+
+      # Database: the test org's Supabase project, session pooler.
+      - key: DB_TYPE
+        value: postgresdb
+      - key: DB_POSTGRESDB_HOST
+        sync: false
+      - key: DB_POSTGRESDB_PORT
+        value: "5432"
+      - key: DB_POSTGRESDB_DATABASE
+        value: postgres
+      - key: DB_POSTGRESDB_USER
+        sync: false
+      - key: DB_POSTGRESDB_PASSWORD
+        sync: false
+      # Its own schema, so n8n's tables never mix with Horquva's in "public".
+      - key: DB_POSTGRESDB_SCHEMA
+        value: n8n
+      # Supabase's CA fails strict verification (plan runbook R7); per n8n's docs
+      # this setting also turns SSL on.
+      - key: DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED
+        value: "false"
+      - key: DB_POSTGRESDB_POOL_SIZE
+        value: "1"
+
+      # The service's public URL with a trailing slash, e.g.
+      # https://horquva-n8n.onrender.com/ (shown in Render after the first deploy).
+      - key: WEBHOOK_URL
+        sync: false

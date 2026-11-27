@@ -107,7 +107,7 @@ Admin consent granted by the Global Admin. Then add aliases: for each roster per
 
 Done when the probe gets 200 on `/users?$top=1`, `/groups?$top=1`, `/applications?$top=1` and `/users/{id}/directReports`.
 
-**R3: Slack app (Phase 4).**
+**R3: Slack app (Phase 4).** Update 27 Nov 2026: Slack workspace ownership is being transferred to the owner, who then does this runbook directly.
 
 On the existing Horquva Slack app, or a new one named `horquva-connector`, add bot scopes:
 
@@ -136,7 +136,9 @@ Done when the probe gets 200 on `/rest/api/3/myself` and on `/rest/api/3/project
 
 **R6: n8n on Render (Phase 3, only if G0 finds the original gone).**
 
-- A Render web service from the official `n8nio/n8n` image, plus a Render Postgres for it.
+Decided 27 Nov 2026: the original n8n is gone, and everything runs on free plans. As built: `infra/n8n/render.yaml` and `docs/test-org/n8n-on-render.md`. n8n's data lives in R7's Supabase project, schema `n8n`, pool size 1, because a free Render Postgres is deleted after 30 days. A free uptime ping keeps the free web service awake.
+
+- A Render web service from the official `n8nio/n8n` image (free plan), with its database in R7's Supabase project.
 - `N8N_ENCRYPTION_KEY` set and stored in our password manager.
 - HTTPS URL, owner account created by the owner.
 - Workflows rebuilt from `workflow-inventory.md`, each owned by the named test-org person's n8n account, invited with their Entra UPN.
@@ -150,7 +152,7 @@ Done when the probe gets 200 on `/api/v1/users?limit=1`, and the workflow count 
 - Session-pooler connection string, with `sslmode=no-verify`. The Supabase CA fails `verify-full`.
 - `PG_POOL_MAX=5`, `PGBOSS_POOL_MAX=2`.
 
-I run `npm run migrate` against it after the owner approves. Done when `getMigrationStatus()` shows every migration applied and no tables beyond ours.
+I run `npm run migrate` against it after the owner approves. Done when `getMigrationStatus()` shows every migration applied and no tables beyond ours in `public` (n8n's tables live in schema `n8n`, R6).
 
 **R8: Repoint the demo deployment (G9).**
 
